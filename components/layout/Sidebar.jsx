@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const NAV = [
-  { href: '/dashboard', label: 'Dashboard', icon: '◆' },
+  { href: '/dashboard', label: 'Dashboard',   icon: '◆' },
   { href: '/trips',     label: 'Master Trip', icon: '✈' },
   { href: '/cs',        label: 'CS Daily',    icon: '☎' },
+  { href: '/cs/leads',  label: 'Leads Harian', icon: '📊' },
   { href: '/finance',   label: 'Finance',     icon: '$', disabled: true },
   { href: '/tl',        label: 'Portal TL',   icon: '👤', disabled: true },
 ];
