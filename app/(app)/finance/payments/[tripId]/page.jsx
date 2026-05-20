@@ -43,7 +43,8 @@ export default async function TripPaymentsPage({ params }) {
     }
   }
 
-  const template = trip.payment_template || {};
+  // payment_template column may not exist yet — default to empty
+  const template = (trip.payment_template && typeof trip.payment_template === 'object') ? trip.payment_template : {};
   const totalExpected = passengers.reduce((s, p) => s + (p.price_paid || 0), 0);
   const totalPaid = Object.values(paymentsByPassenger).flat().reduce((s, p) => s + (p.amount || 0), 0);
   const progress = totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : 0;
