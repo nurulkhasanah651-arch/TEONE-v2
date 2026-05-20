@@ -75,7 +75,7 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
       {/* Status & People */}
       <Section title="Status & Tim">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field label="Status">
+          <Field label="Status Penjualan">
             <select name="status" defaultValue={initial.status || 'prepare to sell'} className={inputCls}>
               <option value="prepare to sell">Prepare to Sell</option>
               <option value="open selling">Open Selling</option>
@@ -90,6 +90,58 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
           </Field>
           <Field label="Tour Leader" hint="Bisa diisi belakangan">
             <input name="tl_name" defaultValue={initial.tl_name || ''} className={inputCls} placeholder="Nama TL" />
+          </Field>
+        </div>
+      </Section>
+
+      {/* Operations Status */}
+      <Section title="Status Operasional">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Field label="Status Tiket">
+            <select name="ticket_status" defaultValue={initial.ticket_status || 'pending'} className={inputCls}>
+              <option value="pending">Pending</option>
+              <option value="booked">Booked</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="issued">Issued</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </Field>
+          <Field label="Status Visa">
+            <select name="visa" defaultValue={initial.visa || 'pending'} className={inputCls}>
+              <option value="pending">Pending</option>
+              <option value="process">In Process</option>
+              <option value="approved">Approved</option>
+              <option value="done">Done</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </Field>
+          <Field label="Manifest">
+            <select name="manifest" defaultValue={initial.manifest || 'pending'} className={inputCls}>
+              <option value="pending">Pending</option>
+              <option value="draft">Draft</option>
+              <option value="ready">Ready</option>
+            </select>
+          </Field>
+          <Field label="Room List">
+            <select name="roomlist" defaultValue={initial.roomlist || 'pending'} className={inputCls}>
+              <option value="pending">Pending</option>
+              <option value="draft">Draft</option>
+              <option value="ready">Ready</option>
+            </select>
+          </Field>
+          <Field label="Status Payment">
+            <select name="payment" defaultValue={initial.payment || 'belum'} className={inputCls}>
+              <option value="belum">Belum Bayar</option>
+              <option value="cicilan">Cicilan</option>
+              <option value="lunas">Lunas</option>
+            </select>
+          </Field>
+          <Field label="Briefing TL">
+            <select name="briefing_tl" defaultValue={initial.briefing_tl || 'belum'} className={inputCls}>
+              <option value="belum">Belum</option>
+              <option value="dijadwalkan">Dijadwalkan</option>
+              <option value="sudah">Sudah</option>
+            </select>
           </Field>
         </div>
       </Section>
@@ -118,7 +170,7 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
   );
 }
 
-const inputCls = 'w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none';
+const inputCls = 'w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none bg-white';
 
 function Section({ title, children }) {
   return (
