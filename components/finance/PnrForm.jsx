@@ -62,13 +62,13 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
             <input type="date" name="payoff_date" defaultValue={initial.payoff_date || ''} className={inputCls} />
           </Field>
           <Field label="Deadline Pelunasan" hint="Tanggal terakhir yang harus dilunasi">
-            <input type="date" name="deadline" defaultValue={initial.deadline || ''} className={inputCls} />
+            <input type="date" name="payoff_due_date" defaultValue={initial.payoff_due_date || ''} className={inputCls} />
           </Field>
         </div>
       </Section>
 
       <Field label="Catatan (opsional)">
-        <textarea name="notes" defaultValue={initial.notes || ''} rows="3" className={inputCls + ' resize-none'} placeholder="Catatan tambahan tentang PNR ini..." />
+        <textarea name="notes" defaultValue={initial.vendor_notes || ''} rows="3" className={inputCls + ' resize-none'} placeholder="Catatan tambahan tentang PNR ini..." />
       </Field>
 
       {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium">{error}</div>}
