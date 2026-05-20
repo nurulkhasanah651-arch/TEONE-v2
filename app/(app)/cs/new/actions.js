@@ -25,12 +25,13 @@ export async function createCSUpdate(formData) {
   const from_offline = parseInt(formData.get('from_offline')) || 0;
   const jumlah_leads = parseInt(formData.get('jumlah_leads')) || 0;
   const sisa_seat = parseInt(formData.get('sisa_seat')) || 0;
-  const catatan = formData.get('catatan') || null;
+  const notes = formData.get('catatan') || null;
 
   if (!trip_id) return { error: 'Trip harus dipilih' };
   if (!tanggal) return { error: 'Tanggal harus diisi' };
 
-  // Insert
+  // Insert — column names must match Supabase schema
+  const updated_by = user.user_metadata?.full_name || user.email || 'unknown';
   const { error } = await supabase.from('cs_daily_updates').insert({
     trip_id,
     tanggal,
@@ -40,8 +41,8 @@ export async function createCSUpdate(formData) {
     from_offline,
     jumlah_leads,
     sisa_seat,
-    catatan,
-    created_by: user.id,
+    notes,
+    updated_by,
   });
 
   if (error) {
