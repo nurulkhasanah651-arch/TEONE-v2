@@ -6,32 +6,53 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 
+function parseParticipantFields(formData) {
+  const first_name = (formData.get('first_name') || '').trim();
+  const last_name = (formData.get('last_name') || '').trim();
+  const fullName = `${first_name} ${last_name}`.trim();
+  return {
+    first_name,
+    last_name,
+    fullName,
+    phone: (formData.get('phone') || '').trim() || null,
+    email: (formData.get('email') || '').trim() || null,
+    birthday: formData.get('birthday') || null,
+    city: (formData.get('city') || '').trim() || null, // tempat lahir
+    gender: formData.get('gender') || null,
+    passport_no: (formData.get('passport_no') || '').trim() || null,
+    passport_issued_at: (formData.get('passport_issued_at') || '').trim() || null,
+    passport_issued_date: formData.get('passport_issued_date') || null,
+    passport_expiry: formData.get('passport_expiry') || null,
+    room_type: formData.get('room_type') || null,
+    price_paid: parseInt(formData.get('price_paid')) || 0,
+  };
+}
+
 export async function addParticipant(tripId, formData) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Not authenticated' };
 
-  const first_name = (formData.get('first_name') || '').trim();
-  const last_name = (formData.get('last_name') || '').trim();
-  const fullName = `${first_name} ${last_name}`.trim();
-  if (!fullName) return { error: 'Nama peserta wajib diisi' };
-
-  const phone = (formData.get('phone') || '').trim() || null;
-  const email = (formData.get('email') || '').trim() || null;
-  const passport_no = (formData.get('passport_no') || '').trim() || null;
-  const passport_expiry = formData.get('passport_expiry') || null;
-  const room_type = formData.get('room_type') || null;
-  const price_paid = parseInt(formData.get('price_paid')) || 0;
+  const f = parseParticipantFields(formData);
+  if (!f.fullName) return { error: 'Nama peserta wajib diisi' };
 
   // Step 1: insert customer
   const { data: customer, error: cErr } = await supabase
     .from('customers')
     .insert({
-      name: fullName,
-      phone,
-      email,
-      passport_no,
-      passport_expiry,
+      name: f.fullName,
+      first_name: f.first_name,
+      surname: f.last_name || null,
+      phone: f.phone,
+      whatsapp: f.phone,
+      email: f.email,
+      birthday: f.birthday,
+      city: f.city,
+      gender: f.gender,
+      passport_no: f.passport_no,
+      passport_issued_at: f.passport_issued_at,
+      passport_issued_date: f.passport_issued_date,
+      passport_expiry: f.passport_expiry,
     })
     .select('id')
     .single();
@@ -42,18 +63,16 @@ export async function addParticipant(tripId, formData) {
   const { error: pErr } = await supabase.from('trip_passengers').insert({
     trip_id: tripId,
     customer_id: customer.id,
-    room_type,
-    price_paid,
+    room_type: f.room_type,
+    price_paid: f.price_paid,
     status: 'confirmed',
   });
 
   if (pErr) {
-    // Rollback customer if link fails
     await supabase.from('customers').delete().eq('id', customer.id);
     return { error: 'Gagal link customer ke trip: ' + pErr.message };
   }
 
-  // Update sold count on trip
   await recomputeTripSold(supabase, tripId);
 
   revalidatePath(`/trips/${tripId}`);
@@ -67,22 +86,28 @@ export async function updateParticipant(tripId, passengerId, customerId, formDat
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Not authenticated' };
 
-  const first_name = (formData.get('first_name') || '').trim();
-  const last_name = (formData.get('last_name') || '').trim();
-  const fullName = `${first_name} ${last_name}`.trim();
-  if (!fullName) return { error: 'Nama peserta wajib diisi' };
+  const f = parseParticipantFields(formData);
+  if (!f.fullName) return { error: 'Nama peserta wajib diisi' };
 
   const customerUpdates = {
-    name: fullName,
-    phone: (formData.get('phone') || '').trim() || null,
-    email: (formData.get('email') || '').trim() || null,
-    passport_no: (formData.get('passport_no') || '').trim() || null,
-    passport_expiry: formData.get('passport_expiry') || null,
+    name: f.fullName,
+    first_name: f.first_name,
+    surname: f.last_name || null,
+    phone: f.phone,
+    whatsapp: f.phone,
+    email: f.email,
+    birthday: f.birthday,
+    city: f.city,
+    gender: f.gender,
+    passport_no: f.passport_no,
+    passport_issued_at: f.passport_issued_at,
+    passport_issued_date: f.passport_issued_date,
+    passport_expiry: f.passport_expiry,
   };
 
   const passengerUpdates = {
-    room_type: formData.get('room_type') || null,
-    price_paid: parseInt(formData.get('price_paid')) || 0,
+    room_type: f.room_type,
+    price_paid: f.price_paid,
   };
 
   const [cRes, pRes] = await Promise.all([
