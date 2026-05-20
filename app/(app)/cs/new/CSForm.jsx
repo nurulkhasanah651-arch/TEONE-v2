@@ -35,12 +35,13 @@ export default function CSForm({ trips }) {
     setParticipants((arr) => arr.filter((_, idx) => idx !== i));
   }
 
+  // Serialize filled participants to JSON for hidden input
+  const filledParticipants = participants.filter((p) => (p.first_name?.trim() || p.last_name?.trim()));
+  const participantsJson = JSON.stringify(filledParticipants);
+
   async function handleSubmit(formData) {
     setPending(true);
     setError('');
-    // Filter only filled rows
-    const filled = participants.filter((p) => (p.first_name?.trim() || p.last_name?.trim()));
-    formData.set('participants', JSON.stringify(filled));
     const result = await createCSUpdate(formData);
     if (result?.error) {
       setError(result.error);
@@ -52,6 +53,9 @@ export default function CSForm({ trips }) {
 
   return (
     <form action={handleSubmit} className="space-y-5">
+      {/* Hidden field carries JSON-serialized participants */}
+      <input type="hidden" name="participants" value={participantsJson} />
+
       <Field label="Trip" required>
         <select name="trip_id" required value={tripId} onChange={(e) => setTripId(e.target.value)} className={inputCls}>
           <option value="">Pilih trip...</option>
