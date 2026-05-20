@@ -9,7 +9,7 @@ import { PAYMENT_STATUS_CFG, PAYMENT_STATUS_OPTS } from '@/lib/utils/finance-con
 export default function FinanceItemRow({ item, tripId }) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
-  const isHpp = item.type === 'hpp';
+  const isHpp = item.item_type === 'hpp';
   const ps = item.payment_status ? PAYMENT_STATUS_CFG[item.payment_status] : null;
 
   async function handleDelete() {
