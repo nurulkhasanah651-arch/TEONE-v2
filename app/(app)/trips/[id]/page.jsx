@@ -24,12 +24,36 @@ export default async function TripDetailPage({ params }) {
   const checklist = tripChecklist(trip);
   const revenue = (trip.price || 0) * (trip.sold || 0);
 
-  // Fetch participants (trip_passengers joined with customers)
-  const { data: participants } = await supabase
-    .from('trip_passengers')
-    .select('*, customers(*)')
-    .eq('trip_id', id)
-    .order('joined_at', { ascending: true });
+  // Fetch participants — 2-step query to bypass Postgrest embedded join issues
+  let participants = [];
+  let participantsDebug = '';
+  {
+    const { data: tp, error: tpErr } = await supabase
+      .from('trip_passengers')
+      .select('*')
+      .eq('trip_id', id)
+      .order('joined_at', { ascending: true });
+
+    if (tpErr) {
+      participantsDebug = `trip_passengers error: ${tpErr.message}`;
+    } else if (tp && tp.length > 0) {
+      participantsDebug = `Found ${tp.length} trip_passenger rows`;
+      const customerIds = tp.map((p) => p.customer_id).filter(Boolean);
+      if (customerIds.length > 0) {
+        const { data: cust, error: cErr } = await supabase
+          .from('customers')
+          .select('*')
+          .in('id', customerIds);
+        if (cErr) participantsDebug += ` · customers error: ${cErr.message}`;
+        const cMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
+        participants = tp.map((p) => ({ ...p, customers: cMap[p.customer_id] || null }));
+      } else {
+        participants = tp.map((p) => ({ ...p, customers: null }));
+      }
+    } else {
+      participantsDebug = `No trip_passengers for trip_id="${id}" (data: ${JSON.stringify(tp)})`;
+    }
+  }
 
   // Recent CS updates for this trip
   const { data: recentCS } = await supabase
@@ -117,6 +141,13 @@ export default async function TripDetailPage({ params }) {
           </InfoCard>
         )}
       </div>
+
+      {/* Debug info (temporary) */}
+      {participantsDebug && (
+        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs font-mono text-yellow-800">
+          🔍 Debug: {participantsDebug}
+        </div>
+      )}
 
       {/* Participants */}
       <ParticipantsList tripId={trip.id} participants={participants || []} />
