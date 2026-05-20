@@ -22,6 +22,13 @@ function parseTripFields(formData) {
     arrival: formData.get('arrival') || null,
     deadline_close: formData.get('deadline_close') || null,
     notes: formData.get('notes') || null,
+    // Operations status
+    ticket_status: formData.get('ticket_status') || 'pending',
+    visa: formData.get('visa') || 'pending',
+    manifest: formData.get('manifest') || 'pending',
+    roomlist: formData.get('roomlist') || 'pending',
+    payment: formData.get('payment') || 'belum',
+    briefing_tl: formData.get('briefing_tl') || 'belum',
   };
 }
 
