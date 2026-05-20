@@ -7,7 +7,7 @@ const NAV = [
   { href: '/dashboard', label: 'Dashboard',   icon: '◆' },
   { href: '/trips',     label: 'Master Trip', icon: '✈' },
   { href: '/cs',        label: 'CS Daily',    icon: '☎' },
-  { href: '/finance',   label: 'Finance',     icon: '$', disabled: true },
+  { href: '/finance',   label: 'Finance',     icon: '$' },
   { href: '/tl',        label: 'Portal TL',   icon: '👤', disabled: true },
 ];
 
