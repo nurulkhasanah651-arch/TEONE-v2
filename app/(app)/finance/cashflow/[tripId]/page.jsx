@@ -45,9 +45,9 @@ export default async function CashflowDetailPage({ params }) {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
-        <Link href="/finance/cashflow" className="text-sm text-brand-600 font-medium hover:underline">← Cashflow per Group</Link>
+        <Link href="/finance/cashflow" className="text-sm text-brand-600 font-medium hover:underline">← Proyeksi Income per Group</Link>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.kode_trip || `#${trip.id}`} — {trip.name}</h1>
-        <p className="mt-1 text-slate-600">Cashflow: Income & HPP items</p>
+        <p className="mt-1 text-slate-600">Proyeksi Income & HPP items. Angka real lihat di /accounting.</p>
       </div>
 
       {/* Summary */}
