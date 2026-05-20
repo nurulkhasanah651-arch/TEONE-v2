@@ -32,10 +32,18 @@ export default async function TripsPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      {/* Page title */}
-      <div>
-        <h1 className="text-3xl font-bold text-brand-700">Master Trip</h1>
-        <p className="mt-1 text-slate-600">Kelola semua trip — buat, edit, dan pantau status penjualan.</p>
+      {/* Page title + CTA */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-3xl font-bold text-brand-700">Master Trip</h1>
+          <p className="mt-1 text-slate-600">Kelola semua trip — buat, edit, dan pantau status penjualan.</p>
+        </div>
+        <a
+          href="/trips/new"
+          className="px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-card transition-colors flex items-center gap-2"
+        >
+          <span>+</span> Buat Trip Baru
+        </a>
       </div>
 
       {/* Stats row */}
