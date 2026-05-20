@@ -12,14 +12,14 @@ export default async function FinancePage() {
   // Aggregate stats
   const [tripsRes, itemsRes, pnrRes] = await Promise.all([
     supabase.from('trips').select('id', { count: 'exact', head: true }),
-    supabase.from('trip_finance_items').select('type, total_amount'),
+    supabase.from('trip_finance_items').select('item_type, total_amount'),
     supabase.from('flight_inventory').select('id', { count: 'exact', head: true }),
   ]);
 
   const totalTrips = tripsRes.count ?? 0;
   const items = itemsRes.data || [];
-  const totalIncome = items.filter((i) => i.type === 'income').reduce((s, i) => s + (i.total_amount || 0), 0);
-  const totalHPP = items.filter((i) => i.type === 'hpp').reduce((s, i) => s + (i.total_amount || 0), 0);
+  const totalIncome = items.filter((i) => i.item_type === 'income').reduce((s, i) => s + (i.total_amount || 0), 0);
+  const totalHPP = items.filter((i) => i.item_type === 'hpp').reduce((s, i) => s + (i.total_amount || 0), 0);
   const totalProfit = totalIncome - totalHPP;
   const totalPNR = pnrRes.count ?? 0;
 
