@@ -43,8 +43,8 @@ export default async function FinancePage() {
         <SectionCard
           href="/finance/cashflow"
           icon="💰"
-          title="Cashflow per Group"
-          desc="HPP (tiket, hotel, vendor) + Cash In (room types, visa, asuransi) per trip. Auto-compute profit."
+          title="Proyeksi Income per Group"
+          desc="Proyeksi HPP (tiket, hotel, vendor) + Cash In (room types, visa, asuransi) per trip. Belum final — angka real ada di Accounting."
           badge={`${items.length} item terdaftar`}
           color="from-green-500 to-emerald-700"
         />
