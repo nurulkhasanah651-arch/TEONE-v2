@@ -4,7 +4,7 @@
 // Includes auto-computed age + passport validity status
 
 import { useState } from 'react';
-import { addParticipant, updateParticipant, removeParticipant } from '@/app/(app)/trips/participants-actions';
+import { addParticipant, updateParticipant, removeParticipant } from '@/lib/actions/participants';
 import { fmtRupiah, fmtDate, calcAge, passportStatus } from '@/lib/utils/format';
 
 const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Family'];
