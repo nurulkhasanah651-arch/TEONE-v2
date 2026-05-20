@@ -11,7 +11,7 @@ export default async function PaymentsListPage() {
   const supabase = createClient();
 
   const [tripsRes, passengersRes, paymentsRes] = await Promise.all([
-    supabase.from('trips').select('id, kode_trip, name, status, departure, quota, sold, payment_template').order('departure', { ascending: true, nullsFirst: false }),
+    supabase.from('trips').select('id, kode_trip, name, status, departure, quota, sold').order('departure', { ascending: true, nullsFirst: false }),
     supabase.from('trip_passengers').select('id, trip_id, price_paid'),
     supabase.from('participant_payments').select('passenger_id, amount, type'),
   ]);
@@ -85,7 +85,7 @@ export default async function PaymentsListPage() {
 function TripRow({ trip: t }) {
   const s = statusCfg(t.status);
   const progress = t.expected > 0 ? Math.round((t.paid / t.expected) * 100) : 0;
-  const hasTemplate = t.payment_template && Object.keys(t.payment_template).length > 0;
+  const hasTemplate = false; // template badge only shown after entering detail page
   const days = daysUntil(t.departure);
 
   return (
