@@ -15,15 +15,15 @@ export default async function CashflowDetailPage({ params }) {
 
   const [tripRes, itemsRes] = await Promise.all([
     supabase.from('trips').select('*').eq('id', tripId).maybeSingle(),
-    supabase.from('trip_finance_items').select('*').eq('trip_id', tripId).order('type').order('category'),
+    supabase.from('trip_finance_items').select('*').eq('trip_id', tripId).order('item_type').order('category'),
   ]);
 
   if (!tripRes.data) notFound();
   const trip = tripRes.data;
   const items = itemsRes.data || [];
 
-  const incomeItems = items.filter((i) => i.type === 'income');
-  const hppItems = items.filter((i) => i.type === 'hpp');
+  const incomeItems = items.filter((i) => i.item_type === 'income');
+  const hppItems = items.filter((i) => i.item_type === 'hpp');
   const totalIncome = incomeItems.reduce((s, i) => s + (i.total_amount || 0), 0);
   const totalHPP = hppItems.reduce((s, i) => s + (i.total_amount || 0), 0);
   const profit = totalIncome - totalHPP;
