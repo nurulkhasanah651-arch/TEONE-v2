@@ -5,7 +5,6 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-
 function parseParticipantFields(formData) {
   const first_name = (formData.get('first_name') || '').trim();
   const last_name = (formData.get('last_name') || '').trim();
