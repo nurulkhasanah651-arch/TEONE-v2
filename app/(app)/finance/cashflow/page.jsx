@@ -45,8 +45,8 @@ export default async function CashflowListPage() {
     <div className="max-w-7xl mx-auto space-y-6">
       <div>
         <Link href="/finance" className="text-sm text-brand-600 font-medium hover:underline">← Finance</Link>
-        <h1 className="mt-2 text-3xl font-bold text-brand-700">Cashflow per Group</h1>
-        <p className="mt-1 text-slate-600">HPP & Cash In tiap trip, auto-compute profit margin.</p>
+        <h1 className="mt-2 text-3xl font-bold text-brand-700">Proyeksi Income per Group</h1>
+        <p className="mt-1 text-slate-600">Proyeksi HPP & Cash In tiap trip — auto-compute profit margin. Belum final, angka real di Accounting.</p>
       </div>
 
       {/* Grand totals */}
