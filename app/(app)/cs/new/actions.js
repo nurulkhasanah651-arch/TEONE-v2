@@ -17,7 +17,11 @@ export async function createCSUpdate(formData) {
   }
 
   // Parse + validate input
-  const trip_id = parseInt(formData.get('trip_id'));
+  // trip_id is kept as-is (could be UUID or int — Supabase handles both)
+  const trip_id_raw = formData.get('trip_id');
+  // Try parseInt first; if NaN, use raw string (UUID case)
+  const parsed = parseInt(trip_id_raw, 10);
+  const trip_id = Number.isFinite(parsed) && String(parsed) === String(trip_id_raw) ? parsed : trip_id_raw;
   const tanggal = formData.get('tanggal');
   const total_terjual_hari_ini = parseInt(formData.get('total_terjual_hari_ini')) || 0;
   const from_instagram = parseInt(formData.get('from_instagram')) || 0;
