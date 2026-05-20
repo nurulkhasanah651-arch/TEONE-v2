@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate } from '@/lib/utils/format';
 import LeadsQuickForm from '@/components/cs/LeadsQuickForm';
+import CSUpdateRow from '@/components/cs/CSUpdateRow';
 
 export const dynamic = 'force-dynamic';
 
@@ -116,30 +117,7 @@ export default async function CSPage() {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {updates.map((u) => (
-              <div key={u.id} className="px-5 py-3 hover:bg-slate-50 transition-colors">
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <div>
-                    <p className="text-sm font-bold text-brand-700">
-                      {u.trips?.kode_trip || `#${u.trip_id}`} — {u.trips?.name || 'Unknown trip'}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-0.5">{fmtDate(u.tanggal)}</p>
-                  </div>
-                  <div className="flex gap-2 text-xs flex-wrap">
-                    <Chip label="Terjual" value={u.total_terjual_hari_ini || 0} color="text-green-700" bg="bg-green-50" />
-                    <Chip label="Leads" value={u.jumlah_leads || 0} color="text-blue-700" bg="bg-blue-50" />
-                    <Chip label="Sisa" value={u.sisa_seat || 0} color="text-amber-700" bg="bg-amber-50" />
-                  </div>
-                </div>
-                <div className="mt-1.5 flex gap-2 text-[11px] text-slate-500 flex-wrap">
-                  {u.from_instagram > 0 && <span>📷 IG: {u.from_instagram}</span>}
-                  {u.from_whatsapp > 0 && <span>· 💬 WA: {u.from_whatsapp}</span>}
-                  {u.from_offline > 0 && <span>· 🏪 Offline: {u.from_offline}</span>}
-                  {u.closing_alumni > 0 && <span>· 🎓 Alumni: {u.closing_alumni}</span>}
-                  {u.closing_mitra > 0 && <span>· 🤝 Mitra: {u.closing_mitra}</span>}
-                </div>
-              </div>
-            ))}
+            {updates.map((u) => <CSUpdateRow key={u.id} update={u} />)}
           </div>
         )}
       </section>
@@ -154,8 +132,4 @@ function SummaryCard({ label, value, color, bg }) {
       <p className={`mt-1 text-2xl font-bold ${color}`}>{value}</p>
     </div>
   );
-}
-
-function Chip({ label, value, color, bg }) {
-  return <span className={`px-2 py-1 rounded font-semibold ${bg} ${color}`}>{label}: {value}</span>;
 }
