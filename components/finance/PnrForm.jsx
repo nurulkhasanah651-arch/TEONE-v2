@@ -49,11 +49,8 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
           <Field label="Total Cost (auto: harga × seat)" hint="View only">
             <input value={totalCost.toLocaleString('id-ID')} disabled className={inputCls + ' bg-slate-100'} />
           </Field>
-          <Field label="Jumlah Deposit (DP)">
+          <Field label="Jumlah Deposit (DP)" className="md:col-span-2">
             <input type="number" name="deposit_total" min="0" defaultValue={initial.deposit_total || ''} className={inputCls} />
-          </Field>
-          <Field label="Tanggal Deposit">
-            <input type="date" name="deposit_date" defaultValue={initial.deposit_date || ''} className={inputCls} />
           </Field>
           <Field label="Jumlah Pelunasan">
             <input type="number" name="payoff_amount" min="0" defaultValue={initial.payoff_amount || ''} className={inputCls} />
