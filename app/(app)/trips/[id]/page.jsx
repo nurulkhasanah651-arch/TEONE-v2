@@ -1,11 +1,12 @@
-// Trip Detail page — shows all info + edit/delete buttons
-// Server Component fetches the trip
+// Trip Detail page — shows all info + edit/delete buttons + participants
+// Server Component fetches the trip + participants
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
+import ParticipantsList from '@/components/trips/ParticipantsList';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,13 @@ export default async function TripDetailPage({ params }) {
   const days = daysUntil(trip.departure);
   const checklist = tripChecklist(trip);
   const revenue = (trip.price || 0) * (trip.sold || 0);
+
+  // Fetch participants (trip_passengers joined with customers)
+  const { data: participants } = await supabase
+    .from('trip_passengers')
+    .select('*, customers(*)')
+    .eq('trip_id', id)
+    .order('joined_at', { ascending: true });
 
   // Recent CS updates for this trip
   const { data: recentCS } = await supabase
@@ -69,6 +77,24 @@ export default async function TripDetailPage({ params }) {
         <StatCard label="Revenue" value={fmtRupiah(revenue)} color="text-green-700" small />
       </div>
 
+      {/* Operations Status */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider">Status Operasional</h3>
+          <Link href={`/trips/${trip.id}/edit`} className="text-xs font-semibold text-brand-600 hover:underline">
+            ✎ Update Status
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <StatusPill label="Tiket" value={trip.ticket_status} okValues={['confirmed', 'issued']} />
+          <StatusPill label="Visa" value={trip.visa} okValues={['done', 'approved', 'process']} />
+          <StatusPill label="Manifest" value={trip.manifest} okValues={['ready']} />
+          <StatusPill label="Room List" value={trip.roomlist} okValues={['ready']} />
+          <StatusPill label="Payment" value={trip.payment} okValues={['lunas']} />
+          <StatusPill label="Briefing TL" value={trip.briefing_tl} okValues={['sudah']} />
+        </div>
+      </div>
+
       {/* Info grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <InfoCard title="Tanggal">
@@ -85,27 +111,15 @@ export default async function TripDetailPage({ params }) {
           )}
         </InfoCard>
 
-        <InfoCard title="Status Operasional">
-          <div className="flex flex-wrap gap-1.5">
-            {checklist.map((c) => (
-              <span
-                key={c.label}
-                className={`text-xs px-2 py-1 rounded font-semibold border ${
-                  c.ok ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500 border-slate-200'
-                }`}
-              >
-                {c.ok ? '✓' : '○'} {c.label}
-              </span>
-            ))}
-          </div>
-        </InfoCard>
-
         {trip.notes && (
-          <InfoCard title="Catatan">
+          <InfoCard title="Catatan" className="lg:col-span-2">
             <p className="text-sm text-slate-700 whitespace-pre-wrap">{trip.notes}</p>
           </InfoCard>
         )}
       </div>
+
+      {/* Participants */}
+      <ParticipantsList tripId={trip.id} participants={participants || []} />
 
       {/* Recent CS updates */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
@@ -113,13 +127,13 @@ export default async function TripDetailPage({ params }) {
           <h2 className="font-bold text-brand-700">Update CS Terbaru</h2>
           <Link href="/cs/new" className="text-xs font-semibold text-brand-600 hover:underline">+ Tambah Update</Link>
         </div>
-        {recentCS?.length === 0 ? (
+        {!recentCS || recentCS.length === 0 ? (
           <div className="p-8 text-center">
             <p className="text-sm text-slate-500">Belum ada update CS untuk trip ini</p>
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {recentCS?.map((u) => (
+            {recentCS.map((u) => (
               <div key={u.id} className="px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
                 <span className="text-sm text-slate-600 font-medium">{fmtDate(u.tanggal)}</span>
                 <div className="flex gap-3 text-xs">
@@ -145,9 +159,9 @@ function StatCard({ label, value, color, small = false }) {
   );
 }
 
-function InfoCard({ title, children }) {
+function InfoCard({ title, children, className = '' }) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
+    <div className={`bg-white rounded-xl border border-slate-200 shadow-card p-5 ${className}`}>
       <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">{title}</h3>
       <div className="space-y-2">{children}</div>
     </div>
@@ -162,6 +176,19 @@ function InfoRow({ label, value, note }) {
         {value}
         {note && <span className="ml-1 text-xs text-brand-600 font-medium">({note})</span>}
       </span>
+    </div>
+  );
+}
+
+function StatusPill({ label, value, okValues = [] }) {
+  const isOk = value && okValues.includes(value);
+  const display = value || 'pending';
+  return (
+    <div className={`rounded-lg p-2.5 border ${isOk ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
+      <p className={`text-[10px] font-bold uppercase tracking-wider ${isOk ? 'text-green-700' : 'text-slate-500'}`}>{label}</p>
+      <p className={`mt-0.5 text-sm font-bold capitalize ${isOk ? 'text-green-800' : 'text-slate-700'}`}>
+        {isOk && '✓ '}{display}
+      </p>
     </div>
   );
 }
