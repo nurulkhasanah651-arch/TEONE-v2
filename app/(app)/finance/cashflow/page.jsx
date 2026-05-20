@@ -12,7 +12,7 @@ export default async function CashflowListPage() {
 
   const [tripsRes, itemsRes] = await Promise.all([
     supabase.from('trips').select('id, kode_trip, name, status, departure, quota, sold').order('departure', { ascending: true }),
-    supabase.from('trip_finance_items').select('trip_id, type, total_amount'),
+    supabase.from('trip_finance_items').select('trip_id, item_type, total_amount'),
   ]);
 
   const trips = tripsRes.data || [];
@@ -26,8 +26,8 @@ export default async function CashflowListPage() {
   for (const it of items) {
     if (!byTrip[it.trip_id]) continue;
     byTrip[it.trip_id].itemCount++;
-    if (it.type === 'income') byTrip[it.trip_id].income += it.total_amount || 0;
-    if (it.type === 'hpp') byTrip[it.trip_id].hpp += it.total_amount || 0;
+    if (it.item_type === 'income') byTrip[it.trip_id].income += it.total_amount || 0;
+    if (it.item_type === 'hpp') byTrip[it.trip_id].hpp += it.total_amount || 0;
   }
   for (const id in byTrip) {
     byTrip[id].profit = byTrip[id].income - byTrip[id].hpp;
