@@ -11,7 +11,7 @@ export default function PnrRow({ pnr }) {
   const router = useRouter();
   const balance = (pnr.seats * pnr.ticket_price) - (pnr.deposit_total || 0) - (pnr.payoff_amount || 0);
   const isPaid = balance <= 0 && pnr.payoff_date;
-  const deadlineDays = pnr.deadline ? daysUntil(pnr.deadline) : null;
+  const deadlineDays = pnr.payoff_due_date ? daysUntil(pnr.payoff_due_date) : null;
 
   async function handleDelete() {
     if (!confirm(`Hapus PNR ${pnr.pnr}?`)) return;
@@ -66,9 +66,9 @@ export default function PnrRow({ pnr }) {
             <span className="text-amber-700"><span className="font-semibold">DP:</span> {fmtRupiah(pnr.deposit_total || 0)}{pnr.deposit_date ? ` (${fmtDate(pnr.deposit_date)})` : ''}</span>
             <span className="text-green-700"><span className="font-semibold">Pelunasan:</span> {fmtRupiah(pnr.payoff_amount || 0)}{pnr.payoff_date ? ` (${fmtDate(pnr.payoff_date)})` : ''}</span>
             <span className={balance > 0 ? 'text-red-700' : 'text-blue-700'}><span className="font-semibold">Sisa:</span> {fmtRupiah(balance)}</span>
-            {pnr.deadline && <span className="text-slate-700"><span className="font-semibold">Deadline:</span> {fmtDate(pnr.deadline)}</span>}
+            {pnr.payoff_due_date && <span className="text-slate-700"><span className="font-semibold">Deadline:</span> {fmtDate(pnr.payoff_due_date)}</span>}
           </div>
-          {pnr.notes && <p className="mt-1 text-xs italic text-slate-500">📝 {pnr.notes}</p>}
+          {pnr.vendor_notes && <p className="mt-1 text-xs italic text-slate-500">📝 {pnr.vendor_notes}</p>}
         </div>
         <div className="flex gap-1.5 flex-wrap">
           <Link href={`/finance/pnr/${pnr.id}/edit`} className="text-xs px-2.5 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200 font-semibold transition-colors">
