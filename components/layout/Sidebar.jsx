@@ -8,6 +8,7 @@ const NAV = [
   { href: '/trips',     label: 'Master Trip', icon: '✈' },
   { href: '/cs',        label: 'CS Daily',    icon: '☎' },
   { href: '/finance',   label: 'Finance',     icon: '$' },
+  { href: '/accounting',label: 'Accounting',  icon: '📊' },
   { href: '/tl',        label: 'Portal TL',   icon: '👤', disabled: true },
 ];
 
