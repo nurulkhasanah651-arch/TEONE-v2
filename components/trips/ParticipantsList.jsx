@@ -1,10 +1,11 @@
 'use client';
 
 // Participants list for a trip — add / edit / delete inline
+// Includes auto-computed age + passport validity status
 
 import { useState } from 'react';
-import { addParticipant, updateParticipant, removeParticipant } from '@/app/(app)/trips/[id]/participants/actions';
-import { fmtRupiah, fmtDate } from '@/lib/utils/format';
+import { addParticipant, updateParticipant, removeParticipant } from '@/app/(app)/trips/participants-actions';
+import { fmtRupiah, fmtDate, calcAge, passportStatus } from '@/lib/utils/format';
 
 const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Family'];
 
@@ -93,13 +94,29 @@ export default function ParticipantsList({ tripId, participants = [] }) {
             const isEditing = editingId === p.id;
             const [first, ...rest] = (c.name || '').split(' ');
             const last = rest.join(' ');
+            const age = calcAge(c.birthday);
+            const ppStatus = passportStatus(c.passport_expiry);
 
             if (isEditing) {
               return (
                 <div key={p.id} className="p-5 bg-amber-50/50">
                   <h3 className="font-bold text-brand-700 mb-3">Edit Peserta #{idx + 1}</h3>
                   <ParticipantForm
-                    initial={{ first_name: first, last_name: last, phone: c.phone, email: c.email, passport_no: c.passport_no, passport_expiry: c.passport_expiry, room_type: p.room_type, price_paid: p.price_paid }}
+                    initial={{
+                      first_name: c.first_name || first,
+                      last_name: c.surname || last,
+                      phone: c.phone,
+                      email: c.email,
+                      birthday: c.birthday,
+                      city: c.city,
+                      gender: c.gender,
+                      passport_no: c.passport_no,
+                      passport_issued_at: c.passport_issued_at,
+                      passport_issued_date: c.passport_issued_date,
+                      passport_expiry: c.passport_expiry,
+                      room_type: p.room_type,
+                      price_paid: p.price_paid,
+                    }}
                     onSubmit={(fd) => handleUpdate(p.id, p.customer_id, fd)}
                     onCancel={() => setEditingId(null)}
                     pending={pending}
@@ -114,17 +131,46 @@ export default function ParticipantsList({ tripId, participants = [] }) {
               <div key={p.id} className="px-5 py-3 hover:bg-slate-50 transition-colors">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="flex-1 min-w-0">
+                    {/* Name + chips */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-mono text-slate-400">#{idx + 1}</span>
                       <p className="font-bold text-brand-700">{c.name || '—'}</p>
+                      {age != null && <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">{age} thn</span>}
+                      {c.gender && <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">{c.gender}</span>}
                       {p.room_type && <span className="text-[11px] px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold">{p.room_type}</span>}
                       {p.status && <span className="text-[11px] px-2 py-0.5 rounded bg-green-50 text-green-700 font-semibold">{p.status}</span>}
                     </div>
-                    <div className="mt-1 text-xs text-slate-600 flex flex-wrap gap-3">
+
+                    {/* Contact + birth */}
+                    <div className="mt-1 text-xs text-slate-600 flex flex-wrap gap-x-3 gap-y-1">
                       {c.phone && <span>📞 {c.phone}</span>}
                       {c.email && <span>✉ {c.email}</span>}
-                      {c.passport_no && <span>📕 {c.passport_no}{c.passport_expiry && ` (exp ${fmtDate(c.passport_expiry)})`}</span>}
+                      {(c.city || c.birthday) && (
+                        <span>🎂 {c.city || '—'}{c.birthday ? `, ${fmtDate(c.birthday)}` : ''}</span>
+                      )}
                     </div>
+
+                    {/* Passport */}
+                    {(c.passport_no || c.passport_expiry) && (
+                      <div className="mt-1 text-xs text-slate-600 flex flex-wrap gap-x-3 gap-y-1 items-center">
+                        {c.passport_no && <span>📕 {c.passport_no}</span>}
+                        {c.passport_issued_at && <span>Issued: {c.passport_issued_at}{c.passport_issued_date ? ` (${fmtDate(c.passport_issued_date)})` : ''}</span>}
+                        {c.passport_expiry && (
+                          <span>Exp: {fmtDate(c.passport_expiry)}</span>
+                        )}
+                        {ppStatus && (
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            ppStatus.color === 'red'   ? 'bg-red-100 text-red-700' :
+                            ppStatus.color === 'amber' ? 'bg-amber-100 text-amber-700' :
+                                                          'bg-green-100 text-green-700'
+                          }`}>
+                            {ppStatus.label}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Price */}
                     {p.price_paid > 0 && (
                       <p className="mt-1 text-xs font-semibold text-green-700">{fmtRupiah(p.price_paid)}</p>
                     )}
@@ -156,37 +202,81 @@ export default function ParticipantsList({ tripId, participants = [] }) {
 }
 
 function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabel = 'Simpan' }) {
+  const [birthday, setBirthday] = useState(initial.birthday || '');
+  const [expiry, setExpiry] = useState(initial.passport_expiry || '');
+  const age = calcAge(birthday);
+  const ppStatus = passportStatus(expiry);
+
   return (
-    <form action={onSubmit} className="space-y-3">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Field label="Nama Depan" required>
-          <input name="first_name" defaultValue={initial.first_name || ''} required className={inputCls} />
-        </Field>
-        <Field label="Nama Belakang">
-          <input name="last_name" defaultValue={initial.last_name || ''} className={inputCls} />
-        </Field>
-        <Field label="No HP / WA">
-          <input name="phone" defaultValue={initial.phone || ''} className={inputCls} placeholder="08xx..." />
-        </Field>
-        <Field label="Email">
-          <input type="email" name="email" defaultValue={initial.email || ''} className={inputCls} placeholder="user@email.com" />
-        </Field>
-        <Field label="No Passport">
-          <input name="passport_no" defaultValue={initial.passport_no || ''} className={inputCls} placeholder="A1234567" />
-        </Field>
-        <Field label="Passport Expiry">
-          <input type="date" name="passport_expiry" defaultValue={initial.passport_expiry || ''} className={inputCls} />
-        </Field>
-        <Field label="Tipe Kamar">
-          <select name="room_type" defaultValue={initial.room_type || ''} className={inputCls}>
-            <option value="">— Pilih —</option>
-            {ROOM_TYPES.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
-        </Field>
-        <Field label="Harga Bayar (IDR)">
-          <input type="number" name="price_paid" defaultValue={initial.price_paid || ''} min="0" className={inputCls} placeholder="50000000" />
-        </Field>
-      </div>
+    <form action={onSubmit} className="space-y-4">
+      {/* Personal info */}
+      <FormSection title="Data Pribadi">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field label="Nama Depan" required>
+            <input name="first_name" defaultValue={initial.first_name || ''} required className={inputCls} />
+          </Field>
+          <Field label="Nama Belakang">
+            <input name="last_name" defaultValue={initial.last_name || ''} className={inputCls} />
+          </Field>
+          <Field label="Tempat Lahir">
+            <input name="city" defaultValue={initial.city || ''} className={inputCls} placeholder="Jakarta, Surabaya, dll" />
+          </Field>
+          <Field label="Tanggal Lahir" hint={age != null ? `Umur: ${age} tahun` : ''}>
+            <input type="date" name="birthday" value={birthday} onChange={(e) => setBirthday(e.target.value)} className={inputCls} />
+          </Field>
+          <Field label="Gender">
+            <select name="gender" defaultValue={initial.gender || ''} className={inputCls}>
+              <option value="">— Pilih —</option>
+              <option value="L">Laki-laki</option>
+              <option value="P">Perempuan</option>
+            </select>
+          </Field>
+          <Field label="No HP / WA">
+            <input name="phone" defaultValue={initial.phone || ''} className={inputCls} placeholder="08xx..." />
+          </Field>
+          <Field label="Email" className="md:col-span-2">
+            <input type="email" name="email" defaultValue={initial.email || ''} className={inputCls} placeholder="user@email.com" />
+          </Field>
+        </div>
+      </FormSection>
+
+      {/* Passport */}
+      <FormSection title="Data Passport">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field label="No Passport">
+            <input name="passport_no" defaultValue={initial.passport_no || ''} className={inputCls} placeholder="A1234567" />
+          </Field>
+          <Field label="Diterbitkan di">
+            <input name="passport_issued_at" defaultValue={initial.passport_issued_at || ''} className={inputCls} placeholder="Jakarta, Imigrasi Kelas I, dll" />
+          </Field>
+          <Field label="Tanggal Issue">
+            <input type="date" name="passport_issued_date" defaultValue={initial.passport_issued_date || ''} className={inputCls} />
+          </Field>
+          <Field
+            label="Tanggal Expiry"
+            hint={ppStatus ? `Status: ${ppStatus.label}` : ''}
+            hintColor={ppStatus?.color}
+          >
+            <input type="date" name="passport_expiry" value={expiry} onChange={(e) => setExpiry(e.target.value)} className={inputCls} />
+          </Field>
+        </div>
+      </FormSection>
+
+      {/* Room & Price */}
+      <FormSection title="Booking">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field label="Tipe Kamar">
+            <select name="room_type" defaultValue={initial.room_type || ''} className={inputCls}>
+              <option value="">— Pilih —</option>
+              {ROOM_TYPES.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </Field>
+          <Field label="Harga Bayar (IDR)">
+            <input type="number" name="price_paid" defaultValue={initial.price_paid || ''} min="0" className={inputCls} placeholder="50000000" />
+          </Field>
+        </div>
+      </FormSection>
+
       <div className="flex gap-2 pt-1">
         <button
           type="submit"
@@ -208,13 +298,28 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
   );
 }
 
-function Field({ label, required, children }) {
+function FormSection({ title, children }) {
   return (
-    <label className="block">
+    <div className="border border-slate-200 rounded-lg p-3 bg-white/60">
+      <p className="text-[11px] font-bold text-brand-700 uppercase tracking-wider mb-2">{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function Field({ label, required, hint, hintColor, className = '', children }) {
+  const hintCls =
+    hintColor === 'red' ? 'text-red-700 font-semibold' :
+    hintColor === 'amber' ? 'text-amber-700 font-semibold' :
+    hintColor === 'green' ? 'text-green-700 font-semibold' :
+    'text-slate-500';
+  return (
+    <label className={`block ${className}`}>
       <span className="text-xs font-semibold text-slate-700 block mb-1">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </span>
       {children}
+      {hint && <span className={`text-[11px] block mt-1 ${hintCls}`}>{hint}</span>}
     </label>
   );
 }
