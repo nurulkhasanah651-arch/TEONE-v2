@@ -1,17 +1,18 @@
-// Master Trip — list of all trips
-// Server Component: fetches trips from Supabase, no client JS for data
+// Master Trip list — Round 50: revenue pakai expected dari price_breakdown × pax
 
 import { createClient } from '@/lib/supabase/server';
 import TripCard from '@/components/trips/TripCard';
+import { fmtRupiah } from '@/lib/utils/format';
+import { mainExpectedPerPassenger } from '@/lib/utils/price-breakdown';
 
-export const dynamic = 'force-dynamic'; // always fresh data
+export const dynamic = 'force-dynamic';
 
 export default async function TripsPage() {
   const supabase = createClient();
   const { data: trips, error } = await supabase
     .from('trips')
     .select('*')
-    .order('departure', { ascending: true });
+    .order('departure', { ascending: true, nullsFirst: false });
 
   if (error) {
     return (
@@ -24,15 +25,38 @@ export default async function TripsPage() {
     );
   }
 
+  // Fetch all passengers untuk hitung expected revenue
+  let allPax = [];
+  try {
+    const { data } = await supabase.from('trip_passengers').select('*');
+    allPax = data || [];
+  } catch {
+    allPax = [];
+  }
+  const paxByTrip = {};
+  for (const p of allPax) {
+    if (!paxByTrip[p.trip_id]) paxByTrip[p.trip_id] = [];
+    paxByTrip[p.trip_id].push(p);
+  }
+
   // Aggregate stats
   const totalTrips = trips?.length || 0;
   const openSelling = trips?.filter((t) => t.status === 'open selling').length || 0;
   const totalSeatLeft = trips?.reduce((sum, t) => sum + (t.seat_left || 0), 0) || 0;
-  const totalRevenue = trips?.reduce((sum, t) => sum + (t.price || 0) * (t.sold || 0), 0) || 0;
+
+  // Expected Revenue = sum mainExpectedPerPassenger (room + tips + city_tax) untuk semua peserta non-cancelled
+  let totalExpectedRevenue = 0;
+  for (const t of trips || []) {
+    if (t.status === 'cancelled') continue;
+    const breakdown = t.price_breakdown || {};
+    const pax = paxByTrip[t.id] || [];
+    for (const p of pax) {
+      totalExpectedRevenue += mainExpectedPerPassenger(p, breakdown);
+    }
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      {/* Page title + CTA */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold text-brand-700">Master Trip</h1>
@@ -46,15 +70,20 @@ export default async function TripsPage() {
         </a>
       </div>
 
-      {/* Stats row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Total Trip" value={totalTrips} color="text-brand-700" bg="bg-brand-50" />
         <StatCard label="Open Selling" value={openSelling} color="text-blue-700" bg="bg-blue-50" />
         <StatCard label="Seat Tersisa" value={totalSeatLeft} color="text-amber-700" bg="bg-amber-50" />
-        <StatCard label="Total Revenue" value={`Rp ${(totalRevenue / 1_000_000).toFixed(1)}M`} color="text-green-700" bg="bg-green-50" small />
+        <StatCard
+          label="Expected Revenue"
+          value={fmtRupiah(totalExpectedRevenue)}
+          color="text-green-700"
+          bg="bg-green-50"
+          sub="Wajib: room + tips + city tax × peserta"
+          small
+        />
       </div>
 
-      {/* Trip cards */}
       {totalTrips === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
           <p className="text-4xl mb-3">📋</p>
@@ -72,11 +101,12 @@ export default async function TripsPage() {
   );
 }
 
-function StatCard({ label, value, color, bg, small = false }) {
+function StatCard({ label, value, color, bg, small = false, sub }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4">
       <p className="text-xs font-medium text-slate-500">{label}</p>
-      <p className={`mt-1 font-bold ${color} ${small ? 'text-xl' : 'text-2xl'}`}>{value}</p>
+      <p className={`mt-1 font-bold ${color} ${small ? 'text-base' : 'text-2xl'}`}>{value}</p>
+      {sub && <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>}
       <div className={`mt-2 h-1 w-8 rounded-full ${bg}`} />
     </div>
   );
