@@ -1,4 +1,4 @@
-// Trip Detail page — Round 46: hapus debug yellow box
+// Trip Detail page — Round 49: tambah DeleteTripButton
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
 import ParticipantsList from '@/components/trips/ParticipantsList';
+import DeleteTripButton from '@/components/trips/DeleteTripButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,32 +14,20 @@ export default async function TripDetailPage({ params }) {
   const { id } = await params;
   const supabase = createClient();
   const { data: trip, error } = await supabase.from('trips').select('*').eq('id', id).maybeSingle();
-
-  if (error || !trip) {
-    notFound();
-  }
+  if (error || !trip) notFound();
 
   const s = statusCfg(trip.status);
   const days = daysUntil(trip.departure);
   const checklist = tripChecklist(trip);
   const revenue = (trip.price || 0) * (trip.sold || 0);
 
-  // Fetch participants — 2-step query
   let participants = [];
   {
-    const { data: tp } = await supabase
-      .from('trip_passengers')
-      .select('*')
-      .eq('trip_id', id)
-      .order('joined_at', { ascending: true });
-
+    const { data: tp } = await supabase.from('trip_passengers').select('*').eq('trip_id', id).order('joined_at', { ascending: true });
     if (tp && tp.length > 0) {
       const customerIds = tp.map((p) => p.customer_id).filter(Boolean);
       if (customerIds.length > 0) {
-        const { data: cust } = await supabase
-          .from('customers')
-          .select('*')
-          .in('id', customerIds);
+        const { data: cust } = await supabase.from('customers').select('*').in('id', customerIds);
         const cMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
         participants = tp.map((p) => ({ ...p, customers: cMap[p.customer_id] || null }));
       } else {
@@ -61,25 +50,19 @@ export default async function TripDetailPage({ params }) {
         <div className="mt-2 flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${s.bg} ${s.text}`}>
-                {trip.kode_trip || `#${trip.id}`}
-              </span>
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-md border ${s.bg} ${s.text} ${s.border}`}>
-                {s.label}
-              </span>
-              {trip.ticket && (
-                <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">{trip.ticket}</span>
-              )}
+              <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${s.bg} ${s.text}`}>{trip.kode_trip || `#${trip.id}`}</span>
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-md border ${s.bg} ${s.text} ${s.border}`}>{s.label}</span>
+              {trip.ticket && <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">{trip.ticket}</span>}
             </div>
             <h1 className="text-3xl font-bold text-brand-700">{trip.name}</h1>
             {trip.destination && <p className="mt-1 text-slate-600">{trip.destination}</p>}
           </div>
-          <Link
-            href={`/trips/${trip.id}/edit`}
-            className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-card transition-colors"
-          >
-            ✎ Edit Trip
-          </Link>
+          <div className="flex gap-2 flex-wrap">
+            <Link href={`/trips/${trip.id}/edit`} className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-card transition-colors">
+              ✎ Edit Trip
+            </Link>
+            <DeleteTripButton tripId={trip.id} tripName={trip.name} tripCode={trip.kode_trip || trip.id} />
+          </div>
         </div>
       </div>
 
@@ -93,9 +76,7 @@ export default async function TripDetailPage({ params }) {
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider">Status Operasional</h3>
-          <Link href={`/trips/${trip.id}/edit`} className="text-xs font-semibold text-brand-600 hover:underline">
-            ✎ Update Status
-          </Link>
+          <Link href={`/trips/${trip.id}/edit`} className="text-xs font-semibold text-brand-600 hover:underline">✎ Update Status</Link>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <StatusPill label="Tiket" value={trip.ticket_status} okValues={['confirmed', 'issued']} />
@@ -113,12 +94,10 @@ export default async function TripDetailPage({ params }) {
           <InfoRow label="Kepulangan" value={fmtDate(trip.arrival)} />
           <InfoRow label="Deadline Booking" value={fmtDate(trip.deadline_close)} />
         </InfoCard>
-
         <InfoCard title="Tim">
           <InfoRow label="PIC (CS)" value={trip.pic || '—'} />
           <InfoRow label="Tour Leader" value={trip.tl_name || '—'} />
         </InfoCard>
-
         {trip.notes && (
           <InfoCard title="Catatan" className="lg:col-span-2">
             <p className="text-sm text-slate-700 whitespace-pre-wrap">{trip.notes}</p>
@@ -126,19 +105,15 @@ export default async function TripDetailPage({ params }) {
         )}
       </div>
 
-      {/* Participants */}
       <ParticipantsList tripId={trip.id} participants={participants || []} />
 
-      {/* Recent CS updates */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
           <h2 className="font-bold text-brand-700">Update CS Terbaru</h2>
           <Link href="/cs/new" className="text-xs font-semibold text-brand-600 hover:underline">+ Tambah Update</Link>
         </div>
         {!recentCS || recentCS.length === 0 ? (
-          <div className="p-8 text-center">
-            <p className="text-sm text-slate-500">Belum ada update CS untuk trip ini</p>
-          </div>
+          <div className="p-8 text-center"><p className="text-sm text-slate-500">Belum ada update CS untuk trip ini</p></div>
         ) : (
           <div className="divide-y divide-slate-100">
             {recentCS.map((u) => (
