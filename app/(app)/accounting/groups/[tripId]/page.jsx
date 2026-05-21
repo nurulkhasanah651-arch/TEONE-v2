@@ -1,14 +1,11 @@
-// Real Cashflow Group — Round 45
-// Expected Cash In = peserta × price_breakdown (sync dari Master Trip)
-// Paid = sum payments dari payment checklist
-// Tidak ubah proyeksi finance — itu independent
+// Real Cashflow Group — Round 47: pakai expectedPerPassenger (room + addons + customs)
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import { statusCfg } from '@/lib/utils/trip-status';
-import { roomTypeToKey, computeIncomeProjection, ROOM_KEYS, AGE_KEYS, ADDON_KEYS } from '@/lib/utils/price-breakdown';
+import { roomTypeToKey, expectedPerPassenger, computeIncomeProjection, ROOM_KEYS, AGE_KEYS, ADDON_KEYS } from '@/lib/utils/price-breakdown';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,29 +41,18 @@ export default async function GroupCashflowDetailPage({ params }) {
     payments = data || [];
   }
 
-  // ============================================
-  // EXPECTED CASH IN (proyeksi dari master trip)
-  // ============================================
-  const projection = computeIncomeProjection(passengers, breakdown);
-  // Per peserta breakdown
-  const expectedByPassenger = {};
-  for (const p of passengers) {
-    const key = roomTypeToKey(p.room_type);
-    const cfg = key ? KEY_MAP[key] : null;
-    const expected = key ? (breakdown[key] || 0) : (p.price_paid || 0);
-    expectedByPassenger[p.id] = { key, label: cfg?.label || p.room_type || '—', icon: cfg?.icon || '', expected };
-  }
-
   // PAID per peserta
   const paidByPassenger = {};
   for (const p of payments) {
     paidByPassenger[p.passenger_id] = (paidByPassenger[p.passenger_id] || 0) + (p.amount || 0);
   }
 
-  // Per peserta status: paid / cicilan / belum / overpaid
+  // Per peserta row — pakai expectedPerPassenger (room + addons + customs)
   const perPaxRows = passengers.map((p) => {
     const c = custMap[p.customer_id] || {};
-    const exp = expectedByPassenger[p.id]?.expected || 0;
+    const key = roomTypeToKey(p.room_type);
+    const cfg = key ? KEY_MAP[key] : null;
+    const exp = expectedPerPassenger(p, breakdown);
     const paid = paidByPassenger[p.id] || 0;
     const remaining = exp - paid;
     let status = 'belum';
@@ -76,8 +62,8 @@ export default async function GroupCashflowDetailPage({ params }) {
     return {
       id: p.id,
       name: c.name || `#${p.id}`,
-      roomLabel: expectedByPassenger[p.id]?.label || '—',
-      roomIcon: expectedByPassenger[p.id]?.icon || '',
+      roomLabel: cfg?.label || p.room_type || '—',
+      roomIcon: cfg?.icon || '',
       expected: exp,
       paid,
       remaining,
@@ -90,9 +76,7 @@ export default async function GroupCashflowDetailPage({ params }) {
   const totalRemaining = totalExpected - totalPaid;
   const collectionRate = totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : 0;
 
-  // ============================================
-  // REAL CASH FLOW
-  // ============================================
+  // Real cash flow
   const totalPaymentsIn = payments.reduce((s, p) => s + (p.amount || 0), 0);
   const manualIn = accEntries.filter((e) => e.type === 'in' && !e.linked_payment_id).reduce((s, e) => s + (e.amount || 0), 0);
   const totalRealIn = totalPaymentsIn + manualIn;
@@ -104,8 +88,6 @@ export default async function GroupCashflowDetailPage({ params }) {
   const totalRealOut = totalHppLunas + totalPnrPaid + manualOut;
 
   const realProfit = totalRealIn - totalRealOut;
-
-  // Proyeksi
   const proyHpp = finItems.filter((i) => i.item_type === 'hpp').reduce((s, i) => s + (i.total_amount || 0), 0);
   const proyProfit = totalExpected - proyHpp;
   const hppOwed = proyHpp - totalHppLunas;
@@ -136,28 +118,26 @@ export default async function GroupCashflowDetailPage({ params }) {
           <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${s.bg} ${s.text} border ${s.border}`}>{s.label}</span>
         </div>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.name}</h1>
-        <p className="mt-1 text-slate-600">Expected vs Paid per peserta · {passengers.length} peserta · Berangkat {fmtDate(trip.departure)}</p>
+        <p className="mt-1 text-slate-600">Expected (room + add-ons + customs) vs Paid · {passengers.length} peserta · {fmtDate(trip.departure)}</p>
       </div>
 
-      {/* EXPECTED vs PAID summary */}
       <div className="bg-white rounded-xl border-2 border-brand-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-brand-200 bg-gradient-to-r from-brand-50 to-blue-50">
-          <h2 className="font-bold text-brand-700">💎 Expected Cash In vs Paid (auto sync Master Trip + Payment Checklist)</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Expected dihitung dari peserta × price breakdown. Paid dari payment checklist Finance.</p>
+          <h2 className="font-bold text-brand-700">💎 Expected Cash In vs Paid</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Expected = harga room + add-ons (visa/asuransi/tips/etc) + custom items. Paid dari payment checklist.</p>
         </div>
         <div className="p-5">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <SummaryCard label="💎 Expected Total" value={fmtRupiah(totalExpected)} sub={`${passengers.length} peserta`} color="text-brand-700" bg="bg-brand-50" />
-            <SummaryCard label="✓ Sudah Dibayar" value={fmtRupiah(totalPaid)} sub={`${collectionRate}% terkumpul`} color="text-green-700" bg="bg-green-50" />
-            <SummaryCard label="⏳ Sisa Tagihan" value={fmtRupiah(totalRemaining)} sub={totalRemaining > 0 ? 'Belum dibayar peserta' : '✓ Lunas semua'} color={totalRemaining > 0 ? 'text-amber-700' : 'text-green-700'} bg={totalRemaining > 0 ? 'bg-amber-50' : 'bg-green-50'} />
-            <SummaryCard label="📊 Collection Rate" value={`${collectionRate}%`} sub={collectionRate >= 80 ? 'On track' : 'Push payment'} color={collectionRate >= 80 ? 'text-green-700' : 'text-amber-700'} bg={collectionRate >= 80 ? 'bg-green-50' : 'bg-amber-50'} />
+            <SummaryCard label="💎 Expected" value={fmtRupiah(totalExpected)} sub={`${passengers.length} peserta`} color="text-brand-700" bg="bg-brand-50" />
+            <SummaryCard label="✓ Sudah Bayar" value={fmtRupiah(totalPaid)} sub={`${collectionRate}% terkumpul`} color="text-green-700" bg="bg-green-50" />
+            <SummaryCard label="⏳ Sisa Tagihan" value={fmtRupiah(totalRemaining)} sub={totalRemaining > 0 ? 'Belum dibayar' : '✓ Lunas semua'} color={totalRemaining > 0 ? 'text-amber-700' : 'text-green-700'} bg={totalRemaining > 0 ? 'bg-amber-50' : 'bg-green-50'} />
+            <SummaryCard label="📊 Collection" value={`${collectionRate}%`} sub={collectionRate >= 80 ? 'On track' : 'Push payment'} color={collectionRate >= 80 ? 'text-green-700' : 'text-amber-700'} bg={collectionRate >= 80 ? 'bg-green-50' : 'bg-amber-50'} />
           </div>
 
           <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden mb-4">
             <div className="h-full bg-gradient-to-r from-green-400 to-green-600 transition-all" style={{ width: `${Math.min(collectionRate, 100)}%` }} />
           </div>
 
-          {/* Per peserta table */}
           {perPaxRows.length === 0 ? (
             <p className="text-center text-sm text-slate-500 py-8">Belum ada peserta di trip ini.</p>
           ) : (
@@ -167,7 +147,7 @@ export default async function GroupCashflowDetailPage({ params }) {
                   <tr>
                     <th className="px-3 py-2 text-left">#</th>
                     <th className="px-3 py-2 text-left">Nama Peserta</th>
-                    <th className="px-3 py-2 text-left">Room/Tipe</th>
+                    <th className="px-3 py-2 text-left">Room</th>
                     <th className="px-3 py-2 text-right">Expected</th>
                     <th className="px-3 py-2 text-right">Sudah Bayar</th>
                     <th className="px-3 py-2 text-right">Sisa</th>
@@ -187,9 +167,7 @@ export default async function GroupCashflowDetailPage({ params }) {
                           {fmtRupiah(r.remaining)}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-center">
-                        <StatusBadge status={r.status} />
-                      </td>
+                      <td className="px-3 py-2 text-center"><StatusBadge status={r.status} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -207,20 +185,13 @@ export default async function GroupCashflowDetailPage({ params }) {
           )}
 
           <div className="mt-3 flex flex-wrap gap-2">
-            <Link href={`/finance/payments/${tripId}`} className="text-xs font-semibold px-3 py-1.5 rounded bg-brand-500 hover:bg-brand-600 text-white">
-              💳 Buka Payment Checklist
-            </Link>
-            <Link href={`/finance/cashflow/${tripId}`} className="text-xs font-semibold px-3 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700">
-              📈 Proyeksi Income Finance
-            </Link>
-            <Link href={`/trips/${tripId}/edit`} className="text-xs font-semibold px-3 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700">
-              ✏️ Edit Master Trip (Breakdown)
-            </Link>
+            <Link href={`/finance/payments/${tripId}`} className="text-xs font-semibold px-3 py-1.5 rounded bg-brand-500 hover:bg-brand-600 text-white">💳 Buka Payment Checklist</Link>
+            <Link href={`/finance/cashflow/${tripId}`} className="text-xs font-semibold px-3 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700">📈 Proyeksi Income Finance</Link>
+            <Link href={`/trips/${tripId}/edit`} className="text-xs font-semibold px-3 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700">✏️ Edit Master Trip</Link>
           </div>
         </div>
       </div>
 
-      {/* Top summary (real flow) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Real Cash In" value={fmtRupiah(totalRealIn)} color="text-green-700" bg="bg-green-50" />
         <StatCard label="Real Cash Out" value={fmtRupiah(totalRealOut)} color="text-amber-700" bg="bg-amber-50" />
@@ -228,17 +199,15 @@ export default async function GroupCashflowDetailPage({ params }) {
         <StatCard label="Proyeksi Profit" value={fmtRupiah(proyProfit)} color="text-purple-700" bg="bg-purple-50" />
       </div>
 
-      {/* Classification */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
         <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">📊 Klasifikasi Uang Saat Ini</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <ClassCard label="🔒 Titipan (untuk vendor)" value={titipan} color="text-amber-700" bg="bg-amber-50" desc="HPP belum lunas yang akan dibayar dari cicilan" />
-          <ClassCard label="⏳ Cicilan Mengendap" value={cicilanMengendap} color="text-yellow-700" bg="bg-yellow-50" desc={hasProjection ? 'HPP proyeksi sudah di-set' : 'HPP proyeksi BELUM di-set di Finance'} highlight={!hasProjection && cicilanMengendap > 0} />
+          <ClassCard label="🔒 Titipan (vendor)" value={titipan} color="text-amber-700" bg="bg-amber-50" desc="HPP belum lunas yang akan dibayar dari cicilan" />
+          <ClassCard label="⏳ Cicilan Mengendap" value={cicilanMengendap} color="text-yellow-700" bg="bg-yellow-50" desc={hasProjection ? 'HPP proyeksi sudah set' : 'HPP proyeksi BELUM set'} highlight={!hasProjection && cicilanMengendap > 0} />
           <ClassCard label="💼 Margin Locked" value={marginLocked} color="text-green-700" bg="bg-green-50" desc="Sudah pasti milik perusahaan" />
         </div>
       </div>
 
-      {/* HPP detail */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 bg-amber-50">
           <h2 className="font-bold text-amber-800 flex items-center gap-2">⬇ HPP & Vendor Cost <span className="text-sm ml-auto">{fmtRupiah(totalRealOut)}</span></h2>
@@ -257,12 +226,12 @@ export default async function GroupCashflowDetailPage({ params }) {
           {pnrs.length > 0 && totalPnrPaid > 0 && (
             <SubSection title="Deposit PNR" total={totalPnrPaid} color="text-amber-700">
               {pnrs.map((p) => {
-                const totalPaid = (p.deposit_total || 0) + (p.payoff_amount || 0);
-                if (totalPaid === 0) return null;
+                const t = (p.deposit_total || 0) + (p.payoff_amount || 0);
+                if (t === 0) return null;
                 return (
                   <div key={p.id} className="flex justify-between text-sm py-1">
                     <span className="text-slate-700">{p.pnr}{p.vendor && <span className="text-xs text-slate-400 ml-1">· {p.vendor}</span>}</span>
-                    <span className="font-semibold text-amber-700">{fmtRupiah(totalPaid)}</span>
+                    <span className="font-semibold text-amber-700">{fmtRupiah(t)}</span>
                   </div>
                 );
               })}
