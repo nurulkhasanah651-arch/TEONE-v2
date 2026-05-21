@@ -78,6 +78,20 @@ export default async function AccountingDashboard({ searchParams }) {
         <p className="mt-1 text-slate-600">Posisi keuangan real-time + cash flow + balance sheet.</p>
       </div>
 
+      {/* HIGHLIGHT: Real Company Money */}
+      <Link href="/accounting/cash-position" className={`block rounded-xl shadow-card overflow-hidden transition-all hover:shadow-card-hover hover:-translate-y-0.5 ${totalBank - hutang >= 0 ? 'bg-gradient-to-br from-green-500 to-emerald-700' : 'bg-gradient-to-br from-red-500 to-red-700'} text-white`}>
+        <div className="p-5">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider opacity-80">💼 Real Uang Perusahaan</p>
+              <p className="text-[11px] opacity-70 mt-0.5">Bank Cash − Hutang Vendor (uang yang benar-benar milik perusahaan)</p>
+              <p className="mt-2 text-3xl font-bold">{fmtRupiah(totalBank - hutang)}</p>
+            </div>
+            <span className="text-xs opacity-90 hover:underline">Detail →</span>
+          </div>
+        </div>
+      </Link>
+
       {/* Balance Sheet at-a-glance */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="🏦 Total Saldo Bank/Kas" value={fmtRupiah(totalBank)} color="text-blue-700" bg="bg-blue-50" />
