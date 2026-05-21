@@ -1,12 +1,18 @@
-// Real Cashflow detail per trip — breakdown In/Out/Profit
+// Real Cashflow Group — Round 45
+// Expected Cash In = peserta × price_breakdown (sync dari Master Trip)
+// Paid = sum payments dari payment checklist
+// Tidak ubah proyeksi finance — itu independent
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import { statusCfg } from '@/lib/utils/trip-status';
+import { roomTypeToKey, computeIncomeProjection, ROOM_KEYS, AGE_KEYS, ADDON_KEYS } from '@/lib/utils/price-breakdown';
 
 export const dynamic = 'force-dynamic';
+
+const KEY_MAP = Object.fromEntries([...ROOM_KEYS, ...AGE_KEYS, ...ADDON_KEYS].map((k) => [k.key, k]));
 
 export default async function GroupCashflowDetailPage({ params }) {
   const { tripId } = await params;
@@ -17,7 +23,7 @@ export default async function GroupCashflowDetailPage({ params }) {
 
   const [passRes, finItemsRes, pnrRes, custRes, accEntRes] = await Promise.all([
     supabase.from('trip_passengers').select('*').eq('trip_id', tripId),
-    supabase.from('trip_finance_items').select('*').eq('trip_id', tripId).order('item_type').order('category'),
+    supabase.from('trip_finance_items').select('*').eq('trip_id', tripId),
     supabase.from('flight_inventory').select('*').eq('trip_id', tripId),
     supabase.from('customers').select('id, name'),
     supabase.from('accounting_entries').select('*').eq('trip_id', tripId).order('date', { ascending: false }),
@@ -25,47 +31,88 @@ export default async function GroupCashflowDetailPage({ params }) {
 
   const passengers = passRes.data || [];
   const passengerIds = passengers.map((p) => p.id);
-  const customerIds = passengers.map((p) => p.customer_id).filter(Boolean);
   const customers = custRes.data || [];
   const custMap = Object.fromEntries(customers.map((c) => [c.id, c]));
+  const finItems = finItemsRes.data || [];
+  const pnrs = pnrRes.data || [];
+  const accEntries = accEntRes.data || [];
+  const breakdown = trip.price_breakdown || {};
 
-  // Fetch payments for these passengers
   let payments = [];
   if (passengerIds.length > 0) {
     const { data } = await supabase.from('participant_payments').select('*').in('passenger_id', passengerIds);
     payments = data || [];
   }
 
-  const finItems = finItemsRes.data || [];
-  const pnrs = pnrRes.data || [];
-  const accEntries = accEntRes.data || [];
+  // ============================================
+  // EXPECTED CASH IN (proyeksi dari master trip)
+  // ============================================
+  const projection = computeIncomeProjection(passengers, breakdown);
+  // Per peserta breakdown
+  const expectedByPassenger = {};
+  for (const p of passengers) {
+    const key = roomTypeToKey(p.room_type);
+    const cfg = key ? KEY_MAP[key] : null;
+    const expected = key ? (breakdown[key] || 0) : (p.price_paid || 0);
+    expectedByPassenger[p.id] = { key, label: cfg?.label || p.room_type || '—', icon: cfg?.icon || '', expected };
+  }
 
-  // === CASH IN (real) ===
-  // 1. Payments from peserta
+  // PAID per peserta
+  const paidByPassenger = {};
+  for (const p of payments) {
+    paidByPassenger[p.passenger_id] = (paidByPassenger[p.passenger_id] || 0) + (p.amount || 0);
+  }
+
+  // Per peserta status: paid / cicilan / belum / overpaid
+  const perPaxRows = passengers.map((p) => {
+    const c = custMap[p.customer_id] || {};
+    const exp = expectedByPassenger[p.id]?.expected || 0;
+    const paid = paidByPassenger[p.id] || 0;
+    const remaining = exp - paid;
+    let status = 'belum';
+    if (paid >= exp && exp > 0) status = 'lunas';
+    else if (paid > 0) status = 'cicilan';
+    if (paid > exp && exp > 0) status = 'overpaid';
+    return {
+      id: p.id,
+      name: c.name || `#${p.id}`,
+      roomLabel: expectedByPassenger[p.id]?.label || '—',
+      roomIcon: expectedByPassenger[p.id]?.icon || '',
+      expected: exp,
+      paid,
+      remaining,
+      status,
+    };
+  });
+
+  const totalExpected = perPaxRows.reduce((s, r) => s + r.expected, 0);
+  const totalPaid = perPaxRows.reduce((s, r) => s + r.paid, 0);
+  const totalRemaining = totalExpected - totalPaid;
+  const collectionRate = totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : 0;
+
+  // ============================================
+  // REAL CASH FLOW
+  // ============================================
   const totalPaymentsIn = payments.reduce((s, p) => s + (p.amount || 0), 0);
-  // 2. Manual cash in linked to trip
-  const manualIn = accEntries.filter((e) => e.type === 'in').reduce((s, e) => s + (e.amount || 0), 0);
+  const manualIn = accEntries.filter((e) => e.type === 'in' && !e.linked_payment_id).reduce((s, e) => s + (e.amount || 0), 0);
   const totalRealIn = totalPaymentsIn + manualIn;
 
-  // === CASH OUT (real) ===
-  // 1. HPP lunas
   const hppLunas = finItems.filter((i) => i.item_type === 'hpp' && i.payment_status === 'lunas');
   const totalHppLunas = hppLunas.reduce((s, i) => s + (i.total_amount || 0), 0);
-  // 2. PNR deposits + payoffs
   const totalPnrPaid = pnrs.reduce((s, p) => s + (p.deposit_total || 0) + (p.payoff_amount || 0), 0);
-  // 3. Manual cash out linked to trip
-  const manualOut = accEntries.filter((e) => e.type === 'out').reduce((s, e) => s + (e.amount || 0), 0);
+  const manualOut = accEntries.filter((e) => e.type === 'out' && !e.linked_finance_item_id).reduce((s, e) => s + (e.amount || 0), 0);
   const totalRealOut = totalHppLunas + totalPnrPaid + manualOut;
 
   const realProfit = totalRealIn - totalRealOut;
 
-  // === PROYEKSI ===
-  const proyIncome = finItems.filter((i) => i.item_type === 'income').reduce((s, i) => s + (i.total_amount || 0), 0);
+  // Proyeksi
   const proyHpp = finItems.filter((i) => i.item_type === 'hpp').reduce((s, i) => s + (i.total_amount || 0), 0);
-  const proyProfit = proyIncome - proyHpp;
+  const proyProfit = totalExpected - proyHpp;
   const hppOwed = proyHpp - totalHppLunas;
 
-  // === KLASIFIKASI per trip ===
+  const s = statusCfg(trip.status);
+
+  // Classification
   const netCash = totalRealIn - totalRealOut;
   let titipan = 0, marginLocked = 0, cicilanMengendap = 0;
   const hasProjection = proyHpp > 0;
@@ -80,15 +127,6 @@ export default async function GroupCashflowDetailPage({ params }) {
     marginLocked = netCash;
   }
 
-  // Per peserta breakdown
-  const paymentsByPassenger = {};
-  for (const p of payments) {
-    if (!paymentsByPassenger[p.passenger_id]) paymentsByPassenger[p.passenger_id] = [];
-    paymentsByPassenger[p.passenger_id].push(p);
-  }
-
-  const s = statusCfg(trip.status);
-
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
@@ -98,10 +136,91 @@ export default async function GroupCashflowDetailPage({ params }) {
           <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${s.bg} ${s.text} border ${s.border}`}>{s.label}</span>
         </div>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.name}</h1>
-        <p className="mt-1 text-slate-600">Real cashflow detail · {passengers.length} peserta · Berangkat {fmtDate(trip.departure)}</p>
+        <p className="mt-1 text-slate-600">Expected vs Paid per peserta · {passengers.length} peserta · Berangkat {fmtDate(trip.departure)}</p>
       </div>
 
-      {/* Top summary */}
+      {/* EXPECTED vs PAID summary */}
+      <div className="bg-white rounded-xl border-2 border-brand-200 shadow-card overflow-hidden">
+        <div className="px-5 py-3 border-b border-brand-200 bg-gradient-to-r from-brand-50 to-blue-50">
+          <h2 className="font-bold text-brand-700">💎 Expected Cash In vs Paid (auto sync Master Trip + Payment Checklist)</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Expected dihitung dari peserta × price breakdown. Paid dari payment checklist Finance.</p>
+        </div>
+        <div className="p-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <SummaryCard label="💎 Expected Total" value={fmtRupiah(totalExpected)} sub={`${passengers.length} peserta`} color="text-brand-700" bg="bg-brand-50" />
+            <SummaryCard label="✓ Sudah Dibayar" value={fmtRupiah(totalPaid)} sub={`${collectionRate}% terkumpul`} color="text-green-700" bg="bg-green-50" />
+            <SummaryCard label="⏳ Sisa Tagihan" value={fmtRupiah(totalRemaining)} sub={totalRemaining > 0 ? 'Belum dibayar peserta' : '✓ Lunas semua'} color={totalRemaining > 0 ? 'text-amber-700' : 'text-green-700'} bg={totalRemaining > 0 ? 'bg-amber-50' : 'bg-green-50'} />
+            <SummaryCard label="📊 Collection Rate" value={`${collectionRate}%`} sub={collectionRate >= 80 ? 'On track' : 'Push payment'} color={collectionRate >= 80 ? 'text-green-700' : 'text-amber-700'} bg={collectionRate >= 80 ? 'bg-green-50' : 'bg-amber-50'} />
+          </div>
+
+          <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden mb-4">
+            <div className="h-full bg-gradient-to-r from-green-400 to-green-600 transition-all" style={{ width: `${Math.min(collectionRate, 100)}%` }} />
+          </div>
+
+          {/* Per peserta table */}
+          {perPaxRows.length === 0 ? (
+            <p className="text-center text-sm text-slate-500 py-8">Belum ada peserta di trip ini.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-[11px] font-bold text-slate-600 uppercase">
+                  <tr>
+                    <th className="px-3 py-2 text-left">#</th>
+                    <th className="px-3 py-2 text-left">Nama Peserta</th>
+                    <th className="px-3 py-2 text-left">Room/Tipe</th>
+                    <th className="px-3 py-2 text-right">Expected</th>
+                    <th className="px-3 py-2 text-right">Sudah Bayar</th>
+                    <th className="px-3 py-2 text-right">Sisa</th>
+                    <th className="px-3 py-2 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {perPaxRows.map((r, idx) => (
+                    <tr key={r.id} className={`hover:bg-slate-50 ${r.status === 'belum' && r.expected > 0 ? 'bg-red-50/30' : ''}`}>
+                      <td className="px-3 py-2 text-xs text-slate-500">{idx + 1}</td>
+                      <td className="px-3 py-2 text-sm font-semibold text-slate-800">{r.name}</td>
+                      <td className="px-3 py-2 text-xs">{r.roomIcon} {r.roomLabel}</td>
+                      <td className="px-3 py-2 text-right text-sm font-bold text-brand-700">{fmtRupiah(r.expected)}</td>
+                      <td className="px-3 py-2 text-right text-sm font-semibold text-green-700">{fmtRupiah(r.paid)}</td>
+                      <td className="px-3 py-2 text-right text-sm font-bold">
+                        <span className={r.remaining > 0 ? 'text-amber-700' : r.remaining < 0 ? 'text-red-700' : 'text-slate-400'}>
+                          {fmtRupiah(r.remaining)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <StatusBadge status={r.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-slate-50 font-bold">
+                  <tr>
+                    <td colSpan="3" className="px-3 py-2 text-sm">TOTAL</td>
+                    <td className="px-3 py-2 text-right text-sm text-brand-700">{fmtRupiah(totalExpected)}</td>
+                    <td className="px-3 py-2 text-right text-sm text-green-700">{fmtRupiah(totalPaid)}</td>
+                    <td className="px-3 py-2 text-right text-sm text-amber-700">{fmtRupiah(totalRemaining)}</td>
+                    <td className="px-3 py-2 text-center text-xs text-slate-500">{collectionRate}%</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link href={`/finance/payments/${tripId}`} className="text-xs font-semibold px-3 py-1.5 rounded bg-brand-500 hover:bg-brand-600 text-white">
+              💳 Buka Payment Checklist
+            </Link>
+            <Link href={`/finance/cashflow/${tripId}`} className="text-xs font-semibold px-3 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700">
+              📈 Proyeksi Income Finance
+            </Link>
+            <Link href={`/trips/${tripId}/edit`} className="text-xs font-semibold px-3 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700">
+              ✏️ Edit Master Trip (Breakdown)
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Top summary (real flow) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Real Cash In" value={fmtRupiah(totalRealIn)} color="text-green-700" bg="bg-green-50" />
         <StatCard label="Real Cash Out" value={fmtRupiah(totalRealOut)} color="text-amber-700" bg="bg-amber-50" />
@@ -114,127 +233,79 @@ export default async function GroupCashflowDetailPage({ params }) {
         <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">📊 Klasifikasi Uang Saat Ini</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <ClassCard label="🔒 Titipan (untuk vendor)" value={titipan} color="text-amber-700" bg="bg-amber-50" desc="HPP belum lunas yang akan dibayar dari cicilan" />
-          <ClassCard label={`⏳ Cicilan Mengendap`} value={cicilanMengendap} color="text-yellow-700" bg="bg-yellow-50" desc={hasProjection ? 'HPP proyeksi sudah di-set' : 'HPP proyeksi BELUM di-set di Finance'} highlight={!hasProjection && cicilanMengendap > 0} />
+          <ClassCard label="⏳ Cicilan Mengendap" value={cicilanMengendap} color="text-yellow-700" bg="bg-yellow-50" desc={hasProjection ? 'HPP proyeksi sudah di-set' : 'HPP proyeksi BELUM di-set di Finance'} highlight={!hasProjection && cicilanMengendap > 0} />
           <ClassCard label="💼 Margin Locked" value={marginLocked} color="text-green-700" bg="bg-green-50" desc="Sudah pasti milik perusahaan" />
         </div>
-        {!hasProjection && totalRealIn > 0 && (
-          <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
-            <p className="font-bold">⚠ HPP proyeksi untuk trip ini belum di-set</p>
-            <p className="text-xs mt-1">Cicilan peserta yang sudah masuk = "mengendap" karena belum tahu alokasi untuk vendor. <Link href={`/finance/cashflow/${trip.id}`} className="text-brand-600 hover:underline font-semibold">Set HPP proyeksi di Finance →</Link></p>
-          </div>
-        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* CASH IN */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-200 bg-green-50">
-            <h2 className="font-bold text-green-800 flex items-center gap-2">⬆ Real Cash In <span className="text-sm ml-auto">{fmtRupiah(totalRealIn)}</span></h2>
-          </div>
-          <div className="p-5 space-y-3">
-            <SubSection title="Payment Peserta" total={totalPaymentsIn} color="text-green-700">
-              {passengers.length === 0 ? (
-                <p className="text-xs text-slate-400 italic">Belum ada peserta</p>
-              ) : (
-                passengers.map((p) => {
-                  const c = custMap[p.customer_id] || {};
-                  const pays = paymentsByPassenger[p.id] || [];
-                  const total = pays.reduce((s, x) => s + (x.amount || 0), 0);
-                  return (
-                    <div key={p.id} className="flex justify-between text-sm py-1">
-                      <span className="text-slate-700">{c.name || `#${p.id}`}</span>
-                      <span className={`font-semibold ${total > 0 ? 'text-green-700' : 'text-slate-400'}`}>{fmtRupiah(total)}</span>
-                    </div>
-                  );
-                })
-              )}
-            </SubSection>
-            {manualIn > 0 && (
-              <SubSection title="Manual Cash In" total={manualIn} color="text-green-700">
-                {accEntries.filter((e) => e.type === 'in').map((e) => (
-                  <div key={e.id} className="flex justify-between text-sm py-1">
-                    <span className="text-slate-700">{e.description}{e.category && <span className="text-xs text-slate-400 ml-1">({e.category})</span>}</span>
-                    <span className="font-semibold text-green-700">{fmtRupiah(e.amount)}</span>
-                  </div>
-                ))}
-              </SubSection>
-            )}
-          </div>
+      {/* HPP detail */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-200 bg-amber-50">
+          <h2 className="font-bold text-amber-800 flex items-center gap-2">⬇ HPP & Vendor Cost <span className="text-sm ml-auto">{fmtRupiah(totalRealOut)}</span></h2>
         </div>
-
-        {/* CASH OUT */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-200 bg-amber-50">
-            <h2 className="font-bold text-amber-800 flex items-center gap-2">⬇ Real Cash Out <span className="text-sm ml-auto">{fmtRupiah(totalRealOut)}</span></h2>
-          </div>
-          <div className="p-5 space-y-3">
-            <SubSection title="HPP Lunas (Vendor sudah dibayar)" total={totalHppLunas} color="text-amber-700">
-              {hppLunas.length === 0 ? (
-                <p className="text-xs text-slate-400 italic">Belum ada HPP lunas</p>
-              ) : (
-                hppLunas.map((i) => (
-                  <div key={i.id} className="flex justify-between text-sm py-1">
-                    <span className="text-slate-700">{i.component}{i.vendor_name && <span className="text-xs text-slate-400 ml-1">· {i.vendor_name}</span>}</span>
-                    <span className="font-semibold text-amber-700">{fmtRupiah(i.total_amount)}</span>
-                  </div>
-                ))
-              )}
+        <div className="p-5 space-y-3">
+          {hppLunas.length > 0 && (
+            <SubSection title="HPP Lunas" total={totalHppLunas} color="text-amber-700">
+              {hppLunas.map((i) => (
+                <div key={i.id} className="flex justify-between text-sm py-1">
+                  <span className="text-slate-700">{i.component}{i.vendor_name && <span className="text-xs text-slate-400 ml-1">· {i.vendor_name}</span>}</span>
+                  <span className="font-semibold text-amber-700">{fmtRupiah(i.total_amount)}</span>
+                </div>
+              ))}
             </SubSection>
-            <SubSection title="Deposit PNR (sudah dibayar ke maskapai)" total={totalPnrPaid} color="text-amber-700">
-              {pnrs.length === 0 ? (
-                <p className="text-xs text-slate-400 italic">Belum ada PNR linked</p>
-              ) : (
-                pnrs.map((p) => {
-                  const totalPaid = (p.deposit_total || 0) + (p.payoff_amount || 0);
-                  return (
-                    <div key={p.id} className="flex justify-between text-sm py-1">
-                      <span className="text-slate-700">{p.pnr}{p.vendor && <span className="text-xs text-slate-400 ml-1">· {p.vendor}</span>}</span>
-                      <span className="font-semibold text-amber-700">{fmtRupiah(totalPaid)}</span>
-                    </div>
-                  );
-                })
-              )}
-            </SubSection>
-            {manualOut > 0 && (
-              <SubSection title="Manual Cash Out" total={manualOut} color="text-amber-700">
-                {accEntries.filter((e) => e.type === 'out').map((e) => (
-                  <div key={e.id} className="flex justify-between text-sm py-1">
-                    <span className="text-slate-700">{e.description}{e.category && <span className="text-xs text-slate-400 ml-1">({e.category})</span>}</span>
-                    <span className="font-semibold text-amber-700">{fmtRupiah(e.amount)}</span>
+          )}
+          {pnrs.length > 0 && totalPnrPaid > 0 && (
+            <SubSection title="Deposit PNR" total={totalPnrPaid} color="text-amber-700">
+              {pnrs.map((p) => {
+                const totalPaid = (p.deposit_total || 0) + (p.payoff_amount || 0);
+                if (totalPaid === 0) return null;
+                return (
+                  <div key={p.id} className="flex justify-between text-sm py-1">
+                    <span className="text-slate-700">{p.pnr}{p.vendor && <span className="text-xs text-slate-400 ml-1">· {p.vendor}</span>}</span>
+                    <span className="font-semibold text-amber-700">{fmtRupiah(totalPaid)}</span>
                   </div>
-                ))}
-              </SubSection>
-            )}
-
-            {hppOwed > 0 && (
-              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
-                <p className="font-bold">💼 Masih ada hutang vendor: {fmtRupiah(hppOwed)}</p>
-                <p className="mt-1">HPP yang sudah di-input di Finance tapi belum lunas.</p>
-              </div>
-            )}
-          </div>
+                );
+              })}
+            </SubSection>
+          )}
+          {manualOut > 0 && (
+            <SubSection title="Manual Cash Out" total={manualOut} color="text-amber-700">
+              {accEntries.filter((e) => e.type === 'out' && !e.linked_finance_item_id).map((e) => (
+                <div key={e.id} className="flex justify-between text-sm py-1">
+                  <span className="text-slate-700">{e.description}{e.category && <span className="text-xs text-slate-400 ml-1">({e.category})</span>}</span>
+                  <span className="font-semibold text-amber-700">{fmtRupiah(e.amount)}</span>
+                </div>
+              ))}
+            </SubSection>
+          )}
+          {hppOwed > 0 && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
+              <p className="font-bold">💼 Hutang vendor belum dibayar: {fmtRupiah(hppOwed)}</p>
+            </div>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* Comparison Proyeksi vs Real */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
-        <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">📊 Proyeksi vs Real</h3>
-        <table className="w-full text-sm">
-          <thead className="border-b border-slate-200">
-            <tr className="text-xs text-slate-600 uppercase">
-              <th className="py-2 text-left">Metrik</th>
-              <th className="py-2 text-right">Proyeksi (Finance)</th>
-              <th className="py-2 text-right">Real (Accounting)</th>
-              <th className="py-2 text-right">Selisih</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            <tr><td className="py-2">Income</td><td className="py-2 text-right text-slate-700">{fmtRupiah(proyIncome)}</td><td className="py-2 text-right text-green-700 font-semibold">{fmtRupiah(totalRealIn)}</td><td className="py-2 text-right text-slate-500">{fmtRupiah(totalRealIn - proyIncome)}</td></tr>
-            <tr><td className="py-2">HPP / Cost</td><td className="py-2 text-right text-slate-700">{fmtRupiah(proyHpp)}</td><td className="py-2 text-right text-amber-700 font-semibold">{fmtRupiah(totalRealOut)}</td><td className="py-2 text-right text-slate-500">{fmtRupiah(totalRealOut - proyHpp)}</td></tr>
-            <tr className="font-bold border-t-2"><td className="py-2">Profit</td><td className={`py-2 text-right ${proyProfit >= 0 ? 'text-purple-700' : 'text-red-700'}`}>{fmtRupiah(proyProfit)}</td><td className={`py-2 text-right ${realProfit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>{fmtRupiah(realProfit)}</td><td className="py-2 text-right text-slate-500">{fmtRupiah(realProfit - proyProfit)}</td></tr>
-          </tbody>
-        </table>
-      </div>
+function StatusBadge({ status }) {
+  const cfg = {
+    lunas:    { label: 'LUNAS ✓',  color: 'bg-green-100 text-green-700' },
+    cicilan:  { label: 'Cicilan',  color: 'bg-amber-100 text-amber-700' },
+    belum:    { label: 'Belum',    color: 'bg-red-100 text-red-700' },
+    overpaid: { label: 'Overpaid', color: 'bg-blue-100 text-blue-700' },
+  };
+  const c = cfg[status] || cfg.belum;
+  return <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${c.color}`}>{c.label}</span>;
+}
+
+function SummaryCard({ label, value, sub, color, bg }) {
+  return (
+    <div className={`rounded-lg p-3 ${bg}`}>
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">{label}</p>
+      <p className={`mt-1 text-lg font-bold ${color}`}>{value}</p>
+      {sub && <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>}
     </div>
   );
 }
