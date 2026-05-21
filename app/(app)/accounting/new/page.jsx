@@ -1,12 +1,15 @@
-// New manual accounting entry
-
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import AccountingForm from './AccountingForm';
 
 export default async function NewAccountingPage() {
   const supabase = createClient();
-  const { data: trips } = await supabase.from('trips').select('id, kode_trip, name').order('departure', { ascending: false, nullsFirst: false });
+  const [tripsRes, accountsRes] = await Promise.all([
+    supabase.from('trips').select('id, kode_trip, name').order('departure', { ascending: false, nullsFirst: false }),
+    supabase.from('accounts').select('id, name, type, active').order('name'),
+  ]);
+  // Filter active client-side — defaults to active=true if column missing/null
+  const activeAccounts = (accountsRes.data || []).filter((a) => a.active !== false);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -17,7 +20,7 @@ export default async function NewAccountingPage() {
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-6">
-        <AccountingForm trips={trips || []} />
+        <AccountingForm trips={tripsRes.data || []} accounts={activeAccounts} />
       </div>
     </div>
   );
