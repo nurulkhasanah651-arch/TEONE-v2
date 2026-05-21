@@ -1,36 +1,57 @@
-// Edit Trip page — uses shared TripForm pre-filled with current trip data
+// Master Tour Leader — list + add/edit inline
 
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import TripForm from '@/components/trips/TripForm';
-import { updateTrip } from '../../actions';
+import TLMasterTable from '@/components/tl-master/TLMasterTable';
 
-export default async function EditTripPage({ params }) {
-  const { id } = await params;
+export const dynamic = 'force-dynamic';
+
+async function safeQuery(promise, fallback = []) {
+  try {
+    const res = await promise;
+    return res.data || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export default async function TLMasterPage() {
   const supabase = createClient();
-  const { data: trip, error } = await supabase.from('trips').select('*').eq('id', id).maybeSingle();
+  const tourLeaders = await safeQuery(
+    supabase.from('tour_leaders').select('*').order('active', { ascending: false }).order('name')
+  );
 
-  if (error || !trip) {
-    notFound();
+  // Defensive: detect if migration ran
+  const hasMigration = tourLeaders.length === 0
+    ? null
+    : true;
+
+  // Probe: if select fails with table not found, hasMigration=false
+  let migrationFailed = false;
+  try {
+    const probe = await supabase.from('tour_leaders').select('id').limit(1);
+    if (probe.error && /relation .* does not exist/i.test(probe.error.message)) {
+      migrationFailed = true;
+    }
+  } catch {
+    migrationFailed = true;
   }
 
-  // Bind tripId to the server action
-  const updateThisTrip = updateTrip.bind(null, id);
-
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
       <div>
-        <Link href={`/trips/${id}`} className="text-sm text-brand-600 font-medium hover:underline">← Kembali ke detail</Link>
-        <h1 className="mt-2 text-3xl font-bold text-brand-700">Edit Trip</h1>
-        <p className="mt-1 text-slate-600">
-          <span className="font-mono font-bold">{trip.kode_trip || `#${trip.id}`}</span> — {trip.name}
-        </p>
+        <h1 className="text-3xl font-bold text-brand-700">Master Tour Leader</h1>
+        <p className="mt-1 text-slate-600">Database TL inhouse & freelance. TL akan match email + no HP saat login Portal TL.</p>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-6">
-        <TripForm initial={trip} onSubmit={updateThisTrip} submitLabel="Update Trip" />
-      </div>
+      {migrationFailed && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+          <h3 className="font-bold text-amber-800 mb-2">⚠ SQL Migration Round 36 Belum Dijalankan</h3>
+          <p className="text-sm text-amber-700">Jalankan SQL di <code>00_SQL_MIGRATION.txt</code> Round 36 di Supabase SQL Editor untuk aktifkan fitur ini.</p>
+        </div>
+      )}
+
+      <TLMasterTable tourLeaders={tourLeaders} />
     </div>
   );
 }
