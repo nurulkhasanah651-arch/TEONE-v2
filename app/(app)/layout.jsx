@@ -1,10 +1,12 @@
 // Authenticated app layout — wraps all logged-in pages with sidebar + header
-// Server Component: checks auth, redirects to /login if not signed in
+// Round 37: enforce role-based access
 
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
+import { getRoleFromUser, canAccessPath, defaultPathForRole } from '@/lib/utils/roles';
 
 export default async function AppLayout({ children }) {
   const supabase = createClient();
@@ -14,11 +16,27 @@ export default async function AppLayout({ children }) {
     redirect('/login');
   }
 
+  const role = getRoleFromUser(user);
+
+  // Belum punya role → kirim ke role picker
+  if (!role || role === 'pending') {
+    redirect('/auth/role-picker');
+  }
+
+  // Get current path dari header (set by middleware)
+  const headersList = await headers();
+  const pathname = headersList.get('x-pathname') || headersList.get('x-invoke-path') || '/';
+
+  // Cek akses path
+  if (!canAccessPath(role, pathname)) {
+    redirect(defaultPathForRole(role));
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
-      <Sidebar />
+      <Sidebar role={role} />
       <div className="md:pl-60">
-        <Header user={user} />
+        <Header user={user} role={role} />
         <main className="p-6">{children}</main>
       </div>
     </div>
