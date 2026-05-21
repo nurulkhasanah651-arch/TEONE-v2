@@ -1,10 +1,29 @@
-// New Trip page — uses shared TripForm
+// New Trip page — uses shared TripForm with TL master picker
 
 import Link from 'next/link';
 import TripForm from '@/components/trips/TripForm';
 import { createTrip } from '../actions';
+import { createClient } from '@/lib/supabase/server';
 
-export default function NewTripPage() {
+export const dynamic = 'force-dynamic';
+
+async function fetchTourLeaders() {
+  try {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from('tour_leaders')
+      .select('*')
+      .eq('active', true)
+      .order('name');
+    return data || [];
+  } catch {
+    return [];
+  }
+}
+
+export default async function NewTripPage() {
+  const tourLeaders = await fetchTourLeaders();
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
@@ -14,7 +33,7 @@ export default function NewTripPage() {
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-6">
-        <TripForm onSubmit={createTrip} submitLabel="Buat Trip" />
+        <TripForm onSubmit={createTrip} submitLabel="Buat Trip" tourLeaders={tourLeaders} />
       </div>
     </div>
   );
