@@ -1,0 +1,112 @@
+// TL Portal landing — assigned trips for TL
+
+import Link from 'next/link';
+import { createClient } from '@/lib/supabase/server';
+import { fmtDate, daysUntil } from '@/lib/utils/format';
+import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
+
+export const dynamic = 'force-dynamic';
+
+export default async function TLPortalPage() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Show all trips with assigned TL — in real app, filter by current user as TL
+  // For MVP, show all trips that have a TL assigned and are not completed
+  let activeTrips = [];
+  try {
+    const { data } = await supabase
+      .from('trips')
+      .select('*')
+      .order('departure', { ascending: true, nullsFirst: false });
+    activeTrips = (data || []).filter((t) =>
+      t.tl_name && t.tl_name.trim() && t.status !== 'completed' && t.status !== 'cancelled'
+    );
+  } catch {
+    activeTrips = [];
+  }
+  const userName = user?.user_metadata?.full_name?.toLowerCase() || user?.email?.split('@')[0]?.toLowerCase() || '';
+  const myTrips = activeTrips.filter((t) => (t.tl_name || '').toLowerCase().includes(userName));
+
+  return (
+    <div className="max-w-5xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-brand-700">Portal Tour Leader</h1>
+        <p className="mt-1 text-slate-600">Trip yang ditugaskan ke kamu — info trip, checklist, peserta.</p>
+      </div>
+
+      {/* My trips */}
+      <section className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-200 bg-brand-50">
+          <h2 className="font-bold text-brand-700">Trip Kamu ({myTrips.length})</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Auto-detect dari nama TL di trip yang match dengan akun kamu.</p>
+        </div>
+        {myTrips.length === 0 ? (
+          <div className="p-8 text-center">
+            <p className="text-3xl mb-2">👤</p>
+            <p className="text-sm text-slate-500">Belum ada trip yang di-assign ke kamu.</p>
+            <p className="text-xs text-slate-400 mt-1">Ops akan assign trip + nama TL match dengan nama akun kamu.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {myTrips.map((t) => <TripRow key={t.id} trip={t} isMine />)}
+          </div>
+        )}
+      </section>
+
+      {/* All active trips (kalau perlu liat trip lain) */}
+      <section className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-200">
+          <h2 className="font-bold text-brand-700">Semua Trip Aktif ({activeTrips.length})</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Trip aktif yang ada TL.</p>
+        </div>
+        {activeTrips.length === 0 ? (
+          <div className="p-8 text-center text-slate-500 text-sm">Belum ada trip aktif dengan TL assigned.</div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {activeTrips.map((t) => <TripRow key={t.id} trip={t} />)}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function TripRow({ trip: t, isMine }) {
+  const s = statusCfg(t.status);
+  const days = daysUntil(t.departure);
+  const checklist = tripChecklist(t);
+  const okCount = checklist.filter((c) => c.ok).length;
+
+  return (
+    <Link href={`/tl/${t.id}`} className="block px-5 py-3 hover:bg-slate-50 transition-colors">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-mono font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded">{t.kode_trip || `#${t.id}`}</span>
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${s.bg} ${s.text}`}>{s.label}</span>
+            {isMine && <span className="text-[10px] uppercase font-bold tracking-wider bg-brand-500 text-white px-1.5 py-0.5 rounded">Saya</span>}
+            <span className="text-[11px] px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold">TL: {t.tl_name}</span>
+            {days != null && days >= 0 && days <= 14 && (
+              <span className="text-[11px] px-2 py-0.5 rounded bg-red-100 text-red-700 font-bold animate-pulse">⏰ {days}h lagi</span>
+            )}
+          </div>
+          <p className="mt-1 text-sm font-bold text-slate-800">{t.name}</p>
+          <p className="text-xs text-slate-500 mt-0.5">{fmtDate(t.departure)} · {t.sold || 0} / {t.quota || 0} peserta</p>
+          <div className="mt-2 flex flex-wrap gap-1">
+            {checklist.map((c) => (
+              <span key={c.label} className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${c.ok ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                {c.ok ? '✓' : '○'} {c.label}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-xs font-bold text-brand-700">{okCount}/{checklist.length}</p>
+          <p className="text-[10px] text-slate-400">checklist</p>
+          <span className="text-xs text-brand-600 font-semibold mt-1 inline-block">Buka →</span>
+        </div>
+      </div>
+    </Link>
+  );
+}
