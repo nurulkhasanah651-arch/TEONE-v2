@@ -1,11 +1,16 @@
 'use client';
 
-// CS Daily form dengan ads source (Round 42)
+// CS Daily form — Round 48: room dropdown extended (+ Child/Infant/Land Tour Only)
 
 import { useState } from 'react';
 import { createCSUpdate } from '@/lib/actions/cs';
 
-const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Family'];
+// Pilihan room/base price — sesuai price_breakdown Master Trip
+const ROOM_TYPES = [
+  'Single', 'Twin', 'Double', 'Triple', 'Quad', 'Family',
+  'Child no Bed', 'Infant', 'Land Tour Only',
+];
+
 const SOURCES = [
   { value: 'instagram',   label: '📷 Instagram' },
   { value: 'whatsapp',    label: '💬 WhatsApp' },
@@ -74,7 +79,6 @@ export default function CSForm({ trips }) {
         <input type="date" name="tanggal" defaultValue={today} required className={inputCls} />
       </Field>
 
-      {/* Closing per Source */}
       <Section title="Closing Hari Ini (per Sumber)">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           <SourceField label="📷 Instagram" name="from_instagram" value={sources.ig}      onChange={(v) => setSources((s) => ({ ...s, ig: v }))} />
@@ -84,15 +88,13 @@ export default function CSForm({ trips }) {
           <SourceField label="🤝 Mitra"      name="closing_mitra"  value={sources.mitra}   onChange={(v) => setSources((s) => ({ ...s, mitra: v }))} />
         </div>
 
-        {/* ADS CLOSING — section sendiri */}
         <div className="mt-4 p-3 rounded-lg bg-indigo-50 border border-indigo-200">
           <p className="text-xs font-bold text-indigo-700 mb-2">🎯 Closing dari Iklan (Ads)</p>
           <div className="grid grid-cols-3 gap-2">
-            <SourceField label="📱 Meta" name="from_ads_meta"   value={sources.ads_meta}   onChange={(v) => setSources((s) => ({ ...s, ads_meta: v }))} />
+            <SourceField label="📱 Meta"   name="from_ads_meta"   value={sources.ads_meta}   onChange={(v) => setSources((s) => ({ ...s, ads_meta: v }))} />
             <SourceField label="🔍 Google" name="from_ads_google" value={sources.ads_google} onChange={(v) => setSources((s) => ({ ...s, ads_google: v }))} />
             <SourceField label="🎵 TikTok" name="from_ads_tiktok" value={sources.ads_tiktok} onChange={(v) => setSources((s) => ({ ...s, ads_tiktok: v }))} />
           </div>
-          {/* Total ads closing — auto sum, sent as hidden input */}
           <input type="hidden" name="closing_ads" value={sources.ads_meta + sources.ads_google + sources.ads_tiktok} />
         </div>
 
@@ -102,17 +104,14 @@ export default function CSForm({ trips }) {
             <p className="mt-1 text-2xl font-bold text-green-700">{totalTerjual}</p>
           </div>
           <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
-            <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">Sisa Seat Trip Ini</p>
+            <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">Sisa Seat</p>
             <p className="mt-1 text-2xl font-bold text-amber-700">{selectedTrip ? sisaSeat : '—'}</p>
           </div>
         </div>
       </Section>
 
-      {/* LEADS HARIAN DARI ADS */}
-      <Section title="🎯 Leads Harian dari Iklan (untuk Ads Manager)">
-        <p className="text-xs text-slate-500 -mt-2 mb-3">
-          Jumlah leads (orang yang fill form/DM) hari ini dari masing-masing platform. Untuk dihitung CAC & conversion rate di tab Ads Manager.
-        </p>
+      <Section title="🎯 Leads Harian dari Iklan">
+        <p className="text-xs text-slate-500 -mt-2 mb-3">Untuk dihitung CAC & conversion rate di Ads Manager.</p>
         <div className="grid grid-cols-3 gap-3">
           <SourceField label="📱 Meta Leads"   name="leads_ads_meta"   value={adsLeads.meta}   onChange={(v) => setAdsLeads((s) => ({ ...s, meta: v }))} />
           <SourceField label="🔍 Google Leads" name="leads_ads_google" value={adsLeads.google} onChange={(v) => setAdsLeads((s) => ({ ...s, google: v }))} />
@@ -120,7 +119,6 @@ export default function CSForm({ trips }) {
         </div>
       </Section>
 
-      {/* Inline Participants */}
       <Section title="Detail Peserta Baru (Opsional)">
         <p className="text-xs text-slate-500 -mt-2 mb-3">
           Isi nama peserta yang closing hari ini → otomatis masuk ke master file trip.
@@ -150,15 +148,16 @@ export default function CSForm({ trips }) {
                     </select>
                   </label>
                   <label className="block">
-                    <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Tipe Kamar</span>
+                    <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Tipe (Base Price)</span>
                     <select value={p.room_type} onChange={(e) => updParticipant(i, 'room_type', e.target.value)} className={miniInput}>
                       <option value="">— Pilih —</option>
                       {ROOM_TYPES.map((r) => <option key={r} value={r}>{r}</option>)}
                     </select>
+                    <span className="text-[9px] text-slate-500 block mt-0.5">Pilihan mengikuti price_breakdown trip</span>
                   </label>
                   <label className="block col-span-2">
-                    <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Harga Bayar (IDR)</span>
-                    <input type="number" value={p.price_paid} min="0" onChange={(e) => updParticipant(i, 'price_paid', e.target.value)} className={miniInput} placeholder="50000000" />
+                    <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Harga Bayar Override (opsional)</span>
+                    <input type="number" value={p.price_paid} min="0" onChange={(e) => updParticipant(i, 'price_paid', e.target.value)} className={miniInput} placeholder="Auto dari breakdown kalau kosong" />
                   </label>
                 </div>
               </div>
@@ -170,7 +169,7 @@ export default function CSForm({ trips }) {
         )}
       </Section>
 
-      <Field label="Total Leads Organik Hari Ini" hint="Leads yang BUKAN dari ads (organik IG, WA, referral, dll)">
+      <Field label="Total Leads Organik Hari Ini" hint="Leads yang BUKAN dari ads (organik IG, WA, referral)">
         <input type="number" name="jumlah_leads" defaultValue="0" min="0" className={inputCls} />
       </Field>
 
@@ -180,7 +179,7 @@ export default function CSForm({ trips }) {
 
       {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium">{error}</div>}
 
-      <button type="submit" disabled={pending} className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg shadow-card transition-colors">
+      <button type="submit" disabled={pending} className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-semibold rounded-lg shadow-card">
         {pending ? 'Menyimpan...' : `Simpan${filledParticipants.length > 0 ? ` + ${filledParticipants.length} Peserta` : ''}`}
       </button>
     </form>
