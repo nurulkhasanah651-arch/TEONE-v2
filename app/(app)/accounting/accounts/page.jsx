@@ -18,11 +18,12 @@ const TYPE_LABEL = {
 export default async function AccountsPage() {
   const supabase = createClient();
   const [accountsRes, entriesRes] = await Promise.all([
-    supabase.from('accounts').select('*').eq('active', true).order('sort_order', { ascending: true }).order('name'),
+    supabase.from('accounts').select('*').order('name'),
     supabase.from('accounting_entries').select('account_id, type, amount'),
   ]);
 
-  const accounts = accountsRes.data || [];
+  // Filter active client-side
+  const accounts = (accountsRes.data || []).filter((a) => a.active !== false);
   const balances = aggregateAccountBalances(accounts, entriesRes.data || []);
   const totalBalance = Object.values(balances).reduce((s, b) => s + b.balance, 0);
 
