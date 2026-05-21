@@ -1,89 +1,60 @@
-// Download roomlist as CSV — grouped by room type
+// /visa/[tripId]/roomlist.csv — Round 49: include room_assignment
 
 import { createClient } from '@/lib/supabase/server';
+import { NextResponse } from 'next/server';
 
-function escapeCsv(v) {
+export const dynamic = 'force-dynamic';
+
+function csvEscape(v) {
   if (v == null) return '';
-  const s = String(v);
-  if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`;
-  return s;
+  const s = String(v).replace(/"/g, '""');
+  return /[",\n]/.test(s) ? `"${s}"` : s;
 }
 
-const ROOM_ORDER = ['Single', 'Twin', 'Double', 'Triple', 'Family'];
-
-export async function GET(_request, { params }) {
+export async function GET(req, { params }) {
   const { tripId } = await params;
   const supabase = createClient();
-  const [tripRes, paxRes] = await Promise.all([
-    supabase.from('trips').select('id, kode_trip, name').eq('id', tripId).maybeSingle(),
-    supabase.from('trip_passengers').select('*').eq('trip_id', tripId).order('room_type').order('joined_at'),
-  ]);
+  const { data: trip } = await supabase.from('trips').select('kode_trip, name').eq('id', tripId).maybeSingle();
+  if (!trip) return new NextResponse('Trip not found', { status: 404 });
 
-  if (!tripRes.data) return new Response('Trip not found', { status: 404 });
-  const trip = tripRes.data;
-  const passengers = paxRes.data || [];
+  const { data: tp } = await supabase
+    .from('trip_passengers')
+    .select('*')
+    .eq('trip_id', tripId)
+    .order('room_assignment', { ascending: true, nullsFirst: false })
+    .order('joined_at', { ascending: true });
+
+  const passengers = tp || [];
   const customerIds = passengers.map((p) => p.customer_id).filter(Boolean);
-
-  let customerMap = {};
+  let custMap = {};
   if (customerIds.length > 0) {
     const { data: cust } = await supabase.from('customers').select('*').in('id', customerIds);
-    customerMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
+    custMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
   }
 
-  // Group by room type
-  const grouped = {};
-  for (const p of passengers) {
-    const room = p.room_type || 'Belum Set';
-    if (!grouped[room]) grouped[room] = [];
-    grouped[room].push(p);
-  }
-
-  // Sort room types: standard order first, then custom
-  const sortedRooms = Object.keys(grouped).sort((a, b) => {
-    const ia = ROOM_ORDER.indexOf(a);
-    const ib = ROOM_ORDER.indexOf(b);
-    if (ia === -1 && ib === -1) return a.localeCompare(b);
-    if (ia === -1) return 1;
-    if (ib === -1) return -1;
-    return ia - ib;
+  const header = ['No', 'Room', 'Tipe', 'Nama', 'Gender', 'No HP', 'Passport No', 'Passport Expiry', 'Tanggal Lahir', 'Notes'];
+  const rows = passengers.map((p, i) => {
+    const c = custMap[p.customer_id] || {};
+    return [
+      i + 1,
+      p.room_assignment || '',
+      p.room_type || '',
+      c.name || '',
+      c.gender || '',
+      c.phone || '',
+      c.passport_no || '',
+      c.passport_expiry || '',
+      c.birthday || '',
+      p.room_notes || '',
+    ];
   });
 
-  const headers = ['No', 'Tipe Kamar', 'Nama Lengkap', 'Gender', 'No Passport', 'No HP', 'Harga Bayar'];
-  const rows = [headers.map(escapeCsv).join(',')];
+  const csv = '﻿' + [header, ...rows].map((r) => r.map(csvEscape).join(',')).join('\r\n');
 
-  let i = 1;
-  for (const room of sortedRooms) {
-    const list = grouped[room];
-    for (const p of list) {
-      const c = customerMap[p.customer_id] || {};
-      rows.push([
-        i++,
-        room,
-        c.name || '',
-        c.gender === 'L' ? 'Laki-laki' : c.gender === 'P' ? 'Perempuan' : '',
-        c.passport_no || '',
-        c.phone || '',
-        p.price_paid || 0,
-      ].map(escapeCsv).join(','));
-    }
-    // Empty row between groups for readability
-    rows.push('');
-  }
-
-  // Summary at bottom
-  rows.push('');
-  rows.push('SUMMARY,Jumlah,,,,,'.split(',').map(escapeCsv).join(','));
-  for (const room of sortedRooms) {
-    rows.push([room, grouped[room].length, '', '', '', '', ''].map(escapeCsv).join(','));
-  }
-  rows.push(['TOTAL', passengers.length, '', '', '', '', ''].map(escapeCsv).join(','));
-
-  const csv = '﻿' + rows.join('\n');
-
-  return new Response(csv, {
+  return new NextResponse(csv, {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="roomlist_${trip.kode_trip || trip.id}.csv"`,
+      'Content-Disposition': `attachment; filename="roomlist_${trip.kode_trip || tripId}.csv"`,
     },
   });
 }
