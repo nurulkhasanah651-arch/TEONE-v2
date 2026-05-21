@@ -2,10 +2,12 @@
 
 // Shared trip form — used by both /trips/new and /trips/[id]/edit
 // Submits to a server action passed via props
+// Round 36: pakai TLPicker (dropdown master TL + fallback manual input)
 
 import { useState } from 'react';
+import TLPicker from './TLPicker';
 
-export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan Trip' }) {
+export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan Trip', tourLeaders = [] }) {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
 
@@ -17,7 +19,6 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
       setError(result.error);
       setPending(false);
     }
-    // Success → server action redirects; nothing more to do here
   }
 
   return (
@@ -45,7 +46,6 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
         </div>
       </Section>
 
-      {/* Dates */}
       <Section title="Tanggal">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Field label="Keberangkatan">
@@ -60,7 +60,6 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
         </div>
       </Section>
 
-      {/* Capacity & Price */}
       <Section title="Kapasitas & Harga">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Quota (jumlah seat)">
@@ -72,7 +71,6 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
         </div>
       </Section>
 
-      {/* Status & People */}
       <Section title="Status & Tim">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Status Penjualan">
@@ -88,13 +86,18 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
           <Field label="PIC (CS Officer)">
             <input name="pic" defaultValue={initial.pic || ''} className={inputCls} placeholder="Nama PIC" />
           </Field>
-          <Field label="Tour Leader" hint="Bisa diisi belakangan">
-            <input name="tl_name" defaultValue={initial.tl_name || ''} className={inputCls} placeholder="Nama TL" />
-          </Field>
+          <div className="md:col-span-2">
+            <Field label="Tour Leader" hint="Pilih dari master, atau input manual">
+              <TLPicker
+                tourLeaders={tourLeaders}
+                initialTlId={initial.tl_id || null}
+                initialTlName={initial.tl_name || ''}
+              />
+            </Field>
+          </div>
         </div>
       </Section>
 
-      {/* Operations Status */}
       <Section title="Status Operasional">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Field label="Status Tiket">
@@ -146,7 +149,6 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
         </div>
       </Section>
 
-      {/* Notes */}
       <Section title="Catatan">
         <Field label="Catatan (opsional)">
           <textarea name="notes" defaultValue={initial.notes || ''} rows="3" className={inputCls + ' resize-none'} placeholder="Hal penting tentang trip ini..." />
