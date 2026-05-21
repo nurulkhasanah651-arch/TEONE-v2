@@ -1,25 +1,68 @@
 'use client';
 
-// Shared trip form — Round 42: include Round 36 (TLPicker) + Round 42 (publish_date + closed_at)
-// Aman dipakai walau Round 36 belum di-upload — TLPicker fallback ke text input
+// Round 44 Trip Form — price breakdown + auto deadline + auto closed_at
+// Backwards compatible: TLPicker dipakai kalau ada (Round 36), fallback text input
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { ROOM_KEYS, AGE_KEYS, ADDON_KEYS, autoDeadlineClose } from '@/lib/utils/price-breakdown';
 
 let TLPicker;
-try {
-  TLPicker = require('./TLPicker').default;
-} catch {
-  // TLPicker belum ada (Round 36 belum upload) → fallback ke text input
-  TLPicker = null;
-}
+try { TLPicker = require('./TLPicker').default; } catch { TLPicker = null; }
 
 export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan Trip', tourLeaders = [] }) {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+  const [departure, setDeparture] = useState(initial.departure || '');
+  const [deadlineClose, setDeadlineClose] = useState(initial.deadline_close || '');
+  const [status, setStatus] = useState(initial.status || 'prepare to sell');
+  const [closedAt, setClosedAt] = useState(initial.closed_at || '');
+
+  // Price breakdown — controlled state
+  const initialBreakdown = initial.price_breakdown || {};
+  const [breakdown, setBreakdown] = useState(() => {
+    const init = {};
+    [...ROOM_KEYS, ...AGE_KEYS, ...ADDON_KEYS].forEach((it) => {
+      init[it.key] = initialBreakdown[it.key] || 0;
+    });
+    init._custom = Array.isArray(initialBreakdown._custom) ? initialBreakdown._custom : [];
+    return init;
+  });
+  const [newCustomName, setNewCustomName] = useState('');
+  const [newCustomPrice, setNewCustomPrice] = useState('');
+
+  function setBd(key, val) {
+    setBreakdown((b) => ({ ...b, [key]: parseInt(val) || 0 }));
+  }
+  function addCustom() {
+    if (!newCustomName.trim()) return;
+    setBreakdown((b) => ({ ...b, _custom: [...b._custom, { name: newCustomName.trim(), price: parseInt(newCustomPrice) || 0 }] }));
+    setNewCustomName('');
+    setNewCustomPrice('');
+  }
+  function removeCustom(idx) {
+    setBreakdown((b) => ({ ...b, _custom: b._custom.filter((_, i) => i !== idx) }));
+  }
+
+  // Auto deadline_close = departure - 45 hari (kalau user belum override)
+  useEffect(() => {
+    if (departure && !initial.deadline_close && !deadlineClose) {
+      const auto = autoDeadlineClose(departure);
+      if (auto) setDeadlineClose(auto);
+    }
+  }, [departure, initial.deadline_close]);
+
+  // Auto closed_at = today saat status ganti ke 'closed selling' atau 'completed'
+  useEffect(() => {
+    if (['closed selling', 'completed'].includes(status) && !closedAt) {
+      setClosedAt(new Date().toISOString().slice(0, 10));
+    }
+  }, [status]);
 
   async function handleSubmit(formData) {
     setPending(true);
     setError('');
+    // Inject breakdown sebagai hidden field JSON
+    formData.set('price_breakdown_json', JSON.stringify(breakdown));
     const result = await onSubmit(formData);
     if (result?.error) {
       setError(result.error);
@@ -27,16 +70,18 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
     }
   }
 
+  const totalRoomQuad = breakdown.quad;
+
   return (
     <form action={handleSubmit} className="space-y-5">
       {/* Basic info */}
       <Section title="Info Dasar">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field label="Kode Trip" hint="Contoh: KARANG-2026, #001">
-            <input name="kode_trip" defaultValue={initial.kode_trip || ''} className={inputCls} placeholder="(opsional)" />
+          <Field label="Kode Trip" hint="Contoh: KARANG-2026">
+            <input name="kode_trip" defaultValue={initial.kode_trip || ''} className={inputCls} />
           </Field>
           <Field label="Nama Trip" required>
-            <input name="name" defaultValue={initial.name || ''} required className={inputCls} placeholder="Contoh: KARANG 14 Hari" />
+            <input name="name" defaultValue={initial.name || ''} required className={inputCls} placeholder="KARANG 14 Hari" />
           </Field>
           <Field label="Tujuan">
             <input name="destination" defaultValue={initial.destination || ''} className={inputCls} placeholder="Eropa, Jepang, dll" />
@@ -52,44 +97,99 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
         </div>
       </Section>
 
-      {/* Dates — Round 42: tambah publish_date + closed_at */}
+      {/* Dates */}
       <Section title="Tanggal">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Field label="Tanggal Publish" hint="Kapan trip mulai diiklankan / launched">
+          <Field label="Tanggal Publish" hint="Kapan trip mulai diiklankan">
             <input type="date" name="publish_date" defaultValue={initial.publish_date || ''} className={inputCls} />
           </Field>
           <Field label="Keberangkatan">
-            <input type="date" name="departure" defaultValue={initial.departure || ''} className={inputCls} />
+            <input type="date" name="departure" value={departure} onChange={(e) => setDeparture(e.target.value)} className={inputCls} />
           </Field>
           <Field label="Kepulangan">
             <input type="date" name="arrival" defaultValue={initial.arrival || ''} className={inputCls} />
           </Field>
-          <Field label="Deadline Tutup Booking">
-            <input type="date" name="deadline_close" defaultValue={initial.deadline_close || ''} className={inputCls} />
+          <Field label="Deadline Tutup Booking" hint="Auto = departure − 45 hari (bisa override)">
+            <input type="date" name="deadline_close" value={deadlineClose} onChange={(e) => setDeadlineClose(e.target.value)} className={inputCls} />
           </Field>
-          <Field label="Tgl Closed Selling" hint="Kapan group ini close (untuk hitung durasi sales)">
-            <input type="date" name="closed_at" defaultValue={initial.closed_at || ''} className={inputCls} />
+          <Field label="Tgl Closed Selling" hint="Auto-set saat status → Closed Selling">
+            <input type="date" name="closed_at" value={closedAt} onChange={(e) => setClosedAt(e.target.value)} className={inputCls} />
           </Field>
         </div>
       </Section>
 
-      {/* Capacity & Price */}
-      <Section title="Kapasitas & Harga">
+      {/* Capacity */}
+      <Section title="Kapasitas">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Quota (jumlah seat)">
             <input type="number" name="quota" defaultValue={initial.quota || ''} min="0" className={inputCls} placeholder="20" />
           </Field>
-          <Field label="Harga per Pax (IDR)">
-            <input type="number" name="price" defaultValue={initial.price || ''} min="0" className={inputCls} placeholder="50000000" />
+          <Field label="Harga per Pax (legacy)" hint="Field lama. Pakai 'Harga per Tipe' di bawah untuk breakdown lengkap.">
+            <input type="number" name="price" defaultValue={initial.price || ''} min="0" className={inputCls} />
           </Field>
         </div>
       </Section>
 
-      {/* Status & People */}
+      {/* PRICE BREAKDOWN — BARU di Round 44 */}
+      <Section title="💰 Harga per Tipe (Breakdown)">
+        <div className="space-y-4">
+          {/* Tipe Kamar */}
+          <div>
+            <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">Tipe Kamar</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              {ROOM_KEYS.map((r) => (
+                <PriceField key={r.key} icon={r.icon} label={r.label} value={breakdown[r.key]} onChange={(v) => setBd(r.key, v)} />
+              ))}
+            </div>
+          </div>
+
+          {/* Anak/Bayi */}
+          <div>
+            <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">Anak / Bayi</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {AGE_KEYS.map((a) => (
+                <PriceField key={a.key} icon={a.icon} label={a.label} value={breakdown[a.key]} onChange={(v) => setBd(a.key, v)} />
+              ))}
+            </div>
+          </div>
+
+          {/* Add-ons */}
+          <div>
+            <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">Add-on</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              {ADDON_KEYS.map((a) => (
+                <PriceField key={a.key} icon={a.icon} label={a.label} value={breakdown[a.key]} onChange={(v) => setBd(a.key, v)} />
+              ))}
+            </div>
+          </div>
+
+          {/* Custom items */}
+          <div>
+            <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">Custom Items</p>
+            {breakdown._custom.length > 0 && (
+              <div className="space-y-1 mb-2">
+                {breakdown._custom.map((c, i) => (
+                  <div key={i} className="flex items-center gap-2 p-2 bg-slate-50 rounded">
+                    <span className="flex-1 text-sm">{c.name}: Rp {Number(c.price || 0).toLocaleString('id-ID')}</span>
+                    <button type="button" onClick={() => removeCustom(i)} className="text-xs px-2 py-0.5 rounded bg-red-50 text-red-700">🗑</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input type="text" value={newCustomName} onChange={(e) => setNewCustomName(e.target.value)} placeholder="Nama item custom" className="flex-1 px-2 py-1.5 border border-slate-300 rounded text-sm" />
+              <input type="number" value={newCustomPrice} onChange={(e) => setNewCustomPrice(e.target.value)} placeholder="Harga" className="w-32 px-2 py-1.5 border border-slate-300 rounded text-sm" />
+              <button type="button" onClick={addCustom} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded">+ Add</button>
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      {/* Status & Tim */}
       <Section title="Status & Tim">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Status Penjualan">
-            <select name="status" defaultValue={initial.status || 'prepare to sell'} className={inputCls}>
+            <select name="status" value={status} onChange={(e) => setStatus(e.target.value)} className={inputCls}>
               <option value="prepare to sell">Prepare to Sell</option>
               <option value="open selling">Open Selling</option>
               <option value="closed selling">Closed Selling</option>
@@ -104,11 +204,7 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
           <div className="md:col-span-2">
             <Field label="Tour Leader" hint="Pilih dari master TL atau input manual">
               {TLPicker ? (
-                <TLPicker
-                  tourLeaders={tourLeaders}
-                  initialTlId={initial.tl_id || null}
-                  initialTlName={initial.tl_name || ''}
-                />
+                <TLPicker tourLeaders={tourLeaders} initialTlId={initial.tl_id || null} initialTlName={initial.tl_name || ''} />
               ) : (
                 <input name="tl_name" defaultValue={initial.tl_name || ''} className={inputCls} placeholder="Nama TL" />
               )}
@@ -169,27 +265,30 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
         </div>
       </Section>
 
-      {/* Notes */}
       <Section title="Catatan">
         <Field label="Catatan (opsional)">
-          <textarea name="notes" defaultValue={initial.notes || ''} rows="3" className={inputCls + ' resize-none'} placeholder="Hal penting tentang trip ini..." />
+          <textarea name="notes" defaultValue={initial.notes || ''} rows="3" className={inputCls + ' resize-none'} />
         </Field>
       </Section>
 
-      {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium">
-          {error}
-        </div>
-      )}
+      {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium">{error}</div>}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg shadow-card transition-colors"
-      >
+      <button type="submit" disabled={pending} className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-semibold rounded-lg shadow-card">
         {pending ? 'Menyimpan...' : submitLabel}
       </button>
     </form>
+  );
+}
+
+function PriceField({ icon, label, value, onChange }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold text-slate-700 block mb-1">{icon} {label}</span>
+      <div className="relative">
+        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">Rp</span>
+        <input type="number" min="0" value={value || ''} onChange={(e) => onChange(e.target.value)} onFocus={(e) => e.target.select()} className="w-full pl-7 pr-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-brand-500 outline-none bg-white" placeholder="0" />
+      </div>
+    </label>
   );
 }
 
@@ -198,7 +297,7 @@ const inputCls = 'w-full px-3 py-2 border border-slate-300 rounded-lg text-sm fo
 function Section({ title, children }) {
   return (
     <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
-      <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">{title}</p>
+      <p className="text-sm font-bold text-brand-700 uppercase tracking-wider mb-3">{title}</p>
       {children}
     </div>
   );
