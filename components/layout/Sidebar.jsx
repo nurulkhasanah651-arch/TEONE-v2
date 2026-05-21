@@ -1,15 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import { filterNavByRole } from '@/lib/utils/roles';
 
-// Full nav list — akan di-filter by role
 const NAV_ALL = [
   { href: '/dashboard',         label: 'Dashboard',      icon: '◆' },
   { href: '/trips',             label: 'Master Trip',    icon: '✈' },
   { href: '/cs',                label: 'CS Daily',       icon: '☎' },
-  { href: '/finance/payments',  label: 'Payment Peserta',icon: '🧾' },  // accessible by CS too
+  { href: '/finance/payments',  label: 'Payment Peserta',icon: '🧾' },
   { href: '/finance',           label: 'Finance',        icon: '$' },
   { href: '/accounting',        label: 'Accounting',     icon: '📊' },
   { href: '/visa',              label: 'Visa',           icon: '🛂' },
@@ -19,16 +19,22 @@ const NAV_ALL = [
 
 export default function Sidebar({ role = null }) {
   const pathname = usePathname();
+  const router = useRouter();
   const nav = filterNavByRole(NAV_ALL, role);
 
-  // De-dupe — kalau Payment Peserta + Finance dua-duanya jalan, hide Payment
-  // (Finance parent sudah include semua). Cuma show Payment kalau role=cs.
   let visible = nav;
   if (role !== 'cs') {
     visible = nav.filter((n) => n.href !== '/finance/payments');
   } else {
-    // CS: pastikan /finance parent hidden, cuma /finance/payments
     visible = nav.filter((n) => n.href !== '/finance');
+  }
+
+  async function handleLogout() {
+    if (!confirm('Yakin mau keluar dari TEONE?')) return;
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
   }
 
   return (
@@ -43,7 +49,7 @@ export default function Sidebar({ role = null }) {
         </div>
       </div>
 
-      <nav className="flex-1 p-3 space-y-1">
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {visible.map((item) => {
           const active = pathname.startsWith(item.href);
           return (
@@ -66,7 +72,18 @@ export default function Sidebar({ role = null }) {
         )}
       </nav>
 
-      <div className="px-5 py-3 border-t border-slate-200 text-[11px] text-slate-400 flex items-center justify-between">
+      {/* Logout button */}
+      <div className="p-3 border-t border-slate-200">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors"
+        >
+          <span className="text-base w-5 text-center">🚪</span>
+          <span>Keluar</span>
+        </button>
+      </div>
+
+      <div className="px-5 py-2 border-t border-slate-200 text-[11px] text-slate-400 flex items-center justify-between">
         <span className="flex items-center gap-1.5">
           <span className="text-green-500">●</span> v2.0
         </span>
