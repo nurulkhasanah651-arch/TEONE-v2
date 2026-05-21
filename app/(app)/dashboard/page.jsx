@@ -1,32 +1,102 @@
-// Dashboard — overview with greeting + key stats
-// Server Component: fetches user + trip count from Supabase
+// Dashboard — Round 50: lengkap dengan quick actions, revenue expected, leads ads harian
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { greeting } from '@/lib/utils/format';
+import { greeting, fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
+import { mainExpectedPerPassenger } from '@/lib/utils/price-breakdown';
+import { getRoleFromUser, filterNavByRole } from '@/lib/utils/roles';
+
+export const dynamic = 'force-dynamic';
+
+const ALL_QUICK = [
+  { href: '/trips',             icon: '✈',   label: 'Master Trip',     color: 'from-brand-500 to-brand-700' },
+  { href: '/cs',                icon: '☎',   label: 'CS Daily',        color: 'from-green-500 to-green-700' },
+  { href: '/cs/new',            icon: '➕',  label: 'Input CS Baru',   color: 'from-green-400 to-green-600' },
+  { href: '/finance',           icon: '$',   label: 'Finance',         color: 'from-blue-500 to-blue-700' },
+  { href: '/finance/payments',  icon: '🧾',  label: 'Payment Peserta', color: 'from-blue-400 to-blue-600' },
+  { href: '/accounting',        icon: '📊',  label: 'Accounting',      color: 'from-purple-500 to-purple-700' },
+  { href: '/ads',               icon: '🎯',  label: 'Ads Manager',     color: 'from-orange-500 to-orange-700' },
+  { href: '/visa',              icon: '🛂',  label: 'Visa',            color: 'from-indigo-500 to-indigo-700' },
+  { href: '/tl',                icon: '👤',  label: 'Portal TL',       color: 'from-pink-500 to-pink-700' },
+  { href: '/tl-master',         icon: '👥',  label: 'Master TL',       color: 'from-rose-500 to-rose-700' },
+  { href: '/tasks',             icon: '✅',  label: 'To-Do List',      color: 'from-amber-500 to-amber-700' },
+  { href: '/chat',              icon: '💬',  label: 'Chat Tim',        color: 'from-cyan-500 to-cyan-700' },
+];
 
 export default async function DashboardPage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const role = getRoleFromUser(user);
+  const today = new Date().toISOString().slice(0, 10);
 
-  // Fetch stat counts in parallel
-  const [tripsRes, openSellingRes, csTodayRes] = await Promise.all([
-    supabase.from('trips').select('id', { count: 'exact', head: true }),
-    supabase.from('trips').select('id', { count: 'exact', head: true }).eq('status', 'open selling'),
-    supabase.from('cs_daily_updates').select('id', { count: 'exact', head: true }).eq('tanggal', new Date().toISOString().slice(0, 10)),
+  // Fetch all data in parallel
+  const [tripsRes, allPaxRes, csTodayRes, adsTodayRes] = await Promise.all([
+    supabase.from('trips').select('*').order('departure', { ascending: true, nullsFirst: false }),
+    supabase.from('trip_passengers').select('*'),
+    supabase.from('cs_daily_updates').select('*').eq('tanggal', today),
+    supabase.from('ads_entries').select('*').eq('date', today),
   ]);
 
-  const totalTrips = tripsRes.count ?? 0;
-  const openSelling = openSellingRes.count ?? 0;
-  const csToday = csTodayRes.count ?? 0;
+  const trips = tripsRes.data || [];
+  const allPax = allPaxRes.data || [];
+  const csToday = csTodayRes.data || [];
+  const adsToday = adsTodayRes.data || [];
+
+  // Aggregate paxByTrip
+  const paxByTrip = {};
+  for (const p of allPax) {
+    if (!paxByTrip[p.trip_id]) paxByTrip[p.trip_id] = [];
+    paxByTrip[p.trip_id].push(p);
+  }
+
+  // Compute Expected Revenue (sum of MAIN expected per peserta across all active trips)
+  let totalExpectedRevenue = 0;
+  for (const t of trips) {
+    if (t.status === 'cancelled') continue;
+    const breakdown = t.price_breakdown || {};
+    const pax = paxByTrip[t.id] || [];
+    for (const p of pax) {
+      totalExpectedRevenue += mainExpectedPerPassenger(p, breakdown);
+    }
+  }
+
+  // Stats
+  const totalTrips = trips.length;
+  const openSelling = trips.filter((t) => t.status === 'open selling').length;
+  const totalSeatLeft = trips.reduce((s, t) => s + (t.seat_left || 0), 0);
+  const totalPax = allPax.length;
+  const csUpdatesToday = csToday.length;
+
+  // Today's leads
+  const todayClosingTotal = csToday.reduce((s, c) =>
+    s + (c.from_instagram || 0) + (c.from_whatsapp || 0) + (c.from_offline || 0)
+      + (c.closing_alumni || 0) + (c.closing_mitra || 0)
+      + (c.from_ads_meta || 0) + (c.from_ads_google || 0) + (c.from_ads_tiktok || 0)
+  , 0);
+
+  const todayOrganicLeads = csToday.reduce((s, c) => s + (c.jumlah_leads || 0), 0);
+  const todayAdsLeadsMeta   = csToday.reduce((s, c) => s + (c.leads_ads_meta || 0), 0);
+  const todayAdsLeadsGoogle = csToday.reduce((s, c) => s + (c.leads_ads_google || 0), 0);
+  const todayAdsLeadsTiktok = csToday.reduce((s, c) => s + (c.leads_ads_tiktok || 0), 0);
+  const todayAdsLeadsTotal  = todayAdsLeadsMeta + todayAdsLeadsGoogle + todayAdsLeadsTiktok;
+  const todayTotalLeads     = todayOrganicLeads + todayAdsLeadsTotal;
+
+  // Today ads spend
+  const todayAdsSpend = adsToday.reduce((s, e) => s + (Number(e.spend) || 0), 0);
+
+  // Upcoming trips (next 30 days)
+  const upcoming = trips
+    .filter((t) => {
+      if (!t.departure) return false;
+      if (t.status === 'completed' || t.status === 'cancelled') return false;
+      const d = daysUntil(t.departure);
+      return d != null && d >= 0 && d <= 30;
+    })
+    .sort((a, b) => new Date(a.departure) - new Date(b.departure))
+    .slice(0, 5);
 
   const name = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'User';
-
-  const stats = [
-    { label: 'Total Trip', value: totalTrips, color: 'text-brand-700', bg: 'bg-brand-50', href: '/trips' },
-    { label: 'Open Selling', value: openSelling, color: 'text-blue-700', bg: 'bg-blue-50', href: '/trips' },
-    { label: 'CS Update Hari Ini', value: csToday, color: 'text-green-700', bg: 'bg-green-50', href: '/cs' },
-  ];
+  const visibleQuick = filterNavByRole(ALL_QUICK, role);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -35,47 +105,107 @@ export default async function DashboardPage() {
         <p className="mt-1 text-slate-600">Selamat datang kembali di TEONE — Traveling Eropa One System.</p>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {stats.map((s) => (
-          <Link
-            key={s.label}
-            href={s.href}
-            className="bg-white rounded-xl border border-slate-200 shadow-card p-5 hover:shadow-card-hover transition-shadow"
-          >
-            <p className="text-sm font-medium text-slate-500">{s.label}</p>
-            <p className={`mt-2 text-3xl font-bold ${s.color}`}>{s.value}</p>
-            <div className={`mt-3 inline-block ${s.bg} ${s.color} text-xs font-semibold px-2 py-1 rounded`}>
-              Lihat detail →
-            </div>
-          </Link>
-        ))}
+      {/* HERO STATS */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <BigStat label="✈ Total Trip" value={totalTrips} sub={`${openSelling} open selling`} color="text-brand-700" bg="bg-brand-50" href="/trips" />
+        <BigStat label="🪑 Seat Tersisa" value={totalSeatLeft} sub={`${totalPax} peserta total`} color="text-amber-700" bg="bg-amber-50" href="/trips" />
+        <BigStat label="💰 Expected Revenue" value={fmtRupiah(totalExpectedRevenue)} sub="Proyeksi dari breakdown × pax" color="text-green-700" bg="bg-green-50" href="/finance/cashflow" small />
+        <BigStat label="📞 CS Hari Ini" value={csUpdatesToday} sub={`${todayClosingTotal} closing`} color="text-blue-700" bg="bg-blue-50" href="/cs" />
+        <BigStat label="🎯 Leads Ads Hari Ini" value={todayAdsLeadsTotal} sub={`${todayAdsLeadsMeta}/Meta · ${todayAdsLeadsGoogle}/Google · ${todayAdsLeadsTiktok}/TikTok`} color="text-indigo-700" bg="bg-indigo-50" href="/ads" />
+        <BigStat label="💸 Spend Ads Hari Ini" value={fmtRupiah(todayAdsSpend)} sub={`${adsToday.length} entries`} color="text-orange-700" bg="bg-orange-50" href="/ads" small />
       </div>
 
-      {/* Quick actions */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-6">
-        <h2 className="text-lg font-bold text-brand-700 mb-3">Akses Cepat</h2>
+      {/* DAILY SNAPSHOT — Leads + Closing */}
+      <div className="bg-gradient-to-r from-brand-50 to-blue-50 rounded-xl border border-brand-200 shadow-card p-5">
+        <h2 className="text-sm font-bold text-brand-700 uppercase tracking-wider mb-3">📅 Snapshot Hari Ini ({fmtDate(today)})</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Link href="/trips" className="p-4 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 transition-colors text-center">
-            <p className="text-2xl mb-1">✈</p>
-            <p className="text-sm font-semibold text-slate-700">Master Trip</p>
-          </Link>
-          <Link href="/cs/new" className="p-4 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 transition-colors text-center">
-            <p className="text-2xl mb-1">+</p>
-            <p className="text-sm font-semibold text-slate-700">Input CS Daily</p>
-          </Link>
-          <div className="p-4 rounded-lg border border-slate-200 bg-slate-50 text-center opacity-60">
-            <p className="text-2xl mb-1">$</p>
-            <p className="text-sm font-semibold text-slate-500">Finance</p>
-            <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">soon</p>
-          </div>
-          <div className="p-4 rounded-lg border border-slate-200 bg-slate-50 text-center opacity-60">
-            <p className="text-2xl mb-1">👤</p>
-            <p className="text-sm font-semibold text-slate-500">Portal TL</p>
-            <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">soon</p>
-          </div>
+          <MiniStat label="📊 Total Leads Hari Ini" value={todayTotalLeads} sub={`${todayOrganicLeads} organik + ${todayAdsLeadsTotal} ads`} color="text-blue-700" />
+          <MiniStat label="✓ Total Closing" value={todayClosingTotal} sub="dari semua trip" color="text-green-700" />
+          <MiniStat label="🎯 Conv Ads (kalau ada)" value={todayAdsLeadsTotal > 0 ? `${Math.round((csToday.reduce((s,c)=>s+(c.closing_ads||0),0) / todayAdsLeadsTotal) * 100)}%` : '—'} sub="closing_ads / leads_ads" color="text-indigo-700" />
+          <MiniStat label="💵 CAC Ads (kalau ada)" value={(() => {
+            const closing = csToday.reduce((s,c)=>s+(c.closing_ads||0),0);
+            return closing > 0 ? fmtRupiah(todayAdsSpend / closing) : '—';
+          })()} sub="spend / closing" color="text-orange-700" />
         </div>
       </div>
+
+      {/* Quick actions — filtered by role */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-6">
+        <h2 className="text-lg font-bold text-brand-700 mb-3">⚡ Akses Cepat</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          {visibleQuick.map((q) => (
+            <Link
+              key={q.href}
+              href={q.href}
+              className="bg-white rounded-xl border border-slate-200 shadow-card hover:shadow-card-hover transition-all hover:-translate-y-0.5 overflow-hidden"
+            >
+              <div className={`h-1.5 bg-gradient-to-r ${q.color}`} />
+              <div className="p-3 text-center">
+                <div className="text-2xl mb-1">{q.icon}</div>
+                <p className="font-bold text-brand-700 text-xs">{q.label}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Upcoming trips */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
+          <h2 className="font-bold text-brand-700">🚀 Trip Berangkat 30 Hari ke Depan ({upcoming.length})</h2>
+          <Link href="/trips" className="text-xs font-semibold text-brand-600 hover:underline">Lihat semua →</Link>
+        </div>
+        {upcoming.length === 0 ? (
+          <div className="p-8 text-center text-sm text-slate-500">Tidak ada trip dalam 30 hari ke depan.</div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {upcoming.map((t) => {
+              const d = daysUntil(t.departure);
+              const pax = (paxByTrip[t.id] || []).length;
+              return (
+                <Link key={t.id} href={`/trips/${t.id}`} className="block px-5 py-3 hover:bg-slate-50">
+                  <div className="flex items-start justify-between gap-2 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-mono font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded">{t.kode_trip || `#${t.id}`}</span>
+                        {d <= 7 && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-700 animate-pulse">⏰ {d}h</span>}
+                        {d > 7 && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700">{d}h lagi</span>}
+                        {t.tl_name && <span className="text-[10px] px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold">TL: {t.tl_name}</span>}
+                      </div>
+                      <p className="mt-1 text-sm font-bold text-slate-800">{t.name}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{fmtDate(t.departure)} · {pax} peserta · {t.destination || '—'}</p>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BigStat({ label, value, sub, color, bg, href, small = false }) {
+  const inner = (
+    <div className={`bg-white rounded-xl border border-slate-200 shadow-card p-4 hover:shadow-card-hover transition-shadow ${href ? 'cursor-pointer' : ''}`}>
+      <div className={`inline-block ${bg} ${color} text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded mb-2`}>
+        {label}
+      </div>
+      <p className={`font-bold ${color} ${small ? 'text-lg' : 'text-2xl'} leading-tight`}>{value}</p>
+      {sub && <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>}
+    </div>
+  );
+  if (href) return <Link href={href}>{inner}</Link>;
+  return inner;
+}
+
+function MiniStat({ label, value, sub, color }) {
+  return (
+    <div className="bg-white/70 rounded-lg p-3">
+      <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">{label}</p>
+      <p className={`mt-1 text-xl font-bold ${color}`}>{value}</p>
+      {sub && <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>}
     </div>
   );
 }
