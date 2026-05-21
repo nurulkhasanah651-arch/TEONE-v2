@@ -1,4 +1,4 @@
-// Payment Checklist per trip — Round 47: pass price_breakdown ke matrix
+// Payment Checklist per trip — Round 48: pass breakdown + payments untuk expected calc
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -41,8 +41,11 @@ export default async function TripPaymentsPage({ params }) {
   const template = (trip.payment_template && typeof trip.payment_template === 'object') ? trip.payment_template : {};
   const breakdown = (trip.price_breakdown && typeof trip.price_breakdown === 'object') ? trip.price_breakdown : {};
 
-  // Expected total = sum of expected per peserta (room + addons + customs)
-  const totalExpected = passengers.reduce((s, p) => s + expectedPerPassenger(p, breakdown), 0);
+  // Expected total = sum expected per peserta (WAJIB + ✓ optional)
+  const totalExpected = passengers.reduce(
+    (s, p) => s + expectedPerPassenger(p, breakdown, paymentsByPassenger[p.id] || []),
+    0
+  );
   const totalPaid = Object.values(paymentsByPassenger).flat().reduce((s, p) => s + (p.amount || 0), 0);
   const progress = totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : 0;
 
@@ -52,7 +55,7 @@ export default async function TripPaymentsPage({ params }) {
         <Link href="/finance/payments" className="text-sm text-brand-600 font-medium hover:underline">← Payment Checklist</Link>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.kode_trip || `#${trip.id}`} — {trip.name}</h1>
         <p className="mt-1 text-slate-600">
-          Matrix auto-sync dengan price breakdown Master Trip · Cicilan + Add-ons + Custom items.
+          WAJIB: room + tips + city tax · OPTIONAL: visa/asuransi/customs (cuma masuk expected setelah ✓)
         </p>
       </div>
 
@@ -63,10 +66,8 @@ export default async function TripPaymentsPage({ params }) {
         <StatCard label="Progress" value={`${progress}%`} color="text-purple-700" bg="bg-purple-50" />
       </div>
 
-      {/* Group Template — masih ada untuk set nominal cicilan DP/P1/P2/P3 */}
       <PaymentTemplateForm tripId={tripId} template={template} />
 
-      {/* Matrix dengan breakdown */}
       <PaymentMatrix
         tripId={tripId}
         passengers={passengersWithCustomers}
