@@ -87,7 +87,8 @@ export default async function AccountingDashboard({ searchParams }) {
       </div>
 
       {/* Action cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+        <SectionCard href="/accounting/reports" icon="📊" title="Laporan Bulanan" desc="P&L, Cash Flow, trend 6 bulan" color="from-indigo-500 to-blue-700" />
         <SectionCard href="/accounting/accounts" icon="🏦" title="Bank & Cash" desc={`${accounts.length} akun aktif`} color="from-blue-500 to-blue-700" />
         <SectionCard href="/accounting/groups" icon="📈" title="Real Cashflow per Group" desc="Cash flow real per trip" color="from-green-500 to-emerald-700" />
         <SectionCard href="/accounting/balance-sheet" icon="📋" title="Balance Sheet" desc="Assets vs Liabilities" color="from-purple-500 to-purple-700" />
