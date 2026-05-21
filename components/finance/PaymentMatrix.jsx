@@ -1,7 +1,7 @@
 'use client';
 
-// Payment matrix — rows: peserta, cols: milestones (standard + custom from template).
-// Click cell to toggle. Click amount to edit. Click peserta name to expand for notes per cell.
+// Payment matrix — Round 46: hapus annoying alert confirm template,
+// dan pakai case-insensitive lookup biar robust
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -10,6 +10,17 @@ import { fmtRupiah } from '@/lib/utils/format';
 
 const STANDARD = ['DP', 'P1', 'P2', 'P3', 'Pelunasan', 'Visa', 'Asuransi'];
 
+// Case-insensitive template lookup — kalau key beda case, tetep cari match
+function getTplAmount(template, type) {
+  if (!template) return 0;
+  if (template[type] != null) return template[type];
+  // Fallback case-insensitive
+  for (const k of Object.keys(template)) {
+    if (k.toLowerCase() === type.toLowerCase()) return template[k];
+  }
+  return 0;
+}
+
 export default function PaymentMatrix({ tripId, passengers = [], paymentsByPassenger = {}, template = {} }) {
   const [pending, startTransition] = useTransition();
   const [editingCell, setEditingCell] = useState(null);
@@ -17,12 +28,15 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
   const [expandedRow, setExpandedRow] = useState(null);
   const router = useRouter();
 
-  // Derive milestone columns: standard order + custom from template
   const templateKeys = Object.keys(template || {});
   const customKeys = templateKeys.filter((k) => !STANDARD.includes(k));
-  const milestones = [...STANDARD, ...customKeys].map((k) => ({ key: k, label: k, amount: template[k] || 0, isCustom: !STANDARD.includes(k) }));
+  const milestones = [...STANDARD, ...customKeys].map((k) => ({
+    key: k,
+    label: k,
+    amount: getTplAmount(template, k),
+    isCustom: !STANDARD.includes(k),
+  }));
 
-  // Build lookup
   const paymentLookup = {};
   for (const pid in paymentsByPassenger) {
     paymentLookup[pid] = {};
@@ -32,10 +46,9 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
   }
 
   function handleToggle(passengerId, type) {
-    const tplAmount = template[type] || 0;
-    if (!template[type] && !paymentLookup[passengerId]?.[type]) {
-      if (!confirm(`Template untuk ${type} belum di-set (0). Tetap tandai lunas?`)) return;
-    }
+    const tplAmount = getTplAmount(template, type);
+    // Round 46: Tidak ada lagi confirm dialog yang annoying.
+    // Kalau template 0, payment tercatat dengan amount 0 — user bisa edit nominal di cell.
     startTransition(async () => {
       const result = await toggleMilestone(passengerId, tripId, type, tplAmount);
       if (result?.error) alert(result.error);
@@ -170,7 +183,6 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
                     </td>
                   </tr>
 
-                  {/* Expanded row — payment details with notes editor */}
                   {isExpanded && (
                     <tr key={`${p.id}-exp`} className="bg-amber-50/30">
                       <td colSpan={milestones.length + 2} className="px-5 py-3">
