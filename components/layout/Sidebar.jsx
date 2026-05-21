@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const NAV = [
-  { href: '/dashboard', label: 'Dashboard',   icon: '◆' },
-  { href: '/trips',     label: 'Master Trip', icon: '✈' },
-  { href: '/cs',        label: 'CS Daily',    icon: '☎' },
-  { href: '/finance',   label: 'Finance',     icon: '$' },
-  { href: '/accounting',label: 'Accounting',  icon: '📊' },
-  { href: '/visa',      label: 'Visa',        icon: '🛂' },
-  { href: '/tl',        label: 'Portal TL',   icon: '👤' },
+  { href: '/dashboard',  label: 'Dashboard',     icon: '◆' },
+  { href: '/trips',      label: 'Master Trip',   icon: '✈' },
+  { href: '/cs',         label: 'CS Daily',      icon: '☎' },
+  { href: '/finance',    label: 'Finance',       icon: '$' },
+  { href: '/accounting', label: 'Accounting',    icon: '📊' },
+  { href: '/visa',       label: 'Visa',          icon: '🛂' },
+  { href: '/tl',         label: 'Portal TL',     icon: '👤' },
+  { href: '/tl-master',  label: 'Master TL',     icon: '👥' },
 ];
 
 export default function Sidebar() {
@@ -18,7 +19,6 @@ export default function Sidebar() {
 
   return (
     <aside className="hidden md:flex md:flex-col md:w-60 md:fixed md:inset-y-0 md:left-0 bg-white border-r border-slate-200 z-30">
-      {/* Brand */}
       <div className="flex items-center gap-3 px-5 h-16 border-b border-slate-200">
         <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white text-lg">
           ✈
@@ -29,7 +29,6 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 p-3 space-y-1">
         {NAV.map((item) => {
           const active = pathname.startsWith(item.href);
@@ -56,7 +55,6 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Footer */}
       <div className="px-5 py-3 border-t border-slate-200 text-[11px] text-slate-400 flex items-center justify-between">
         <span className="flex items-center gap-1.5">
           <span className="text-green-500">●</span> v2.0
