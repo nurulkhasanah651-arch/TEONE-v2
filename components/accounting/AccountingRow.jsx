@@ -1,71 +1,67 @@
 'use client';
 
-import Link from 'next/link';
-import { useTransition } from 'react';
-import { useRouter } from 'next/navigation';
-import { deleteAccountingEntry } from '@/lib/actions/accounting';
-import { fmtRupiah, fmtDate } from '@/lib/utils/format';
+import { useState } from 'react';
 
-const SOURCE_LABEL = {
-  payment: { label: 'Payment', bg: 'bg-blue-50', text: 'text-blue-700' },
-  hpp:     { label: 'HPP Lunas', bg: 'bg-amber-50', text: 'text-amber-700' },
-  manual:  { label: 'Manual', bg: 'bg-purple-50', text: 'text-purple-700' },
-};
+export default function AccountForm({ initial = {}, onSubmit, submitLabel = 'Simpan' }) {
+  const [error, setError] = useState('');
+  const [pending, setPending] = useState(false);
 
-export default function AccountingRow({ entry: e }) {
-  const [pending, startTransition] = useTransition();
-  const router = useRouter();
-  const isIn = e.type === 'in';
-  const src = SOURCE_LABEL[e.source] || SOURCE_LABEL.manual;
-
-  async function handleDelete() {
-    if (!confirm(`Hapus entry ${e.description}?`)) return;
-    startTransition(async () => {
-      const result = await deleteAccountingEntry(e.manualId);
-      if (result?.error) alert(result.error);
-      else router.refresh();
-    });
+  async function handleSubmit(formData) {
+    setPending(true);
+    setError('');
+    const result = await onSubmit(formData);
+    if (result?.error) {
+      setError(result.error);
+      setPending(false);
+    }
   }
 
   return (
-    <div className="px-5 py-3 hover:bg-slate-50 transition-colors">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-xs font-bold px-2 py-0.5 rounded ${isIn ? 'bg-green-500 text-white' : 'bg-amber-500 text-white'}`}>
-              {isIn ? '⬆ IN' : '⬇ OUT'}
-            </span>
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${src.bg} ${src.text}`}>
-              {src.label}
-            </span>
-            {e.category && (
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-                {e.category}
-              </span>
-            )}
-            {e.trip && (
-              <Link href={`/trips/${e.trip.id}`} className="text-[11px] font-semibold px-2 py-0.5 rounded bg-brand-50 text-brand-700 hover:bg-brand-100">
-                {e.trip.kode_trip || `#${e.trip.id}`}
-              </Link>
-            )}
-          </div>
-          <p className="mt-1 text-sm font-semibold text-slate-800">{e.description || '—'}</p>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {fmtDate(e.date)}
-            {e.notes && <span className="italic ml-2">· 📝 {e.notes}</span>}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <p className={`text-lg font-bold ${isIn ? 'text-green-700' : 'text-amber-700'}`}>
-            {isIn ? '+' : '−'} {fmtRupiah(e.amount)}
-          </p>
-          {e.source === 'manual' && (
-            <button onClick={handleDelete} disabled={pending} className="text-xs px-2 py-1 rounded bg-red-50 text-red-700 hover:bg-red-100 font-semibold disabled:opacity-50">
-              🗑
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    <form action={handleSubmit} className="space-y-5">
+      <Field label="Nama Akun" required>
+        <input name="name" defaultValue={initial.name || ''} required className={inputCls} placeholder="Bank Mandiri Operasional" />
+      </Field>
+
+      <Field label="Tipe Akun" required>
+        <select name="type" defaultValue={initial.type || 'bank'} className={inputCls}>
+          <option value="bank">🏦 Bank</option>
+          <option value="cash">💵 Kas</option>
+          <option value="e-wallet">📱 E-Wallet</option>
+          <option value="other">💰 Lainnya</option>
+        </select>
+      </Field>
+
+      <Field label="No. Rekening / Identifier (opsional)">
+        <input name="account_number" defaultValue={initial.account_number || ''} className={inputCls} placeholder="1234567890" />
+      </Field>
+
+      <Field label="Saldo Awal (IDR)" hint="Saldo saat akun pertama kali ditambahkan ke sistem">
+        <input type="number" name="starting_balance" defaultValue={initial.starting_balance || 0} min="0" className={inputCls} />
+      </Field>
+
+      <Field label="Catatan (opsional)">
+        <textarea name="notes" defaultValue={initial.notes || ''} rows="2" className={inputCls + ' resize-none'} placeholder="Catatan tentang akun ini..." />
+      </Field>
+
+      {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium">{error}</div>}
+
+      <button type="submit" disabled={pending} className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-semibold rounded-lg shadow-card transition-colors">
+        {pending ? 'Menyimpan...' : submitLabel}
+      </button>
+    </form>
   );
 }
+
+function Field({ label, required, hint, children }) {
+  return (
+    <label className="block">
+      <span className="text-sm font-semibold text-slate-700 block mb-1">
+        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+      </span>
+      {hint && <span className="text-[11px] text-slate-500 block mb-1.5">{hint}</span>}
+      {children}
+    </label>
+  );
+}
+
+const inputCls = 'w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none bg-white';
