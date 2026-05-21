@@ -1,5 +1,4 @@
-// Trip Detail page — shows all info + edit/delete buttons + participants
-// Server Component fetches the trip + participants
+// Trip Detail page — Round 46: hapus debug yellow box
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -24,38 +23,30 @@ export default async function TripDetailPage({ params }) {
   const checklist = tripChecklist(trip);
   const revenue = (trip.price || 0) * (trip.sold || 0);
 
-  // Fetch participants — 2-step query to bypass Postgrest embedded join issues
+  // Fetch participants — 2-step query
   let participants = [];
-  let participantsDebug = '';
   {
-    const { data: tp, error: tpErr } = await supabase
+    const { data: tp } = await supabase
       .from('trip_passengers')
       .select('*')
       .eq('trip_id', id)
       .order('joined_at', { ascending: true });
 
-    if (tpErr) {
-      participantsDebug = `trip_passengers error: ${tpErr.message}`;
-    } else if (tp && tp.length > 0) {
-      participantsDebug = `Found ${tp.length} trip_passenger rows`;
+    if (tp && tp.length > 0) {
       const customerIds = tp.map((p) => p.customer_id).filter(Boolean);
       if (customerIds.length > 0) {
-        const { data: cust, error: cErr } = await supabase
+        const { data: cust } = await supabase
           .from('customers')
           .select('*')
           .in('id', customerIds);
-        if (cErr) participantsDebug += ` · customers error: ${cErr.message}`;
         const cMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
         participants = tp.map((p) => ({ ...p, customers: cMap[p.customer_id] || null }));
       } else {
         participants = tp.map((p) => ({ ...p, customers: null }));
       }
-    } else {
-      participantsDebug = `No trip_passengers for trip_id="${id}" (data: ${JSON.stringify(tp)})`;
     }
   }
 
-  // Recent CS updates for this trip
   const { data: recentCS } = await supabase
     .from('cs_daily_updates')
     .select('*')
@@ -65,7 +56,6 @@ export default async function TripDetailPage({ params }) {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header */}
       <div>
         <Link href="/trips" className="text-sm text-brand-600 font-medium hover:underline">← Kembali</Link>
         <div className="mt-2 flex items-start justify-between gap-4 flex-wrap">
@@ -93,7 +83,6 @@ export default async function TripDetailPage({ params }) {
         </div>
       </div>
 
-      {/* Key stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Seat Terjual" value={`${trip.sold || 0} / ${trip.quota || 0}`} color="text-brand-700" />
         <StatCard label="Sisa Seat" value={trip.seat_left ?? 0} color="text-amber-700" />
@@ -101,7 +90,6 @@ export default async function TripDetailPage({ params }) {
         <StatCard label="Revenue" value={fmtRupiah(revenue)} color="text-green-700" small />
       </div>
 
-      {/* Operations Status */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider">Status Operasional</h3>
@@ -119,7 +107,6 @@ export default async function TripDetailPage({ params }) {
         </div>
       </div>
 
-      {/* Info grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <InfoCard title="Tanggal">
           <InfoRow label="Keberangkatan" value={fmtDate(trip.departure)} note={days > 0 ? `${days} hari lagi` : null} />
@@ -130,9 +117,6 @@ export default async function TripDetailPage({ params }) {
         <InfoCard title="Tim">
           <InfoRow label="PIC (CS)" value={trip.pic || '—'} />
           <InfoRow label="Tour Leader" value={trip.tl_name || '—'} />
-          {trip.tl_assignment_status && (
-            <InfoRow label="Status TL" value={trip.tl_assignment_status} />
-          )}
         </InfoCard>
 
         {trip.notes && (
@@ -141,13 +125,6 @@ export default async function TripDetailPage({ params }) {
           </InfoCard>
         )}
       </div>
-
-      {/* Debug info (temporary) */}
-      {participantsDebug && (
-        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs font-mono text-yellow-800">
-          🔍 Debug: {participantsDebug}
-        </div>
-      )}
 
       {/* Participants */}
       <ParticipantsList tripId={trip.id} participants={participants || []} />
