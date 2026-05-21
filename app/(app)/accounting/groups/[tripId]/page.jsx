@@ -1,11 +1,11 @@
-// Real Cashflow Group — Round 47: pakai expectedPerPassenger (room + addons + customs)
+// Real Cashflow Group — Round 48: pakai expectedPerPassenger dengan payments (WAJIB + ✓ optionals)
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import { statusCfg } from '@/lib/utils/trip-status';
-import { roomTypeToKey, expectedPerPassenger, computeIncomeProjection, ROOM_KEYS, AGE_KEYS, ADDON_KEYS } from '@/lib/utils/price-breakdown';
+import { roomTypeToKey, expectedPerPassenger, mainExpectedPerPassenger, ROOM_KEYS, AGE_KEYS, ADDON_KEYS } from '@/lib/utils/price-breakdown';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,18 +41,21 @@ export default async function GroupCashflowDetailPage({ params }) {
     payments = data || [];
   }
 
-  // PAID per peserta
+  const paymentsByPassenger = {};
   const paidByPassenger = {};
   for (const p of payments) {
     paidByPassenger[p.passenger_id] = (paidByPassenger[p.passenger_id] || 0) + (p.amount || 0);
+    if (!paymentsByPassenger[p.passenger_id]) paymentsByPassenger[p.passenger_id] = [];
+    paymentsByPassenger[p.passenger_id].push(p);
   }
 
-  // Per peserta row — pakai expectedPerPassenger (room + addons + customs)
   const perPaxRows = passengers.map((p) => {
     const c = custMap[p.customer_id] || {};
     const key = roomTypeToKey(p.room_type);
     const cfg = key ? KEY_MAP[key] : null;
-    const exp = expectedPerPassenger(p, breakdown);
+    const main = mainExpectedPerPassenger(p, breakdown);
+    const exp = expectedPerPassenger(p, breakdown, paymentsByPassenger[p.id] || []);
+    const optionalAdd = exp - main;
     const paid = paidByPassenger[p.id] || 0;
     const remaining = exp - paid;
     let status = 'belum';
@@ -64,6 +67,8 @@ export default async function GroupCashflowDetailPage({ params }) {
       name: c.name || `#${p.id}`,
       roomLabel: cfg?.label || p.room_type || '—',
       roomIcon: cfg?.icon || '',
+      main,
+      optionalAdd,
       expected: exp,
       paid,
       remaining,
@@ -72,6 +77,8 @@ export default async function GroupCashflowDetailPage({ params }) {
   });
 
   const totalExpected = perPaxRows.reduce((s, r) => s + r.expected, 0);
+  const totalMain = perPaxRows.reduce((s, r) => s + r.main, 0);
+  const totalOptional = perPaxRows.reduce((s, r) => s + r.optionalAdd, 0);
   const totalPaid = perPaxRows.reduce((s, r) => s + r.paid, 0);
   const totalRemaining = totalExpected - totalPaid;
   const collectionRate = totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : 0;
@@ -94,7 +101,6 @@ export default async function GroupCashflowDetailPage({ params }) {
 
   const s = statusCfg(trip.status);
 
-  // Classification
   const netCash = totalRealIn - totalRealOut;
   let titipan = 0, marginLocked = 0, cicilanMengendap = 0;
   const hasProjection = proyHpp > 0;
@@ -118,17 +124,19 @@ export default async function GroupCashflowDetailPage({ params }) {
           <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${s.bg} ${s.text} border ${s.border}`}>{s.label}</span>
         </div>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.name}</h1>
-        <p className="mt-1 text-slate-600">Expected (room + add-ons + customs) vs Paid · {passengers.length} peserta · {fmtDate(trip.departure)}</p>
+        <p className="mt-1 text-slate-600">Expected = WAJIB + ✓ Optional · {passengers.length} peserta · {fmtDate(trip.departure)}</p>
       </div>
 
       <div className="bg-white rounded-xl border-2 border-brand-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-brand-200 bg-gradient-to-r from-brand-50 to-blue-50">
           <h2 className="font-bold text-brand-700">💎 Expected Cash In vs Paid</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Expected = harga room + add-ons (visa/asuransi/tips/etc) + custom items. Paid dari payment checklist.</p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            WAJIB = harga room + tips + city tax · OPTIONAL = visa/asuransi/customs (cuma masuk expected setelah finance ✓ checklist)
+          </p>
         </div>
         <div className="p-5">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <SummaryCard label="💎 Expected" value={fmtRupiah(totalExpected)} sub={`${passengers.length} peserta`} color="text-brand-700" bg="bg-brand-50" />
+            <SummaryCard label="💎 Expected" value={fmtRupiah(totalExpected)} sub={`Wajib ${fmtRupiah(totalMain)} + Opt ${fmtRupiah(totalOptional)}`} color="text-brand-700" bg="bg-brand-50" />
             <SummaryCard label="✓ Sudah Bayar" value={fmtRupiah(totalPaid)} sub={`${collectionRate}% terkumpul`} color="text-green-700" bg="bg-green-50" />
             <SummaryCard label="⏳ Sisa Tagihan" value={fmtRupiah(totalRemaining)} sub={totalRemaining > 0 ? 'Belum dibayar' : '✓ Lunas semua'} color={totalRemaining > 0 ? 'text-amber-700' : 'text-green-700'} bg={totalRemaining > 0 ? 'bg-amber-50' : 'bg-green-50'} />
             <SummaryCard label="📊 Collection" value={`${collectionRate}%`} sub={collectionRate >= 80 ? 'On track' : 'Push payment'} color={collectionRate >= 80 ? 'text-green-700' : 'text-amber-700'} bg={collectionRate >= 80 ? 'bg-green-50' : 'bg-amber-50'} />
@@ -139,7 +147,7 @@ export default async function GroupCashflowDetailPage({ params }) {
           </div>
 
           {perPaxRows.length === 0 ? (
-            <p className="text-center text-sm text-slate-500 py-8">Belum ada peserta di trip ini.</p>
+            <p className="text-center text-sm text-slate-500 py-8">Belum ada peserta.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -148,8 +156,10 @@ export default async function GroupCashflowDetailPage({ params }) {
                     <th className="px-3 py-2 text-left">#</th>
                     <th className="px-3 py-2 text-left">Nama Peserta</th>
                     <th className="px-3 py-2 text-left">Room</th>
+                    <th className="px-3 py-2 text-right">Wajib</th>
+                    <th className="px-3 py-2 text-right">+ Opt ✓</th>
                     <th className="px-3 py-2 text-right">Expected</th>
-                    <th className="px-3 py-2 text-right">Sudah Bayar</th>
+                    <th className="px-3 py-2 text-right">Paid</th>
                     <th className="px-3 py-2 text-right">Sisa</th>
                     <th className="px-3 py-2 text-center">Status</th>
                   </tr>
@@ -160,6 +170,8 @@ export default async function GroupCashflowDetailPage({ params }) {
                       <td className="px-3 py-2 text-xs text-slate-500">{idx + 1}</td>
                       <td className="px-3 py-2 text-sm font-semibold text-slate-800">{r.name}</td>
                       <td className="px-3 py-2 text-xs">{r.roomIcon} {r.roomLabel}</td>
+                      <td className="px-3 py-2 text-right text-xs text-slate-700">{fmtRupiah(r.main)}</td>
+                      <td className="px-3 py-2 text-right text-xs text-indigo-700">{r.optionalAdd > 0 ? `+${fmtRupiah(r.optionalAdd)}` : '—'}</td>
                       <td className="px-3 py-2 text-right text-sm font-bold text-brand-700">{fmtRupiah(r.expected)}</td>
                       <td className="px-3 py-2 text-right text-sm font-semibold text-green-700">{fmtRupiah(r.paid)}</td>
                       <td className="px-3 py-2 text-right text-sm font-bold">
@@ -174,6 +186,8 @@ export default async function GroupCashflowDetailPage({ params }) {
                 <tfoot className="bg-slate-50 font-bold">
                   <tr>
                     <td colSpan="3" className="px-3 py-2 text-sm">TOTAL</td>
+                    <td className="px-3 py-2 text-right text-xs text-slate-700">{fmtRupiah(totalMain)}</td>
+                    <td className="px-3 py-2 text-right text-xs text-indigo-700">+{fmtRupiah(totalOptional)}</td>
                     <td className="px-3 py-2 text-right text-sm text-brand-700">{fmtRupiah(totalExpected)}</td>
                     <td className="px-3 py-2 text-right text-sm text-green-700">{fmtRupiah(totalPaid)}</td>
                     <td className="px-3 py-2 text-right text-sm text-amber-700">{fmtRupiah(totalRemaining)}</td>
