@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { filterNavByRole } from '@/lib/utils/roles';
 
+// Round 42: tambah Ads Manager menu
 const NAV_ALL = [
   { href: '/dashboard',         label: 'Dashboard',      icon: '◆' },
   { href: '/trips',             label: 'Master Trip',    icon: '✈' },
@@ -12,11 +13,12 @@ const NAV_ALL = [
   { href: '/finance/payments',  label: 'Payment Peserta',icon: '🧾' },
   { href: '/finance',           label: 'Finance',        icon: '$' },
   { href: '/accounting',        label: 'Accounting',     icon: '📊' },
+  { href: '/ads',               label: 'Ads Manager',    icon: '🎯' },
   { href: '/visa',              label: 'Visa',           icon: '🛂' },
   { href: '/tl',                label: 'Portal TL',      icon: '👤' },
   { href: '/tl-master',         label: 'Master TL',      icon: '👥' },
-  { href: '/tasks',             label: 'To-Do List',     icon: '✅' },  // Round 40
-  { href: '/chat',              label: 'Chat Tim',       icon: '💬' },  // Round 40
+  { href: '/tasks',             label: 'To-Do List',     icon: '✅' },
+  { href: '/chat',              label: 'Chat Tim',       icon: '💬' },
 ];
 
 export default function Sidebar({ role = null }) {
