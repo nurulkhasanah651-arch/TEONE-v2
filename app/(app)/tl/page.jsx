@@ -1,70 +1,103 @@
-// TL Portal landing — assigned trips for TL
+// TL Portal landing — Round 37: filter strict by tl_id (from user_metadata)
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { fmtDate, daysUntil } from '@/lib/utils/format';
+import { fmtDate, daysUntil, fmtRupiah } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
+import { getRoleFromUser } from '@/lib/utils/roles';
 
 export const dynamic = 'force-dynamic';
 
 export default async function TLPortalPage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const role = getRoleFromUser(user);
 
-  // Show all trips with assigned TL — in real app, filter by current user as TL
-  // For MVP, show all trips that have a TL assigned and are not completed
-  let activeTrips = [];
+  const tlId = user?.user_metadata?.tl_id || null;
+  const tlName = user?.user_metadata?.tl_name || '';
+
+  // Owner / Manager / Ops: lihat semua
+  // TL: hanya trip yang tl_id = tlId (match dari master TL)
+  let trips = [];
   try {
     const { data } = await supabase
       .from('trips')
       .select('*')
       .order('departure', { ascending: true, nullsFirst: false });
-    activeTrips = (data || []).filter((t) =>
-      t.tl_name && t.tl_name.trim() && t.status !== 'completed' && t.status !== 'cancelled'
-    );
+    trips = data || [];
   } catch {
-    activeTrips = [];
+    trips = [];
   }
-  const userName = user?.user_metadata?.full_name?.toLowerCase() || user?.email?.split('@')[0]?.toLowerCase() || '';
-  const myTrips = activeTrips.filter((t) => (t.tl_name || '').toLowerCase().includes(userName));
+
+  let myTrips = [];
+  if (role === 'tour_leader' && tlId) {
+    myTrips = trips.filter((t) => String(t.tl_id) === String(tlId));
+  } else if (role === 'tour_leader' && !tlId) {
+    // Fallback: match by name
+    const lname = (tlName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || '').toLowerCase();
+    myTrips = trips.filter((t) => (t.tl_name || '').toLowerCase().includes(lname));
+  } else {
+    // Non-TL: lihat semua trip aktif
+    myTrips = trips.filter((t) => t.status !== 'completed' && t.status !== 'cancelled' && t.tl_name);
+  }
+
+  const activeTrips = myTrips.filter((t) => t.status !== 'completed' && t.status !== 'cancelled');
+  const totalRevenue = myTrips.reduce((s, t) => s + ((t.price || 0) * (t.sold || 0)), 0);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-brand-700">Portal Tour Leader</h1>
-        <p className="mt-1 text-slate-600">Trip yang ditugaskan ke kamu — info trip, checklist, peserta.</p>
+        {role === 'tour_leader' && tlName ? (
+          <p className="mt-1 text-slate-600">Welcome, <strong>{tlName}</strong>. Trip yang di-assign ke kamu.</p>
+        ) : (
+          <p className="mt-1 text-slate-600">Trip yang ditugaskan ke TL.</p>
+        )}
       </div>
 
-      {/* My trips */}
+      {/* TL summary card */}
+      {role === 'tour_leader' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="bg-gradient-to-br from-pink-500 to-pink-700 text-white rounded-xl shadow-card p-4">
+            <p className="text-xs font-bold uppercase tracking-wider opacity-80">Total Trip</p>
+            <p className="mt-1 text-3xl font-bold">{myTrips.length}</p>
+            <p className="text-[10px] opacity-70">{activeTrips.length} aktif</p>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Peserta (All Trip)</p>
+            <p className="mt-1 text-3xl font-bold text-brand-700">
+              {myTrips.reduce((s, t) => s + (t.sold || 0), 0)}
+            </p>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Estimasi Revenue Diatur</p>
+            <p className="mt-1 text-xl font-bold text-green-700">{fmtRupiah(totalRevenue)}</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">Berdasarkan harga × peserta</p>
+          </div>
+        </div>
+      )}
+
       <section className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 bg-brand-50">
-          <h2 className="font-bold text-brand-700">Trip Kamu ({myTrips.length})</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Auto-detect dari nama TL di trip yang match dengan akun kamu.</p>
+          <h2 className="font-bold text-brand-700">Trip Kamu ({activeTrips.length} aktif · {myTrips.length} total)</h2>
         </div>
         {myTrips.length === 0 ? (
           <div className="p-8 text-center">
             <p className="text-3xl mb-2">👤</p>
-            <p className="text-sm text-slate-500">Belum ada trip yang di-assign ke kamu.</p>
-            <p className="text-xs text-slate-400 mt-1">Ops akan assign trip + nama TL match dengan nama akun kamu.</p>
+            {role === 'tour_leader' ? (
+              <>
+                <p className="text-sm text-slate-500">Belum ada trip yang di-assign ke kamu.</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Hubungi Ops untuk assign trip — pastikan TL ID kamu match dengan trip.tl_id di master trip.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-slate-500">Belum ada trip aktif dengan TL assigned.</p>
+            )}
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {myTrips.map((t) => <TripRow key={t.id} trip={t} isMine />)}
-          </div>
-        )}
-      </section>
-
-      {/* All active trips (kalau perlu liat trip lain) */}
-      <section className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-200">
-          <h2 className="font-bold text-brand-700">Semua Trip Aktif ({activeTrips.length})</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Trip aktif yang ada TL.</p>
-        </div>
-        {activeTrips.length === 0 ? (
-          <div className="p-8 text-center text-slate-500 text-sm">Belum ada trip aktif dengan TL assigned.</div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {activeTrips.map((t) => <TripRow key={t.id} trip={t} />)}
+            {myTrips.map((t) => <TripRow key={t.id} trip={t} />)}
           </div>
         )}
       </section>
@@ -72,7 +105,7 @@ export default async function TLPortalPage() {
   );
 }
 
-function TripRow({ trip: t, isMine }) {
+function TripRow({ trip: t }) {
   const s = statusCfg(t.status);
   const days = daysUntil(t.departure);
   const checklist = tripChecklist(t);
@@ -85,8 +118,7 @@ function TripRow({ trip: t, isMine }) {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-mono font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded">{t.kode_trip || `#${t.id}`}</span>
             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${s.bg} ${s.text}`}>{s.label}</span>
-            {isMine && <span className="text-[10px] uppercase font-bold tracking-wider bg-brand-500 text-white px-1.5 py-0.5 rounded">Saya</span>}
-            <span className="text-[11px] px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold">TL: {t.tl_name}</span>
+            <span className="text-[11px] px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold">TL: {t.tl_name || '—'}</span>
             {days != null && days >= 0 && days <= 14 && (
               <span className="text-[11px] px-2 py-0.5 rounded bg-red-100 text-red-700 font-bold animate-pulse">⏰ {days}h lagi</span>
             )}
