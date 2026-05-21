@@ -9,7 +9,8 @@ const NAV = [
   { href: '/cs',        label: 'CS Daily',    icon: '☎' },
   { href: '/finance',   label: 'Finance',     icon: '$' },
   { href: '/accounting',label: 'Accounting',  icon: '📊' },
-  { href: '/tl',        label: 'Portal TL',   icon: '👤', disabled: true },
+  { href: '/visa',      label: 'Visa',        icon: '🛂' },
+  { href: '/tl',        label: 'Portal TL',   icon: '👤' },
 ];
 
 export default function Sidebar() {
