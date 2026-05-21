@@ -1,7 +1,7 @@
 'use server';
 
-// Server Actions for trip CRUD operations
-// Round 36: support tl_id (FK to tour_leaders) + tl_name (manual / snapshot)
+// Server Actions for trip CRUD
+// Round 42 final: tl_id + publish_date + closed_at — semua defensive
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -26,6 +26,8 @@ function parseTripFields(formData) {
     departure: formData.get('departure') || null,
     arrival: formData.get('arrival') || null,
     deadline_close: formData.get('deadline_close') || null,
+    publish_date: formData.get('publish_date') || null,
+    closed_at: formData.get('closed_at') || null,
     notes: formData.get('notes') || null,
     ticket_status: formData.get('ticket_status') || 'pending',
     visa: formData.get('visa') || 'pending',
@@ -34,6 +36,14 @@ function parseTripFields(formData) {
     payment: formData.get('payment') || 'belum',
     briefing_tl: formData.get('briefing_tl') || 'belum',
   };
+}
+
+function stripOptionalCols(fields) {
+  const out = { ...fields };
+  delete out.tl_id;
+  delete out.publish_date;
+  delete out.closed_at;
+  return out;
 }
 
 export async function createTrip(formData) {
@@ -50,17 +60,16 @@ export async function createTrip(formData) {
     const { data: existing } = await supabase.from('trips').select('id').eq('id', candidate).maybeSingle();
     if (!existing) { trip_id = candidate; break; }
   }
-  if (!trip_id) return { error: 'Failed to generate unique trip ID, please try again' };
+  if (!trip_id) return { error: 'Failed to generate unique trip ID' };
 
-  // Defensive: kalau tl_id column belum ada (migration belum jalan), drop dari payload
-  const { tl_id, ...fieldsWithoutTlId } = fields;
   let payload = { id: trip_id, ...fields, sold: 0, seat_left: fields.quota };
 
   let { error } = await supabase.from('trips').insert(payload);
 
-  // Fallback: kalau error karena tl_id column missing, retry tanpa tl_id
-  if (error && /tl_id/.test(error.message)) {
-    payload = { id: trip_id, ...fieldsWithoutTlId, sold: 0, seat_left: fields.quota };
+  // Defensive: kalau ada kolom yang belum di-migrate, retry tanpa kolom opsional
+  if (error && /tl_id|publish_date|closed_at/.test(error.message)) {
+    const stripped = stripOptionalCols(fields);
+    payload = { id: trip_id, ...stripped, sold: 0, seat_left: fields.quota };
     const retry = await supabase.from('trips').insert(payload);
     error = retry.error;
   }
@@ -69,6 +78,7 @@ export async function createTrip(formData) {
 
   revalidatePath('/trips');
   revalidatePath('/dashboard');
+  revalidatePath('/ads');
   redirect(`/trips/${trip_id}`);
 }
 
@@ -83,13 +93,12 @@ export async function updateTrip(tripId, formData) {
   const { data: current } = await supabase.from('trips').select('sold').eq('id', tripId).single();
   const sold = current?.sold || 0;
 
-  const { tl_id, ...fieldsWithoutTlId } = fields;
   let updatePayload = { ...fields, seat_left: Math.max(fields.quota - sold, 0) };
-
   let { error } = await supabase.from('trips').update(updatePayload).eq('id', tripId);
 
-  if (error && /tl_id/.test(error.message)) {
-    updatePayload = { ...fieldsWithoutTlId, seat_left: Math.max(fields.quota - sold, 0) };
+  if (error && /tl_id|publish_date|closed_at/.test(error.message)) {
+    const stripped = stripOptionalCols(fields);
+    updatePayload = { ...stripped, seat_left: Math.max(fields.quota - sold, 0) };
     const retry = await supabase.from('trips').update(updatePayload).eq('id', tripId);
     error = retry.error;
   }
@@ -99,6 +108,7 @@ export async function updateTrip(tripId, formData) {
   revalidatePath('/trips');
   revalidatePath(`/trips/${tripId}`);
   revalidatePath('/dashboard');
+  revalidatePath('/ads');
   redirect(`/trips/${tripId}`);
 }
 
