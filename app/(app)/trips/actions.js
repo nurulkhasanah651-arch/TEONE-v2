@@ -1,7 +1,6 @@
 'use server';
 
-// Server Actions for trip CRUD
-// Round 42 final: tl_id + publish_date + closed_at — semua defensive
+// Round 44 trip actions: handle price_breakdown JSONB + auto closed_at + auto deadline
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -12,6 +11,29 @@ function parseTripFields(formData) {
   const tlIdRaw = formData.get('tl_id');
   const tl_id = tlIdRaw && !isNaN(parseInt(tlIdRaw)) ? parseInt(tlIdRaw) : null;
 
+  // Parse price_breakdown JSON dari hidden field (set by TripForm.jsx)
+  let price_breakdown = null;
+  const bdRaw = formData.get('price_breakdown_json');
+  if (bdRaw && typeof bdRaw === 'string') {
+    try { price_breakdown = JSON.parse(bdRaw); } catch { price_breakdown = null; }
+  }
+
+  const status = formData.get('status') || 'prepare to sell';
+  let closed_at = formData.get('closed_at') || null;
+  // Auto-set closed_at kalau status closed_selling/completed dan belum di-set
+  if (['closed selling', 'completed'].includes(status) && !closed_at) {
+    closed_at = new Date().toISOString().slice(0, 10);
+  }
+
+  // Auto deadline_close = departure - 45 hari, kalau departure ada tapi deadline kosong
+  const departure = formData.get('departure') || null;
+  let deadline_close = formData.get('deadline_close') || null;
+  if (departure && !deadline_close) {
+    const d = new Date(departure);
+    d.setDate(d.getDate() - 45);
+    deadline_close = d.toISOString().slice(0, 10);
+  }
+
   return {
     kode_trip: formData.get('kode_trip') || null,
     name: formData.get('name'),
@@ -20,14 +42,15 @@ function parseTripFields(formData) {
     tl_id,
     tl_name: formData.get('tl_name') || null,
     ticket: formData.get('ticket') || 'FIT',
-    status: formData.get('status') || 'prepare to sell',
+    status,
     quota: parseInt(formData.get('quota')) || 0,
     price: parseInt(formData.get('price')) || 0,
-    departure: formData.get('departure') || null,
+    departure,
     arrival: formData.get('arrival') || null,
-    deadline_close: formData.get('deadline_close') || null,
+    deadline_close,
     publish_date: formData.get('publish_date') || null,
-    closed_at: formData.get('closed_at') || null,
+    closed_at,
+    price_breakdown,
     notes: formData.get('notes') || null,
     ticket_status: formData.get('ticket_status') || 'pending',
     visa: formData.get('visa') || 'pending',
@@ -38,11 +61,12 @@ function parseTripFields(formData) {
   };
 }
 
-function stripOptionalCols(fields) {
+function stripOptional(fields) {
   const out = { ...fields };
   delete out.tl_id;
   delete out.publish_date;
   delete out.closed_at;
+  delete out.price_breakdown;
   return out;
 }
 
@@ -63,12 +87,10 @@ export async function createTrip(formData) {
   if (!trip_id) return { error: 'Failed to generate unique trip ID' };
 
   let payload = { id: trip_id, ...fields, sold: 0, seat_left: fields.quota };
-
   let { error } = await supabase.from('trips').insert(payload);
 
-  // Defensive: kalau ada kolom yang belum di-migrate, retry tanpa kolom opsional
-  if (error && /tl_id|publish_date|closed_at/.test(error.message)) {
-    const stripped = stripOptionalCols(fields);
+  if (error && /tl_id|publish_date|closed_at|price_breakdown/.test(error.message)) {
+    const stripped = stripOptional(fields);
     payload = { id: trip_id, ...stripped, sold: 0, seat_left: fields.quota };
     const retry = await supabase.from('trips').insert(payload);
     error = retry.error;
@@ -78,6 +100,7 @@ export async function createTrip(formData) {
 
   revalidatePath('/trips');
   revalidatePath('/dashboard');
+  revalidatePath('/finance/cashflow');
   revalidatePath('/ads');
   redirect(`/trips/${trip_id}`);
 }
@@ -96,8 +119,8 @@ export async function updateTrip(tripId, formData) {
   let updatePayload = { ...fields, seat_left: Math.max(fields.quota - sold, 0) };
   let { error } = await supabase.from('trips').update(updatePayload).eq('id', tripId);
 
-  if (error && /tl_id|publish_date|closed_at/.test(error.message)) {
-    const stripped = stripOptionalCols(fields);
+  if (error && /tl_id|publish_date|closed_at|price_breakdown/.test(error.message)) {
+    const stripped = stripOptional(fields);
     updatePayload = { ...stripped, seat_left: Math.max(fields.quota - sold, 0) };
     const retry = await supabase.from('trips').update(updatePayload).eq('id', tripId);
     error = retry.error;
@@ -108,6 +131,7 @@ export async function updateTrip(tripId, formData) {
   revalidatePath('/trips');
   revalidatePath(`/trips/${tripId}`);
   revalidatePath('/dashboard');
+  revalidatePath(`/finance/cashflow/${tripId}`);
   revalidatePath('/ads');
   redirect(`/trips/${tripId}`);
 }
