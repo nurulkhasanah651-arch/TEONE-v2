@@ -1,16 +1,15 @@
 'use client';
 
-// Payment Matrix — Round 47: milestones auto dari price_breakdown
-//   - DP/P1/P2/P3/Pelunasan (cicilan dari template)
-//   - Visa/Tips/Asuransi/City Tax/Land Tour (auto dari breakdown — kalau > 0)
-//   - Custom items dari breakdown._custom
-// Per peserta: harga pokok room + add-ons + customs
+// Payment Matrix — Round 48: MAIN vs OPTIONAL milestones
+//   MAIN (wajib): Room + Tips + City Tax + DP/P1/P2/P3/Pelunasan
+//   OPTIONAL (opt-in via ✓): Visa, Asuransi, Land Tour, Custom items
+//   Expected per peserta = MAIN + ✓ optionals (auto naik saat checklist)
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toggleMilestone, updatePaymentAmount, updatePaymentNotes } from '@/lib/actions/payments';
 import { fmtRupiah } from '@/lib/utils/format';
-import { deriveMilestones, roomTypeToKey, ADDON_KEYS } from '@/lib/utils/price-breakdown';
+import { deriveMilestones, expectedPerPassenger, mainExpectedPerPassenger } from '@/lib/utils/price-breakdown';
 
 export default function PaymentMatrix({ tripId, passengers = [], paymentsByPassenger = {}, template = {}, breakdown = {} }) {
   const [pending, startTransition] = useTransition();
@@ -19,7 +18,6 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
   const [expandedRow, setExpandedRow] = useState(null);
   const router = useRouter();
 
-  // Round 47: derive milestones from template + breakdown
   const milestones = deriveMilestones(template, breakdown);
 
   const paymentLookup = {};
@@ -66,11 +64,6 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
     );
   }
 
-  // Add-on per-pax total (visa+asuransi+tips+city_tax+land_tour) + customs
-  const addonPerPax = ADDON_KEYS.reduce((s, a) => s + (breakdown[a.key] || 0), 0);
-  const customPerPax = (Array.isArray(breakdown._custom) ? breakdown._custom : []).reduce((s, c) => s + (c.price || 0), 0);
-
-  // Summary per milestone
   const summary = {};
   for (const m of milestones) {
     summary[m.key] = passengers.filter((p) => paymentLookup[p.id]?.[m.key]).length;
@@ -78,7 +71,8 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
 
   const sourceColor = {
     cicilan:         'text-slate-600 border-b-slate-300',
-    addon:           'text-indigo-700 border-b-indigo-300 bg-indigo-50/40',
+    main_addon:      'text-blue-700 border-b-blue-300 bg-blue-50/40',
+    optional_addon:  'text-indigo-700 border-b-indigo-300 bg-indigo-50/40',
     custom:          'text-purple-700 border-b-purple-300 bg-purple-50/40',
     template_custom: 'text-purple-700 border-b-purple-300 bg-purple-50/40',
   };
@@ -89,12 +83,14 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
         <div>
           <h3 className="font-bold text-brand-700">Checklist Payment Group</h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Cicilan (DP/P1/P2/P3) dari template · Add-on (Visa/Tips/dll) auto dari Master Trip breakdown · Custom items dari Master Trip.
+            <span className="font-semibold">WAJIB</span>: room + tips + city tax + cicilan ·
+            <span className="font-semibold ml-1">OPTIONAL</span>: visa/asuransi/customs — masuk expected setelah ✓
           </p>
         </div>
-        <div className="flex gap-1 text-[10px] font-bold uppercase">
+        <div className="flex gap-1 text-[10px] font-bold uppercase flex-wrap">
           <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700">Cicilan</span>
-          <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">Add-on</span>
+          <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-700">Wajib</span>
+          <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">Opt-in</span>
           <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700">Custom</span>
         </div>
       </div>
@@ -106,7 +102,7 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
               <th className="px-3 py-2 text-left text-xs font-bold text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10">Peserta</th>
               {milestones.map((m) => (
                 <th key={m.key} className={`px-2 py-2 text-center text-xs font-bold uppercase tracking-wider border-b-2 ${sourceColor[m.source] || sourceColor.cicilan}`}>
-                  <p>{m.icon ? `${m.icon} ` : ''}{m.label}</p>
+                  <p>{m.icon ? `${m.icon} ` : ''}{m.label}{m.isOptional && <span className="ml-1 text-[8px] opacity-70">opt</span>}</p>
                   <p className="text-[10px] font-normal text-slate-400 mt-0.5">{fmtRupiah(m.amount)}</p>
                 </th>
               ))}
@@ -120,10 +116,9 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
               const totalPaid = pays.reduce((s, x) => s + (x.amount || 0), 0);
               const isExpanded = expandedRow === p.id;
 
-              // Expected total per peserta = harga room + addons + customs
-              const roomKey = roomTypeToKey(p.room_type);
-              const roomPrice = roomKey ? (breakdown[roomKey] || 0) : (p.price_paid || 0);
-              const expectedTotal = roomPrice + addonPerPax + customPerPax;
+              const mainExpected = mainExpectedPerPassenger(p, breakdown);
+              const expectedTotal = expectedPerPassenger(p, breakdown, pays);
+              const optionalPaid = expectedTotal - mainExpected;
               const remaining = expectedTotal - totalPaid;
 
               return (
@@ -138,7 +133,8 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
                           {isExpanded ? '▾' : '▸'} {c.name || '—'}
                         </p>
                         <p className="text-[10px] text-slate-500">
-                          #{idx + 1}{p.room_type && ` · ${p.room_type}`} · Expected {fmtRupiah(expectedTotal)}
+                          #{idx + 1}{p.room_type && ` · ${p.room_type}`} ·
+                          Wajib {fmtRupiah(mainExpected)}{optionalPaid > 0 && ` + opt ${fmtRupiah(optionalPaid)}`}
                         </p>
                       </button>
                     </td>
@@ -146,8 +142,12 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
                       const payment = paymentLookup[p.id]?.[m.key];
                       const isPaid = !!payment;
                       const isEditing = editingCell?.passengerId === p.id && editingCell?.type === m.key;
+                      const cellBg = m.source === 'main_addon' ? 'bg-blue-50/20'
+                        : m.source === 'optional_addon' ? 'bg-indigo-50/20'
+                        : (m.source === 'custom' || m.source === 'template_custom') ? 'bg-purple-50/20'
+                        : '';
                       return (
-                        <td key={m.key} className={`px-1 py-2 text-center ${m.source === 'addon' ? 'bg-indigo-50/20' : m.source === 'custom' || m.source === 'template_custom' ? 'bg-purple-50/20' : ''}`}>
+                        <td key={m.key} className={`px-1 py-2 text-center ${cellBg}`}>
                           {isEditing ? (
                             <input
                               type="number"
@@ -163,7 +163,11 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
                               className={`w-10 h-8 rounded font-bold text-sm transition-colors disabled:opacity-50 ${
                                 isPaid ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-400'
                               }`}
-                              title={isPaid ? `Lunas: ${fmtRupiah(payment.amount)}` : `Klik untuk tandai lunas (${fmtRupiah(m.amount)})`}
+                              title={isPaid
+                                ? `Lunas: ${fmtRupiah(payment.amount)}`
+                                : m.isOptional
+                                  ? `Opt-in: klik untuk add ${m.label} (${fmtRupiah(m.amount)}) ke expected peserta ini`
+                                  : `Klik untuk tandai lunas (${fmtRupiah(m.amount)})`}
                             >
                               {isPaid ? '✓' : '○'}
                             </button>
@@ -201,7 +205,7 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
                         <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">
                           Detail Pembayaran — {c.name}
                           <span className="ml-2 text-[10px] font-normal text-slate-600">
-                            (Room: {p.room_type || '—'} · Expected: {fmtRupiah(expectedTotal)})
+                            Room: {p.room_type || '—'} · Wajib: {fmtRupiah(mainExpected)} · Optional ✓: {fmtRupiah(optionalPaid)} · Expected: {fmtRupiah(expectedTotal)}
                           </span>
                         </p>
                         {pays.length === 0 ? (
