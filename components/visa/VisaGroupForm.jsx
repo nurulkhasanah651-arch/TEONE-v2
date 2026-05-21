@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateVisaGroupInfo, updateDocTemplate } from '@/lib/actions/visa';
-import { DEFAULT_VISA_DOCS, VISA_STATUS_OPTS } from '@/lib/utils/visa-constants';
+import { DEFAULT_VISA_DOCS } from '@/lib/utils/visa-constants';
 
 export default function VisaGroupForm({ trip, template = [] }) {
   const [pending, startTransition] = useTransition();
@@ -49,26 +49,19 @@ export default function VisaGroupForm({ trip, template = [] }) {
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-200">
         <h2 className="font-bold text-brand-700">Info Visa Group</h2>
+        <p className="text-xs text-slate-500 mt-0.5">Negara & catatan level group. Status visa & tanggal biometrik diisi per peserta di card peserta bawah.</p>
       </div>
       <div className="p-5 space-y-5">
-        {/* Group info form */}
+        {/* Group info form — HANYA negara & catatan */}
         <form action={handleGroupSave} className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Field label="Negara Tujuan Visa">
               <input name="visa_country" defaultValue={trip.visa_country || ''} className={inputCls} placeholder="Schengen, UK, Japan, dll" />
             </Field>
-            <Field label="Status Visa">
-              <select name="visa_status" defaultValue={trip.visa_status || 'pending'} className={inputCls}>
-                {VISA_STATUS_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </Field>
-            <Field label="Tanggal Biometrik">
-              <input type="date" name="visa_biometric_date" defaultValue={trip.visa_biometric_date || ''} className={inputCls} />
+            <Field label="Catatan Group">
+              <input name="visa_notes" defaultValue={trip.visa_notes || ''} className={inputCls} placeholder="Catatan untuk semua peserta group ini..." />
             </Field>
           </div>
-          <Field label="Catatan Group">
-            <textarea name="visa_notes" defaultValue={trip.visa_notes || ''} rows="2" className={inputCls + ' resize-none'} placeholder="Catatan tentang visa group ini..." />
-          </Field>
           <button type="submit" disabled={pending} className="px-4 py-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white text-sm font-semibold rounded-lg">
             {pending ? 'Menyimpan...' : 'Simpan Info Group'}
           </button>
