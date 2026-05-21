@@ -1,6 +1,7 @@
 'use server';
 
 // Server Actions for trip CRUD operations
+// Round 36: support tl_id (FK to tour_leaders) + tl_name (manual / snapshot)
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -8,11 +9,15 @@ import { createClient } from '@/lib/supabase/server';
 import { generateTripId } from '@/lib/utils/id';
 
 function parseTripFields(formData) {
+  const tlIdRaw = formData.get('tl_id');
+  const tl_id = tlIdRaw && !isNaN(parseInt(tlIdRaw)) ? parseInt(tlIdRaw) : null;
+
   return {
     kode_trip: formData.get('kode_trip') || null,
     name: formData.get('name'),
     destination: formData.get('destination') || null,
     pic: formData.get('pic') || null,
+    tl_id,
     tl_name: formData.get('tl_name') || null,
     ticket: formData.get('ticket') || 'FIT',
     status: formData.get('status') || 'prepare to sell',
@@ -22,7 +27,6 @@ function parseTripFields(formData) {
     arrival: formData.get('arrival') || null,
     deadline_close: formData.get('deadline_close') || null,
     notes: formData.get('notes') || null,
-    // Operations status
     ticket_status: formData.get('ticket_status') || 'pending',
     visa: formData.get('visa') || 'pending',
     manifest: formData.get('manifest') || 'pending',
@@ -40,7 +44,6 @@ export async function createTrip(formData) {
   const fields = parseTripFields(formData);
   if (!fields.name) return { error: 'Nama trip wajib diisi' };
 
-  // Generate unique trip ID (6-char hex matching v1 format)
   let trip_id;
   for (let attempt = 0; attempt < 5; attempt++) {
     const candidate = generateTripId();
@@ -49,12 +52,18 @@ export async function createTrip(formData) {
   }
   if (!trip_id) return { error: 'Failed to generate unique trip ID, please try again' };
 
-  const { error } = await supabase.from('trips').insert({
-    id: trip_id,
-    ...fields,
-    sold: 0,
-    seat_left: fields.quota,
-  });
+  // Defensive: kalau tl_id column belum ada (migration belum jalan), drop dari payload
+  const { tl_id, ...fieldsWithoutTlId } = fields;
+  let payload = { id: trip_id, ...fields, sold: 0, seat_left: fields.quota };
+
+  let { error } = await supabase.from('trips').insert(payload);
+
+  // Fallback: kalau error karena tl_id column missing, retry tanpa tl_id
+  if (error && /tl_id/.test(error.message)) {
+    payload = { id: trip_id, ...fieldsWithoutTlId, sold: 0, seat_left: fields.quota };
+    const retry = await supabase.from('trips').insert(payload);
+    error = retry.error;
+  }
 
   if (error) return { error: error.message };
 
@@ -71,17 +80,19 @@ export async function updateTrip(tripId, formData) {
   const fields = parseTripFields(formData);
   if (!fields.name) return { error: 'Nama trip wajib diisi' };
 
-  // Recompute seat_left if quota changed
   const { data: current } = await supabase.from('trips').select('sold').eq('id', tripId).single();
   const sold = current?.sold || 0;
 
-  const { error } = await supabase
-    .from('trips')
-    .update({
-      ...fields,
-      seat_left: Math.max(fields.quota - sold, 0),
-    })
-    .eq('id', tripId);
+  const { tl_id, ...fieldsWithoutTlId } = fields;
+  let updatePayload = { ...fields, seat_left: Math.max(fields.quota - sold, 0) };
+
+  let { error } = await supabase.from('trips').update(updatePayload).eq('id', tripId);
+
+  if (error && /tl_id/.test(error.message)) {
+    updatePayload = { ...fieldsWithoutTlId, seat_left: Math.max(fields.quota - sold, 0) };
+    const retry = await supabase.from('trips').update(updatePayload).eq('id', tripId);
+    error = retry.error;
+  }
 
   if (error) return { error: error.message };
 
