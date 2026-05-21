@@ -1,0 +1,124 @@
+// Visa landing — defensive against missing columns
+
+import Link from 'next/link';
+import { createClient } from '@/lib/supabase/server';
+import { fmtDate, daysUntil } from '@/lib/utils/format';
+import { VISA_STATUS_OPTS, STATUS_COLOR_CLASS } from '@/lib/utils/visa-constants';
+
+export const dynamic = 'force-dynamic';
+
+const STATUS_MAP = Object.fromEntries(VISA_STATUS_OPTS.map((s) => [s.value, s]));
+
+async function safeQuery(promise, fallback = []) {
+  try {
+    const res = await promise;
+    return res.data || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export default async function VisaListPage() {
+  const supabase = createClient();
+
+  // Use SELECT * to avoid column-not-found errors
+  const [trips, passengers] = await Promise.all([
+    safeQuery(supabase.from('trips').select('*').order('departure', { ascending: true, nullsFirst: false })),
+    safeQuery(supabase.from('trip_passengers').select('id, trip_id, visa_docs')),
+  ]);
+
+  const activeTrips = trips.filter((t) => t.status !== 'completed' && t.status !== 'cancelled');
+
+  const paxByTrip = {};
+  for (const p of passengers) {
+    if (!paxByTrip[p.trip_id]) paxByTrip[p.trip_id] = [];
+    paxByTrip[p.trip_id].push(p);
+  }
+
+  // Check if migration was run (visa_doc_template column exists)
+  const sampleTrip = trips[0];
+  const hasMigration = sampleTrip && 'visa_doc_template' in sampleTrip;
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-brand-700">Visa</h1>
+        <p className="mt-1 text-slate-600">Checklist dokumen visa per peserta, biometrik, status pengajuan.</p>
+      </div>
+
+      {!hasMigration && trips.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+          <h3 className="font-bold text-amber-800 mb-2">⚠ SQL Migration Belum Dijalankan</h3>
+          <p className="text-sm text-amber-700 mb-2">Untuk activate fitur Visa, jalankan SQL berikut di Supabase SQL Editor:</p>
+          <pre className="text-xs bg-amber-100 p-3 rounded overflow-x-auto text-amber-900">{`ALTER TABLE trips ADD COLUMN IF NOT EXISTS visa_country TEXT;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS visa_biometric_date DATE;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS visa_status TEXT DEFAULT 'pending';
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS visa_doc_template JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS visa_notes TEXT;
+ALTER TABLE trip_passengers ADD COLUMN IF NOT EXISTS visa_docs JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE trip_passengers ADD COLUMN IF NOT EXISTS visa_personal_notes TEXT;
+NOTIFY pgrst, 'reload schema';`}</pre>
+          <p className="text-xs text-amber-700 mt-2">Setelah run, refresh halaman ini.</p>
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-200">
+          <h2 className="font-bold text-brand-700">Trip Aktif ({activeTrips.length})</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Pilih trip untuk masuk checklist dokumen.</p>
+        </div>
+        {activeTrips.length === 0 ? (
+          <div className="p-12 text-center">
+            <p className="text-4xl mb-3">🛂</p>
+            <p className="text-lg font-bold text-slate-700">Belum ada trip aktif</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {activeTrips.map((t) => {
+              const pax = paxByTrip[t.id] || [];
+              const docTemplate = t.visa_doc_template || [];
+              const totalDocsNeeded = docTemplate.length * pax.length;
+              let totalDocsComplete = 0;
+              for (const p of pax) {
+                const docs = p.visa_docs || [];
+                for (const docName of docTemplate) {
+                  if (Array.isArray(docs) && docs.find((d) => d.name === docName && d.complete)) totalDocsComplete++;
+                }
+              }
+              const progress = totalDocsNeeded > 0 ? Math.round((totalDocsComplete / totalDocsNeeded) * 100) : 0;
+              const statusCfg = STATUS_MAP[t.visa_status || 'pending'];
+              const days = daysUntil(t.departure);
+
+              return (
+                <Link key={t.id} href={`/visa/${t.id}`} className="block px-5 py-3 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-mono font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded">{t.kode_trip || `#${t.id}`}</span>
+                        {statusCfg && <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${STATUS_COLOR_CLASS[statusCfg.color]}`}>{statusCfg.label}</span>}
+                        {t.visa_country && <span className="text-[11px] px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold">🌍 {t.visa_country}</span>}
+                        {t.visa_biometric_date && <span className="text-[11px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold">📅 Biometrik: {fmtDate(t.visa_biometric_date)}</span>}
+                        {days != null && days >= 0 && days <= 60 && (
+                          <span className="text-[11px] px-2 py-0.5 rounded bg-red-100 text-red-700 font-bold animate-pulse">⏰ {days}h lagi</span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-sm font-bold text-slate-800">{t.name}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{fmtDate(t.departure)} · {pax.length} peserta</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-brand-700">{progress}%</p>
+                      <p className="text-xs text-slate-500">{totalDocsComplete} / {totalDocsNeeded} docs</p>
+                      <div className="mt-1 w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-amber-400 to-green-500" style={{ width: `${progress}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
