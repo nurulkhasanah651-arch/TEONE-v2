@@ -2,7 +2,11 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { toggleParticipantDoc, updateParticipantDocNotes, updateParticipantVisaNotes } from '@/lib/actions/visa';
+import { toggleParticipantDoc, updateParticipantDocNotes, updateParticipantVisaNotes, updateParticipantVisaStatus } from '@/lib/actions/visa';
+import { fmtDate, daysUntil } from '@/lib/utils/format';
+import { VISA_STATUS_OPTS, STATUS_COLOR_CLASS } from '@/lib/utils/visa-constants';
+
+const STATUS_MAP = Object.fromEntries(VISA_STATUS_OPTS.map((s) => [s.value, s]));
 
 export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
   const [pending, startTransition] = useTransition();
@@ -35,6 +39,22 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
     });
   }
 
+  async function handleStatusChange(passengerId, status) {
+    startTransition(async () => {
+      const result = await updateParticipantVisaStatus(passengerId, tripId, status, undefined);
+      if (result?.error) alert(result.error);
+      router.refresh();
+    });
+  }
+
+  async function handleBiometricChange(passengerId, date) {
+    startTransition(async () => {
+      const result = await updateParticipantVisaStatus(passengerId, tripId, undefined, date);
+      if (result?.error) alert(result.error);
+      router.refresh();
+    });
+  }
+
   if (template.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-8 text-center">
@@ -57,145 +77,178 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
   // Summary per doc
   const docCounts = {};
   for (const doc of template) {
-    docCounts[doc] = passengers.filter((p) => (p.visa_docs || []).find((d) => d.name === doc && d.complete)).length;
+    docCounts[doc] = passengers.filter((p) => Array.isArray(p.visa_docs) && p.visa_docs.find((d) => d.name === doc && d.complete)).length;
   }
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-      <div className="px-5 py-3 border-b border-slate-200">
-        <h3 className="font-bold text-brand-700">Checklist Dokumen per Peserta</h3>
-        <p className="text-xs text-slate-500 mt-0.5">Klik cell untuk tandai lengkap. Klik nama peserta untuk catatan per dokumen.</p>
-      </div>
+    <div className="space-y-4">
+      {/* Per-participant CARDS — lebih readable untuk per-pax status */}
+      {passengers.map((p, idx) => {
+        const c = p.customers || {};
+        const docs = Array.isArray(p.visa_docs) ? p.visa_docs : [];
+        const completeDocs = template.filter((doc) => docs.find((d) => d.name === doc && d.complete));
+        const missingDocs = template.filter((doc) => !docs.find((d) => d.name === doc && d.complete));
+        const progress = template.length > 0 ? Math.round((completeDocs.length / template.length) * 100) : 0;
+        const status = p.visa_status || 'pending';
+        const statusCfg = STATUS_MAP[status];
+        const biometricDate = p.visa_biometric_date;
+        const bioDays = biometricDate ? daysUntil(biometricDate) : null;
+        const isExpanded = expandedRow === p.id;
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 border-b border-slate-200">
-            <tr>
-              <th className="px-3 py-2 text-left text-xs font-bold text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10">Peserta</th>
-              {template.map((doc) => (
-                <th key={doc} className="px-2 py-2 text-center text-[10px] font-bold text-slate-600 uppercase tracking-wider" style={{ minWidth: '80px' }}>
-                  <p title={doc}>{doc.length > 16 ? doc.substring(0, 14) + '…' : doc}</p>
-                </th>
-              ))}
-              <th className="px-3 py-2 text-right text-xs font-bold text-slate-600 uppercase tracking-wider">Progress</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {passengers.map((p, idx) => {
-              const c = p.customers || {};
-              const docs = p.visa_docs || [];
-              const completeCount = template.filter((doc) => docs.find((d) => d.name === doc && d.complete)).length;
-              const progress = template.length > 0 ? Math.round((completeCount / template.length) * 100) : 0;
-              const isExpanded = expandedRow === p.id;
+        return (
+          <div key={p.id} className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+            {/* Header */}
+            <button
+              onClick={() => setExpandedRow(isExpanded ? null : p.id)}
+              className="w-full px-5 py-3 flex items-start justify-between gap-3 flex-wrap hover:bg-slate-50 transition-colors text-left"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-mono text-slate-400">#{idx + 1}</span>
+                  <p className="font-bold text-brand-700">{c.name || '—'}</p>
+                  {statusCfg && (
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${STATUS_COLOR_CLASS[statusCfg.color]}`}>
+                      {statusCfg.label}
+                    </span>
+                  )}
+                  {biometricDate && (
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${bioDays != null && bioDays >= 0 && bioDays <= 7 ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-indigo-50 text-indigo-700'}`}>
+                      📅 Biometrik: {fmtDate(biometricDate)}{bioDays != null && bioDays >= 0 && ` (${bioDays}h)`}
+                    </span>
+                  )}
+                  {missingDocs.length > 0 && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700">
+                      ⚠ {missingDocs.length} doc kurang
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1 text-xs text-slate-600 flex flex-wrap gap-x-3">
+                  {c.passport_no && <span>📕 {c.passport_no}</span>}
+                  {c.passport_expiry && <span>Exp: {fmtDate(c.passport_expiry)}</span>}
+                  {c.phone && <span>📞 {c.phone}</span>}
+                </div>
+              </div>
+              <div className="text-right">
+                <p className={`text-2xl font-bold ${progress === 100 ? 'text-green-700' : progress > 0 ? 'text-amber-700' : 'text-slate-400'}`}>{progress}%</p>
+                <p className="text-[10px] text-slate-500">{completeDocs.length}/{template.length} docs</p>
+                <p className="text-xs text-brand-600 font-semibold mt-1">{isExpanded ? '▾ Sembunyikan' : '▸ Detail'}</p>
+              </div>
+            </button>
 
-              return (
-                <>
-                  <tr key={p.id} className={`hover:bg-slate-50 ${isExpanded ? 'bg-amber-50/40' : ''}`}>
-                    <td className="px-3 py-2 sticky left-0 bg-white hover:bg-slate-50 z-10">
-                      <button onClick={() => setExpandedRow(isExpanded ? null : p.id)} className="text-left w-full hover:bg-slate-100 -ml-1 px-1 py-0.5 rounded">
-                        <p className="font-semibold text-brand-700 text-sm">{isExpanded ? '▾' : '▸'} {c.name || '—'}</p>
-                        <p className="text-[10px] text-slate-500">#{idx + 1}{c.passport_no && ` · 📕 ${c.passport_no}`}</p>
-                      </button>
-                    </td>
+            {/* Expanded section */}
+            {isExpanded && (
+              <div className="px-5 py-4 border-t border-slate-200 bg-amber-50/30 space-y-4">
+                {/* Status + biometric */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <label className="block">
+                    <span className="text-xs font-bold text-brand-700 uppercase tracking-wider block mb-1">Status Visa</span>
+                    <select
+                      value={status}
+                      onChange={(e) => handleStatusChange(p.id, e.target.value)}
+                      disabled={pending}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white focus:ring-1 focus:ring-brand-500 outline-none"
+                    >
+                      {VISA_STATUS_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-bold text-brand-700 uppercase tracking-wider block mb-1">Tanggal Biometrik</span>
+                    <input
+                      type="date"
+                      defaultValue={biometricDate || ''}
+                      onBlur={(e) => handleBiometricChange(p.id, e.target.value)}
+                      disabled={pending}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white focus:ring-1 focus:ring-brand-500 outline-none"
+                    />
+                  </label>
+                </div>
+
+                {/* Doc checklist */}
+                <div>
+                  <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">Dokumen ({completeDocs.length}/{template.length} lengkap)</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
                     {template.map((doc) => {
                       const docData = docs.find((d) => d.name === doc);
                       const isPaid = docData?.complete;
+                      const editKey = `${p.id}_${doc}`;
+                      const isEditingThis = editingNote === editKey;
                       return (
-                        <td key={doc} className="px-1 py-2 text-center">
+                        <div key={doc} className={`flex items-center gap-2 p-2 rounded ${isPaid ? 'bg-green-50' : 'bg-white'} border ${isPaid ? 'border-green-200' : 'border-slate-200'}`}>
                           <button
                             onClick={() => handleToggle(p.id, doc, docs)}
                             disabled={pending}
-                            className={`w-9 h-7 rounded font-bold text-sm transition-colors disabled:opacity-50 ${
-                              isPaid ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-400'
+                            className={`w-6 h-6 rounded font-bold text-xs flex-shrink-0 transition-colors ${
+                              isPaid ? 'bg-green-500 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-400'
                             }`}
-                            title={docData?.notes || (isPaid ? 'Lengkap' : 'Belum')}
                           >
                             {isPaid ? '✓' : '○'}
                           </button>
-                          {docData?.notes && <span className="text-[9px] block">📝</span>}
-                        </td>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-semibold ${isPaid ? 'text-green-700' : 'text-slate-700'}`}>{doc}</p>
+                            {isEditingThis ? (
+                              <input
+                                type="text"
+                                defaultValue={docData?.notes || ''}
+                                autoFocus
+                                onBlur={(e) => handleNoteSave(p.id, doc, e.target.value, docs)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEditingNote(null); }}
+                                placeholder="Catatan dokumen ini..."
+                                className="w-full mt-0.5 px-1.5 py-0.5 border border-brand-500 rounded text-[11px]"
+                              />
+                            ) : (
+                              <p
+                                onClick={() => setEditingNote(editKey)}
+                                className="text-[10px] text-slate-500 cursor-pointer hover:text-brand-600 truncate"
+                                title="Klik untuk edit catatan"
+                              >
+                                {docData?.notes || (isPaid ? '✓ Lengkap' : <span className="italic">+ Catatan kekurangan</span>)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       );
                     })}
-                    <td className="px-3 py-2 text-right">
-                      <p className={`font-bold ${progress === 100 ? 'text-green-700' : 'text-amber-700'}`}>{progress}%</p>
-                      <p className="text-[10px] text-slate-500">{completeCount}/{template.length}</p>
-                    </td>
-                  </tr>
+                  </div>
+                </div>
 
-                  {/* Expanded row: notes per doc + personal */}
-                  {isExpanded && (
-                    <tr className="bg-amber-50/30">
-                      <td colSpan={template.length + 2} className="px-5 py-3">
-                        <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">Detail — {c.name}</p>
+                {/* Missing docs summary */}
+                {missingDocs.length > 0 && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-xs font-bold text-amber-800 mb-1">⚠ Dokumen yang Belum Lengkap ({missingDocs.length}):</p>
+                    <p className="text-xs text-amber-700">{missingDocs.join(', ')}</p>
+                  </div>
+                )}
 
-                        {/* Personal visa notes */}
-                        <div className="mb-3">
-                          <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Catatan Visa untuk Peserta Ini</label>
-                          <textarea
-                            defaultValue={p.visa_personal_notes || ''}
-                            onBlur={(e) => handlePersonalNoteSave(p.id, e.target.value)}
-                            rows="2"
-                            placeholder="Contoh: Passport mau expired, perlu renewal sebelum biometrik..."
-                            className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white resize-none"
-                          />
-                        </div>
+                {/* Personal notes */}
+                <div>
+                  <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-1">Catatan Visa untuk Peserta Ini</p>
+                  <textarea
+                    defaultValue={p.visa_personal_notes || ''}
+                    onBlur={(e) => handlePersonalNoteSave(p.id, e.target.value)}
+                    rows="2"
+                    placeholder="Contoh: Passport mau expired, perlu renewal sebelum biometrik..."
+                    className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs bg-white resize-none focus:ring-1 focus:ring-brand-500 outline-none"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
 
-                        {/* Per-doc notes */}
-                        <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">Catatan per Dokumen</p>
-                        <div className="space-y-1.5">
-                          {template.map((doc) => {
-                            const docData = docs.find((d) => d.name === doc);
-                            const editKey = `${p.id}_${doc}`;
-                            const isEditing = editingNote === editKey;
-                            return (
-                              <div key={doc} className="flex items-center gap-2 text-xs">
-                                <span className={`w-2 h-2 rounded-full ${docData?.complete ? 'bg-green-500' : 'bg-slate-300'}`} />
-                                <span className="font-semibold text-slate-700 min-w-32">{doc}</span>
-                                {isEditing ? (
-                                  <input
-                                    type="text"
-                                    defaultValue={docData?.notes || ''}
-                                    autoFocus
-                                    onBlur={(e) => handleNoteSave(p.id, doc, e.target.value, docs)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEditingNote(null); }}
-                                    className="flex-1 px-2 py-0.5 border border-brand-500 rounded text-xs"
-                                  />
-                                ) : (
-                                  <span
-                                    onClick={() => setEditingNote(editKey)}
-                                    className="flex-1 text-slate-600 cursor-pointer hover:text-brand-600 hover:underline truncate"
-                                    title="Klik untuk edit"
-                                  >
-                                    {docData?.notes || <span className="italic text-slate-400">+ tambah catatan</span>}
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </>
-              );
-            })}
-          </tbody>
-          <tfoot className="bg-slate-50 border-t-2 border-slate-200">
-            <tr>
-              <td className="px-3 py-2 text-left text-xs font-bold text-slate-700 sticky left-0 bg-slate-50">
-                Total Lengkap
-              </td>
-              {template.map((doc) => (
-                <td key={doc} className="px-1 py-2 text-center">
-                  <p className={`text-xs font-bold ${docCounts[doc] === passengers.length ? 'text-green-700' : docCounts[doc] === 0 ? 'text-slate-500' : 'text-amber-700'}`}>
-                    {docCounts[doc]}/{passengers.length}
-                  </p>
-                </td>
-              ))}
-              <td></td>
-            </tr>
-          </tfoot>
-        </table>
+      {/* Group summary */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4">
+        <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">📊 Summary Group</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2">
+          {template.map((doc) => (
+            <div key={doc} className="p-2 bg-slate-50 rounded text-center">
+              <p className="text-[10px] text-slate-600 font-semibold truncate" title={doc}>{doc}</p>
+              <p className={`text-sm font-bold ${docCounts[doc] === passengers.length ? 'text-green-700' : 'text-amber-700'}`}>
+                {docCounts[doc]}/{passengers.length}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
