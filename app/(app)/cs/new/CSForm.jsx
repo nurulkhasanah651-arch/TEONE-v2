@@ -1,24 +1,31 @@
 'use client';
 
-// CS Daily form with inline participants (customer details added in one form)
+// CS Daily form dengan ads source (Round 42)
 
 import { useState } from 'react';
 import { createCSUpdate } from '@/lib/actions/cs';
 
 const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Family'];
 const SOURCES = [
-  { value: 'instagram', label: '📷 Instagram' },
-  { value: 'whatsapp',  label: '💬 WhatsApp' },
-  { value: 'offline',   label: '🏪 Offline' },
-  { value: 'alumni',    label: '🎓 Alumni' },
-  { value: 'mitra',     label: '🤝 Mitra' },
+  { value: 'instagram',   label: '📷 Instagram' },
+  { value: 'whatsapp',    label: '💬 WhatsApp' },
+  { value: 'offline',     label: '🏪 Offline' },
+  { value: 'alumni',      label: '🎓 Alumni' },
+  { value: 'mitra',       label: '🤝 Mitra' },
+  { value: 'ads_meta',    label: '📱 Ads Meta (FB/IG)' },
+  { value: 'ads_google',  label: '🔍 Ads Google' },
+  { value: 'ads_tiktok',  label: '🎵 Ads TikTok' },
 ];
 
 export default function CSForm({ trips }) {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const [tripId, setTripId] = useState('');
-  const [sources, setSources] = useState({ ig: 0, wa: 0, offline: 0, alumni: 0, mitra: 0 });
+  const [sources, setSources] = useState({
+    ig: 0, wa: 0, offline: 0, alumni: 0, mitra: 0,
+    ads_meta: 0, ads_google: 0, ads_tiktok: 0,
+  });
+  const [adsLeads, setAdsLeads] = useState({ meta: 0, google: 0, tiktok: 0 });
   const [participants, setParticipants] = useState([]);
 
   const selectedTrip = trips.find((t) => String(t.id) === String(tripId));
@@ -35,7 +42,6 @@ export default function CSForm({ trips }) {
     setParticipants((arr) => arr.filter((_, idx) => idx !== i));
   }
 
-  // Serialize filled participants to JSON for hidden input
   const filledParticipants = participants.filter((p) => (p.first_name?.trim() || p.last_name?.trim()));
   const participantsJson = JSON.stringify(filledParticipants);
 
@@ -53,7 +59,6 @@ export default function CSForm({ trips }) {
 
   return (
     <form action={handleSubmit} className="space-y-5">
-      {/* Hidden field carries JSON-serialized participants */}
       <input type="hidden" name="participants" value={participantsJson} />
 
       <Field label="Trip" required>
@@ -79,16 +84,39 @@ export default function CSForm({ trips }) {
           <SourceField label="🤝 Mitra"      name="closing_mitra"  value={sources.mitra}   onChange={(v) => setSources((s) => ({ ...s, mitra: v }))} />
         </div>
 
+        {/* ADS CLOSING — section sendiri */}
+        <div className="mt-4 p-3 rounded-lg bg-indigo-50 border border-indigo-200">
+          <p className="text-xs font-bold text-indigo-700 mb-2">🎯 Closing dari Iklan (Ads)</p>
+          <div className="grid grid-cols-3 gap-2">
+            <SourceField label="📱 Meta" name="from_ads_meta"   value={sources.ads_meta}   onChange={(v) => setSources((s) => ({ ...s, ads_meta: v }))} />
+            <SourceField label="🔍 Google" name="from_ads_google" value={sources.ads_google} onChange={(v) => setSources((s) => ({ ...s, ads_google: v }))} />
+            <SourceField label="🎵 TikTok" name="from_ads_tiktok" value={sources.ads_tiktok} onChange={(v) => setSources((s) => ({ ...s, ads_tiktok: v }))} />
+          </div>
+          {/* Total ads closing — auto sum, sent as hidden input */}
+          <input type="hidden" name="closing_ads" value={sources.ads_meta + sources.ads_google + sources.ads_tiktok} />
+        </div>
+
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div className="p-3 rounded-lg bg-green-50 border border-green-200">
-            <p className="text-[11px] font-bold text-green-700 uppercase tracking-wider">Total Closing Hari Ini</p>
+            <p className="text-[11px] font-bold text-green-700 uppercase tracking-wider">Total Closing</p>
             <p className="mt-1 text-2xl font-bold text-green-700">{totalTerjual}</p>
           </div>
           <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
             <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">Sisa Seat Trip Ini</p>
             <p className="mt-1 text-2xl font-bold text-amber-700">{selectedTrip ? sisaSeat : '—'}</p>
-            <p className="text-[10px] text-amber-700 mt-0.5">Auto: quota − sold</p>
           </div>
+        </div>
+      </Section>
+
+      {/* LEADS HARIAN DARI ADS */}
+      <Section title="🎯 Leads Harian dari Iklan (untuk Ads Manager)">
+        <p className="text-xs text-slate-500 -mt-2 mb-3">
+          Jumlah leads (orang yang fill form/DM) hari ini dari masing-masing platform. Untuk dihitung CAC & conversion rate di tab Ads Manager.
+        </p>
+        <div className="grid grid-cols-3 gap-3">
+          <SourceField label="📱 Meta Leads"   name="leads_ads_meta"   value={adsLeads.meta}   onChange={(v) => setAdsLeads((s) => ({ ...s, meta: v }))} />
+          <SourceField label="🔍 Google Leads" name="leads_ads_google" value={adsLeads.google} onChange={(v) => setAdsLeads((s) => ({ ...s, google: v }))} />
+          <SourceField label="🎵 TikTok Leads" name="leads_ads_tiktok" value={adsLeads.tiktok} onChange={(v) => setAdsLeads((s) => ({ ...s, tiktok: v }))} />
         </div>
       </Section>
 
@@ -99,11 +127,7 @@ export default function CSForm({ trips }) {
         </p>
 
         {participants.length === 0 ? (
-          <button
-            type="button"
-            onClick={addParticipant}
-            className="w-full py-2.5 border-2 border-dashed border-brand-300 hover:border-brand-500 text-brand-600 text-sm font-semibold rounded-lg transition-colors"
-          >
+          <button type="button" onClick={addParticipant} className="w-full py-2.5 border-2 border-dashed border-brand-300 hover:border-brand-500 text-brand-600 text-sm font-semibold rounded-lg transition-colors">
             + Tambah Peserta
           </button>
         ) : (
@@ -112,9 +136,7 @@ export default function CSForm({ trips }) {
               <div key={i} className="border border-slate-200 rounded-lg p-3 bg-white">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-bold text-brand-700">Peserta #{i + 1}</p>
-                  <button type="button" onClick={() => rmParticipant(i)} className="text-xs px-2 py-0.5 rounded bg-red-50 text-red-700 hover:bg-red-100 font-semibold">
-                    ✕ Hapus
-                  </button>
+                  <button type="button" onClick={() => rmParticipant(i)} className="text-xs px-2 py-0.5 rounded bg-red-50 text-red-700 hover:bg-red-100 font-semibold">✕ Hapus</button>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <PaxInput label="Nama Depan" value={p.first_name} onChange={(v) => updParticipant(i, 'first_name', v)} />
@@ -139,23 +161,16 @@ export default function CSForm({ trips }) {
                     <input type="number" value={p.price_paid} min="0" onChange={(e) => updParticipant(i, 'price_paid', e.target.value)} className={miniInput} placeholder="50000000" />
                   </label>
                 </div>
-                <p className="mt-2 text-[10px] text-slate-500 italic">
-                  💡 Data passport & tgl lahir bisa dilengkapi nanti di halaman trip detail.
-                </p>
               </div>
             ))}
-            <button
-              type="button"
-              onClick={addParticipant}
-              className="w-full py-2 border-2 border-dashed border-brand-300 hover:border-brand-500 text-brand-600 text-xs font-semibold rounded-lg transition-colors"
-            >
+            <button type="button" onClick={addParticipant} className="w-full py-2 border-2 border-dashed border-brand-300 hover:border-brand-500 text-brand-600 text-xs font-semibold rounded-lg transition-colors">
               + Tambah Peserta Lain
             </button>
           </div>
         )}
       </Section>
 
-      <Field label="Total Leads Hari Ini (untuk trip ini)" hint="Untuk leads global per sumber, lihat section Leads Harian di halaman /cs">
+      <Field label="Total Leads Organik Hari Ini" hint="Leads yang BUKAN dari ads (organik IG, WA, referral, dll)">
         <input type="number" name="jumlah_leads" defaultValue="0" min="0" className={inputCls} />
       </Field>
 
@@ -165,12 +180,8 @@ export default function CSForm({ trips }) {
 
       {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium">{error}</div>}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg shadow-card transition-colors"
-      >
-        {pending ? 'Menyimpan...' : `Simpan${participants.filter((p) => p.first_name || p.last_name).length > 0 ? ` + ${participants.filter((p) => p.first_name || p.last_name).length} Peserta` : ''}`}
+      <button type="submit" disabled={pending} className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg shadow-card transition-colors">
+        {pending ? 'Menyimpan...' : `Simpan${filledParticipants.length > 0 ? ` + ${filledParticipants.length} Peserta` : ''}`}
       </button>
     </form>
   );
