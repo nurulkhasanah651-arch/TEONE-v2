@@ -1,12 +1,22 @@
-// TL trip detail — info trip + peserta + checklist
+// TL trip detail — info trip + peserta + checklist + TL operations
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
+import TlOperations from '@/components/tl/TlOperations';
 
 export const dynamic = 'force-dynamic';
+
+async function safeQuery(promise, fallback = []) {
+  try {
+    const res = await promise;
+    return res.data || fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 export default async function TLTripDetailPage({ params }) {
   const { tripId } = await params;
@@ -22,6 +32,16 @@ export default async function TLTripDetailPage({ params }) {
     const { data: cust } = await supabase.from('customers').select('*').in('id', customerIds);
     customerMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
   }
+
+  // TL operations data (defensive — kalau migration belum dijalankan, fallback empty)
+  const [expenses, gmapsReviews, vendorReviews] = await Promise.all([
+    safeQuery(supabase.from('tl_expenses').select('*').eq('trip_id', tripId).order('date', { ascending: false })),
+    safeQuery(supabase.from('tl_gmaps_reviews').select('*').eq('trip_id', tripId).order('created_at', { ascending: false })),
+    safeQuery(supabase.from('tl_vendor_reviews').select('*').eq('trip_id', tripId).order('created_at', { ascending: false })),
+  ]);
+
+  // Check if migration was run (cek kolom tl_petty_cash di trips)
+  const hasMigration = 'tl_petty_cash' in trip;
 
   const s = statusCfg(trip.status);
   const days = daysUntil(trip.departure);
@@ -42,6 +62,13 @@ export default async function TLTripDetailPage({ params }) {
         <p className="mt-1 text-slate-600">{trip.tl_name && `👤 TL: ${trip.tl_name}`} · {passengers.length} peserta</p>
       </div>
 
+      {!hasMigration && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+          <h3 className="font-bold text-amber-800 mb-2">⚠ SQL Migration Round 31 Belum Dijalankan</h3>
+          <p className="text-sm text-amber-700 mb-2">Fitur TL Operations (checklist predeparture, petty cash, expense, review GMaps, review vendor, link dokumentasi) butuh tabel & kolom tambahan. Jalankan SQL di Supabase SQL Editor (lihat <code>00_SQL_MIGRATION.txt</code> Round 31).</p>
+        </div>
+      )}
+
       {/* Quick info grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <InfoCard label="📅 Keberangkatan" value={fmtDate(trip.departure)} />
@@ -50,9 +77,9 @@ export default async function TLTripDetailPage({ params }) {
         <InfoCard label="💰 Harga / Pax" value={fmtRupiah(trip.price || 0)} small />
       </div>
 
-      {/* Status checklist */}
+      {/* Status checklist (operational) */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
-        <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">📋 Status Operasional Trip</h3>
+        <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">📊 Status Operasional Trip</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
           {checklist.map((c) => (
             <div key={c.label} className={`p-2.5 rounded-lg text-center border ${c.ok ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
@@ -62,6 +89,19 @@ export default async function TLTripDetailPage({ params }) {
           ))}
         </div>
       </div>
+
+      {/* TL OPERATIONS — checklist + petty cash + reviews + doc link */}
+      {hasMigration && (
+        <div className="bg-gradient-to-br from-brand-50 to-white rounded-xl border border-brand-200 shadow-card p-5">
+          <h2 className="text-lg font-bold text-brand-700 mb-3">🎯 Operasional TL</h2>
+          <TlOperations
+            trip={trip}
+            expenses={expenses}
+            gmapsReviews={gmapsReviews}
+            vendorReviews={vendorReviews}
+          />
+        </div>
+      )}
 
       {/* Flight info */}
       {(trip.pnr || trip.flight_details) && (
