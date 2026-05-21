@@ -1,8 +1,9 @@
-// Accounting dashboard — defensive version with fallbacks for missing data
+// Accounting dashboard — with Pending Payment Requests section (Round 34)
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
+import PaymentRequests from '@/components/accounting/PaymentRequests';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,8 +23,7 @@ export default async function AccountingDashboard({ searchParams }) {
 
   const supabase = createClient();
 
-  // Fetch defensively — each query has fallback
-  const [accounts, accEntries, payments, hppLunas, passengers, customers, allFinItems, pnrs, trips] = await Promise.all([
+  const [accounts, accEntries, payments, hppLunas, passengers, customers, allFinItems, pnrs, trips, pendingRequests] = await Promise.all([
     safeQuery(supabase.from('accounts').select('*').eq('active', true)),
     safeQuery(supabase.from('accounting_entries').select('*').order('date', { ascending: false })),
     safeQuery(supabase.from('participant_payments').select('*').order('paid_at', { ascending: false, nullsFirst: false })),
@@ -33,13 +33,12 @@ export default async function AccountingDashboard({ searchParams }) {
     safeQuery(supabase.from('trip_finance_items').select('item_type, total_amount, payment_status')),
     safeQuery(supabase.from('flight_inventory').select('deposit_total, payoff_amount')),
     safeQuery(supabase.from('trips').select('id, kode_trip, name')),
+    safeQuery(supabase.from('trip_finance_items').select('*').eq('item_type', 'hpp').eq('payment_request_status', 'requested').order('payment_requested_at', { ascending: true })),
   ]);
 
-  // Compute aggregates inline (defensive)
+  // Aggregates
   const accountBalances = {};
-  for (const a of accounts) {
-    accountBalances[a.id] = (a.starting_balance || 0);
-  }
+  for (const a of accounts) accountBalances[a.id] = (a.starting_balance || 0);
   for (const e of accEntries) {
     if (!e.account_id || accountBalances[e.account_id] == null) continue;
     if (e.type === 'in') accountBalances[e.account_id] += e.amount || 0;
@@ -47,11 +46,8 @@ export default async function AccountingDashboard({ searchParams }) {
   }
   const totalBank = Object.values(accountBalances).reduce((s, b) => s + b, 0);
 
-  // Piutang
   const paidByPassenger = {};
-  for (const p of payments) {
-    paidByPassenger[p.passenger_id] = (paidByPassenger[p.passenger_id] || 0) + (p.amount || 0);
-  }
+  for (const p of payments) paidByPassenger[p.passenger_id] = (paidByPassenger[p.passenger_id] || 0) + (p.amount || 0);
   let piutang = 0;
   for (const pax of passengers) {
     const expected = pax.price_paid || 0;
@@ -59,7 +55,6 @@ export default async function AccountingDashboard({ searchParams }) {
     if (expected > paid) piutang += (expected - paid);
   }
 
-  // Hutang
   let hutang = 0;
   for (const it of allFinItems) {
     if (it.item_type !== 'hpp') continue;
@@ -67,12 +62,11 @@ export default async function AccountingDashboard({ searchParams }) {
     hutang += (it.total_amount || 0);
   }
 
-  // Net equity (simplified)
   const totalAssets = totalBank + piutang;
   const netEquity = totalAssets - hutang;
   const realCompanyMoney = totalBank - hutang;
 
-  // Build recent transactions (max 30)
+  // Recent transactions
   const tripMap = Object.fromEntries(trips.map((t) => [t.id, t]));
   const paxMap = Object.fromEntries(passengers.map((p) => [p.id, p]));
   const custMap = Object.fromEntries(customers.map((c) => [c.id, c]));
@@ -87,7 +81,7 @@ export default async function AccountingDashboard({ searchParams }) {
   }
   for (const it of hppLunas) {
     if (!it.total_amount || it.total_amount <= 0) continue;
-    entries.push({ id: `hpp_${it.id}`, type: 'out', amount: it.total_amount, date: it.payoff_date, category: it.category, description: `${it.component}${it.vendor_name ? ` · ${it.vendor_name}` : ''}`, trip: tripMap[it.trip_id], source: 'hpp' });
+    entries.push({ id: `hpp_${it.id}`, type: 'out', amount: it.total_amount, date: it.transfer_date || it.payoff_date, category: it.category, description: `${it.component}${it.vendor_name ? ` · ${it.vendor_name}` : ''}`, trip: tripMap[it.trip_id], source: 'hpp' });
   }
   for (const m of accEntries) {
     entries.push({ id: `man_${m.id}`, type: m.type, amount: m.amount, date: m.date, category: m.category, description: m.description, trip: m.trip_id ? tripMap[m.trip_id] : null, source: 'manual' });
@@ -103,8 +97,15 @@ export default async function AccountingDashboard({ searchParams }) {
     <div className="max-w-7xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-brand-700">Accounting</h1>
-        <p className="mt-1 text-slate-600">Posisi keuangan real-time + cash flow + balance sheet.</p>
+        <p className="mt-1 text-slate-600">Posisi keuangan real-time + approve payment dari Finance.</p>
       </div>
+
+      {/* Pending Payment Requests dari Finance — selalu tampil paling atas kalau ada */}
+      <PaymentRequests
+        requests={pendingRequests}
+        accounts={accounts}
+        trips={trips}
+      />
 
       {/* Real Uang Perusahaan */}
       <Link href="/accounting/cash-position" className={`block rounded-xl shadow-card overflow-hidden transition-all hover:shadow-card-hover hover:-translate-y-0.5 ${realCompanyMoney >= 0 ? 'bg-gradient-to-br from-green-500 to-emerald-700' : 'bg-gradient-to-br from-red-500 to-red-700'} text-white`}>
@@ -120,7 +121,6 @@ export default async function AccountingDashboard({ searchParams }) {
         </div>
       </Link>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="🏦 Saldo Bank/Kas" value={fmtRupiah(totalBank)} color="text-blue-700" bg="bg-blue-50" />
         <StatCard label="🧾 Piutang Peserta" value={fmtRupiah(piutang)} color="text-amber-700" bg="bg-amber-50" />
@@ -128,7 +128,6 @@ export default async function AccountingDashboard({ searchParams }) {
         <StatCard label="📊 Net Equity" value={fmtRupiah(netEquity)} color={netEquity >= 0 ? 'text-green-700' : 'text-red-700'} bg={netEquity >= 0 ? 'bg-green-50' : 'bg-red-50'} />
       </div>
 
-      {/* Action cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <SectionCard href="/accounting/reports" icon="📊" title="Laporan Bulanan" color="from-indigo-500 to-blue-700" />
         <SectionCard href="/accounting/cash-position" icon="💼" title="Posisi Kas" color="from-emerald-500 to-green-700" />
@@ -138,7 +137,6 @@ export default async function AccountingDashboard({ searchParams }) {
         <SectionCard href="/accounting/new" icon="➕" title="Entry Manual" color="from-amber-500 to-orange-700" />
       </div>
 
-      {/* Filter */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4">
         <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">Filter Transaksi</p>
         <div className="flex flex-wrap gap-2 items-center">
@@ -148,7 +146,6 @@ export default async function AccountingDashboard({ searchParams }) {
         </div>
       </div>
 
-      {/* Recent */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200">
           <h2 className="font-bold text-brand-700">Transaksi Terbaru ({filtered.length})</h2>
