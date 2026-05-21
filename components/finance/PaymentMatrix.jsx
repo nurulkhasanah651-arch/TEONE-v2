@@ -1,41 +1,26 @@
 'use client';
 
-// Payment matrix — Round 46: hapus annoying alert confirm template,
-// dan pakai case-insensitive lookup biar robust
+// Payment Matrix — Round 47: milestones auto dari price_breakdown
+//   - DP/P1/P2/P3/Pelunasan (cicilan dari template)
+//   - Visa/Tips/Asuransi/City Tax/Land Tour (auto dari breakdown — kalau > 0)
+//   - Custom items dari breakdown._custom
+// Per peserta: harga pokok room + add-ons + customs
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toggleMilestone, updatePaymentAmount, updatePaymentNotes } from '@/lib/actions/payments';
 import { fmtRupiah } from '@/lib/utils/format';
+import { deriveMilestones, roomTypeToKey, ADDON_KEYS } from '@/lib/utils/price-breakdown';
 
-const STANDARD = ['DP', 'P1', 'P2', 'P3', 'Pelunasan', 'Visa', 'Asuransi'];
-
-// Case-insensitive template lookup — kalau key beda case, tetep cari match
-function getTplAmount(template, type) {
-  if (!template) return 0;
-  if (template[type] != null) return template[type];
-  // Fallback case-insensitive
-  for (const k of Object.keys(template)) {
-    if (k.toLowerCase() === type.toLowerCase()) return template[k];
-  }
-  return 0;
-}
-
-export default function PaymentMatrix({ tripId, passengers = [], paymentsByPassenger = {}, template = {} }) {
+export default function PaymentMatrix({ tripId, passengers = [], paymentsByPassenger = {}, template = {}, breakdown = {} }) {
   const [pending, startTransition] = useTransition();
   const [editingCell, setEditingCell] = useState(null);
   const [editingNotes, setEditingNotes] = useState(null);
   const [expandedRow, setExpandedRow] = useState(null);
   const router = useRouter();
 
-  const templateKeys = Object.keys(template || {});
-  const customKeys = templateKeys.filter((k) => !STANDARD.includes(k));
-  const milestones = [...STANDARD, ...customKeys].map((k) => ({
-    key: k,
-    label: k,
-    amount: getTplAmount(template, k),
-    isCustom: !STANDARD.includes(k),
-  }));
+  // Round 47: derive milestones from template + breakdown
+  const milestones = deriveMilestones(template, breakdown);
 
   const paymentLookup = {};
   for (const pid in paymentsByPassenger) {
@@ -45,10 +30,7 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
     }
   }
 
-  function handleToggle(passengerId, type) {
-    const tplAmount = getTplAmount(template, type);
-    // Round 46: Tidak ada lagi confirm dialog yang annoying.
-    // Kalau template 0, payment tercatat dengan amount 0 — user bisa edit nominal di cell.
+  function handleToggle(passengerId, type, tplAmount) {
     startTransition(async () => {
       const result = await toggleMilestone(passengerId, tripId, type, tplAmount);
       if (result?.error) alert(result.error);
@@ -84,16 +66,37 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
     );
   }
 
+  // Add-on per-pax total (visa+asuransi+tips+city_tax+land_tour) + customs
+  const addonPerPax = ADDON_KEYS.reduce((s, a) => s + (breakdown[a.key] || 0), 0);
+  const customPerPax = (Array.isArray(breakdown._custom) ? breakdown._custom : []).reduce((s, c) => s + (c.price || 0), 0);
+
+  // Summary per milestone
   const summary = {};
   for (const m of milestones) {
     summary[m.key] = passengers.filter((p) => paymentLookup[p.id]?.[m.key]).length;
   }
 
+  const sourceColor = {
+    cicilan:         'text-slate-600 border-b-slate-300',
+    addon:           'text-indigo-700 border-b-indigo-300 bg-indigo-50/40',
+    custom:          'text-purple-700 border-b-purple-300 bg-purple-50/40',
+    template_custom: 'text-purple-700 border-b-purple-300 bg-purple-50/40',
+  };
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-      <div className="px-5 py-3 border-b border-slate-200">
-        <h3 className="font-bold text-brand-700">Checklist Payment Group</h3>
-        <p className="text-xs text-slate-500 mt-0.5">Klik ○ untuk lunas · klik ✓ untuk batal · klik nominal untuk edit · klik nama peserta untuk expand & note.</p>
+      <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h3 className="font-bold text-brand-700">Checklist Payment Group</h3>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Cicilan (DP/P1/P2/P3) dari template · Add-on (Visa/Tips/dll) auto dari Master Trip breakdown · Custom items dari Master Trip.
+          </p>
+        </div>
+        <div className="flex gap-1 text-[10px] font-bold uppercase">
+          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700">Cicilan</span>
+          <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">Add-on</span>
+          <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700">Custom</span>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -102,8 +105,8 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
             <tr>
               <th className="px-3 py-2 text-left text-xs font-bold text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10">Peserta</th>
               {milestones.map((m) => (
-                <th key={m.key} className={`px-2 py-2 text-center text-xs font-bold uppercase tracking-wider ${m.isCustom ? 'text-purple-700' : 'text-slate-600'}`}>
-                  <p>{m.label}</p>
+                <th key={m.key} className={`px-2 py-2 text-center text-xs font-bold uppercase tracking-wider border-b-2 ${sourceColor[m.source] || sourceColor.cicilan}`}>
+                  <p>{m.icon ? `${m.icon} ` : ''}{m.label}</p>
                   <p className="text-[10px] font-normal text-slate-400 mt-0.5">{fmtRupiah(m.amount)}</p>
                 </th>
               ))}
@@ -117,6 +120,12 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
               const totalPaid = pays.reduce((s, x) => s + (x.amount || 0), 0);
               const isExpanded = expandedRow === p.id;
 
+              // Expected total per peserta = harga room + addons + customs
+              const roomKey = roomTypeToKey(p.room_type);
+              const roomPrice = roomKey ? (breakdown[roomKey] || 0) : (p.price_paid || 0);
+              const expectedTotal = roomPrice + addonPerPax + customPerPax;
+              const remaining = expectedTotal - totalPaid;
+
               return (
                 <>
                   <tr key={p.id} className={`hover:bg-slate-50 ${isExpanded ? 'bg-amber-50/40' : ''}`}>
@@ -128,7 +137,9 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
                         <p className="font-semibold text-brand-700 text-sm">
                           {isExpanded ? '▾' : '▸'} {c.name || '—'}
                         </p>
-                        <p className="text-[10px] text-slate-500">#{idx + 1}{p.room_type && ` · ${p.room_type}`}</p>
+                        <p className="text-[10px] text-slate-500">
+                          #{idx + 1}{p.room_type && ` · ${p.room_type}`} · Expected {fmtRupiah(expectedTotal)}
+                        </p>
                       </button>
                     </td>
                     {milestones.map((m) => {
@@ -136,7 +147,7 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
                       const isPaid = !!payment;
                       const isEditing = editingCell?.passengerId === p.id && editingCell?.type === m.key;
                       return (
-                        <td key={m.key} className="px-1 py-2 text-center">
+                        <td key={m.key} className={`px-1 py-2 text-center ${m.source === 'addon' ? 'bg-indigo-50/20' : m.source === 'custom' || m.source === 'template_custom' ? 'bg-purple-50/20' : ''}`}>
                           {isEditing ? (
                             <input
                               type="number"
@@ -147,12 +158,12 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
                             />
                           ) : (
                             <button
-                              onClick={() => handleToggle(p.id, m.key)}
+                              onClick={() => handleToggle(p.id, m.key, m.amount)}
                               disabled={pending}
                               className={`w-10 h-8 rounded font-bold text-sm transition-colors disabled:opacity-50 ${
                                 isPaid ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-400'
                               }`}
-                              title={isPaid ? `Lunas: ${fmtRupiah(payment.amount)}` : 'Klik untuk tandai lunas'}
+                              title={isPaid ? `Lunas: ${fmtRupiah(payment.amount)}` : `Klik untuk tandai lunas (${fmtRupiah(m.amount)})`}
                             >
                               {isPaid ? '✓' : '○'}
                             </button>
@@ -174,11 +185,12 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
                     })}
                     <td className="px-3 py-2 text-right">
                       <p className="font-bold text-green-700">{fmtRupiah(totalPaid)}</p>
-                      {p.price_paid > 0 && (
-                        <p className="text-[10px] text-slate-500">
-                          / {fmtRupiah(p.price_paid)}
-                          {totalPaid >= p.price_paid && <span className="ml-1 text-green-700 font-bold">✓</span>}
-                        </p>
+                      <p className="text-[10px] text-slate-500">
+                        / {fmtRupiah(expectedTotal)}
+                        {totalPaid >= expectedTotal && expectedTotal > 0 && <span className="ml-1 text-green-700 font-bold">✓</span>}
+                      </p>
+                      {remaining > 0 && (
+                        <p className="text-[10px] text-amber-700 font-semibold">Sisa: {fmtRupiah(remaining)}</p>
                       )}
                     </td>
                   </tr>
@@ -186,9 +198,14 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
                   {isExpanded && (
                     <tr key={`${p.id}-exp`} className="bg-amber-50/30">
                       <td colSpan={milestones.length + 2} className="px-5 py-3">
-                        <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">Detail Pembayaran — {c.name}</p>
+                        <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">
+                          Detail Pembayaran — {c.name}
+                          <span className="ml-2 text-[10px] font-normal text-slate-600">
+                            (Room: {p.room_type || '—'} · Expected: {fmtRupiah(expectedTotal)})
+                          </span>
+                        </p>
                         {pays.length === 0 ? (
-                          <p className="text-xs text-slate-500 italic">Belum ada pembayaran tercatat. Klik milestone di atas untuk tandai lunas.</p>
+                          <p className="text-xs text-slate-500 italic">Belum ada pembayaran. Klik milestone di atas untuk tandai lunas.</p>
                         ) : (
                           <div className="space-y-1.5">
                             {pays.map((py) => {
@@ -203,7 +220,7 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
                                         type="text"
                                         defaultValue={py.notes || ''}
                                         autoFocus
-                                        placeholder="Catatan untuk pembayaran ini..."
+                                        placeholder="Catatan pembayaran..."
                                         onBlur={(e) => handleSaveNotes(py.id, e.target.value)}
                                         onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEditingNotes(null); }}
                                         className="w-full px-2 py-1 border border-brand-500 rounded text-xs"
@@ -212,7 +229,6 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
                                       <p
                                         onClick={() => setEditingNotes({ paymentId: py.id })}
                                         className="text-xs text-slate-600 cursor-pointer hover:text-brand-600 hover:underline"
-                                        title="Klik untuk edit catatan"
                                       >
                                         {py.notes ? `📝 ${py.notes}` : '+ Tambah catatan'}
                                       </p>
