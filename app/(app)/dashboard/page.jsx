@@ -1,5 +1,5 @@
-// Dashboard — Round 71: simplifikasi hero stats jadi 3 card (Trip / Seat / Revenue)
-// Detail leads & ads dipindah ke section Snapshot Hari Ini (yang lebih lengkap)
+// Dashboard — Round 74: sync Total Leads ke cs_daily_leads (global, organic + ads)
+// Tidak lagi aggregate per trip — pakai 1 source of truth dari /cs page
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
@@ -24,6 +24,13 @@ const ALL_QUICK = [
   { href: '/chat',              icon: '💬',  label: 'Chat Tim',        color: 'from-cyan-500 to-cyan-700' },
 ];
 
+function sumOrganic(l) {
+  return (l?.leads_ig || 0) + (l?.leads_tiktok || 0) + (l?.leads_wa || 0) + (l?.leads_fb || 0);
+}
+function sumAds(l) {
+  return (l?.leads_ads_meta || 0) + (l?.leads_ads_google || 0) + (l?.leads_ads_tiktok || 0);
+}
+
 export default async function DashboardPage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -31,16 +38,18 @@ export default async function DashboardPage() {
   const today = new Date().toISOString().slice(0, 10);
 
   // Fetch all data in parallel
-  const [tripsRes, allPaxRes, csTodayRes, adsTodayRes] = await Promise.all([
+  const [tripsRes, allPaxRes, csTodayRes, dailyLeadsRes, adsTodayRes] = await Promise.all([
     supabase.from('trips').select('*').order('departure', { ascending: true, nullsFirst: false }),
     supabase.from('trip_passengers').select('*'),
     supabase.from('cs_daily_updates').select('*').eq('tanggal', today),
+    supabase.from('cs_daily_leads').select('*').eq('tanggal', today).maybeSingle(),
     supabase.from('ads_entries').select('*').eq('date', today),
   ]);
 
   const trips = tripsRes.data || [];
   const allPax = allPaxRes.data || [];
   const csToday = csTodayRes.data || [];
+  const dailyLeads = dailyLeadsRes.data;
   const adsToday = adsTodayRes.data || [];
 
   // Aggregate paxByTrip
@@ -67,23 +76,19 @@ export default async function DashboardPage() {
   const totalSeatLeft = trips.reduce((s, t) => s + (t.seat_left || 0), 0);
   const totalPax = allPax.length;
 
-  // Snapshot Hari Ini stats
+  // === LEADS HARI INI — sync ke cs_daily_leads (global) ===
+  const todayOrganicLeads = sumOrganic(dailyLeads);
+  const todayAdsLeadsTotal = sumAds(dailyLeads);
+  const todayTotalLeads = todayOrganicLeads + todayAdsLeadsTotal;
+
+  // === CLOSING HARI INI — aggregate dari cs_daily_updates per trip ===
   const todayClosingTotal = csToday.reduce((s, c) =>
     s + (c.from_instagram || 0) + (c.from_whatsapp || 0) + (c.from_offline || 0)
       + (c.closing_alumni || 0) + (c.closing_mitra || 0)
       + (c.from_ads_meta || 0) + (c.from_ads_google || 0) + (c.from_ads_tiktok || 0)
   , 0);
 
-  const todayOrganicLeads = csToday.reduce((s, c) => s + (c.jumlah_leads || 0), 0);
-  const todayAdsLeadsMeta   = csToday.reduce((s, c) => s + (c.leads_ads_meta || 0), 0);
-  const todayAdsLeadsGoogle = csToday.reduce((s, c) => s + (c.leads_ads_google || 0), 0);
-  const todayAdsLeadsTiktok = csToday.reduce((s, c) => s + (c.leads_ads_tiktok || 0), 0);
-  const todayAdsLeadsTotal  = todayAdsLeadsMeta + todayAdsLeadsGoogle + todayAdsLeadsTiktok;
-  const todayTotalLeads     = todayOrganicLeads + todayAdsLeadsTotal;
-
-  const todayAdsSpend = adsToday.reduce((s, e) => s + (Number(e.spend) || 0), 0);
-
-  // Urgent Trip Push Selling — open selling + departure ≤ 60 hari + masih ada seat
+  // Urgent Trip Push Selling
   const urgentPushTrips = trips.filter((t) => {
     if (t.status !== 'open selling') return false;
     if (!t.departure) return false;
@@ -115,21 +120,43 @@ export default async function DashboardPage() {
         <p className="mt-1 text-slate-600">Selamat datang kembali di TEONE — Traveling Eropa One System.</p>
       </div>
 
-      {/* HERO STATS — 3 card aja: Trip · Seat · Revenue */}
+      {/* HERO STATS — 3 card aja */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <BigStat label="✈ Total Trip" value={totalTrips} sub={`${openSelling} open selling`} color="text-brand-700" bg="bg-brand-50" href="/trips" />
         <BigStat label="🪑 Seat Tersisa" value={totalSeatLeft} sub={`${totalPax} peserta total`} color="text-amber-700" bg="bg-amber-50" href="/trips" />
         <BigStat label="💰 Expected Revenue" value={fmtRupiah(totalExpectedRevenue)} sub="Proyeksi dari breakdown × pax" color="text-green-700" bg="bg-green-50" href="/finance/cashflow" small />
       </div>
 
-      {/* DAILY SNAPSHOT — 3 stat prioritas */}
+      {/* DAILY SNAPSHOT — 3 stat prioritas (sync ke cs_daily_leads) */}
       <div className="bg-gradient-to-r from-brand-50 to-blue-50 rounded-xl border border-brand-200 shadow-card p-5">
         <h2 className="text-sm font-bold text-brand-700 uppercase tracking-wider mb-3">📅 Snapshot Hari Ini ({fmtDate(today)})</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <MiniStat label="📊 Total Leads Hari Ini" value={todayTotalLeads} sub={`${todayOrganicLeads} organik + ${todayAdsLeadsTotal} ads`} color="text-blue-700" />
-          <MiniStat label="✓ Total Closing" value={todayClosingTotal} sub="dari semua trip" color="text-green-700" />
-          <MiniStatLink label="🔥 Urgent Trip Push Selling" value={urgentPushCount} sub="open selling · departure ≤ 60 hari · seat tersisa" color="text-red-700" href="/trips" />
+          <MiniStatLink
+            label="📊 Total Leads Hari Ini"
+            value={todayTotalLeads}
+            sub={`${todayOrganicLeads} organic + ${todayAdsLeadsTotal} ads`}
+            color="text-blue-700"
+            href="/cs"
+          />
+          <MiniStat
+            label="✓ Total Closing"
+            value={todayClosingTotal}
+            sub="dari semua trip aktif"
+            color="text-green-700"
+          />
+          <MiniStatLink
+            label="🔥 Urgent Trip Push Selling"
+            value={urgentPushCount}
+            sub="open selling · departure ≤ 60 hari · seat tersisa"
+            color="text-red-700"
+            href="/trips"
+          />
         </div>
+        {dailyLeads == null && (
+          <p className="mt-3 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+            ⚠ Belum input leads hari ini di /cs. Total Leads masih 0 sampai diinput.
+          </p>
+        )}
       </div>
 
       {/* Quick actions — filtered by role */}
