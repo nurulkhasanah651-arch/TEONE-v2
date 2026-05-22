@@ -83,6 +83,17 @@ export default async function DashboardPage() {
 
   const todayAdsSpend = adsToday.reduce((s, e) => s + (Number(e.spend) || 0), 0);
 
+  // Urgent Trip Push Selling — open selling + departure ≤ 60 hari + masih ada seat
+  const urgentPushTrips = trips.filter((t) => {
+    if (t.status !== 'open selling') return false;
+    if (!t.departure) return false;
+    const d = daysUntil(t.departure);
+    if (d == null || d < 0 || d > 60) return false;
+    const seatLeft = t.seat_left ?? 0;
+    return seatLeft > 0;
+  });
+  const urgentPushCount = urgentPushTrips.length;
+
   // Upcoming trips (next 30 days)
   const upcoming = trips
     .filter((t) => {
@@ -111,24 +122,13 @@ export default async function DashboardPage() {
         <BigStat label="💰 Expected Revenue" value={fmtRupiah(totalExpectedRevenue)} sub="Proyeksi dari breakdown × pax" color="text-green-700" bg="bg-green-50" href="/finance/cashflow" small />
       </div>
 
-      {/* DAILY SNAPSHOT — Leads + Closing + Ads */}
+      {/* DAILY SNAPSHOT — 3 stat prioritas */}
       <div className="bg-gradient-to-r from-brand-50 to-blue-50 rounded-xl border border-brand-200 shadow-card p-5">
         <h2 className="text-sm font-bold text-brand-700 uppercase tracking-wider mb-3">📅 Snapshot Hari Ini ({fmtDate(today)})</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <MiniStat label="📊 Total Leads Hari Ini" value={todayTotalLeads} sub={`${todayOrganicLeads} organik + ${todayAdsLeadsTotal} ads`} color="text-blue-700" />
           <MiniStat label="✓ Total Closing" value={todayClosingTotal} sub="dari semua trip" color="text-green-700" />
-          <MiniStat label="🎯 Conv Ads (kalau ada)" value={todayAdsLeadsTotal > 0 ? `${Math.round((csToday.reduce((s,c)=>s+(c.closing_ads||0),0) / todayAdsLeadsTotal) * 100)}%` : '—'} sub="closing_ads / leads_ads" color="text-indigo-700" />
-          <MiniStat label="💵 CAC Ads (kalau ada)" value={(() => {
-            const closing = csToday.reduce((s,c)=>s+(c.closing_ads||0),0);
-            return closing > 0 ? fmtRupiah(todayAdsSpend / closing) : '—';
-          })()} sub="spend / closing" color="text-orange-700" />
-        </div>
-        {/* Extra row: ads breakdown */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
-          <MiniStat label="🟦 Leads Meta" value={todayAdsLeadsMeta} sub="dari iklan Meta" color="text-blue-600" />
-          <MiniStat label="🟥 Leads Google" value={todayAdsLeadsGoogle} sub="dari iklan Google" color="text-red-600" />
-          <MiniStat label="⚫ Leads TikTok" value={todayAdsLeadsTiktok} sub="dari iklan TikTok" color="text-slate-700" />
-          <MiniStat label="💸 Spend Ads" value={fmtRupiah(todayAdsSpend)} sub={`${adsToday.length} entries`} color="text-orange-700" />
+          <MiniStatLink label="🔥 Urgent Trip Push Selling" value={urgentPushCount} sub="open selling · departure ≤ 60 hari · seat tersisa" color="text-red-700" href="/trips" />
         </div>
       </div>
 
@@ -210,5 +210,15 @@ function MiniStat({ label, value, sub, color }) {
       <p className={`mt-1 text-xl font-bold ${color}`}>{value}</p>
       {sub && <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>}
     </div>
+  );
+}
+
+function MiniStatLink({ label, value, sub, color, href }) {
+  return (
+    <Link href={href} className="block bg-white/70 hover:bg-white rounded-lg p-3 transition-colors">
+      <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">{label}</p>
+      <p className={`mt-1 text-xl font-bold ${color}`}>{value}</p>
+      {sub && <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>}
+    </Link>
   );
 }
