@@ -1,4 +1,5 @@
-// Dashboard — Round 50: lengkap dengan quick actions, revenue expected, leads ads harian
+// Dashboard — Round 71: simplifikasi hero stats jadi 3 card (Trip / Seat / Revenue)
+// Detail leads & ads dipindah ke section Snapshot Hari Ini (yang lebih lengkap)
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
@@ -49,7 +50,7 @@ export default async function DashboardPage() {
     paxByTrip[p.trip_id].push(p);
   }
 
-  // Compute Expected Revenue (sum of MAIN expected per peserta across all active trips)
+  // Compute Expected Revenue
   let totalExpectedRevenue = 0;
   for (const t of trips) {
     if (t.status === 'cancelled') continue;
@@ -60,14 +61,13 @@ export default async function DashboardPage() {
     }
   }
 
-  // Stats
+  // Hero stats
   const totalTrips = trips.length;
   const openSelling = trips.filter((t) => t.status === 'open selling').length;
   const totalSeatLeft = trips.reduce((s, t) => s + (t.seat_left || 0), 0);
   const totalPax = allPax.length;
-  const csUpdatesToday = csToday.length;
 
-  // Today's leads
+  // Snapshot Hari Ini stats
   const todayClosingTotal = csToday.reduce((s, c) =>
     s + (c.from_instagram || 0) + (c.from_whatsapp || 0) + (c.from_offline || 0)
       + (c.closing_alumni || 0) + (c.closing_mitra || 0)
@@ -81,7 +81,6 @@ export default async function DashboardPage() {
   const todayAdsLeadsTotal  = todayAdsLeadsMeta + todayAdsLeadsGoogle + todayAdsLeadsTiktok;
   const todayTotalLeads     = todayOrganicLeads + todayAdsLeadsTotal;
 
-  // Today ads spend
   const todayAdsSpend = adsToday.reduce((s, e) => s + (Number(e.spend) || 0), 0);
 
   // Upcoming trips (next 30 days)
@@ -105,17 +104,14 @@ export default async function DashboardPage() {
         <p className="mt-1 text-slate-600">Selamat datang kembali di TEONE — Traveling Eropa One System.</p>
       </div>
 
-      {/* HERO STATS */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      {/* HERO STATS — 3 card aja: Trip · Seat · Revenue */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <BigStat label="✈ Total Trip" value={totalTrips} sub={`${openSelling} open selling`} color="text-brand-700" bg="bg-brand-50" href="/trips" />
         <BigStat label="🪑 Seat Tersisa" value={totalSeatLeft} sub={`${totalPax} peserta total`} color="text-amber-700" bg="bg-amber-50" href="/trips" />
         <BigStat label="💰 Expected Revenue" value={fmtRupiah(totalExpectedRevenue)} sub="Proyeksi dari breakdown × pax" color="text-green-700" bg="bg-green-50" href="/finance/cashflow" small />
-        <BigStat label="📞 CS Hari Ini" value={csUpdatesToday} sub={`${todayClosingTotal} closing`} color="text-blue-700" bg="bg-blue-50" href="/cs" />
-        <BigStat label="🎯 Leads Ads Hari Ini" value={todayAdsLeadsTotal} sub={`${todayAdsLeadsMeta}/Meta · ${todayAdsLeadsGoogle}/Google · ${todayAdsLeadsTiktok}/TikTok`} color="text-indigo-700" bg="bg-indigo-50" href="/ads" />
-        <BigStat label="💸 Spend Ads Hari Ini" value={fmtRupiah(todayAdsSpend)} sub={`${adsToday.length} entries`} color="text-orange-700" bg="bg-orange-50" href="/ads" small />
       </div>
 
-      {/* DAILY SNAPSHOT — Leads + Closing */}
+      {/* DAILY SNAPSHOT — Leads + Closing + Ads */}
       <div className="bg-gradient-to-r from-brand-50 to-blue-50 rounded-xl border border-brand-200 shadow-card p-5">
         <h2 className="text-sm font-bold text-brand-700 uppercase tracking-wider mb-3">📅 Snapshot Hari Ini ({fmtDate(today)})</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -126,6 +122,13 @@ export default async function DashboardPage() {
             const closing = csToday.reduce((s,c)=>s+(c.closing_ads||0),0);
             return closing > 0 ? fmtRupiah(todayAdsSpend / closing) : '—';
           })()} sub="spend / closing" color="text-orange-700" />
+        </div>
+        {/* Extra row: ads breakdown */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+          <MiniStat label="🟦 Leads Meta" value={todayAdsLeadsMeta} sub="dari iklan Meta" color="text-blue-600" />
+          <MiniStat label="🟥 Leads Google" value={todayAdsLeadsGoogle} sub="dari iklan Google" color="text-red-600" />
+          <MiniStat label="⚫ Leads TikTok" value={todayAdsLeadsTiktok} sub="dari iklan TikTok" color="text-slate-700" />
+          <MiniStat label="💸 Spend Ads" value={fmtRupiah(todayAdsSpend)} sub={`${adsToday.length} entries`} color="text-orange-700" />
         </div>
       </div>
 
@@ -188,12 +191,12 @@ export default async function DashboardPage() {
 
 function BigStat({ label, value, sub, color, bg, href, small = false }) {
   const inner = (
-    <div className={`bg-white rounded-xl border border-slate-200 shadow-card p-4 hover:shadow-card-hover transition-shadow ${href ? 'cursor-pointer' : ''}`}>
+    <div className={`bg-white rounded-xl border border-slate-200 shadow-card p-5 hover:shadow-card-hover transition-shadow ${href ? 'cursor-pointer' : ''}`}>
       <div className={`inline-block ${bg} ${color} text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded mb-2`}>
         {label}
       </div>
-      <p className={`font-bold ${color} ${small ? 'text-lg' : 'text-2xl'} leading-tight`}>{value}</p>
-      {sub && <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>}
+      <p className={`font-bold ${color} ${small ? 'text-xl' : 'text-3xl'} leading-tight`}>{value}</p>
+      {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
     </div>
   );
   if (href) return <Link href={href}>{inner}</Link>;
