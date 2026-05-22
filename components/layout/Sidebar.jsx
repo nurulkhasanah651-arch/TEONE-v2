@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { filterNavByRole } from '@/lib/utils/roles';
 
-// Round 42: tambah Ads Manager menu
+// Round 53: tambah Download Center menu
 const NAV_ALL = [
   { href: '/dashboard',         label: 'Dashboard',      icon: '◆' },
   { href: '/trips',             label: 'Master Trip',    icon: '✈' },
@@ -19,6 +19,7 @@ const NAV_ALL = [
   { href: '/tl-master',         label: 'Master TL',      icon: '👥' },
   { href: '/tasks',             label: 'To-Do List',     icon: '✅' },
   { href: '/chat',              label: 'Chat Tim',       icon: '💬' },
+  { href: '/download',          label: 'Download Center',icon: '📥' },
 ];
 
 export default function Sidebar({ role = null }) {
