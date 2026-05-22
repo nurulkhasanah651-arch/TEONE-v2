@@ -1,4 +1,4 @@
-// CS Daily — Round 76: Leads + Closing keduanya pakai History Table (daily/weekly/monthly + download)
+// CS Daily — Round 78: Closing 30 hari + peserta closing di download
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
@@ -24,16 +24,18 @@ export default async function CSPage() {
   const supabase = createClient();
   const today = new Date().toISOString().slice(0, 10);
 
-  // Fetch in parallel — ALL leads & updates (client component bagi tampilan per view)
-  const [updatesRes, leadsRes, todayLeadsRes] = await Promise.all([
+  // Fetch in parallel
+  const [updatesRes, leadsRes, todayLeadsRes, paxRes] = await Promise.all([
     supabase.from('cs_daily_updates').select('*, trips(name, kode_trip)').order('tanggal', { ascending: false }),
     supabase.from('cs_daily_leads').select('*').order('tanggal', { ascending: false }),
     supabase.from('cs_daily_leads').select('*').eq('tanggal', today).maybeSingle(),
+    supabase.from('trip_passengers').select('*, trips(name, kode_trip), customers(*)').order('joined_at', { ascending: false }),
   ]);
 
   const allUpdates = updatesRes.data || [];
   const allLeads = leadsRes.data || [];
   const todayLeads = todayLeadsRes.data;
+  const allParticipants = paxRes.data || [];
 
   const todayUpdates = allUpdates.filter((u) => u.tanggal === today);
   const todayClosing = todayUpdates.reduce((s, u) => s + sumClosing(u), 0);
@@ -84,9 +86,9 @@ export default async function CSPage() {
       <section className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200">
           <h2 className="font-bold text-brand-700">📝 Update Closing per Trip</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Daily list (7 hari) + rekap mingguan/bulanan + download CSV.</p>
+          <p className="text-xs text-slate-500 mt-0.5">30 hari terakhir di tab Daily. Setelah lewat sebulan, data otomatis muncul di rekap bulanan. Download Excel include detail peserta.</p>
         </div>
-        <ClosingHistoryTable allUpdates={allUpdates} />
+        <ClosingHistoryTable allUpdates={allUpdates} participants={allParticipants} />
       </section>
     </div>
   );
