@@ -1,4 +1,4 @@
-// TL trip detail — Round 65: ZERO admin shortcuts, ultra minimal untuk TL
+// TL trip detail — Round 67: download links pakai /tl/ path
 
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -28,7 +28,6 @@ export default async function TLTripDetailPage({ params }) {
   const { data: trip } = await supabase.from('trips').select('*').eq('id', tripId).maybeSingle();
   if (!trip) notFound();
 
-  // STRICT: TL hanya boleh akses trip yang di-assign ke dia
   if (isTL) {
     const tlId = user?.user_metadata?.tl_id;
     const tlName = user?.user_metadata?.tl_name || '';
@@ -86,7 +85,6 @@ export default async function TLTripDetailPage({ params }) {
         <p className="mt-1 text-slate-600">{trip.tl_name && `👤 TL: ${trip.tl_name} · `}{passengers.length} peserta</p>
       </div>
 
-      {/* Info Cards — cuma tanggal & jumlah peserta (no harga, no seat detail) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <InfoCard label="📅 Keberangkatan" value={fmtDate(trip.departure)} />
         <InfoCard label="📅 Kepulangan" value={fmtDate(trip.arrival)} />
@@ -107,12 +105,10 @@ export default async function TLTripDetailPage({ params }) {
         </div>
       )}
 
-      {/* DOKUMEN TRIP — read-only — diberikan Ops via /trips/[id] */}
       {TripDocuments && (
         <TripDocuments tripId={tripId} documents={documents} readOnly={true} />
       )}
 
-      {/* TL Operations (predeparture checklist, petty cash, expenses, reviews, doc link) */}
       {hasTlMigration && TlOperations && (
         <div className="bg-gradient-to-br from-brand-50 to-white rounded-xl border border-brand-200 shadow-card p-5">
           <h2 className="text-lg font-bold text-brand-700 mb-3">🎯 Operasional TL</h2>
@@ -120,7 +116,6 @@ export default async function TLTripDetailPage({ params }) {
         </div>
       )}
 
-      {/* Flight info */}
       {(trip.pnr || trip.flight_details) && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
           <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">✈ Info Penerbangan</h3>
@@ -132,7 +127,6 @@ export default async function TLTripDetailPage({ params }) {
         </div>
       )}
 
-      {/* Catatan trip dari Ops */}
       {trip.notes && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
           <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">📝 Catatan Trip dari Ops</h3>
@@ -140,14 +134,14 @@ export default async function TLTripDetailPage({ params }) {
         </div>
       )}
 
-      {/* Daftar Peserta + Download Manifest/Roomlist (file downloads — not navigation) */}
+      {/* Peserta + Download — Round 67: links pakai /tl/ path */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
           <h3 className="font-bold text-brand-700">👥 Daftar Peserta ({passengers.length})</h3>
           <div className="flex gap-2 flex-wrap">
-            <a href={`/visa/${tripId}/manifest.csv`} download className="text-xs font-semibold px-3 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100">📋 Manifest CSV</a>
-            <a href={`/visa/${tripId}/roomlist.csv`} download className="text-xs font-semibold px-3 py-1 rounded bg-purple-50 text-purple-700 hover:bg-purple-100">🛏 Roomlist CSV</a>
-            <a href={`/visa/${tripId}/roomlist.xls`} download className="text-xs font-semibold px-3 py-1 rounded bg-green-50 text-green-700 hover:bg-green-100">📊 Roomlist Excel</a>
+            <a href={`/tl/${tripId}/manifest.csv`} download className="text-xs font-semibold px-3 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100">📋 Manifest CSV</a>
+            <a href={`/tl/${tripId}/roomlist.csv`} download className="text-xs font-semibold px-3 py-1 rounded bg-purple-50 text-purple-700 hover:bg-purple-100">🛏 Roomlist CSV</a>
+            <a href={`/tl/${tripId}/roomlist.xls`} download className="text-xs font-semibold px-3 py-1 rounded bg-green-50 text-green-700 hover:bg-green-100">📊 Roomlist Excel</a>
           </div>
         </div>
         {passengers.length === 0 ? (
@@ -179,8 +173,6 @@ export default async function TLTripDetailPage({ params }) {
           </div>
         )}
       </div>
-
-      {/* TIDAK ADA SHORTCUT SECTION — TL ga butuh nav ke admin pages */}
     </div>
   );
 }
