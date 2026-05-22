@@ -1,4 +1,4 @@
-// Trip Detail page — Round 49: tambah DeleteTripButton
+// Trip Detail page — Round 52: tambah TripDocuments (Ops upload, full access)
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -7,8 +7,13 @@ import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
 import ParticipantsList from '@/components/trips/ParticipantsList';
 import DeleteTripButton from '@/components/trips/DeleteTripButton';
+import TripDocuments from '@/components/trips/TripDocuments';
 
 export const dynamic = 'force-dynamic';
+
+async function safeQuery(promise, fallback = []) {
+  try { const r = await promise; return r.data || fallback; } catch { return fallback; }
+}
 
 export default async function TripDetailPage({ params }) {
   const { id } = await params;
@@ -35,6 +40,10 @@ export default async function TripDetailPage({ params }) {
       }
     }
   }
+
+  const documents = await safeQuery(
+    supabase.from('trip_documents').select('*').eq('trip_id', id).order('created_at', { ascending: false })
+  );
 
   const { data: recentCS } = await supabase
     .from('cs_daily_updates')
@@ -104,6 +113,9 @@ export default async function TripDetailPage({ params }) {
           </InfoCard>
         )}
       </div>
+
+      {/* DOKUMEN TRIP — Ops full control, otomatis muncul di TL Portal */}
+      <TripDocuments tripId={id} documents={documents} readOnly={false} />
 
       <ParticipantsList tripId={trip.id} participants={participants || []} />
 
