@@ -1,4 +1,4 @@
-// Trip Detail — Round 70: integrasi TLAssignButton (WhatsApp TL assignment)
+// Trip Detail — Round 77: tambah TripDownloadButton (download CSV lengkap per trip)
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -8,6 +8,7 @@ import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
 import ParticipantsList from '@/components/trips/ParticipantsList';
 import TripDocuments from '@/components/trips/TripDocuments';
 import TLAssignButton from '@/components/trips/TLAssignButton';
+import TripDownloadButton from '@/components/trips/TripDownloadButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,12 +43,19 @@ export default async function TripDetailPage({ params }) {
     }
   } catch { participants = []; }
 
-  // Trip documents
+  // Documents
   let documents = [];
   try {
     const { data } = await supabase.from('trip_documents').select('*').eq('trip_id', id).order('created_at', { ascending: false });
     documents = Array.isArray(data) ? data : [];
   } catch { documents = []; }
+
+  // Finance items (untuk download)
+  let financeItems = [];
+  try {
+    const { data } = await supabase.from('trip_finance_items').select('*').eq('trip_id', id).order('created_at', { ascending: false });
+    financeItems = Array.isArray(data) ? data : [];
+  } catch { financeItems = []; }
 
   // Recent CS
   let recentCS = [];
@@ -74,9 +82,12 @@ export default async function TripDetailPage({ params }) {
             <h1 className="text-3xl font-bold text-brand-700">{trip.name || '—'}</h1>
             {trip.destination && <p className="mt-1 text-slate-600">{trip.destination}</p>}
           </div>
-          <Link href={`/trips/${trip.id}/edit`} className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-card transition-colors">
-            ✎ Edit Trip
-          </Link>
+          <div className="flex flex-col gap-2">
+            <Link href={`/trips/${trip.id}/edit`} className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-card transition-colors text-center">
+              ✎ Edit Trip
+            </Link>
+            <TripDownloadButton trip={trip} participants={participants} financeItems={financeItems} />
+          </div>
         </div>
       </div>
 
@@ -107,9 +118,11 @@ export default async function TripDetailPage({ params }) {
           <InfoRow label="Kepulangan" value={fmtDate(trip.arrival)} />
           <InfoRow label="Deadline Booking" value={fmtDate(trip.deadline_close)} />
         </InfoCard>
-        <InfoCard title="Tim">
+        <InfoCard title="Tim & Penerbangan">
           <InfoRow label="PIC (CS)" value={trip.pic || '—'} />
           <InfoRow label="Tour Leader" value={trip.tl_name || '—'} />
+          <InfoRow label="PNR" value={trip.pnr || '—'} />
+          <InfoRow label="Route" value={trip.route || '—'} />
         </InfoCard>
         {trip.notes && (
           <InfoCard title="Catatan" className="lg:col-span-2">
@@ -118,10 +131,8 @@ export default async function TripDetailPage({ params }) {
         )}
       </div>
 
-      {/* ROUND 69/70 — WhatsApp TL Assignment via Fonnte */}
       <TLAssignButton trip={trip} />
 
-      {/* DOKUMEN TRIP — Ops full control */}
       <TripDocuments tripId={id} documents={documents} readOnly={false} />
 
       <ParticipantsList tripId={trip.id} participants={participants} />
