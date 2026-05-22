@@ -1,8 +1,9 @@
 'use client';
 
-// Round 76: Closing per Trip — view switcher (daily/weekly/monthly) + download CSV
-// Daily view = list per row (per trip per date) dengan tombol edit/delete
-// Weekly/Monthly view = aggregate (no edit, summary only)
+// Round 78: Closing per Trip
+// - Daily view: 30 hari terakhir (sebulan rolling)
+// - Setelah ganti bulan → data auto masuk ke rekap bulanan
+// - Download daily include detail PESERTA CLOSING (nama, email, phone, trip, tanggal join)
 
 import { useState, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -90,23 +91,24 @@ function downloadCSV(filename, rows) {
   URL.revokeObjectURL(url);
 }
 
-export default function ClosingHistoryTable({ allUpdates = [] }) {
+export default function ClosingHistoryTable({ allUpdates = [], participants = [] }) {
   const safe = Array.isArray(allUpdates) ? allUpdates : [];
+  const pax = Array.isArray(participants) ? participants : [];
   const [view, setView] = useState('daily');
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
-  // Daily — 7 hari terakhir
+  // Daily — 30 hari terakhir (rolling window)
   const dailyRows = useMemo(() => {
-    const sevenDays = new Date();
-    sevenDays.setDate(sevenDays.getDate() - 7);
-    const cutoff = sevenDays.toISOString().slice(0, 10);
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 30);
+    const cutoff = cutoffDate.toISOString().slice(0, 10);
     return safe
       .filter((u) => (u.tanggal || '') >= cutoff)
       .sort((a, b) => (b.tanggal || '').localeCompare(a.tanggal || ''));
   }, [safe]);
 
-  // Weekly aggregate
+  // Weekly aggregate (semua data, untuk arsip)
   const weeklyRows = useMemo(() => {
     const map = {};
     for (const u of safe) {
@@ -144,7 +146,10 @@ export default function ClosingHistoryTable({ allUpdates = [] }) {
     let rows = [];
 
     if (view === 'daily') {
-      filename = 'closing_harian_semua_periode.csv';
+      filename = 'closing_harian_lengkap_dengan_peserta.csv';
+
+      // === SECTION 1: DAILY UPDATES ===
+      rows.push(['=== UPDATE HARIAN CLOSING ===']);
       rows.push(['Tanggal', 'Trip Code', 'Trip Name', 'IG', 'WA', 'Offline', 'Alumni', 'Mitra', 'Meta Ads', 'Google Ads', 'TikTok Ads', 'Organic', 'Ads', 'Total Closing', 'Sisa Seat', 'Leads', 'Notes']);
       const all = [...safe].sort((a, b) => (b.tanggal || '').localeCompare(a.tanggal || ''));
       for (const u of all) {
@@ -158,6 +163,33 @@ export default function ClosingHistoryTable({ allUpdates = [] }) {
           organic(u), ads(u), totalClosing(u),
           u.sisa_seat || 0, u.jumlah_leads || 0,
           u.notes || '',
+        ]);
+      }
+
+      // === SECTION 2: DETAIL PESERTA CLOSING ===
+      rows.push([]);
+      rows.push(['=== DETAIL PESERTA CLOSING ===']);
+      rows.push(['Tanggal Join', 'Trip Code', 'Trip Name', 'Nama Peserta', 'Email', 'Phone', 'Room Type', 'Age Type', 'Source', 'Notes']);
+      // Sort participants by joined_at desc
+      const sortedPax = [...pax].sort((a, b) => {
+        const da = String(a.joined_at || a.created_at || '');
+        const db = String(b.joined_at || b.created_at || '');
+        return db.localeCompare(da);
+      });
+      for (const p of sortedPax) {
+        const c = p.customers || {};
+        const joinDate = String(p.joined_at || p.created_at || '').slice(0, 10);
+        rows.push([
+          joinDate,
+          p.trips?.kode_trip || `#${p.trip_id}`,
+          p.trips?.name || '',
+          c.name || p.name || '',
+          c.email || '',
+          c.phone || '',
+          p.room_type || '',
+          p.age_type || 'adult',
+          c.source || '',
+          p.notes || '',
         ]);
       }
     } else if (view === 'weekly') {
@@ -193,7 +225,7 @@ export default function ClosingHistoryTable({ allUpdates = [] }) {
     <div className="space-y-3 p-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
-          <ViewBtn active={view === 'daily'} onClick={() => setView('daily')}>📅 7 Hari Terakhir</ViewBtn>
+          <ViewBtn active={view === 'daily'} onClick={() => setView('daily')}>📅 30 Hari Terakhir</ViewBtn>
           <ViewBtn active={view === 'weekly'} onClick={() => setView('weekly')}>📊 Rekap Mingguan</ViewBtn>
           <ViewBtn active={view === 'monthly'} onClick={() => setView('monthly')}>📈 Rekap Bulanan</ViewBtn>
         </div>
@@ -202,7 +234,7 @@ export default function ClosingHistoryTable({ allUpdates = [] }) {
           onClick={handleDownload}
           className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1"
         >
-          ⬇ Download Excel ({view === 'daily' ? 'semua harian' : view === 'weekly' ? 'mingguan' : 'bulanan'})
+          ⬇ Download Excel ({view === 'daily' ? 'harian + peserta' : view === 'weekly' ? 'mingguan' : 'bulanan'})
         </button>
       </div>
 
@@ -236,7 +268,7 @@ function DailyClosingList({ rows, onDelete, pending }) {
     return (
       <div className="p-12 text-center">
         <p className="text-4xl mb-3">📊</p>
-        <p className="text-lg font-bold text-slate-700">Belum ada closing di 7 hari terakhir</p>
+        <p className="text-lg font-bold text-slate-700">Belum ada closing di 30 hari terakhir</p>
         <p className="mt-1 text-sm text-slate-500">Klik "Input CS Daily" untuk mulai, atau switch ke Rekap untuk data lama.</p>
       </div>
     );
@@ -284,7 +316,7 @@ function DailyClosingList({ rows, onDelete, pending }) {
           </div>
         </div>
       ))}
-      <p className="px-4 py-2 text-[10px] text-slate-500 bg-slate-50">Cuma 7 hari terakhir ditampilkan. Data lama → switch ke Rekap Mingguan/Bulanan atau download Excel.</p>
+      <p className="px-4 py-2 text-[10px] text-slate-500 bg-slate-50">30 hari terakhir saja. Data lama → switch ke Rekap Mingguan/Bulanan atau download Excel.</p>
     </div>
   );
 }
