@@ -1,6 +1,9 @@
 'use server';
 
-// Round 44 trip actions: handle price_breakdown JSONB + auto closed_at + auto deadline
+// Round 72 trip actions:
+// - Inherit Round 44 (price_breakdown + auto closed_at + auto deadline)
+// - Tambah pnr + route field
+// - Defensive retry kalau kolom belum di-migrate
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -11,7 +14,7 @@ function parseTripFields(formData) {
   const tlIdRaw = formData.get('tl_id');
   const tl_id = tlIdRaw && !isNaN(parseInt(tlIdRaw)) ? parseInt(tlIdRaw) : null;
 
-  // Parse price_breakdown JSON dari hidden field (set by TripForm.jsx)
+  // Parse price_breakdown JSON dari hidden field
   let price_breakdown = null;
   const bdRaw = formData.get('price_breakdown_json');
   if (bdRaw && typeof bdRaw === 'string') {
@@ -20,12 +23,10 @@ function parseTripFields(formData) {
 
   const status = formData.get('status') || 'prepare to sell';
   let closed_at = formData.get('closed_at') || null;
-  // Auto-set closed_at kalau status closed_selling/completed dan belum di-set
   if (['closed selling', 'completed'].includes(status) && !closed_at) {
     closed_at = new Date().toISOString().slice(0, 10);
   }
 
-  // Auto deadline_close = departure - 45 hari, kalau departure ada tapi deadline kosong
   const departure = formData.get('departure') || null;
   let deadline_close = formData.get('deadline_close') || null;
   if (departure && !deadline_close) {
@@ -44,13 +45,18 @@ function parseTripFields(formData) {
     ticket: formData.get('ticket') || 'FIT',
     status,
     quota: parseInt(formData.get('quota')) || 0,
-    price: parseInt(formData.get('price')) || 0,
+    // Round 72: 'price' legacy field dihapus dari form.
+    // Auto-compute = harga DBL (kamar dewasa standar) dari breakdown.
+    // Kalau breakdown kosong, fallback ke 0.
+    price: (price_breakdown && Number(price_breakdown.dbl)) || 0,
     departure,
     arrival: formData.get('arrival') || null,
     deadline_close,
     publish_date: formData.get('publish_date') || null,
     closed_at,
     price_breakdown,
+    pnr: (formData.get('pnr') || '').trim() || null,
+    route: (formData.get('route') || '').trim() || null,
     notes: formData.get('notes') || null,
     ticket_status: formData.get('ticket_status') || 'pending',
     visa: formData.get('visa') || 'pending',
@@ -67,6 +73,8 @@ function stripOptional(fields) {
   delete out.publish_date;
   delete out.closed_at;
   delete out.price_breakdown;
+  delete out.pnr;
+  delete out.route;
   return out;
 }
 
@@ -89,7 +97,7 @@ export async function createTrip(formData) {
   let payload = { id: trip_id, ...fields, sold: 0, seat_left: fields.quota };
   let { error } = await supabase.from('trips').insert(payload);
 
-  if (error && /tl_id|publish_date|closed_at|price_breakdown/.test(error.message)) {
+  if (error && /tl_id|publish_date|closed_at|price_breakdown|pnr|route/.test(error.message)) {
     const stripped = stripOptional(fields);
     payload = { id: trip_id, ...stripped, sold: 0, seat_left: fields.quota };
     const retry = await supabase.from('trips').insert(payload);
@@ -119,7 +127,7 @@ export async function updateTrip(tripId, formData) {
   let updatePayload = { ...fields, seat_left: Math.max(fields.quota - sold, 0) };
   let { error } = await supabase.from('trips').update(updatePayload).eq('id', tripId);
 
-  if (error && /tl_id|publish_date|closed_at|price_breakdown/.test(error.message)) {
+  if (error && /tl_id|publish_date|closed_at|price_breakdown|pnr|route/.test(error.message)) {
     const stripped = stripOptional(fields);
     updatePayload = { ...stripped, seat_left: Math.max(fields.quota - sold, 0) };
     const retry = await supabase.from('trips').update(updatePayload).eq('id', tripId);
