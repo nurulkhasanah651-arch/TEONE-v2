@@ -1,21 +1,21 @@
-// TL trip detail — info trip + peserta + checklist + TL operations
+// TL trip detail — Round 52: tambah TripDocuments (read-only untuk TL)
+// Also include TlOperations dari Round 31 kalau migration sudah jalan
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
-import TlOperations from '@/components/tl/TlOperations';
+import TripDocuments from '@/components/trips/TripDocuments';
+
+// Optional TlOperations — kalau Round 31 belum upload, skip
+let TlOperations;
+try { TlOperations = require('@/components/tl/TlOperations').default; } catch { TlOperations = null; }
 
 export const dynamic = 'force-dynamic';
 
 async function safeQuery(promise, fallback = []) {
-  try {
-    const res = await promise;
-    return res.data || fallback;
-  } catch {
-    return fallback;
-  }
+  try { const r = await promise; return r.data || fallback; } catch { return fallback; }
 }
 
 export default async function TLTripDetailPage({ params }) {
@@ -33,14 +33,17 @@ export default async function TLTripDetailPage({ params }) {
     customerMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
   }
 
-  // TL operations data (defensive — kalau migration belum dijalankan, fallback empty)
+  // Trip docs (Round 52)
+  const documents = await safeQuery(
+    supabase.from('trip_documents').select('*').eq('trip_id', tripId).order('created_at', { ascending: false })
+  );
+
+  // TL operations data (optional, Round 31)
   const [expenses, gmapsReviews, vendorReviews] = await Promise.all([
     safeQuery(supabase.from('tl_expenses').select('*').eq('trip_id', tripId).order('date', { ascending: false })),
     safeQuery(supabase.from('tl_gmaps_reviews').select('*').eq('trip_id', tripId).order('created_at', { ascending: false })),
     safeQuery(supabase.from('tl_vendor_reviews').select('*').eq('trip_id', tripId).order('created_at', { ascending: false })),
   ]);
-
-  // Check if migration was run (cek kolom tl_petty_cash di trips)
   const hasMigration = 'tl_petty_cash' in trip;
 
   const s = statusCfg(trip.status);
@@ -62,14 +65,6 @@ export default async function TLTripDetailPage({ params }) {
         <p className="mt-1 text-slate-600">{trip.tl_name && `👤 TL: ${trip.tl_name}`} · {passengers.length} peserta</p>
       </div>
 
-      {!hasMigration && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
-          <h3 className="font-bold text-amber-800 mb-2">⚠ SQL Migration Round 31 Belum Dijalankan</h3>
-          <p className="text-sm text-amber-700 mb-2">Fitur TL Operations (checklist predeparture, petty cash, expense, review GMaps, review vendor, link dokumentasi) butuh tabel & kolom tambahan. Jalankan SQL di Supabase SQL Editor (lihat <code>00_SQL_MIGRATION.txt</code> Round 31).</p>
-        </div>
-      )}
-
-      {/* Quick info grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <InfoCard label="📅 Keberangkatan" value={fmtDate(trip.departure)} />
         <InfoCard label="📅 Kepulangan" value={fmtDate(trip.arrival)} />
@@ -77,7 +72,6 @@ export default async function TLTripDetailPage({ params }) {
         <InfoCard label="💰 Harga / Pax" value={fmtRupiah(trip.price || 0)} small />
       </div>
 
-      {/* Status checklist (operational) */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
         <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">📊 Status Operasional Trip</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
@@ -90,8 +84,11 @@ export default async function TLTripDetailPage({ params }) {
         </div>
       </div>
 
-      {/* TL OPERATIONS — checklist + petty cash + reviews + doc link */}
-      {hasMigration && (
+      {/* DOKUMEN TRIP — read-only untuk TL */}
+      <TripDocuments tripId={tripId} documents={documents} readOnly={true} />
+
+      {/* TL Operations (kalau Round 31 sudah jalan) */}
+      {hasMigration && TlOperations && (
         <div className="bg-gradient-to-br from-brand-50 to-white rounded-xl border border-brand-200 shadow-card p-5">
           <h2 className="text-lg font-bold text-brand-700 mb-3">🎯 Operasional TL</h2>
           <TlOperations
@@ -115,7 +112,6 @@ export default async function TLTripDetailPage({ params }) {
         </div>
       )}
 
-      {/* Notes */}
       {trip.notes && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
           <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">📝 Catatan Trip</h3>
@@ -123,13 +119,14 @@ export default async function TLTripDetailPage({ params }) {
         </div>
       )}
 
-      {/* Participants */}
+      {/* Participants + Manifest/Roomlist links */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
           <h3 className="font-bold text-brand-700">👥 Daftar Peserta ({passengers.length})</h3>
-          <div className="flex gap-2">
-            <a href={`/visa/${tripId}/manifest.csv`} className="text-xs font-semibold px-3 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100">📋 Manifest</a>
-            <a href={`/visa/${tripId}/roomlist.csv`} className="text-xs font-semibold px-3 py-1 rounded bg-purple-50 text-purple-700 hover:bg-purple-100">🛏 Roomlist</a>
+          <div className="flex gap-2 flex-wrap">
+            <a href={`/visa/${tripId}/manifest.csv`} className="text-xs font-semibold px-3 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100">📋 Manifest CSV</a>
+            <a href={`/visa/${tripId}/roomlist.csv`} className="text-xs font-semibold px-3 py-1 rounded bg-purple-50 text-purple-700 hover:bg-purple-100">🛏 Roomlist CSV</a>
+            <a href={`/visa/${tripId}/roomlist.xls`} className="text-xs font-semibold px-3 py-1 rounded bg-green-50 text-green-700 hover:bg-green-100">📊 Roomlist Excel</a>
           </div>
         </div>
         {passengers.length === 0 ? (
@@ -145,6 +142,7 @@ export default async function TLTripDetailPage({ params }) {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-mono text-slate-400">#{idx + 1}</span>
                         <p className="font-bold text-brand-700">{c.name || '—'}</p>
+                        {p.room_assignment && <span className="text-[11px] px-2 py-0.5 rounded bg-brand-50 text-brand-700 font-semibold">🛏 {p.room_assignment}</span>}
                         {p.room_type && <span className="text-[11px] px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold">{p.room_type}</span>}
                       </div>
                       <div className="mt-1 text-xs text-slate-600 flex flex-wrap gap-x-3">
@@ -173,13 +171,13 @@ export default async function TLTripDetailPage({ params }) {
             <p className="text-xl mb-1">🛂</p>
             <p className="font-semibold text-slate-700">Visa Checklist</p>
           </Link>
+          <Link href={`/visa/${tripId}/roomlist`} className="p-3 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 text-center text-xs">
+            <p className="text-xl mb-1">🛏</p>
+            <p className="font-semibold text-slate-700">Roomlist Editor</p>
+          </Link>
           <Link href={`/finance/payments/${tripId}`} className="p-3 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 text-center text-xs">
             <p className="text-xl mb-1">🧾</p>
             <p className="font-semibold text-slate-700">Payment Status</p>
-          </Link>
-          <Link href={`/accounting/groups/${tripId}`} className="p-3 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 text-center text-xs">
-            <p className="text-xl mb-1">📊</p>
-            <p className="font-semibold text-slate-700">Cashflow Trip</p>
           </Link>
         </div>
       </div>
