@@ -1,4 +1,4 @@
-// Trip Detail page — Round 52: tambah TripDocuments (Ops upload, full access)
+// Trip Detail — DEFENSIVE: TripDocuments + DeleteTripButton optional
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -6,8 +6,12 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
 import ParticipantsList from '@/components/trips/ParticipantsList';
-import DeleteTripButton from '@/components/trips/DeleteTripButton';
-import TripDocuments from '@/components/trips/TripDocuments';
+
+// Defensive optional imports
+let DeleteTripButton = null;
+try { DeleteTripButton = require('@/components/trips/DeleteTripButton').default; } catch {}
+let TripDocuments = null;
+try { TripDocuments = require('@/components/trips/TripDocuments').default; } catch {}
 
 export const dynamic = 'force-dynamic';
 
@@ -41,16 +45,14 @@ export default async function TripDetailPage({ params }) {
     }
   }
 
+  // Trip documents — defensive (kalau table belum ada / TripDocuments component missing)
   const documents = await safeQuery(
     supabase.from('trip_documents').select('*').eq('trip_id', id).order('created_at', { ascending: false })
   );
 
   const { data: recentCS } = await supabase
-    .from('cs_daily_updates')
-    .select('*')
-    .eq('trip_id', id)
-    .order('tanggal', { ascending: false })
-    .limit(5);
+    .from('cs_daily_updates').select('*').eq('trip_id', id)
+    .order('tanggal', { ascending: false }).limit(5);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -70,7 +72,7 @@ export default async function TripDetailPage({ params }) {
             <Link href={`/trips/${trip.id}/edit`} className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-card transition-colors">
               ✎ Edit Trip
             </Link>
-            <DeleteTripButton tripId={trip.id} tripName={trip.name} tripCode={trip.kode_trip || trip.id} />
+            {DeleteTripButton && <DeleteTripButton tripId={trip.id} tripName={trip.name} tripCode={trip.kode_trip || trip.id} />}
           </div>
         </div>
       </div>
@@ -114,8 +116,10 @@ export default async function TripDetailPage({ params }) {
         )}
       </div>
 
-      {/* DOKUMEN TRIP — Ops full control, otomatis muncul di TL Portal */}
-      <TripDocuments tripId={id} documents={documents} readOnly={false} />
+      {/* DOCUMENTS — defensive, hanya muncul kalau component ada */}
+      {TripDocuments && (
+        <TripDocuments tripId={id} documents={documents} readOnly={false} />
+      )}
 
       <ParticipantsList tripId={trip.id} participants={participants || []} />
 
