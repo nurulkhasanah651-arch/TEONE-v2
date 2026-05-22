@@ -1,8 +1,7 @@
-// TL trip detail — Round 64: HIDE harga/payment/finance info untuk TL
-// Cuma kasih: trip info dasar, tanggal, peserta, manifest, roomlist, dokumen
+// TL trip detail — Round 65: ZERO admin shortcuts, ultra minimal untuk TL
 
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate, daysUntil } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
@@ -29,15 +28,13 @@ export default async function TLTripDetailPage({ params }) {
   const { data: trip } = await supabase.from('trips').select('*').eq('id', tripId).maybeSingle();
   if (!trip) notFound();
 
-  // TL: pastikan trip ini milik dia
+  // STRICT: TL hanya boleh akses trip yang di-assign ke dia
   if (isTL) {
     const tlId = user?.user_metadata?.tl_id;
     const tlName = user?.user_metadata?.tl_name || '';
     const matchById = tlId && String(trip.tl_id) === String(tlId);
     const matchByName = tlName && (trip.tl_name || '').toLowerCase().includes(tlName.toLowerCase());
     if (!matchById && !matchByName) {
-      // Trip bukan milik TL ini — redirect balik
-      const { redirect } = await import('next/navigation');
       redirect('/tl');
     }
   }
@@ -89,7 +86,7 @@ export default async function TLTripDetailPage({ params }) {
         <p className="mt-1 text-slate-600">{trip.tl_name && `👤 TL: ${trip.tl_name} · `}{passengers.length} peserta</p>
       </div>
 
-      {/* Info Cards — TANPA HARGA/PAX (TL ga perlu lihat finance) */}
+      {/* Info Cards — cuma tanggal & jumlah peserta (no harga, no seat detail) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <InfoCard label="📅 Keberangkatan" value={fmtDate(trip.departure)} />
         <InfoCard label="📅 Kepulangan" value={fmtDate(trip.arrival)} />
@@ -110,12 +107,12 @@ export default async function TLTripDetailPage({ params }) {
         </div>
       )}
 
-      {/* DOKUMEN TRIP — read-only untuk TL */}
+      {/* DOKUMEN TRIP — read-only — diberikan Ops via /trips/[id] */}
       {TripDocuments && (
         <TripDocuments tripId={tripId} documents={documents} readOnly={true} />
       )}
 
-      {/* TL Operations (kalau Round 31 sudah jalan) */}
+      {/* TL Operations (predeparture checklist, petty cash, expenses, reviews, doc link) */}
       {hasTlMigration && TlOperations && (
         <div className="bg-gradient-to-br from-brand-50 to-white rounded-xl border border-brand-200 shadow-card p-5">
           <h2 className="text-lg font-bold text-brand-700 mb-3">🎯 Operasional TL</h2>
@@ -135,22 +132,22 @@ export default async function TLTripDetailPage({ params }) {
         </div>
       )}
 
-      {/* Notes */}
+      {/* Catatan trip dari Ops */}
       {trip.notes && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
-          <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">📝 Catatan Trip</h3>
+          <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">📝 Catatan Trip dari Ops</h3>
           <p className="text-sm text-slate-700 whitespace-pre-wrap">{trip.notes}</p>
         </div>
       )}
 
-      {/* Peserta + Manifest/Roomlist downloads */}
+      {/* Daftar Peserta + Download Manifest/Roomlist (file downloads — not navigation) */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
           <h3 className="font-bold text-brand-700">👥 Daftar Peserta ({passengers.length})</h3>
           <div className="flex gap-2 flex-wrap">
-            <a href={`/visa/${tripId}/manifest.csv`} className="text-xs font-semibold px-3 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100">📋 Manifest CSV</a>
-            <a href={`/visa/${tripId}/roomlist.csv`} className="text-xs font-semibold px-3 py-1 rounded bg-purple-50 text-purple-700 hover:bg-purple-100">🛏 Roomlist CSV</a>
-            <a href={`/visa/${tripId}/roomlist.xls`} className="text-xs font-semibold px-3 py-1 rounded bg-green-50 text-green-700 hover:bg-green-100">📊 Roomlist Excel</a>
+            <a href={`/visa/${tripId}/manifest.csv`} download className="text-xs font-semibold px-3 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100">📋 Manifest CSV</a>
+            <a href={`/visa/${tripId}/roomlist.csv`} download className="text-xs font-semibold px-3 py-1 rounded bg-purple-50 text-purple-700 hover:bg-purple-100">🛏 Roomlist CSV</a>
+            <a href={`/visa/${tripId}/roomlist.xls`} download className="text-xs font-semibold px-3 py-1 rounded bg-green-50 text-green-700 hover:bg-green-100">📊 Roomlist Excel</a>
           </div>
         </div>
         {passengers.length === 0 ? (
@@ -183,30 +180,7 @@ export default async function TLTripDetailPage({ params }) {
         )}
       </div>
 
-      {/* Shortcut TL — TANPA Payment Status, TANPA Trip Detail */}
-      {!isTL && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
-          <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">🔗 Shortcut (Admin/Ops only)</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <Link href={`/trips/${tripId}`} className="p-3 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 text-center text-xs">
-              <p className="text-xl mb-1">📋</p>
-              <p className="font-semibold text-slate-700">Trip Detail</p>
-            </Link>
-            <Link href={`/visa/${tripId}`} className="p-3 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 text-center text-xs">
-              <p className="text-xl mb-1">🛂</p>
-              <p className="font-semibold text-slate-700">Visa Checklist</p>
-            </Link>
-            <Link href={`/visa/${tripId}/roomlist`} className="p-3 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 text-center text-xs">
-              <p className="text-xl mb-1">🛏</p>
-              <p className="font-semibold text-slate-700">Roomlist Editor</p>
-            </Link>
-            <Link href={`/finance/payments/${tripId}`} className="p-3 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 text-center text-xs">
-              <p className="text-xl mb-1">🧾</p>
-              <p className="font-semibold text-slate-700">Payment Status</p>
-            </Link>
-          </div>
-        </div>
-      )}
+      {/* TIDAK ADA SHORTCUT SECTION — TL ga butuh nav ke admin pages */}
     </div>
   );
 }
