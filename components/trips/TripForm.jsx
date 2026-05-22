@@ -1,7 +1,9 @@
 'use client';
 
-// Round 44 Trip Form — price breakdown + auto deadline + auto closed_at
-// Backwards compatible: TLPicker dipakai kalau ada (Round 36), fallback text input
+// Round 72 Trip Form
+// - Auto-format harga dengan titik ribuan otomatis saat ngetik
+// - Tambah PNR + Route picker (dari pnr_inventory atau manual)
+// - Inherit semua fitur Round 44 (price_breakdown + auto deadline + auto closed_at)
 
 import { useState, useEffect } from 'react';
 import { ROOM_KEYS, AGE_KEYS, ADDON_KEYS, autoDeadlineClose } from '@/lib/utils/price-breakdown';
@@ -9,7 +11,23 @@ import { ROOM_KEYS, AGE_KEYS, ADDON_KEYS, autoDeadlineClose } from '@/lib/utils/
 let TLPicker;
 try { TLPicker = require('./TLPicker').default; } catch { TLPicker = null; }
 
-export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan Trip', tourLeaders = [] }) {
+let PnrPicker;
+try { PnrPicker = require('./PnrPicker').default; } catch { PnrPicker = null; }
+
+// ===== Helper format harga =====
+function formatRupiah(v) {
+  if (v === '' || v == null) return '';
+  const n = String(v).replace(/[^0-9]/g, '');
+  if (!n) return '';
+  return Number(n).toLocaleString('id-ID');
+}
+
+function parseRupiah(s) {
+  if (s == null) return '';
+  return String(s).replace(/[^0-9]/g, '');
+}
+
+export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan Trip', tourLeaders = [], pnrInventory = [] }) {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const [departure, setDeparture] = useState(initial.departure || '');
@@ -17,7 +35,7 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
   const [status, setStatus] = useState(initial.status || 'prepare to sell');
   const [closedAt, setClosedAt] = useState(initial.closed_at || '');
 
-  // Price breakdown — controlled state
+  // Price breakdown — controlled state (semua angka, no titik)
   const initialBreakdown = initial.price_breakdown || {};
   const [breakdown, setBreakdown] = useState(() => {
     const init = {};
@@ -61,7 +79,6 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
   async function handleSubmit(formData) {
     setPending(true);
     setError('');
-    // Inject breakdown sebagai hidden field JSON
     formData.set('price_breakdown_json', JSON.stringify(breakdown));
     const result = await onSubmit(formData);
     if (result?.error) {
@@ -69,8 +86,6 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
       setPending(false);
     }
   }
-
-  const totalRoomQuad = breakdown.quad;
 
   return (
     <form action={handleSubmit} className="space-y-5">
@@ -97,6 +112,26 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
         </div>
       </Section>
 
+      {/* PNR + Route — Round 72 BARU */}
+      <Section title="✈ PNR & Route">
+        {PnrPicker ? (
+          <PnrPicker
+            pnrInventory={pnrInventory}
+            initialPnr={initial.pnr || ''}
+            initialRoute={initial.route || ''}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="PNR">
+              <input name="pnr" defaultValue={initial.pnr || ''} className={inputCls} placeholder="ABC123" />
+            </Field>
+            <Field label="Route">
+              <input name="route" defaultValue={initial.route || ''} className={inputCls} placeholder="CGK-DOH-CDG" />
+            </Field>
+          </div>
+        )}
+      </Section>
+
       {/* Dates */}
       <Section title="Tanggal">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -120,20 +155,14 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
 
       {/* Capacity */}
       <Section title="Kapasitas">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field label="Quota (jumlah seat)">
-            <input type="number" name="quota" defaultValue={initial.quota || ''} min="0" className={inputCls} placeholder="20" />
-          </Field>
-          <Field label="Harga per Pax (legacy)" hint="Field lama. Pakai 'Harga per Tipe' di bawah untuk breakdown lengkap.">
-            <input type="number" name="price" defaultValue={initial.price || ''} min="0" className={inputCls} />
-          </Field>
-        </div>
+        <Field label="Quota (jumlah seat)" hint="Total kursi yang dijual. Harga di-set per tipe di section di bawah.">
+          <input type="number" name="quota" defaultValue={initial.quota || ''} min="0" className={inputCls} placeholder="20" />
+        </Field>
       </Section>
 
-      {/* PRICE BREAKDOWN — BARU di Round 44 */}
+      {/* PRICE BREAKDOWN */}
       <Section title="💰 Harga per Tipe (Breakdown)">
         <div className="space-y-4">
-          {/* Tipe Kamar */}
           <div>
             <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">Tipe Kamar</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -143,7 +172,6 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
             </div>
           </div>
 
-          {/* Anak/Bayi */}
           <div>
             <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">Anak / Bayi</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -153,7 +181,6 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
             </div>
           </div>
 
-          {/* Add-ons */}
           <div>
             <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">Add-on</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -163,7 +190,6 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
             </div>
           </div>
 
-          {/* Custom items */}
           <div>
             <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">Custom Items</p>
             {breakdown._custom.length > 0 && (
@@ -178,7 +204,14 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
             )}
             <div className="flex gap-2">
               <input type="text" value={newCustomName} onChange={(e) => setNewCustomName(e.target.value)} placeholder="Nama item custom" className="flex-1 px-2 py-1.5 border border-slate-300 rounded text-sm" />
-              <input type="number" value={newCustomPrice} onChange={(e) => setNewCustomPrice(e.target.value)} placeholder="Harga" className="w-32 px-2 py-1.5 border border-slate-300 rounded text-sm" />
+              <input
+                type="text"
+                inputMode="numeric"
+                value={formatRupiah(newCustomPrice)}
+                onChange={(e) => setNewCustomPrice(parseRupiah(e.target.value))}
+                placeholder="Harga"
+                className="w-32 px-2 py-1.5 border border-slate-300 rounded text-sm"
+              />
               <button type="button" onClick={addCustom} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded">+ Add</button>
             </div>
           </div>
@@ -215,6 +248,9 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
 
       {/* Operations Status */}
       <Section title="Status Operasional">
+        <p className="text-[11px] text-slate-500 mb-3">
+          Status ini sync ke modul lain (Visa, Manifest, Roomlist, dst). Update di sini = update di semua tab.
+        </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Field label="Status Tiket">
             <select name="ticket_status" defaultValue={initial.ticket_status || 'pending'} className={inputCls}>
@@ -281,12 +317,32 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
 }
 
 function PriceField({ icon, label, value, onChange }) {
+  const [display, setDisplay] = useState(formatRupiah(value || ''));
+
+  useEffect(() => {
+    setDisplay(formatRupiah(value || ''));
+  }, [value]);
+
+  function handleChange(e) {
+    const r = parseRupiah(e.target.value);
+    setDisplay(formatRupiah(r));
+    onChange(r);
+  }
+
   return (
     <label className="block">
       <span className="text-xs font-semibold text-slate-700 block mb-1">{icon} {label}</span>
       <div className="relative">
         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">Rp</span>
-        <input type="number" min="0" value={value || ''} onChange={(e) => onChange(e.target.value)} onFocus={(e) => e.target.select()} className="w-full pl-7 pr-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-brand-500 outline-none bg-white" placeholder="0" />
+        <input
+          type="text"
+          inputMode="numeric"
+          value={display}
+          onChange={handleChange}
+          onFocus={(e) => e.target.select()}
+          className="w-full pl-7 pr-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-brand-500 outline-none bg-white"
+          placeholder="0"
+        />
       </div>
     </label>
   );
