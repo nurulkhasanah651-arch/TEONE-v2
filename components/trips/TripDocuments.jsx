@@ -1,7 +1,6 @@
 'use client';
 
-// Round 57: DOC_CATEGORIES dari utility file (bukan 'use server')
-// Plus hyper-defensive array handling
+// Round 68: tambah download attribute biar browser pasti download (bukan preview)
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -82,7 +81,6 @@ export default function TripDocuments({ tripId, documents, readOnly = false }) {
     });
   }
 
-  // Group docs by category — defensive
   const byCategory = {};
   for (const d of docs) {
     if (!d || !d.category) continue;
@@ -96,7 +94,7 @@ export default function TripDocuments({ tripId, documents, readOnly = false }) {
         <div>
           <h2 className="font-bold text-brand-700">📂 Dokumen Trip ({docs.length})</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            {readOnly ? 'Read-only — Ops upload dokumen, kamu bisa akses' : 'Upload voucher hotel, tiket, kontak vendor, dll. Bisa diakses TL via Portal.'}
+            {readOnly ? 'Read-only — klik icon ⬇ untuk download' : 'Upload voucher hotel, tiket, kontak vendor, dll. Bisa diakses TL via Portal.'}
           </p>
         </div>
         {!readOnly && (
@@ -204,9 +202,10 @@ export default function TripDocuments({ tripId, documents, readOnly = false }) {
                           href={d.file_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-sm font-semibold text-brand-700 hover:underline"
+                          download={d.title || 'document'}
+                          className="text-sm font-semibold text-brand-700 hover:underline inline-flex items-center gap-1"
                         >
-                          {d.file_type === 'pdf' ? '📄' : d.file_type === 'image' ? '🖼' : '📎'} {d.title}
+                          {d.file_type === 'pdf' ? '📄' : d.file_type === 'image' ? '🖼' : '📎'} {d.title} <span className="text-xs">⬇</span>
                         </a>
                         {d.description && <p className="text-[11px] text-slate-600 mt-0.5">{d.description}</p>}
                         <p className="text-[10px] text-slate-400 mt-0.5">
