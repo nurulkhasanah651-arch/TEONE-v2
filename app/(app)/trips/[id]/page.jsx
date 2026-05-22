@@ -1,4 +1,4 @@
-// Trip Detail — Round 57: restore TripDocuments dengan defensive
+// Trip Detail — Round 70: integrasi TLAssignButton (WhatsApp TL assignment)
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -7,6 +7,7 @@ import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
 import ParticipantsList from '@/components/trips/ParticipantsList';
 import TripDocuments from '@/components/trips/TripDocuments';
+import TLAssignButton from '@/components/trips/TLAssignButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -116,6 +117,9 @@ export default async function TripDetailPage({ params }) {
           </InfoCard>
         )}
       </div>
+
+      {/* ROUND 69/70 — WhatsApp TL Assignment via Fonnte */}
+      <TLAssignButton trip={trip} />
 
       {/* DOKUMEN TRIP — Ops full control */}
       <TripDocuments tripId={id} documents={documents} readOnly={false} />
