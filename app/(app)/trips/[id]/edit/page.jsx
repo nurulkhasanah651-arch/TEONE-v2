@@ -1,5 +1,4 @@
-// Edit Trip page — uses shared TripForm pre-filled with current trip data
-// Round 36: fetch tour_leaders untuk dropdown picker
+// Edit Trip page — Round 72: fetch tourLeaders + pnrInventory
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -16,7 +15,19 @@ async function fetchTourLeaders(supabase) {
       .select('*')
       .eq('active', true)
       .order('name');
-    return data || [];
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchPnrInventory(supabase) {
+  try {
+    const { data } = await supabase
+      .from('flight_inventory')
+      .select('*')
+      .order('pnr');
+    return Array.isArray(data) ? data : [];
   } catch {
     return [];
   }
@@ -31,9 +42,11 @@ export default async function EditTripPage({ params }) {
     notFound();
   }
 
-  const tourLeaders = await fetchTourLeaders(supabase);
+  const [tourLeaders, pnrInventory] = await Promise.all([
+    fetchTourLeaders(supabase),
+    fetchPnrInventory(supabase),
+  ]);
 
-  // Bind tripId to the server action
   const updateThisTrip = updateTrip.bind(null, id);
 
   return (
@@ -47,7 +60,13 @@ export default async function EditTripPage({ params }) {
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-6">
-        <TripForm initial={trip} onSubmit={updateThisTrip} submitLabel="Update Trip" tourLeaders={tourLeaders} />
+        <TripForm
+          initial={trip}
+          onSubmit={updateThisTrip}
+          submitLabel="Update Trip"
+          tourLeaders={tourLeaders}
+          pnrInventory={pnrInventory}
+        />
       </div>
     </div>
   );
