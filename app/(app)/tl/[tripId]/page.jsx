@@ -1,16 +1,17 @@
-// TL trip detail — Round 52: tambah TripDocuments (read-only untuk TL)
-// Also include TlOperations dari Round 31 kalau migration sudah jalan
+// TL trip detail — Round 58: tambah TripDocuments (read-only) + roomlist link
+// Defensive: TlOperations & TripDocuments optional, ga crash kalau missing
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
-import TripDocuments from '@/components/trips/TripDocuments';
 
-// Optional TlOperations — kalau Round 31 belum upload, skip
-let TlOperations;
-try { TlOperations = require('@/components/tl/TlOperations').default; } catch { TlOperations = null; }
+// Defensive optional imports
+let TripDocuments = null;
+try { TripDocuments = require('@/components/trips/TripDocuments').default; } catch {}
+let TlOperations = null;
+try { TlOperations = require('@/components/tl/TlOperations').default; } catch {}
 
 export const dynamic = 'force-dynamic';
 
@@ -24,45 +25,57 @@ export default async function TLTripDetailPage({ params }) {
   const { data: trip } = await supabase.from('trips').select('*').eq('id', tripId).maybeSingle();
   if (!trip) notFound();
 
-  const { data: tp } = await supabase.from('trip_passengers').select('*').eq('trip_id', tripId).order('joined_at', { ascending: true });
-  const passengers = tp || [];
-  const customerIds = passengers.map((p) => p.customer_id).filter(Boolean);
+  // Passengers
+  let passengers = [];
   let customerMap = {};
-  if (customerIds.length > 0) {
-    const { data: cust } = await supabase.from('customers').select('*').in('id', customerIds);
-    customerMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
-  }
+  try {
+    const { data: tp } = await supabase.from('trip_passengers').select('*').eq('trip_id', tripId).order('joined_at', { ascending: true });
+    passengers = Array.isArray(tp) ? tp : [];
+    const customerIds = passengers.map((p) => p.customer_id).filter(Boolean);
+    if (customerIds.length > 0) {
+      const { data: cust } = await supabase.from('customers').select('*').in('id', customerIds);
+      customerMap = Object.fromEntries((Array.isArray(cust) ? cust : []).map((c) => [c.id, c]));
+    }
+  } catch {}
 
-  // Trip docs (Round 52)
+  // Trip documents
   const documents = await safeQuery(
     supabase.from('trip_documents').select('*').eq('trip_id', tripId).order('created_at', { ascending: false })
   );
 
-  // TL operations data (optional, Round 31)
-  const [expenses, gmapsReviews, vendorReviews] = await Promise.all([
-    safeQuery(supabase.from('tl_expenses').select('*').eq('trip_id', tripId).order('date', { ascending: false })),
-    safeQuery(supabase.from('tl_gmaps_reviews').select('*').eq('trip_id', tripId).order('created_at', { ascending: false })),
-    safeQuery(supabase.from('tl_vendor_reviews').select('*').eq('trip_id', tripId).order('created_at', { ascending: false })),
-  ]);
-  const hasMigration = 'tl_petty_cash' in trip;
+  // TL operations (optional Round 31)
+  const expenses = await safeQuery(supabase.from('tl_expenses').select('*').eq('trip_id', tripId).order('date', { ascending: false }));
+  const gmapsReviews = await safeQuery(supabase.from('tl_gmaps_reviews').select('*').eq('trip_id', tripId).order('created_at', { ascending: false }));
+  const vendorReviews = await safeQuery(supabase.from('tl_vendor_reviews').select('*').eq('trip_id', tripId).order('created_at', { ascending: false }));
+  const hasTlMigration = 'tl_petty_cash' in trip;
 
-  const s = statusCfg(trip.status);
+  const s = statusCfg(trip.status) || {};
   const days = daysUntil(trip.departure);
-  const checklist = tripChecklist(trip);
+  let checklist = [];
+  try {
+    const c = tripChecklist(trip);
+    checklist = Array.isArray(c) ? c : [];
+  } catch {}
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div>
         <Link href="/tl" className="text-sm text-brand-600 font-medium hover:underline">← Portal TL</Link>
         <div className="mt-2 flex items-center gap-2 flex-wrap">
-          <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${s.bg} ${s.text}`}>{trip.kode_trip || `#${trip.id}`}</span>
-          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${s.bg} ${s.text} border ${s.border}`}>{s.label}</span>
+          <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${s.bg || 'bg-slate-100'} ${s.text || 'text-slate-700'}`}>
+            {trip.kode_trip || `#${trip.id}`}
+          </span>
+          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${s.bg || 'bg-slate-100'} ${s.text || 'text-slate-700'} border ${s.border || 'border-slate-200'}`}>
+            {s.label || trip.status || '—'}
+          </span>
           {days != null && days >= 0 && (
-            <span className={`text-[11px] px-2 py-0.5 rounded font-bold ${days <= 14 ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-amber-100 text-amber-700'}`}>⏰ {days}h lagi</span>
+            <span className={`text-[11px] px-2 py-0.5 rounded font-bold ${days <= 14 ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-amber-100 text-amber-700'}`}>
+              ⏰ {days}h lagi
+            </span>
           )}
         </div>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.name}</h1>
-        <p className="mt-1 text-slate-600">{trip.tl_name && `👤 TL: ${trip.tl_name}`} · {passengers.length} peserta</p>
+        <p className="mt-1 text-slate-600">{trip.tl_name && `👤 TL: ${trip.tl_name} · `}{passengers.length} peserta</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -72,35 +85,33 @@ export default async function TLTripDetailPage({ params }) {
         <InfoCard label="💰 Harga / Pax" value={fmtRupiah(trip.price || 0)} small />
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
-        <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">📊 Status Operasional Trip</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-          {checklist.map((c) => (
-            <div key={c.label} className={`p-2.5 rounded-lg text-center border ${c.ok ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
-              <p className={`text-2xl ${c.ok ? 'text-green-600' : 'text-slate-300'}`}>{c.ok ? '✓' : '○'}</p>
-              <p className={`text-xs font-semibold mt-0.5 ${c.ok ? 'text-green-700' : 'text-slate-600'}`}>{c.label}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* DOKUMEN TRIP — read-only untuk TL */}
-      <TripDocuments tripId={tripId} documents={documents} readOnly={true} />
-
-      {/* TL Operations (kalau Round 31 sudah jalan) */}
-      {hasMigration && TlOperations && (
-        <div className="bg-gradient-to-br from-brand-50 to-white rounded-xl border border-brand-200 shadow-card p-5">
-          <h2 className="text-lg font-bold text-brand-700 mb-3">🎯 Operasional TL</h2>
-          <TlOperations
-            trip={trip}
-            expenses={expenses}
-            gmapsReviews={gmapsReviews}
-            vendorReviews={vendorReviews}
-          />
+      {checklist.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
+          <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">📊 Status Operasional Trip</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+            {checklist.map((c, i) => (
+              <div key={c?.label || i} className={`p-2.5 rounded-lg text-center border ${c?.ok ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
+                <p className={`text-2xl ${c?.ok ? 'text-green-600' : 'text-slate-300'}`}>{c?.ok ? '✓' : '○'}</p>
+                <p className={`text-xs font-semibold mt-0.5 ${c?.ok ? 'text-green-700' : 'text-slate-600'}`}>{c?.label || '—'}</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Flight info */}
+      {/* DOKUMEN TRIP — read-only untuk TL */}
+      {TripDocuments && (
+        <TripDocuments tripId={tripId} documents={documents} readOnly={true} />
+      )}
+
+      {/* TL Operations (kalau Round 31 sudah jalan) */}
+      {hasTlMigration && TlOperations && (
+        <div className="bg-gradient-to-br from-brand-50 to-white rounded-xl border border-brand-200 shadow-card p-5">
+          <h2 className="text-lg font-bold text-brand-700 mb-3">🎯 Operasional TL</h2>
+          <TlOperations trip={trip} expenses={expenses} gmapsReviews={gmapsReviews} vendorReviews={vendorReviews} />
+        </div>
+      )}
+
       {(trip.pnr || trip.flight_details) && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
           <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">✈ Info Penerbangan</h3>
@@ -119,7 +130,6 @@ export default async function TLTripDetailPage({ params }) {
         </div>
       )}
 
-      {/* Participants + Manifest/Roomlist links */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
           <h3 className="font-bold text-brand-700">👥 Daftar Peserta ({passengers.length})</h3>
@@ -159,7 +169,6 @@ export default async function TLTripDetailPage({ params }) {
         )}
       </div>
 
-      {/* Action shortcuts */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
         <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">🔗 Shortcut</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
