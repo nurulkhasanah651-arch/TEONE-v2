@@ -1,11 +1,12 @@
 'use client';
 
+// Role Picker — Round 60: TL auto-register dengan name field
+
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { setInternalRole, setTourLeaderRole, signOut } from '@/lib/actions/user-role';
 
 export default function RolePickerForm({ userEmail }) {
-  // 'main' | 'internal' | 'tl' | 'cs-password' | 'ops-password'
   const [step, setStep] = useState('main');
   const [error, setError] = useState('');
   const [password, setPassword] = useState('');
@@ -34,15 +35,17 @@ export default function RolePickerForm({ userEmail }) {
     startTransition(async () => {
       const r = await setTourLeaderRole(formData);
       if (r?.error) { setError(r.error); return; }
-      alert(`Welcome, ${r.tlName}! Kamu akan masuk ke Portal TL.`);
+      if (r.isNew) {
+        alert(`Welcome, ${r.tlName}! Kamu otomatis terdaftar sebagai Tour Leader baru di sistem. Hubungi admin kalau perlu update data (type inhouse/freelance, dll).`);
+      } else {
+        alert(`Welcome back, ${r.tlName}!`);
+      }
       router.push(r.redirect || '/tl');
       router.refresh();
     });
   }
 
-  async function handleSignOut() {
-    await signOut();
-  }
+  async function handleSignOut() { await signOut(); }
 
   if (step === 'main') {
     return (
@@ -58,7 +61,7 @@ export default function RolePickerForm({ userEmail }) {
             <div>
               <p className="font-bold text-pink-900">Tour Leader</p>
               <p className="text-xs text-pink-700 mt-0.5">
-                Akses cuma trip yang di-assign ke kamu. Verifikasi email + no HP dari master TL.
+                Isi nama, email & no HP — kalau belum terdaftar, otomatis di-daftar sebagai TL freelance.
               </p>
             </div>
           </div>
@@ -95,34 +98,22 @@ export default function RolePickerForm({ userEmail }) {
         <button onClick={() => setStep('main')} className="text-xs text-brand-600 hover:underline">← Balik</button>
         <p className="text-sm font-bold text-slate-700">Pilih divisi internal kamu (butuh password):</p>
 
-        <button
-          onClick={() => handleInternalPick('cs')}
-          disabled={pending}
-          className="w-full p-5 border-2 border-green-300 bg-green-50 hover:bg-green-100 rounded-xl text-left transition-colors disabled:opacity-50"
-        >
+        <button onClick={() => handleInternalPick('cs')} disabled={pending} className="w-full p-5 border-2 border-green-300 bg-green-50 hover:bg-green-100 rounded-xl text-left transition-colors disabled:opacity-50">
           <div className="flex items-start gap-3">
             <span className="text-3xl">☎</span>
             <div>
               <p className="font-bold text-green-900">Tim CS 🔒</p>
-              <p className="text-xs text-green-700 mt-0.5">
-                Customer Service. Akses: Dashboard, Master Trip, CS Daily, Visa, Payment Peserta, Chat, Tasks.
-              </p>
+              <p className="text-xs text-green-700 mt-0.5">Customer Service. Dashboard, Trip, CS Daily, Visa, Payment.</p>
             </div>
           </div>
         </button>
 
-        <button
-          onClick={() => handleInternalPick('ops')}
-          disabled={pending}
-          className="w-full p-5 border-2 border-amber-300 bg-amber-50 hover:bg-amber-100 rounded-xl text-left transition-colors disabled:opacity-50"
-        >
+        <button onClick={() => handleInternalPick('ops')} disabled={pending} className="w-full p-5 border-2 border-amber-300 bg-amber-50 hover:bg-amber-100 rounded-xl text-left transition-colors disabled:opacity-50">
           <div className="flex items-start gap-3">
             <span className="text-3xl">⚙</span>
             <div>
               <p className="font-bold text-amber-900">Tim Ops / Finance 🔒</p>
-              <p className="text-xs text-amber-700 mt-0.5">
-                Operations & Finance. Akses semua KECUALI Accounting.
-              </p>
+              <p className="text-xs text-amber-700 mt-0.5">Semua KECUALI Accounting.</p>
             </div>
           </div>
         </button>
@@ -139,15 +130,12 @@ export default function RolePickerForm({ userEmail }) {
     return (
       <div className="space-y-4">
         <button onClick={() => setStep('internal')} className="text-xs text-brand-600 hover:underline">← Balik</button>
-
         <div className={`p-4 rounded-xl border-2 ${isCs ? 'border-green-300 bg-green-50' : 'border-amber-300 bg-amber-50'}`}>
           <div className="flex items-center gap-3">
             <span className="text-3xl">{roleIcon}</span>
             <div>
-              <p className={`font-bold ${isCs ? 'text-green-900' : 'text-amber-900'}`}>🔒 Verifikasi Password — {roleLabel}</p>
-              <p className={`text-xs mt-0.5 ${isCs ? 'text-green-700' : 'text-amber-700'}`}>
-                Masukkan password yang dikasih admin/owner untuk role ini.
-              </p>
+              <p className={`font-bold ${isCs ? 'text-green-900' : 'text-amber-900'}`}>🔒 Password — {roleLabel}</p>
+              <p className={`text-xs mt-0.5 ${isCs ? 'text-green-700' : 'text-amber-700'}`}>Masukkan password role dari admin.</p>
             </div>
           </div>
         </div>
@@ -163,9 +151,6 @@ export default function RolePickerForm({ userEmail }) {
             placeholder="••••••••••"
             className="w-full px-3 py-2.5 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-brand-500 outline-none"
           />
-          <p className="text-[10px] text-slate-500 mt-1">
-            Belum punya password? Hubungi owner perusahaan.
-          </p>
         </label>
 
         <button
@@ -176,11 +161,7 @@ export default function RolePickerForm({ userEmail }) {
           {pending ? 'Verifikasi...' : `Masuk sebagai ${roleLabel}`}
         </button>
 
-        {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-            {error}
-          </div>
-        )}
+        {error && <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">{error}</div>}
       </div>
     );
   }
@@ -189,13 +170,26 @@ export default function RolePickerForm({ userEmail }) {
     return (
       <form action={handleTL} className="space-y-3">
         <button type="button" onClick={() => setStep('main')} className="text-xs text-brand-600 hover:underline">← Balik</button>
-        <p className="text-sm font-bold text-slate-700">Verifikasi Tour Leader</p>
-        <p className="text-xs text-slate-500">
-          Masukkan email & no HP yang sudah didaftarkan admin di master TL.
-        </p>
+        <div className="p-3 bg-pink-50 border border-pink-200 rounded">
+          <p className="text-sm font-bold text-pink-900">👤 Daftar / Login Tour Leader</p>
+          <p className="text-xs text-pink-700 mt-0.5">
+            Isi info kamu. Kalau belum terdaftar di master TL, otomatis didaftar sebagai TL freelance & langsung aktif.
+          </p>
+        </div>
 
         <label className="block">
-          <span className="text-xs font-bold text-slate-700 block mb-1">Email TL</span>
+          <span className="text-xs font-bold text-slate-700 block mb-1">Nama Lengkap <span className="text-red-500">*</span></span>
+          <input
+            type="text"
+            name="name"
+            required
+            placeholder="Nama lengkap kamu"
+            className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-brand-500 outline-none"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-xs font-bold text-slate-700 block mb-1">Email <span className="text-red-500">*</span></span>
           <input
             type="email"
             name="email"
@@ -204,10 +198,11 @@ export default function RolePickerForm({ userEmail }) {
             placeholder="email-kamu@example.com"
             className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-brand-500 outline-none"
           />
+          <span className="text-[10px] text-slate-500 mt-0.5 block">Default pakai email Google login kamu.</span>
         </label>
 
         <label className="block">
-          <span className="text-xs font-bold text-slate-700 block mb-1">No HP / WhatsApp</span>
+          <span className="text-xs font-bold text-slate-700 block mb-1">No HP / WhatsApp <span className="text-red-500">*</span></span>
           <input
             type="tel"
             name="phone"
@@ -222,14 +217,16 @@ export default function RolePickerForm({ userEmail }) {
           disabled={pending}
           className="w-full py-3 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white font-semibold rounded-lg"
         >
-          {pending ? 'Verifikasi...' : 'Masuk sebagai Tour Leader'}
+          {pending ? 'Memproses...' : 'Masuk sebagai Tour Leader'}
         </button>
 
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-            {error}
-          </div>
+          <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">{error}</div>
         )}
+
+        <p className="text-[10px] text-center text-slate-500 mt-3">
+          Sistem cek email/HP kamu di master TL. Kalau match → pakai akun TL existing. Kalau tidak match → auto-create baru sebagai freelance TL.
+        </p>
       </form>
     );
   }
