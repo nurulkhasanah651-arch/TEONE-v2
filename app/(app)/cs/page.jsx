@@ -1,9 +1,9 @@
-// CS Daily — Round 73: tampilkan ads breakdown di table + summary
+// CS Daily — Round 75: Leads History via client component (view switcher + edit + download)
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { fmtDate } from '@/lib/utils/format';
 import LeadsQuickForm from '@/components/cs/LeadsQuickForm';
+import LeadsHistoryTable from '@/components/cs/LeadsHistoryTable';
 import CSUpdateRow from '@/components/cs/CSUpdateRow';
 
 export const dynamic = 'force-dynamic';
@@ -19,14 +19,15 @@ export default async function CSPage() {
   const supabase = createClient();
   const today = new Date().toISOString().slice(0, 10);
 
+  // Fetch in parallel — leads ALL HISTORY untuk client recap, updates max 20
   const [updatesRes, leadsRes, todayLeadsRes] = await Promise.all([
     supabase.from('cs_daily_updates').select('*, trips(name, kode_trip)').order('tanggal', { ascending: false }).limit(20),
-    supabase.from('cs_daily_leads').select('*').order('tanggal', { ascending: false }).limit(7),
+    supabase.from('cs_daily_leads').select('*').order('tanggal', { ascending: false }),
     supabase.from('cs_daily_leads').select('*').eq('tanggal', today).maybeSingle(),
   ]);
 
   const updates = updatesRes.data || [];
-  const recentLeads = leadsRes.data || [];
+  const allLeads = leadsRes.data || [];
   const todayLeads = todayLeadsRes.data;
 
   const todayUpdates = updates.filter((u) => u.tanggal === today);
@@ -67,51 +68,15 @@ export default async function CSPage() {
       <section className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200">
           <h2 className="font-bold text-brand-700">📊 Leads Harian (Global, Semua Channel)</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Total leads per channel — organic + ads. Bukan per trip.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Organic + Ads. List 7 hari terakhir tersedia di tab Daily. Rekap mingguan/bulanan untuk arsip.</p>
         </div>
 
         <div className="p-5 space-y-4">
+          {/* Form input/edit hari ini */}
           <LeadsQuickForm initial={todayLeads ? { ...todayLeads } : { tanggal: today }} />
 
-          {recentLeads.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr className="text-left text-xs font-bold text-slate-600 uppercase tracking-wider">
-                    <th className="px-2 py-2">Tanggal</th>
-                    <th className="px-2 py-2 text-right">📷 IG</th>
-                    <th className="px-2 py-2 text-right">🎵 TikTok</th>
-                    <th className="px-2 py-2 text-right">💬 WA</th>
-                    <th className="px-2 py-2 text-right">📘 FB</th>
-                    <th className="px-2 py-2 text-right border-l border-slate-200">🟦 Meta Ads</th>
-                    <th className="px-2 py-2 text-right">🟥 Google Ads</th>
-                    <th className="px-2 py-2 text-right">⚫ TikTok Ads</th>
-                    <th className="px-2 py-2 text-right border-l border-slate-200 font-extrabold">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {recentLeads.map((l) => {
-                    const org = sumOrganic(l);
-                    const ad = sumAds(l);
-                    const tot = org + ad;
-                    return (
-                      <tr key={l.id} className="hover:bg-slate-50">
-                        <td className="px-2 py-2 font-semibold text-slate-700">{fmtDate(l.tanggal)}</td>
-                        <td className="px-2 py-2 text-right text-slate-700">{l.leads_ig || 0}</td>
-                        <td className="px-2 py-2 text-right text-slate-700">{l.leads_tiktok || 0}</td>
-                        <td className="px-2 py-2 text-right text-slate-700">{l.leads_wa || 0}</td>
-                        <td className="px-2 py-2 text-right text-slate-700">{l.leads_fb || 0}</td>
-                        <td className="px-2 py-2 text-right text-blue-700 border-l border-slate-200">{l.leads_ads_meta || 0}</td>
-                        <td className="px-2 py-2 text-right text-red-700">{l.leads_ads_google || 0}</td>
-                        <td className="px-2 py-2 text-right text-slate-700">{l.leads_ads_tiktok || 0}</td>
-                        <td className="px-2 py-2 text-right font-bold text-brand-700 border-l border-slate-200">{tot}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {/* History + view switcher (client component) */}
+          <LeadsHistoryTable allLeads={allLeads} />
         </div>
       </section>
 
