@@ -1,13 +1,13 @@
-// TL trip detail — Round 58: tambah TripDocuments (read-only) + roomlist link
-// Defensive: TlOperations & TripDocuments optional, ga crash kalau missing
+// TL trip detail — Round 64: HIDE harga/payment/finance info untuk TL
+// Cuma kasih: trip info dasar, tanggal, peserta, manifest, roomlist, dokumen
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
+import { fmtDate, daysUntil } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
+import { getRoleFromUser } from '@/lib/utils/roles';
 
-// Defensive optional imports
 let TripDocuments = null;
 try { TripDocuments = require('@/components/trips/TripDocuments').default; } catch {}
 let TlOperations = null;
@@ -22,10 +22,26 @@ async function safeQuery(promise, fallback = []) {
 export default async function TLTripDetailPage({ params }) {
   const { tripId } = await params;
   const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const role = getRoleFromUser(user);
+  const isTL = role === 'tour_leader';
+
   const { data: trip } = await supabase.from('trips').select('*').eq('id', tripId).maybeSingle();
   if (!trip) notFound();
 
-  // Passengers
+  // TL: pastikan trip ini milik dia
+  if (isTL) {
+    const tlId = user?.user_metadata?.tl_id;
+    const tlName = user?.user_metadata?.tl_name || '';
+    const matchById = tlId && String(trip.tl_id) === String(tlId);
+    const matchByName = tlName && (trip.tl_name || '').toLowerCase().includes(tlName.toLowerCase());
+    if (!matchById && !matchByName) {
+      // Trip bukan milik TL ini — redirect balik
+      const { redirect } = await import('next/navigation');
+      redirect('/tl');
+    }
+  }
+
   let passengers = [];
   let customerMap = {};
   try {
@@ -38,12 +54,10 @@ export default async function TLTripDetailPage({ params }) {
     }
   } catch {}
 
-  // Trip documents
   const documents = await safeQuery(
     supabase.from('trip_documents').select('*').eq('trip_id', tripId).order('created_at', { ascending: false })
   );
 
-  // TL operations (optional Round 31)
   const expenses = await safeQuery(supabase.from('tl_expenses').select('*').eq('trip_id', tripId).order('date', { ascending: false }));
   const gmapsReviews = await safeQuery(supabase.from('tl_gmaps_reviews').select('*').eq('trip_id', tripId).order('created_at', { ascending: false }));
   const vendorReviews = await safeQuery(supabase.from('tl_vendor_reviews').select('*').eq('trip_id', tripId).order('created_at', { ascending: false }));
@@ -52,10 +66,7 @@ export default async function TLTripDetailPage({ params }) {
   const s = statusCfg(trip.status) || {};
   const days = daysUntil(trip.departure);
   let checklist = [];
-  try {
-    const c = tripChecklist(trip);
-    checklist = Array.isArray(c) ? c : [];
-  } catch {}
+  try { const c = tripChecklist(trip); checklist = Array.isArray(c) ? c : []; } catch {}
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -78,11 +89,11 @@ export default async function TLTripDetailPage({ params }) {
         <p className="mt-1 text-slate-600">{trip.tl_name && `👤 TL: ${trip.tl_name} · `}{passengers.length} peserta</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* Info Cards — TANPA HARGA/PAX (TL ga perlu lihat finance) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <InfoCard label="📅 Keberangkatan" value={fmtDate(trip.departure)} />
         <InfoCard label="📅 Kepulangan" value={fmtDate(trip.arrival)} />
-        <InfoCard label="🪑 Seat" value={`${trip.sold || 0} / ${trip.quota || 0}`} />
-        <InfoCard label="💰 Harga / Pax" value={fmtRupiah(trip.price || 0)} small />
+        <InfoCard label="🪑 Total Peserta" value={`${passengers.length} pax`} />
       </div>
 
       {checklist.length > 0 && (
@@ -112,6 +123,7 @@ export default async function TLTripDetailPage({ params }) {
         </div>
       )}
 
+      {/* Flight info */}
       {(trip.pnr || trip.flight_details) && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
           <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">✈ Info Penerbangan</h3>
@@ -123,6 +135,7 @@ export default async function TLTripDetailPage({ params }) {
         </div>
       )}
 
+      {/* Notes */}
       {trip.notes && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
           <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">📝 Catatan Trip</h3>
@@ -130,6 +143,7 @@ export default async function TLTripDetailPage({ params }) {
         </div>
       )}
 
+      {/* Peserta + Manifest/Roomlist downloads */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
           <h3 className="font-bold text-brand-700">👥 Daftar Peserta ({passengers.length})</h3>
@@ -169,36 +183,39 @@ export default async function TLTripDetailPage({ params }) {
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
-        <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">🔗 Shortcut</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <Link href={`/trips/${tripId}`} className="p-3 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 text-center text-xs">
-            <p className="text-xl mb-1">📋</p>
-            <p className="font-semibold text-slate-700">Trip Detail</p>
-          </Link>
-          <Link href={`/visa/${tripId}`} className="p-3 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 text-center text-xs">
-            <p className="text-xl mb-1">🛂</p>
-            <p className="font-semibold text-slate-700">Visa Checklist</p>
-          </Link>
-          <Link href={`/visa/${tripId}/roomlist`} className="p-3 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 text-center text-xs">
-            <p className="text-xl mb-1">🛏</p>
-            <p className="font-semibold text-slate-700">Roomlist Editor</p>
-          </Link>
-          <Link href={`/finance/payments/${tripId}`} className="p-3 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 text-center text-xs">
-            <p className="text-xl mb-1">🧾</p>
-            <p className="font-semibold text-slate-700">Payment Status</p>
-          </Link>
+      {/* Shortcut TL — TANPA Payment Status, TANPA Trip Detail */}
+      {!isTL && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
+          <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">🔗 Shortcut (Admin/Ops only)</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <Link href={`/trips/${tripId}`} className="p-3 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 text-center text-xs">
+              <p className="text-xl mb-1">📋</p>
+              <p className="font-semibold text-slate-700">Trip Detail</p>
+            </Link>
+            <Link href={`/visa/${tripId}`} className="p-3 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 text-center text-xs">
+              <p className="text-xl mb-1">🛂</p>
+              <p className="font-semibold text-slate-700">Visa Checklist</p>
+            </Link>
+            <Link href={`/visa/${tripId}/roomlist`} className="p-3 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 text-center text-xs">
+              <p className="text-xl mb-1">🛏</p>
+              <p className="font-semibold text-slate-700">Roomlist Editor</p>
+            </Link>
+            <Link href={`/finance/payments/${tripId}`} className="p-3 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 text-center text-xs">
+              <p className="text-xl mb-1">🧾</p>
+              <p className="font-semibold text-slate-700">Payment Status</p>
+            </Link>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
-function InfoCard({ label, value, small = false }) {
+function InfoCard({ label, value }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-card p-3">
       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{label}</p>
-      <p className={`mt-1 font-bold text-brand-700 ${small ? 'text-base' : 'text-lg'}`}>{value}</p>
+      <p className="mt-1 font-bold text-brand-700 text-lg">{value}</p>
     </div>
   );
 }
