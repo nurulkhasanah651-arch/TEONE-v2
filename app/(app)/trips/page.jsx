@@ -1,13 +1,20 @@
-// Master Trip list — Round 50: revenue pakai expected dari price_breakdown × pax
+// Master Trip — Round 51: Card / List Priority / Calendar view toggle
+// Plus Round 50: Expected Revenue dari breakdown
 
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import TripCard from '@/components/trips/TripCard';
+import TripsListView from '@/components/trips/TripsListView';
+import TripsCalendarView from '@/components/trips/TripsCalendarView';
 import { fmtRupiah } from '@/lib/utils/format';
 import { mainExpectedPerPassenger } from '@/lib/utils/price-breakdown';
 
 export const dynamic = 'force-dynamic';
 
-export default async function TripsPage() {
+export default async function TripsPage({ searchParams }) {
+  const sp = await searchParams;
+  const view = sp?.view || 'card'; // 'card' | 'list' | 'calendar'
+
   const supabase = createClient();
   const { data: trips, error } = await supabase
     .from('trips')
@@ -25,26 +32,20 @@ export default async function TripsPage() {
     );
   }
 
-  // Fetch all passengers untuk hitung expected revenue
   let allPax = [];
   try {
     const { data } = await supabase.from('trip_passengers').select('*');
     allPax = data || [];
-  } catch {
-    allPax = [];
-  }
+  } catch { allPax = []; }
   const paxByTrip = {};
   for (const p of allPax) {
     if (!paxByTrip[p.trip_id]) paxByTrip[p.trip_id] = [];
     paxByTrip[p.trip_id].push(p);
   }
 
-  // Aggregate stats
   const totalTrips = trips?.length || 0;
   const openSelling = trips?.filter((t) => t.status === 'open selling').length || 0;
   const totalSeatLeft = trips?.reduce((sum, t) => sum + (t.seat_left || 0), 0) || 0;
-
-  // Expected Revenue = sum mainExpectedPerPassenger (room + tips + city_tax) untuk semua peserta non-cancelled
   let totalExpectedRevenue = 0;
   for (const t of trips || []) {
     if (t.status === 'cancelled') continue;
@@ -74,22 +75,27 @@ export default async function TripsPage() {
         <StatCard label="Total Trip" value={totalTrips} color="text-brand-700" bg="bg-brand-50" />
         <StatCard label="Open Selling" value={openSelling} color="text-blue-700" bg="bg-blue-50" />
         <StatCard label="Seat Tersisa" value={totalSeatLeft} color="text-amber-700" bg="bg-amber-50" />
-        <StatCard
-          label="Expected Revenue"
-          value={fmtRupiah(totalExpectedRevenue)}
-          color="text-green-700"
-          bg="bg-green-50"
-          sub="Wajib: room + tips + city tax × peserta"
-          small
-        />
+        <StatCard label="Expected Revenue" value={fmtRupiah(totalExpectedRevenue)} color="text-green-700" bg="bg-green-50" sub="Wajib room+tips+city tax" small />
       </div>
 
+      {/* View toggle */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-3 flex gap-2 flex-wrap">
+        <ViewButton current={view} value="card"     icon="🎴" label="Card View" />
+        <ViewButton current={view} value="list"     icon="📋" label="List (Priority Push)" />
+        <ViewButton current={view} value="calendar" icon="📅" label="Calendar" />
+      </div>
+
+      {/* View body */}
       {totalTrips === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
           <p className="text-4xl mb-3">📋</p>
           <p className="text-lg font-bold text-slate-700">Belum ada trip</p>
           <p className="mt-1 text-sm text-slate-500">Trip yang dibuat akan muncul di sini.</p>
         </div>
+      ) : view === 'list' ? (
+        <TripsListView trips={trips} />
+      ) : view === 'calendar' ? (
+        <TripsCalendarView trips={trips} />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {trips.map((trip) => (
@@ -98,6 +104,20 @@ export default async function TripsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function ViewButton({ current, value, icon, label }) {
+  const active = current === value;
+  return (
+    <Link
+      href={`/trips?view=${value}`}
+      className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+        active ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+      }`}
+    >
+      <span className="mr-1">{icon}</span> {label}
+    </Link>
   );
 }
 
