@@ -1,5 +1,4 @@
-// Trip Detail — MINIMAL SAFE VERSION (no TripDocuments, hyper-defensive)
-// Round 56 — fix "o.map is not a function" crash
+// Trip Detail — Round 57: restore TripDocuments dengan defensive
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -7,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
 import ParticipantsList from '@/components/trips/ParticipantsList';
+import TripDocuments from '@/components/trips/TripDocuments';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,25 +18,17 @@ export default async function TripDetailPage({ params }) {
 
   const s = statusCfg(trip.status) || {};
   const days = daysUntil(trip.departure);
-  // Defensive: ensure checklist is array
   let checklist = [];
   try {
     const c = tripChecklist(trip);
     checklist = Array.isArray(c) ? c : [];
-  } catch {
-    checklist = [];
-  }
+  } catch { checklist = []; }
   const revenue = (trip.price || 0) * (trip.sold || 0);
 
-  // Participants — fully defensive
+  // Participants
   let participants = [];
   try {
-    const { data: tp } = await supabase
-      .from('trip_passengers')
-      .select('*')
-      .eq('trip_id', id)
-      .order('joined_at', { ascending: true });
-
+    const { data: tp } = await supabase.from('trip_passengers').select('*').eq('trip_id', id).order('joined_at', { ascending: true });
     const safeTp = Array.isArray(tp) ? tp : [];
     if (safeTp.length > 0) {
       const customerIds = safeTp.map((p) => p.customer_id).filter(Boolean);
@@ -47,23 +39,21 @@ export default async function TripDetailPage({ params }) {
       }
       participants = safeTp.map((p) => ({ ...p, customers: cMap[p.customer_id] || null }));
     }
-  } catch {
-    participants = [];
-  }
+  } catch { participants = []; }
 
-  // Recent CS — defensive
+  // Trip documents
+  let documents = [];
+  try {
+    const { data } = await supabase.from('trip_documents').select('*').eq('trip_id', id).order('created_at', { ascending: false });
+    documents = Array.isArray(data) ? data : [];
+  } catch { documents = []; }
+
+  // Recent CS
   let recentCS = [];
   try {
-    const { data } = await supabase
-      .from('cs_daily_updates')
-      .select('*')
-      .eq('trip_id', id)
-      .order('tanggal', { ascending: false })
-      .limit(5);
+    const { data } = await supabase.from('cs_daily_updates').select('*').eq('trip_id', id).order('tanggal', { ascending: false }).limit(5);
     recentCS = Array.isArray(data) ? data : [];
-  } catch {
-    recentCS = [];
-  }
+  } catch { recentCS = []; }
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -126,6 +116,9 @@ export default async function TripDetailPage({ params }) {
           </InfoCard>
         )}
       </div>
+
+      {/* DOKUMEN TRIP — Ops full control */}
+      <TripDocuments tripId={id} documents={documents} readOnly={false} />
 
       <ParticipantsList tripId={trip.id} participants={participants} />
 
