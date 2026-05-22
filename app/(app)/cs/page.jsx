@@ -1,39 +1,44 @@
-// CS Daily — Round 75: Leads History via client component (view switcher + edit + download)
+// CS Daily — Round 76: Leads + Closing keduanya pakai History Table (daily/weekly/monthly + download)
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import LeadsQuickForm from '@/components/cs/LeadsQuickForm';
 import LeadsHistoryTable from '@/components/cs/LeadsHistoryTable';
-import CSUpdateRow from '@/components/cs/CSUpdateRow';
+import ClosingHistoryTable from '@/components/cs/ClosingHistoryTable';
 
 export const dynamic = 'force-dynamic';
 
 function sumOrganic(l) {
   return (l?.leads_ig || 0) + (l?.leads_tiktok || 0) + (l?.leads_wa || 0) + (l?.leads_fb || 0);
 }
-function sumAds(l) {
+function sumAdsLeads(l) {
   return (l?.leads_ads_meta || 0) + (l?.leads_ads_google || 0) + (l?.leads_ads_tiktok || 0);
+}
+function sumClosing(u) {
+  return (u.from_instagram || 0) + (u.from_whatsapp || 0) + (u.from_offline || 0)
+    + (u.closing_alumni || 0) + (u.closing_mitra || 0)
+    + (u.from_ads_meta || 0) + (u.from_ads_google || 0) + (u.from_ads_tiktok || 0);
 }
 
 export default async function CSPage() {
   const supabase = createClient();
   const today = new Date().toISOString().slice(0, 10);
 
-  // Fetch in parallel — leads ALL HISTORY untuk client recap, updates max 20
+  // Fetch in parallel — ALL leads & updates (client component bagi tampilan per view)
   const [updatesRes, leadsRes, todayLeadsRes] = await Promise.all([
-    supabase.from('cs_daily_updates').select('*, trips(name, kode_trip)').order('tanggal', { ascending: false }).limit(20),
+    supabase.from('cs_daily_updates').select('*, trips(name, kode_trip)').order('tanggal', { ascending: false }),
     supabase.from('cs_daily_leads').select('*').order('tanggal', { ascending: false }),
     supabase.from('cs_daily_leads').select('*').eq('tanggal', today).maybeSingle(),
   ]);
 
-  const updates = updatesRes.data || [];
+  const allUpdates = updatesRes.data || [];
   const allLeads = leadsRes.data || [];
   const todayLeads = todayLeadsRes.data;
 
-  const todayUpdates = updates.filter((u) => u.tanggal === today);
-  const todayClosing = todayUpdates.reduce((s, u) => s + (u.total_terjual_hari_ini || 0), 0);
+  const todayUpdates = allUpdates.filter((u) => u.tanggal === today);
+  const todayClosing = todayUpdates.reduce((s, u) => s + sumClosing(u), 0);
   const todayLeadsOrganic = sumOrganic(todayLeads);
-  const todayLeadsAds = sumAds(todayLeads);
+  const todayLeadsAds = sumAdsLeads(todayLeads);
   const todayLeadsTotal = todayLeadsOrganic + todayLeadsAds;
 
   return (
@@ -51,7 +56,6 @@ export default async function CSPage() {
         </Link>
       </div>
 
-      {/* Quick summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <SummaryCard label="Closing Hari Ini" value={todayClosing} color="text-green-700" bg="bg-green-50" />
         <SummaryCard label="Leads Hari Ini" value={todayLeadsTotal} sub={`${todayLeadsOrganic} organic + ${todayLeadsAds} ads`} color="text-blue-700" bg="bg-blue-50" />
@@ -64,39 +68,25 @@ export default async function CSPage() {
         />
       </div>
 
-      {/* === LEADS HARIAN SECTION === */}
+      {/* === LEADS HARIAN === */}
       <section className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200">
           <h2 className="font-bold text-brand-700">📊 Leads Harian (Global, Semua Channel)</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Organic + Ads. List 7 hari terakhir tersedia di tab Daily. Rekap mingguan/bulanan untuk arsip.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Organic + Ads. 7 hari terakhir di tab Daily, lebih lama → Rekap.</p>
         </div>
-
         <div className="p-5 space-y-4">
-          {/* Form input/edit hari ini */}
           <LeadsQuickForm initial={todayLeads ? { ...todayLeads } : { tanggal: today }} />
-
-          {/* History + view switcher (client component) */}
           <LeadsHistoryTable allLeads={allLeads} />
         </div>
       </section>
 
-      {/* === CLOSING PER TRIP SECTION === */}
+      {/* === CLOSING PER TRIP === */}
       <section className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200">
           <h2 className="font-bold text-brand-700">📝 Update Closing per Trip</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Riwayat 20 update terakhir.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Daily list (7 hari) + rekap mingguan/bulanan + download CSV.</p>
         </div>
-        {updates.length === 0 ? (
-          <div className="p-12 text-center">
-            <p className="text-4xl mb-3">📊</p>
-            <p className="text-lg font-bold text-slate-700">Belum ada update</p>
-            <p className="mt-1 text-sm text-slate-500">Klik "Input CS Daily" untuk mulai.</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {updates.map((u) => <CSUpdateRow key={u.id} update={u} />)}
-          </div>
-        )}
+        <ClosingHistoryTable allUpdates={allUpdates} />
       </section>
     </div>
   );
