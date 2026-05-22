@@ -1,19 +1,30 @@
 'use client';
 
+// ChatBox — Round 63: TL hide public chat tab
+
 import { useState, useTransition, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { sendPublicMessage, sendPersonalMessage } from '@/lib/actions/team-collab';
 import { ROLE_BADGE_COLOR, ROLE_LABELS } from '@/lib/utils/roles';
 
-export default function ChatBox({ currentUserId, currentUserName, members = [], publicMessages = [], dmWith, personalMessages = [] }) {
-  const [tab, setTab] = useState(dmWith ? 'personal' : 'public');
+export default function ChatBox({
+  currentUserId,
+  currentUserName,
+  currentUserRole,
+  members = [],
+  publicMessages = [],
+  dmWith,
+  personalMessages = []
+}) {
+  const isTL = currentUserRole === 'tour_leader';
+  // TL hanya bisa DM personal — default tab personal
+  const [tab, setTab] = useState(isTL ? 'personal' : (dmWith ? 'personal' : 'public'));
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const publicEndRef = useRef(null);
   const personalEndRef = useRef(null);
 
-  // Auto-scroll ke bawah
   useEffect(() => {
     if (tab === 'public') publicEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     if (tab === 'personal') personalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -23,6 +34,10 @@ export default function ChatBox({ currentUserId, currentUserName, members = [], 
   const dmRecipient = dmWith ? members.find((m) => m.user_id === dmWith) : null;
 
   async function handleSendPublic(formData) {
+    if (isTL) {
+      alert('TL tidak boleh kirim chat umum. Pakai DM personal.');
+      return;
+    }
     startTransition(async () => {
       const r = await sendPublicMessage(formData);
       if (r?.error) { alert(r.error); return; }
@@ -48,16 +63,18 @@ export default function ChatBox({ currentUserId, currentUserName, members = [], 
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-      {/* Tabs */}
+      {/* Tabs — TL hide public */}
       <div className="flex border-b border-slate-200 bg-slate-50">
-        <button
-          onClick={() => setTab('public')}
-          className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${
-            tab === 'public' ? 'border-brand-500 text-brand-700 bg-white' : 'border-transparent text-slate-500 hover:text-brand-600'
-          }`}
-        >
-          📢 Chat Umum ({publicMessages.length})
-        </button>
+        {!isTL && (
+          <button
+            onClick={() => setTab('public')}
+            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${
+              tab === 'public' ? 'border-brand-500 text-brand-700 bg-white' : 'border-transparent text-slate-500 hover:text-brand-600'
+            }`}
+          >
+            📢 Chat Umum ({publicMessages.length})
+          </button>
+        )}
         <button
           onClick={() => setTab('personal')}
           className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${
@@ -68,8 +85,8 @@ export default function ChatBox({ currentUserId, currentUserName, members = [], 
         </button>
       </div>
 
-      {/* ============ PUBLIC TAB ============ */}
-      {tab === 'public' && (
+      {/* PUBLIC TAB — only non-TL */}
+      {tab === 'public' && !isTL && (
         <>
           <div className="h-[500px] overflow-y-auto p-4 space-y-2 bg-slate-50/50">
             {publicMessages.length === 0 ? (
@@ -81,7 +98,6 @@ export default function ChatBox({ currentUserId, currentUserName, members = [], 
             )}
             <div ref={publicEndRef} />
           </div>
-
           <form action={handleSendPublic} className="p-3 border-t border-slate-200 flex gap-2">
             <input
               id="public-msg-input"
@@ -98,10 +114,9 @@ export default function ChatBox({ currentUserId, currentUserName, members = [], 
         </>
       )}
 
-      {/* ============ PERSONAL TAB ============ */}
+      {/* PERSONAL TAB */}
       {tab === 'personal' && (
         <div className="flex h-[560px]">
-          {/* Member list */}
           <div className="w-56 border-r border-slate-200 overflow-y-auto bg-slate-50">
             <div className="px-3 py-2 border-b border-slate-200">
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Pilih Tim Member</p>
@@ -133,7 +148,6 @@ export default function ChatBox({ currentUserId, currentUserName, members = [], 
             )}
           </div>
 
-          {/* DM area */}
           <div className="flex-1 flex flex-col">
             {!dmWith ? (
               <div className="flex-1 flex items-center justify-center text-center p-8">
