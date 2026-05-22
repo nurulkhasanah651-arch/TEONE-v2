@@ -1,4 +1,4 @@
-// CS Daily — combined: Daily Leads section + Closing updates per trip
+// CS Daily — Round 73: tampilkan ads breakdown di table + summary
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
@@ -8,11 +8,17 @@ import CSUpdateRow from '@/components/cs/CSUpdateRow';
 
 export const dynamic = 'force-dynamic';
 
+function sumOrganic(l) {
+  return (l?.leads_ig || 0) + (l?.leads_tiktok || 0) + (l?.leads_wa || 0) + (l?.leads_fb || 0);
+}
+function sumAds(l) {
+  return (l?.leads_ads_meta || 0) + (l?.leads_ads_google || 0) + (l?.leads_ads_tiktok || 0);
+}
+
 export default async function CSPage() {
   const supabase = createClient();
   const today = new Date().toISOString().slice(0, 10);
 
-  // Fetch in parallel
   const [updatesRes, leadsRes, todayLeadsRes] = await Promise.all([
     supabase.from('cs_daily_updates').select('*, trips(name, kode_trip)').order('tanggal', { ascending: false }).limit(20),
     supabase.from('cs_daily_leads').select('*').order('tanggal', { ascending: false }).limit(7),
@@ -23,14 +29,14 @@ export default async function CSPage() {
   const recentLeads = leadsRes.data || [];
   const todayLeads = todayLeadsRes.data;
 
-  // Today summaries
   const todayUpdates = updates.filter((u) => u.tanggal === today);
   const todayClosing = todayUpdates.reduce((s, u) => s + (u.total_terjual_hari_ini || 0), 0);
-  const todayLeadsTotal = todayLeads ? (todayLeads.leads_ig || 0) + (todayLeads.leads_tiktok || 0) + (todayLeads.leads_wa || 0) + (todayLeads.leads_fb || 0) : 0;
+  const todayLeadsOrganic = sumOrganic(todayLeads);
+  const todayLeadsAds = sumAds(todayLeads);
+  const todayLeadsTotal = todayLeadsOrganic + todayLeadsAds;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold text-brand-700">CS Daily</h1>
@@ -47,7 +53,7 @@ export default async function CSPage() {
       {/* Quick summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <SummaryCard label="Closing Hari Ini" value={todayClosing} color="text-green-700" bg="bg-green-50" />
-        <SummaryCard label="Leads Hari Ini" value={todayLeadsTotal} color="text-blue-700" bg="bg-blue-50" />
+        <SummaryCard label="Leads Hari Ini" value={todayLeadsTotal} sub={`${todayLeadsOrganic} organic + ${todayLeadsAds} ads`} color="text-blue-700" bg="bg-blue-50" />
         <SummaryCard label="Trip Aktif Hari Ini" value={todayUpdates.length} color="text-brand-700" bg="bg-brand-50" />
         <SummaryCard
           label="Conv. Rate Hari Ini"
@@ -61,38 +67,44 @@ export default async function CSPage() {
       <section className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200">
           <h2 className="font-bold text-brand-700">📊 Leads Harian (Global, Semua Channel)</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Total leads masuk per channel — bukan per trip.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Total leads per channel — organic + ads. Bukan per trip.</p>
         </div>
 
         <div className="p-5 space-y-4">
-          {/* Today form */}
           <LeadsQuickForm initial={todayLeads ? { ...todayLeads } : { tanggal: today }} />
 
-          {/* Recent 7 days */}
           {recentLeads.length > 0 && (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr className="text-left text-xs font-bold text-slate-600 uppercase tracking-wider">
-                    <th className="px-3 py-2">Tanggal</th>
-                    <th className="px-3 py-2 text-right">📷 IG</th>
-                    <th className="px-3 py-2 text-right">🎵 TikTok</th>
-                    <th className="px-3 py-2 text-right">💬 WA</th>
-                    <th className="px-3 py-2 text-right">📘 FB</th>
-                    <th className="px-3 py-2 text-right">Total</th>
+                    <th className="px-2 py-2">Tanggal</th>
+                    <th className="px-2 py-2 text-right">📷 IG</th>
+                    <th className="px-2 py-2 text-right">🎵 TikTok</th>
+                    <th className="px-2 py-2 text-right">💬 WA</th>
+                    <th className="px-2 py-2 text-right">📘 FB</th>
+                    <th className="px-2 py-2 text-right border-l border-slate-200">🟦 Meta Ads</th>
+                    <th className="px-2 py-2 text-right">🟥 Google Ads</th>
+                    <th className="px-2 py-2 text-right">⚫ TikTok Ads</th>
+                    <th className="px-2 py-2 text-right border-l border-slate-200 font-extrabold">Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {recentLeads.map((l) => {
-                    const tot = (l.leads_ig || 0) + (l.leads_tiktok || 0) + (l.leads_wa || 0) + (l.leads_fb || 0);
+                    const org = sumOrganic(l);
+                    const ad = sumAds(l);
+                    const tot = org + ad;
                     return (
                       <tr key={l.id} className="hover:bg-slate-50">
-                        <td className="px-3 py-2 font-semibold text-slate-700">{fmtDate(l.tanggal)}</td>
-                        <td className="px-3 py-2 text-right text-slate-700">{l.leads_ig || 0}</td>
-                        <td className="px-3 py-2 text-right text-slate-700">{l.leads_tiktok || 0}</td>
-                        <td className="px-3 py-2 text-right text-slate-700">{l.leads_wa || 0}</td>
-                        <td className="px-3 py-2 text-right text-slate-700">{l.leads_fb || 0}</td>
-                        <td className="px-3 py-2 text-right font-bold text-brand-700">{tot}</td>
+                        <td className="px-2 py-2 font-semibold text-slate-700">{fmtDate(l.tanggal)}</td>
+                        <td className="px-2 py-2 text-right text-slate-700">{l.leads_ig || 0}</td>
+                        <td className="px-2 py-2 text-right text-slate-700">{l.leads_tiktok || 0}</td>
+                        <td className="px-2 py-2 text-right text-slate-700">{l.leads_wa || 0}</td>
+                        <td className="px-2 py-2 text-right text-slate-700">{l.leads_fb || 0}</td>
+                        <td className="px-2 py-2 text-right text-blue-700 border-l border-slate-200">{l.leads_ads_meta || 0}</td>
+                        <td className="px-2 py-2 text-right text-red-700">{l.leads_ads_google || 0}</td>
+                        <td className="px-2 py-2 text-right text-slate-700">{l.leads_ads_tiktok || 0}</td>
+                        <td className="px-2 py-2 text-right font-bold text-brand-700 border-l border-slate-200">{tot}</td>
                       </tr>
                     );
                   })}
@@ -125,11 +137,12 @@ export default async function CSPage() {
   );
 }
 
-function SummaryCard({ label, value, color, bg }) {
+function SummaryCard({ label, value, sub, color, bg }) {
   return (
     <div className={`rounded-xl border border-slate-200 shadow-card p-4 ${bg}`}>
       <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">{label}</p>
       <p className={`mt-1 text-2xl font-bold ${color}`}>{value}</p>
+      {sub && <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>}
     </div>
   );
 }
