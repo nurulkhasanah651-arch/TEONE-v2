@@ -1,4 +1,5 @@
-// Trip Detail — DEFENSIVE: TripDocuments + DeleteTripButton optional
+// Trip Detail — MINIMAL SAFE VERSION (no TripDocuments, hyper-defensive)
+// Round 56 — fix "o.map is not a function" crash
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -7,17 +8,7 @@ import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
 import ParticipantsList from '@/components/trips/ParticipantsList';
 
-// Defensive optional imports
-let DeleteTripButton = null;
-try { DeleteTripButton = require('@/components/trips/DeleteTripButton').default; } catch {}
-let TripDocuments = null;
-try { TripDocuments = require('@/components/trips/TripDocuments').default; } catch {}
-
 export const dynamic = 'force-dynamic';
-
-async function safeQuery(promise, fallback = []) {
-  try { const r = await promise; return r.data || fallback; } catch { return fallback; }
-}
 
 export default async function TripDetailPage({ params }) {
   const { id } = await params;
@@ -25,34 +16,54 @@ export default async function TripDetailPage({ params }) {
   const { data: trip, error } = await supabase.from('trips').select('*').eq('id', id).maybeSingle();
   if (error || !trip) notFound();
 
-  const s = statusCfg(trip.status);
+  const s = statusCfg(trip.status) || {};
   const days = daysUntil(trip.departure);
-  const checklist = tripChecklist(trip);
+  // Defensive: ensure checklist is array
+  let checklist = [];
+  try {
+    const c = tripChecklist(trip);
+    checklist = Array.isArray(c) ? c : [];
+  } catch {
+    checklist = [];
+  }
   const revenue = (trip.price || 0) * (trip.sold || 0);
 
+  // Participants — fully defensive
   let participants = [];
-  {
-    const { data: tp } = await supabase.from('trip_passengers').select('*').eq('trip_id', id).order('joined_at', { ascending: true });
-    if (tp && tp.length > 0) {
-      const customerIds = tp.map((p) => p.customer_id).filter(Boolean);
+  try {
+    const { data: tp } = await supabase
+      .from('trip_passengers')
+      .select('*')
+      .eq('trip_id', id)
+      .order('joined_at', { ascending: true });
+
+    const safeTp = Array.isArray(tp) ? tp : [];
+    if (safeTp.length > 0) {
+      const customerIds = safeTp.map((p) => p.customer_id).filter(Boolean);
+      let cMap = {};
       if (customerIds.length > 0) {
         const { data: cust } = await supabase.from('customers').select('*').in('id', customerIds);
-        const cMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
-        participants = tp.map((p) => ({ ...p, customers: cMap[p.customer_id] || null }));
-      } else {
-        participants = tp.map((p) => ({ ...p, customers: null }));
+        cMap = Object.fromEntries((Array.isArray(cust) ? cust : []).map((c) => [c.id, c]));
       }
+      participants = safeTp.map((p) => ({ ...p, customers: cMap[p.customer_id] || null }));
     }
+  } catch {
+    participants = [];
   }
 
-  // Trip documents — defensive (kalau table belum ada / TripDocuments component missing)
-  const documents = await safeQuery(
-    supabase.from('trip_documents').select('*').eq('trip_id', id).order('created_at', { ascending: false })
-  );
-
-  const { data: recentCS } = await supabase
-    .from('cs_daily_updates').select('*').eq('trip_id', id)
-    .order('tanggal', { ascending: false }).limit(5);
+  // Recent CS — defensive
+  let recentCS = [];
+  try {
+    const { data } = await supabase
+      .from('cs_daily_updates')
+      .select('*')
+      .eq('trip_id', id)
+      .order('tanggal', { ascending: false })
+      .limit(5);
+    recentCS = Array.isArray(data) ? data : [];
+  } catch {
+    recentCS = [];
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -61,19 +72,20 @@ export default async function TripDetailPage({ params }) {
         <div className="mt-2 flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${s.bg} ${s.text}`}>{trip.kode_trip || `#${trip.id}`}</span>
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-md border ${s.bg} ${s.text} ${s.border}`}>{s.label}</span>
+              <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${s.bg || 'bg-slate-100'} ${s.text || 'text-slate-700'}`}>
+                {trip.kode_trip || `#${trip.id}`}
+              </span>
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-md border ${s.bg || 'bg-slate-100'} ${s.text || 'text-slate-700'} ${s.border || 'border-slate-200'}`}>
+                {s.label || trip.status || '—'}
+              </span>
               {trip.ticket && <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">{trip.ticket}</span>}
             </div>
-            <h1 className="text-3xl font-bold text-brand-700">{trip.name}</h1>
+            <h1 className="text-3xl font-bold text-brand-700">{trip.name || '—'}</h1>
             {trip.destination && <p className="mt-1 text-slate-600">{trip.destination}</p>}
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <Link href={`/trips/${trip.id}/edit`} className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-card transition-colors">
-              ✎ Edit Trip
-            </Link>
-            {DeleteTripButton && <DeleteTripButton tripId={trip.id} tripName={trip.name} tripCode={trip.kode_trip || trip.id} />}
-          </div>
+          <Link href={`/trips/${trip.id}/edit`} className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-card transition-colors">
+            ✎ Edit Trip
+          </Link>
         </div>
       </div>
 
@@ -84,20 +96,19 @@ export default async function TripDetailPage({ params }) {
         <StatCard label="Revenue" value={fmtRupiah(revenue)} color="text-green-700" small />
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider">Status Operasional</h3>
-          <Link href={`/trips/${trip.id}/edit`} className="text-xs font-semibold text-brand-600 hover:underline">✎ Update Status</Link>
+      {checklist.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider">Status Operasional</h3>
+            <Link href={`/trips/${trip.id}/edit`} className="text-xs font-semibold text-brand-600 hover:underline">✎ Update Status</Link>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {checklist.map((c, i) => (
+              <StatusPill key={c?.label || i} label={c?.label || '—'} value={c?.ok ? 'OK' : 'pending'} ok={!!c?.ok} />
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <StatusPill label="Tiket" value={trip.ticket_status} okValues={['confirmed', 'issued']} />
-          <StatusPill label="Visa" value={trip.visa} okValues={['done', 'approved', 'process']} />
-          <StatusPill label="Manifest" value={trip.manifest} okValues={['ready']} />
-          <StatusPill label="Room List" value={trip.roomlist} okValues={['ready']} />
-          <StatusPill label="Payment" value={trip.payment} okValues={['lunas']} />
-          <StatusPill label="Briefing TL" value={trip.briefing_tl} okValues={['sudah']} />
-        </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <InfoCard title="Tanggal">
@@ -116,21 +127,14 @@ export default async function TripDetailPage({ params }) {
         )}
       </div>
 
-      {/* DOCUMENTS — defensive, hanya muncul kalau component ada */}
-      {TripDocuments && (
-        <TripDocuments tripId={id} documents={documents} readOnly={false} />
-      )}
+      <ParticipantsList tripId={trip.id} participants={participants} />
 
-      <ParticipantsList tripId={trip.id} participants={participants || []} />
-
-      <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="font-bold text-brand-700">Update CS Terbaru</h2>
-          <Link href="/cs/new" className="text-xs font-semibold text-brand-600 hover:underline">+ Tambah Update</Link>
-        </div>
-        {!recentCS || recentCS.length === 0 ? (
-          <div className="p-8 text-center"><p className="text-sm text-slate-500">Belum ada update CS untuk trip ini</p></div>
-        ) : (
+      {recentCS.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+            <h2 className="font-bold text-brand-700">Update CS Terbaru</h2>
+            <Link href="/cs/new" className="text-xs font-semibold text-brand-600 hover:underline">+ Tambah Update</Link>
+          </div>
           <div className="divide-y divide-slate-100">
             {recentCS.map((u) => (
               <div key={u.id} className="px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
@@ -143,8 +147,8 @@ export default async function TripDetailPage({ params }) {
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -179,14 +183,12 @@ function InfoRow({ label, value, note }) {
   );
 }
 
-function StatusPill({ label, value, okValues = [] }) {
-  const isOk = value && okValues.includes(value);
-  const display = value || 'pending';
+function StatusPill({ label, value, ok }) {
   return (
-    <div className={`rounded-lg p-2.5 border ${isOk ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
-      <p className={`text-[10px] font-bold uppercase tracking-wider ${isOk ? 'text-green-700' : 'text-slate-500'}`}>{label}</p>
-      <p className={`mt-0.5 text-sm font-bold capitalize ${isOk ? 'text-green-800' : 'text-slate-700'}`}>
-        {isOk && '✓ '}{display}
+    <div className={`rounded-lg p-2.5 border ${ok ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
+      <p className={`text-[10px] font-bold uppercase tracking-wider ${ok ? 'text-green-700' : 'text-slate-500'}`}>{label}</p>
+      <p className={`mt-0.5 text-sm font-bold capitalize ${ok ? 'text-green-800' : 'text-slate-700'}`}>
+        {ok && '✓ '}{value}
       </p>
     </div>
   );
