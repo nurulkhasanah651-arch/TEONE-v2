@@ -1,29 +1,18 @@
-// Master Trip — SAFE version: no crash even kalau dependencies hilang
-// Round 54 hotfix: defensive imports + fallback
+// Master Trip — Round 77: Active/Monthly/Yearly/History + download (via client component)
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import TripCard from '@/components/trips/TripCard';
+import TripsMasterView from '@/components/trips/TripsMasterView';
 import { fmtRupiah } from '@/lib/utils/format';
 
 export const dynamic = 'force-dynamic';
 
-// Defensive: load optional Round 50/51 dependencies
 let mainExpectedPerPassenger = null;
 try {
   mainExpectedPerPassenger = require('@/lib/utils/price-breakdown').mainExpectedPerPassenger;
 } catch {}
 
-let TripsListView = null;
-try { TripsListView = require('@/components/trips/TripsListView').default; } catch {}
-
-let TripsCalendarView = null;
-try { TripsCalendarView = require('@/components/trips/TripsCalendarView').default; } catch {}
-
-export default async function TripsPage({ searchParams }) {
-  const sp = await searchParams;
-  const view = sp?.view || 'card';
-
+export default async function TripsPage() {
   const supabase = createClient();
   const { data: trips, error } = await supabase
     .from('trips')
@@ -53,14 +42,17 @@ export default async function TripsPage({ searchParams }) {
     paxByTrip[p.trip_id].push(p);
   }
 
-  const totalTrips = trips?.length || 0;
-  const openSelling = trips?.filter((t) => t.status === 'open selling').length || 0;
-  const totalSeatLeft = trips?.reduce((sum, t) => sum + (t.seat_left || 0), 0) || 0;
+  // Hero stats — semua trip (kecuali cancelled untuk revenue/seat)
+  const safeTrips = trips || [];
+  const totalTrips = safeTrips.length;
+  const activeTrips = safeTrips.filter((t) => t.status !== 'completed' && t.status !== 'cancelled');
+  const openSelling = safeTrips.filter((t) => t.status === 'open selling').length;
+  const completedCount = safeTrips.filter((t) => t.status === 'completed').length;
+  const totalSeatLeft = activeTrips.reduce((sum, t) => sum + (t.seat_left || 0), 0);
 
-  // Expected revenue — pakai helper kalau ada, fallback ke price × sold
   let totalRevenue = 0;
   if (typeof mainExpectedPerPassenger === 'function') {
-    for (const t of trips || []) {
+    for (const t of safeTrips) {
       if (t.status === 'cancelled') continue;
       const breakdown = t.price_breakdown || {};
       const pax = paxByTrip[t.id] || [];
@@ -69,8 +61,7 @@ export default async function TripsPage({ searchParams }) {
       }
     }
   } else {
-    // Fallback legacy
-    totalRevenue = trips?.reduce((s, t) => s + (t.price || 0) * (t.sold || 0), 0) || 0;
+    totalRevenue = safeTrips.reduce((s, t) => s + (t.price || 0) * (t.sold || 0), 0);
   }
 
   return (
@@ -88,53 +79,16 @@ export default async function TripsPage({ searchParams }) {
         </a>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard label="Total Trip" value={totalTrips} color="text-brand-700" bg="bg-brand-50" />
         <StatCard label="Open Selling" value={openSelling} color="text-blue-700" bg="bg-blue-50" />
+        <StatCard label="Completed" value={completedCount} color="text-slate-700" bg="bg-slate-100" />
         <StatCard label="Seat Tersisa" value={totalSeatLeft} color="text-amber-700" bg="bg-amber-50" />
         <StatCard label="Revenue" value={fmtRupiah(totalRevenue)} color="text-green-700" bg="bg-green-50" small />
       </div>
 
-      {/* View toggle — hanya muncul kalau Round 51 deps ada */}
-      {(TripsListView || TripsCalendarView) && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-card p-3 flex gap-2 flex-wrap">
-          <ViewButton current={view} value="card" icon="🎴" label="Card View" />
-          {TripsListView && <ViewButton current={view} value="list" icon="📋" label="List (Priority)" />}
-          {TripsCalendarView && <ViewButton current={view} value="calendar" icon="📅" label="Calendar" />}
-        </div>
-      )}
-
-      {totalTrips === 0 ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
-          <p className="text-4xl mb-3">📋</p>
-          <p className="text-lg font-bold text-slate-700">Belum ada trip</p>
-        </div>
-      ) : view === 'list' && TripsListView ? (
-        <TripsListView trips={trips} />
-      ) : view === 'calendar' && TripsCalendarView ? (
-        <TripsCalendarView trips={trips} />
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {trips.map((trip) => (
-            <TripCard key={trip.id} trip={trip} />
-          ))}
-        </div>
-      )}
+      <TripsMasterView trips={safeTrips} paxByTrip={paxByTrip} />
     </div>
-  );
-}
-
-function ViewButton({ current, value, icon, label }) {
-  const active = current === value;
-  return (
-    <Link
-      href={`/trips?view=${value}`}
-      className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
-        active ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-      }`}
-    >
-      <span className="mr-1">{icon}</span> {label}
-    </Link>
   );
 }
 
