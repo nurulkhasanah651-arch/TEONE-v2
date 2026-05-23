@@ -1,14 +1,19 @@
 'use client';
 
-// Round 77: Trips Master — View switcher (Active/Monthly/Yearly/History) + Download CSV
-// "Active" = exclude status 'completed' (move to History)
-// "Monthly" = group by departure month
-// "Yearly" = group by departure year
-// "History" = status === 'completed' (atau status === 'cancelled')
+// Round 79: Trips Master — restored List Priority + Calendar sub-views di tab Active
+// Top tabs: Active / Monthly Recap / Yearly Recap / History
+// Active tab sub-views: 🎴 Card / 📋 List Priority / 📅 Calendar
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import TripCard from './TripCard';
+
+// Defensive imports — kalau file ga ada, fallback null
+let TripsListView = null;
+try { TripsListView = require('./TripsListView').default; } catch {}
+
+let TripsCalendarView = null;
+try { TripsCalendarView = require('./TripsCalendarView').default; } catch {}
 
 function fmtMonthLabel(key) {
   if (!key || key === 'unknown') return '— Tidak ada tanggal —';
@@ -82,6 +87,7 @@ export default function TripsMasterView({ trips = [], paxByTrip = {} }) {
   const safe = Array.isArray(trips) ? trips : [];
   const [view, setView] = useState('active'); // active | monthly | yearly | history
   const [monthFilter, setMonthFilter] = useState(''); // YYYY-MM filter untuk card view
+  const [activeSubView, setActiveSubView] = useState('card'); // card | list | calendar
 
   // SPLIT trips: active vs history
   const activeTrips = useMemo(() => {
@@ -202,45 +208,74 @@ export default function TripsMasterView({ trips = [], paxByTrip = {} }) {
         </button>
       </div>
 
-      {/* ACTIVE VIEW — Card layout dengan optional month filter */}
+      {/* ACTIVE VIEW — Sub-view switcher (Card/List/Calendar) + month filter */}
       {view === 'active' && (
         <>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-semibold text-slate-600">Filter Bulan Keberangkatan:</span>
-            <select
-              value={monthFilter}
-              onChange={(e) => setMonthFilter(e.target.value)}
-              className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-brand-500 outline-none"
-            >
-              <option value="">— Semua bulan —</option>
-              {availableMonths.map((m) => (
-                <option key={m} value={m}>{fmtMonthLabel(m)}</option>
-              ))}
-            </select>
-            {monthFilter && (
-              <button
-                type="button"
-                onClick={() => setMonthFilter('')}
-                className="text-xs text-slate-500 hover:text-slate-700 underline"
-              >
-                Reset
-              </button>
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Sub-view tabs */}
+            <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+              <SubTab active={activeSubView === 'card'} onClick={() => setActiveSubView('card')}>🎴 Card</SubTab>
+              {TripsListView && (
+                <SubTab active={activeSubView === 'list'} onClick={() => setActiveSubView('list')}>📋 List Priority</SubTab>
+              )}
+              {TripsCalendarView && (
+                <SubTab active={activeSubView === 'calendar'} onClick={() => setActiveSubView('calendar')}>📅 Calendar</SubTab>
+              )}
+            </div>
+
+            {/* Filter bulan — cuma muncul untuk Card view */}
+            {activeSubView === 'card' && (
+              <>
+                <span className="text-xs font-semibold text-slate-600">Filter Bulan:</span>
+                <select
+                  value={monthFilter}
+                  onChange={(e) => setMonthFilter(e.target.value)}
+                  className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-brand-500 outline-none"
+                >
+                  <option value="">— Semua bulan —</option>
+                  {availableMonths.map((m) => (
+                    <option key={m} value={m}>{fmtMonthLabel(m)}</option>
+                  ))}
+                </select>
+                {monthFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setMonthFilter('')}
+                    className="text-xs text-slate-500 hover:text-slate-700 underline"
+                  >
+                    Reset
+                  </button>
+                )}
+                <span className="text-xs text-slate-500">({filteredActive.length} trip)</span>
+              </>
             )}
-            <span className="text-xs text-slate-500">({filteredActive.length} trip)</span>
           </div>
 
-          {filteredActive.length === 0 ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
-              <p className="text-4xl mb-3">📋</p>
-              <p className="text-lg font-bold text-slate-700">
-                {monthFilter ? 'Tidak ada trip di bulan ini' : 'Belum ada trip active'}
-              </p>
-              <Link href="/trips/new" className="mt-3 inline-block text-sm text-brand-600 hover:underline font-semibold">+ Buat Trip Baru</Link>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {filteredActive.map((t) => <TripCard key={t.id} trip={t} />)}
-            </div>
+          {/* CARD VIEW */}
+          {activeSubView === 'card' && (
+            filteredActive.length === 0 ? (
+              <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+                <p className="text-4xl mb-3">📋</p>
+                <p className="text-lg font-bold text-slate-700">
+                  {monthFilter ? 'Tidak ada trip di bulan ini' : 'Belum ada trip active'}
+                </p>
+                <Link href="/trips/new" className="mt-3 inline-block text-sm text-brand-600 hover:underline font-semibold">+ Buat Trip Baru</Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {filteredActive.map((t) => <TripCard key={t.id} trip={t} />)}
+              </div>
+            )
+          )}
+
+          {/* LIST PRIORITY VIEW */}
+          {activeSubView === 'list' && TripsListView && (
+            <TripsListView trips={activeTrips} />
+          )}
+
+          {/* CALENDAR VIEW */}
+          {activeSubView === 'calendar' && TripsCalendarView && (
+            <TripsCalendarView trips={activeTrips} />
           )}
         </>
       )}
@@ -269,6 +304,18 @@ function Tab({ active, onClick, children }) {
       type="button"
       onClick={onClick}
       className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${active ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function SubTab({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors ${active ? 'bg-brand-500 text-white' : 'text-slate-600 hover:bg-slate-200'}`}
     >
       {children}
     </button>
