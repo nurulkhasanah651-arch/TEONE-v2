@@ -1,11 +1,10 @@
 'use client';
 
-// Round 82: FinanceItemForm — 9 HPP categories + DP/Total/Sisa
-// Sisa auto-compute = total - DP
+// Round 85: FinanceItemForm — INPUT TOTAL ONLY (DP via request payment, no input awal)
 
 import { useState } from 'react';
 import { createFinanceItem } from '@/lib/actions/finance';
-import { HPP_CATEGORIES, INCOME_CATEGORIES, PAYMENT_STATUS_OPTS } from '@/lib/utils/finance-constants';
+import { HPP_CATEGORIES, INCOME_CATEGORIES } from '@/lib/utils/finance-constants';
 
 function fmtRupiah(v) {
   if (v === '' || v == null) return '';
@@ -26,11 +25,8 @@ export default function FinanceItemForm({ tripId, type }) {
   const firstCategory = Object.keys(cats)[0];
   const [category, setCategory] = useState(firstCategory);
 
-  const [totalAmount, setTotalAmount] = useState(''); // string raw (no dot)
-  const [dpPaid, setDpPaid] = useState('');           // string raw (no dot)
+  const [totalAmount, setTotalAmount] = useState('');
   const totalNum = parseInt(totalAmount) || 0;
-  const dpNum = parseInt(dpPaid) || 0;
-  const sisa = Math.max(totalNum - dpNum, 0);
 
   const action = createFinanceItem.bind(null, tripId);
 
@@ -38,7 +34,7 @@ export default function FinanceItemForm({ tripId, type }) {
     setPending(true);
     setError('');
     formData.set('total_amount', String(totalNum));
-    formData.set('dp_paid', String(dpNum));
+    formData.set('dp_paid', '0'); // selalu 0 saat create — DP via request payment
     const result = await action(formData);
     if (result?.error) {
       setError(result.error);
@@ -47,7 +43,6 @@ export default function FinanceItemForm({ tripId, type }) {
       setOpen(false);
       setPending(false);
       setTotalAmount('');
-      setDpPaid('');
     }
   }
 
@@ -86,12 +81,12 @@ export default function FinanceItemForm({ tripId, type }) {
         </Field>
 
         {type === 'hpp' && (
-          <Field label="Vendor / Maskapai">
+          <Field label="Vendor / Maskapai" className="md:col-span-2">
             <input name="vendor_name" className={inputCls} placeholder="Nama vendor/maskapai/hotel" />
           </Field>
         )}
 
-        <Field label="Total Harga (Rp)" required>
+        <Field label="Total Harga (Rp)" required hint="Status awal: Belum Dibayar. DP & Pelunasan via Request Payment di item.">
           <input
             type="text"
             inputMode="numeric"
@@ -102,30 +97,7 @@ export default function FinanceItemForm({ tripId, type }) {
           />
         </Field>
 
-        {type === 'hpp' && (
-          <>
-            <Field label="DP Sudah Dibayar (Rp)" hint="Kalau belum bayar, biarkan 0">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={fmtRupiah(dpPaid)}
-                onChange={(e) => setDpPaid(parseRupiah(e.target.value))}
-                placeholder="0"
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Sisa Pelunasan (Auto)" hint="Total − DP">
-              <input
-                type="text"
-                value={'Rp ' + sisa.toLocaleString('id-ID')}
-                readOnly
-                className={inputCls + ' bg-slate-100 font-bold'}
-              />
-            </Field>
-          </>
-        )}
-
-        <Field label="Notes" className={type === 'hpp' ? '' : 'md:col-span-2'}>
+        <Field label="Notes">
           <input name="notes" className={inputCls} placeholder="Catatan (opsional)" />
         </Field>
       </div>
