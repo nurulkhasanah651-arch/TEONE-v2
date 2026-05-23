@@ -1,4 +1,4 @@
-// Accounting dashboard — with Pending Payment Requests section (Round 34)
+// Accounting dashboard — Round 94: tambah link Bank Reconciliation + Invoices
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
@@ -36,7 +36,6 @@ export default async function AccountingDashboard({ searchParams }) {
     safeQuery(supabase.from('trip_finance_items').select('*').eq('item_type', 'hpp').eq('payment_request_status', 'requested').order('payment_requested_at', { ascending: true })),
   ]);
 
-  // Aggregates
   const accountBalances = {};
   for (const a of accounts) accountBalances[a.id] = (a.starting_balance || 0);
   for (const e of accEntries) {
@@ -66,7 +65,6 @@ export default async function AccountingDashboard({ searchParams }) {
   const netEquity = totalAssets - hutang;
   const realCompanyMoney = totalBank - hutang;
 
-  // Recent transactions
   const tripMap = Object.fromEntries(trips.map((t) => [t.id, t]));
   const paxMap = Object.fromEntries(passengers.map((p) => [p.id, p]));
   const custMap = Object.fromEntries(customers.map((c) => [c.id, c]));
@@ -100,14 +98,12 @@ export default async function AccountingDashboard({ searchParams }) {
         <p className="mt-1 text-slate-600">Posisi keuangan real-time + approve payment dari Finance.</p>
       </div>
 
-      {/* Pending Payment Requests dari Finance — selalu tampil paling atas kalau ada */}
       <PaymentRequests
         requests={pendingRequests}
         accounts={accounts}
         trips={trips}
       />
 
-      {/* Real Uang Perusahaan */}
       <Link href="/accounting/cash-position" className={`block rounded-xl shadow-card overflow-hidden transition-all hover:shadow-card-hover hover:-translate-y-0.5 ${realCompanyMoney >= 0 ? 'bg-gradient-to-br from-green-500 to-emerald-700' : 'bg-gradient-to-br from-red-500 to-red-700'} text-white`}>
         <div className="p-5">
           <div className="flex items-start justify-between">
@@ -128,12 +124,15 @@ export default async function AccountingDashboard({ searchParams }) {
         <StatCard label="📊 Net Equity" value={fmtRupiah(netEquity)} color={netEquity >= 0 ? 'text-green-700' : 'text-red-700'} bg={netEquity >= 0 ? 'bg-green-50' : 'bg-red-50'} />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      {/* Round 94: tambah Bank Reconciliation + Invoices (jadi 8 card) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
         <SectionCard href="/accounting/reports" icon="📊" title="Laporan Bulanan" color="from-indigo-500 to-blue-700" />
         <SectionCard href="/accounting/cash-position" icon="💼" title="Posisi Kas" color="from-emerald-500 to-green-700" />
         <SectionCard href="/accounting/accounts" icon="🏦" title="Bank & Cash" color="from-blue-500 to-blue-700" />
         <SectionCard href="/accounting/groups" icon="📈" title="Real Cashflow per Group" color="from-green-500 to-emerald-700" />
         <SectionCard href="/accounting/balance-sheet" icon="📋" title="Balance Sheet" color="from-purple-500 to-purple-700" />
+        <SectionCard href="/accounting/reconcile" icon="🔄" title="Bank Reconciliation" color="from-cyan-500 to-blue-700" />
+        <SectionCard href="/invoices" icon="📄" title="Invoices" color="from-pink-500 to-rose-700" />
         <SectionCard href="/accounting/new" icon="➕" title="Entry Manual" color="from-amber-500 to-orange-700" />
       </div>
 
