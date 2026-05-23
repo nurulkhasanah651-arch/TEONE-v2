@@ -1,15 +1,10 @@
-// Cashflow list — Round 80: include AUTO income projection per trip (peserta × breakdown)
+// Cashflow list — Round 82: STATIC import + auto income per trip
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import { statusCfg } from '@/lib/utils/trip-status';
-
-// Defensive import
-let computeIncomeProjection = null;
-try {
-  computeIncomeProjection = require('@/lib/utils/price-breakdown').computeIncomeProjection;
-} catch {}
+import { computeIncomeProjection } from '@/lib/utils/price-breakdown';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,28 +21,22 @@ export default async function CashflowListPage() {
   const items = itemsRes.data || [];
   const allPax = paxRes.data || [];
 
-  // Group passengers per trip
   const paxByTrip = {};
   for (const p of allPax) {
     if (!paxByTrip[p.trip_id]) paxByTrip[p.trip_id] = [];
     paxByTrip[p.trip_id].push(p);
   }
 
-  // Aggregate per trip
   const byTrip = {};
   for (const t of trips) {
-    // AUTO income projection dari peserta × breakdown
     let autoIncome = 0;
-    if (typeof computeIncomeProjection === 'function') {
-      try {
-        const pax = paxByTrip[t.id] || [];
-        const proj = computeIncomeProjection(pax, t.price_breakdown || {});
-        autoIncome = proj.total || 0;
-      } catch {}
-    }
+    try {
+      const proj = computeIncomeProjection(paxByTrip[t.id] || [], t.price_breakdown || {});
+      autoIncome = proj.total || 0;
+    } catch {}
     byTrip[t.id] = {
       ...t,
-      income: autoIncome, // start dari auto, manual added below
+      income: autoIncome,
       auto_income: autoIncome,
       manual_income: 0,
       hpp: 0,
@@ -59,11 +48,12 @@ export default async function CashflowListPage() {
   for (const it of items) {
     if (!byTrip[it.trip_id]) continue;
     byTrip[it.trip_id].itemCount++;
+    const amt = Number(it.total_amount) || 0;
     if (it.item_type === 'income') {
-      byTrip[it.trip_id].manual_income += it.total_amount || 0;
-      byTrip[it.trip_id].income += it.total_amount || 0;
+      byTrip[it.trip_id].manual_income += amt;
+      byTrip[it.trip_id].income += amt;
     }
-    if (it.item_type === 'hpp') byTrip[it.trip_id].hpp += it.total_amount || 0;
+    if (it.item_type === 'hpp') byTrip[it.trip_id].hpp += amt;
   }
 
   for (const id in byTrip) {
@@ -71,7 +61,6 @@ export default async function CashflowListPage() {
   }
   const sorted = Object.values(byTrip).sort((a, b) => (b.departure || '').localeCompare(a.departure || ''));
 
-  // Grand totals
   const grand = sorted.reduce((acc, t) => ({
     income: acc.income + t.income,
     auto_income: acc.auto_income + t.auto_income,
@@ -85,15 +74,14 @@ export default async function CashflowListPage() {
       <div>
         <Link href="/finance" className="text-sm text-brand-600 font-medium hover:underline">← Finance</Link>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">Proyeksi Income per Group</h1>
-        <p className="mt-1 text-slate-600">Auto-compute dari peserta × breakdown + manual items. Real cashflow di /accounting.</p>
+        <p className="mt-1 text-slate-600">Auto income (peserta × breakdown) + HPP per kategori. Real cashflow di /accounting.</p>
       </div>
 
-      {/* Grand totals */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <StatCard
           label="Total Income (semua trip)"
           value={fmtRupiah(grand.income)}
-          sub={grand.auto_income > 0 ? `Auto: ${fmtRupiah(grand.auto_income)} + Manual: ${fmtRupiah(grand.manual_income)}` : null}
+          sub={`Auto: ${fmtRupiah(grand.auto_income)} + Manual: ${fmtRupiah(grand.manual_income)}`}
           color="text-green-700"
           bg="bg-green-50"
         />
@@ -101,7 +89,6 @@ export default async function CashflowListPage() {
         <StatCard label="Total Profit" value={fmtRupiah(grand.profit)} color={grand.profit >= 0 ? 'text-blue-700' : 'text-red-700'} bg={grand.profit >= 0 ? 'bg-blue-50' : 'bg-red-50'} />
       </div>
 
-      {/* Per-trip table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200">
           <h2 className="font-bold text-brand-700">Cashflow per Trip</h2>
@@ -137,7 +124,7 @@ export default async function CashflowListPage() {
                     </td>
                     <td className="px-3 py-2.5 text-right text-green-700 font-semibold">
                       {fmtRupiah(t.income)}
-                      {t.auto_income > 0 && t.manual_income > 0 && (
+                      {(t.auto_income > 0 || t.manual_income > 0) && (
                         <p className="text-[10px] text-slate-400 font-normal">A: {fmtRupiah(t.auto_income)} · M: {fmtRupiah(t.manual_income)}</p>
                       )}
                     </td>
