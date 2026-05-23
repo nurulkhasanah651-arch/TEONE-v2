@@ -1,5 +1,4 @@
-// Cashflow per trip — Round 84: HPP restructure dengan kategori + DP/Total/Sisa + Request Payment
-// Section "Income Tambahan (Manual)" DIHAPUS — bikin confusing dengan auto income
+// Cashflow per trip — Round 86: fix age_type query bug + 2-step payment workflow
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -19,10 +18,11 @@ export default async function CashflowDetailPage({ params }) {
   const { tripId } = await params;
   const supabase = createClient();
 
+  // FIX bug: SELECT '*' agar tidak crash kalau ada kolom yang tidak ada
   const [tripRes, itemsRes, passengersRes] = await Promise.all([
     supabase.from('trips').select('*').eq('id', tripId).maybeSingle(),
     supabase.from('trip_finance_items').select('*').eq('trip_id', tripId).order('created_at', { ascending: false }),
-    supabase.from('trip_passengers').select('id, room_type, price_paid, age_type').eq('trip_id', tripId),
+    supabase.from('trip_passengers').select('*').eq('trip_id', tripId),
   ]);
 
   if (!tripRes.data) notFound();
@@ -31,37 +31,43 @@ export default async function CashflowDetailPage({ params }) {
   const passengers = passengersRes.data || [];
   const breakdown = trip.price_breakdown || {};
 
-  // LIVE income projection dari peserta × breakdown
-  const projection = computeIncomeProjection(passengers, breakdown);
+  // LIVE income projection
+  let projection = { byRoom: {}, total: 0, undefinedCount: 0 };
+  try {
+    projection = computeIncomeProjection(passengers, breakdown);
+  } catch (e) {
+    console.error('computeIncomeProjection error', e);
+  }
 
-  // HPP items only (income manual section dihapus)
   const hppItems = items.filter((i) => i.item_type === 'hpp');
 
-  // Group HPP items by kategori (9 kategori HPP_CATEGORIES)
   const hppByCategory = {};
-  for (const cat of Object.keys(HPP_CATEGORIES)) {
-    hppByCategory[cat] = [];
-  }
-  hppByCategory['Lain-lain'] = []; // fallback
+  for (const cat of Object.keys(HPP_CATEGORIES)) hppByCategory[cat] = [];
+  hppByCategory['Lain-lain'] = [];
   for (const it of hppItems) {
     const cat = it.category || 'Lain-lain';
     if (!hppByCategory[cat]) hppByCategory[cat] = [];
     hppByCategory[cat].push(it);
   }
 
-  const totalIncome = projection.total; // hanya auto-projection (manual income dihapus)
+  const totalIncome = projection.total;
   const totalHPP = hppItems.reduce((s, i) => s + (Number(i.total_amount) || 0), 0);
   const totalHPPPaid = hppItems.reduce((s, i) => s + (Number(i.dp_paid) || 0), 0);
   const totalHPPSisa = Math.max(totalHPP - totalHPPPaid, 0);
   const profit = totalIncome - totalHPP;
   const margin = totalIncome > 0 ? Math.round((profit / totalIncome) * 100) : null;
 
+  // Diagnostic: detect kenapa projection 0
+  const hasBreakdown = Object.keys(breakdown).length > 0;
+  const hasPeserta = passengers.length > 0;
+  const pesertaWithRoom = passengers.filter((p) => p.room_type).length;
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
         <Link href="/finance/cashflow" className="text-sm text-brand-600 font-medium hover:underline">← Proyeksi Income per Group</Link>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.kode_trip || `#${trip.id}`} — {trip.name}</h1>
-        <p className="mt-1 text-slate-600">Proyeksi Income (AUTO dari peserta) & HPP per kategori. Real cashflow di /accounting.</p>
+        <p className="mt-1 text-slate-600">Proyeksi Income (AUTO) & HPP per kategori. Real cashflow di /accounting.</p>
       </div>
 
       {/* Summary */}
@@ -72,7 +78,33 @@ export default async function CashflowDetailPage({ params }) {
         <StatCard label="Profit (Margin)" value={fmtRupiah(profit)} sub={margin == null ? '—' : `${margin}%`} color={profit >= 0 ? 'text-blue-700' : 'text-red-700'} bg={profit >= 0 ? 'bg-blue-50' : 'bg-red-50'} small />
       </div>
 
-      {/* AUTO INCOME PROJECTION dari peserta */}
+      {/* Diagnostic banner kalau projection 0 */}
+      {hasPeserta && projection.total === 0 && (
+        <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 space-y-1">
+          <p className="text-sm font-bold text-amber-800">⚠ Income Projection = 0 padahal ada {passengers.length} peserta. Kemungkinan:</p>
+          <ul className="text-xs text-amber-700 list-disc pl-5 space-y-0.5">
+            {!hasBreakdown && (
+              <li>
+                <span className="font-bold">price_breakdown trip kosong.</span> Buka{' '}
+                <Link href={`/trips/${tripId}/edit`} className="underline font-bold">Edit Trip</Link> → scroll "💰 Harga per Tipe" → isi Double Room (atau tipe lain) → Save.
+              </li>
+            )}
+            {hasBreakdown && pesertaWithRoom === 0 && (
+              <li>
+                <span className="font-bold">Semua peserta belum punya room_type.</span> Buka{' '}
+                <Link href={`/trips/${tripId}`} className="underline font-bold">Master Trip</Link> → Edit peserta → pilih Tipe Kamar → Save.
+              </li>
+            )}
+            {hasBreakdown && pesertaWithRoom > 0 && projection.undefinedCount > 0 && (
+              <li>
+                <span className="font-bold">{projection.undefinedCount} peserta room_type tidak match breakdown.</span> Cek apakah breakdown ada key yang sesuai (e.g. "double" untuk Double/Twin).
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
+
+      {/* AUTO INCOME PROJECTION */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-green-200 bg-green-50">
           <div className="flex items-center justify-between flex-wrap gap-2">
@@ -88,13 +120,13 @@ export default async function CashflowDetailPage({ params }) {
 
         {Object.keys(projection.byRoom).length === 0 ? (
           <div className="p-6 text-center">
-            <p className="text-sm text-slate-500">
-              Belum ada peserta yang ke-detect room type-nya.
-              {Object.keys(breakdown).length === 0 && ' (Set price_breakdown di Master Trip dulu)'}
-            </p>
-            <div className="mt-3 flex gap-2 justify-center">
+            <p className="text-sm text-slate-500">Belum ada peserta yang ke-detect room type-nya.</p>
+            <div className="mt-3 flex gap-2 justify-center flex-wrap">
               <Link href={`/trips/${tripId}/edit`} className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded">
                 Edit Master Trip → Set Breakdown
+              </Link>
+              <Link href={`/trips/${tripId}`} className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded">
+                Master Trip → Edit Peserta
               </Link>
             </div>
           </div>
@@ -117,8 +149,7 @@ export default async function CashflowDetailPage({ params }) {
             {projection.undefinedCount > 0 && (
               <div className="px-5 py-2 bg-amber-50">
                 <p className="text-xs text-amber-700">
-                  ⚠ {projection.undefinedCount} peserta tidak ke-detect room type-nya.
-                  Edit peserta atau lengkapi breakdown.
+                  ⚠ {projection.undefinedCount} peserta tidak ke-detect room type-nya. Edit peserta atau lengkapi breakdown.
                 </p>
               </div>
             )}
@@ -126,7 +157,7 @@ export default async function CashflowDetailPage({ params }) {
         )}
       </div>
 
-      {/* HPP SECTION — kategori-based dengan DP/Total/Sisa + Request Payment */}
+      {/* HPP SECTION */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-amber-200 bg-amber-50">
           <div className="flex items-center justify-between flex-wrap gap-2">
@@ -139,18 +170,16 @@ export default async function CashflowDetailPage({ params }) {
             </div>
           </div>
           <p className="text-xs text-amber-700 mt-1">
-            Tambah item per kategori. Per item ada DP/Total/Sisa + Request Payment ke Finance untuk approval.
+            Per item: Total + Deposit + Deadline Pelunasan. Workflow: Request Deposit → Approve → Request Pelunasan → Lunas.
           </p>
         </div>
 
         <div className="p-4 space-y-4">
-          {/* Form tambah item baru */}
           <FinanceItemForm tripId={tripId} type="hpp" />
 
-          {/* List items per kategori */}
           {hppItems.length === 0 ? (
             <p className="p-4 text-center text-sm text-slate-500 italic">
-              Belum ada HPP. Klik "+ Tambah Item HPP" di atas untuk mulai.
+              Belum ada HPP. Klik "+ Tambah Item HPP" untuk mulai.
             </p>
           ) : (
             <div className="space-y-4">
@@ -164,7 +193,7 @@ export default async function CashflowDetailPage({ params }) {
                       <div className="flex items-center justify-between mb-1">
                         <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">{cat}</p>
                         <p className="text-xs text-slate-500">
-                          {list.length} item · Total {fmtRupiah(subtotal)} · DP {fmtRupiah(dpSum)}
+                          {list.length} item · Total {fmtRupiah(subtotal)} · Paid {fmtRupiah(dpSum)}
                         </p>
                       </div>
                       <div className="space-y-2">
