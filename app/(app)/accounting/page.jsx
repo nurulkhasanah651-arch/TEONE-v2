@@ -124,15 +124,14 @@ export default async function AccountingDashboard({ searchParams }) {
         <StatCard label="📊 Net Equity" value={fmtRupiah(netEquity)} color={netEquity >= 0 ? 'text-green-700' : 'text-red-700'} bg={netEquity >= 0 ? 'bg-green-50' : 'bg-red-50'} />
       </div>
 
-      {/* Round 94: tambah Bank Reconciliation + Invoices (jadi 8 card) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+      {/* Round 94: tambah Bank Reconciliation di Accounting (Invoices pindah ke Finance) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
         <SectionCard href="/accounting/reports" icon="📊" title="Laporan Bulanan" color="from-indigo-500 to-blue-700" />
         <SectionCard href="/accounting/cash-position" icon="💼" title="Posisi Kas" color="from-emerald-500 to-green-700" />
         <SectionCard href="/accounting/accounts" icon="🏦" title="Bank & Cash" color="from-blue-500 to-blue-700" />
         <SectionCard href="/accounting/groups" icon="📈" title="Real Cashflow per Group" color="from-green-500 to-emerald-700" />
         <SectionCard href="/accounting/balance-sheet" icon="📋" title="Balance Sheet" color="from-purple-500 to-purple-700" />
         <SectionCard href="/accounting/reconcile" icon="🔄" title="Bank Reconciliation" color="from-cyan-500 to-blue-700" />
-        <SectionCard href="/invoices" icon="📄" title="Invoices" color="from-pink-500 to-rose-700" />
         <SectionCard href="/accounting/new" icon="➕" title="Entry Manual" color="from-amber-500 to-orange-700" />
       </div>
 
