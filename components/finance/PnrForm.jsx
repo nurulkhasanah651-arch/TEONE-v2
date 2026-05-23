@@ -1,22 +1,68 @@
 'use client';
 
-import { useState } from 'react';
+// Round 88: PNR Form — Jumlah Pelunasan AUTO = Total Cost - DP
+// Plus format Rupiah dengan titik ribuan saat ngetik
+
+import { useState, useEffect } from 'react';
+
+function fmtRupiah(v) {
+  if (v === '' || v == null) return '';
+  const n = String(v).replace(/[^0-9]/g, '');
+  if (!n) return '';
+  return Number(n).toLocaleString('id-ID');
+}
+function parseRupiah(s) {
+  if (s == null) return '';
+  return String(s).replace(/[^0-9]/g, '');
+}
 
 export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan PNR' }) {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
-  const [seats, setSeats] = useState(initial.seats || 0);
-  const [ticketPrice, setTicketPrice] = useState(initial.ticket_price || 0);
-  const totalCost = (+seats || 0) * (+ticketPrice || 0);
+
+  const [seats, setSeats] = useState(String(initial.seats || initial.pax || 0));
+  const [ticketPrice, setTicketPrice] = useState(String(initial.ticket_price || initial.price_per_pax || 0));
+  const [deposit, setDeposit] = useState(String(initial.deposit_total || 0));
+  // payoffAmount manual override jika ada nilai initial, otherwise auto
+  const [payoffManualOverride, setPayoffManualOverride] = useState(false);
+  const [payoffAmount, setPayoffAmount] = useState(String(initial.payoff_amount || 0));
+
+  const seatsNum = parseInt(seats) || 0;
+  const priceNum = parseInt(ticketPrice) || 0;
+  const depositNum = parseInt(deposit) || 0;
+  const totalCost = seatsNum * priceNum;
+  const autoPayoff = Math.max(totalCost - depositNum, 0);
+
+  // Auto-update payoff kalau user belum override manual
+  useEffect(() => {
+    if (!payoffManualOverride) {
+      setPayoffAmount(String(autoPayoff));
+    }
+  }, [autoPayoff, payoffManualOverride]);
 
   async function handleSubmit(formData) {
     setPending(true);
     setError('');
+    // Set numeric raw values
+    formData.set('seats', String(seatsNum));
+    formData.set('ticket_price', String(priceNum));
+    formData.set('deposit_total', String(depositNum));
+    formData.set('payoff_amount', String(parseInt(payoffAmount) || 0));
     const result = await onSubmit(formData);
     if (result?.error) {
       setError(result.error);
       setPending(false);
     }
+  }
+
+  function handlePayoffChange(e) {
+    setPayoffManualOverride(true);
+    setPayoffAmount(parseRupiah(e.target.value));
+  }
+
+  function resetPayoffAuto() {
+    setPayoffManualOverride(false);
+    setPayoffAmount(String(autoPayoff));
   }
 
   return (
@@ -30,31 +76,90 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
             <input name="vendor" defaultValue={initial.vendor || ''} className={inputCls} placeholder="Garuda, Emirates, Qatar, dll" />
           </Field>
           <Field label="Rute" className="md:col-span-2">
-            <input name="route" defaultValue={initial.route || ''} className={inputCls} placeholder="CGK-DXB-CDG-CGK" />
+            <input
+              name="route"
+              defaultValue={initial.route || (Array.isArray(initial.routes) ? initial.routes.join(' / ') : '')}
+              className={inputCls}
+              placeholder="CGK-DXB-CDG-CGK"
+            />
           </Field>
           <Field label="Tanggal Keberangkatan">
             <input type="date" name="departure_date" defaultValue={initial.departure_date || ''} className={inputCls} />
           </Field>
           <Field label="Jumlah Seat">
-            <input type="number" name="seats" min="0" value={seats} onChange={(e) => setSeats(e.target.value)} className={inputCls} />
+            <input
+              type="number"
+              min="0"
+              value={seats}
+              onChange={(e) => setSeats(e.target.value)}
+              onFocus={(e) => e.target.select()}
+              className={inputCls}
+            />
           </Field>
         </div>
       </Section>
 
       <Section title="Harga & Deposit">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field label="Harga Tiket per Seat (IDR)">
-            <input type="number" name="ticket_price" min="0" value={ticketPrice} onChange={(e) => setTicketPrice(e.target.value)} className={inputCls} />
+          <Field label="Harga Tiket per Seat (Rp)">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={fmtRupiah(ticketPrice)}
+              onChange={(e) => setTicketPrice(parseRupiah(e.target.value))}
+              onFocus={(e) => e.target.select()}
+              className={inputCls}
+              placeholder="0"
+            />
           </Field>
-          <Field label="Total Cost (auto: harga × seat)" hint="View only">
-            <input value={totalCost.toLocaleString('id-ID')} disabled className={inputCls + ' bg-slate-100'} />
+          <Field label="Total Cost (auto)" hint={`${seatsNum} seat × ${fmtRupiah(ticketPrice) || 0}`}>
+            <input
+              value={'Rp ' + totalCost.toLocaleString('id-ID')}
+              disabled
+              className={inputCls + ' bg-slate-100 font-bold'}
+            />
           </Field>
-          <Field label="Jumlah Deposit (DP)" className="md:col-span-2">
-            <input type="number" name="deposit_total" min="0" defaultValue={initial.deposit_total || ''} className={inputCls} />
+
+          <Field label="Jumlah Deposit / DP (Rp)" className="md:col-span-2">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={fmtRupiah(deposit)}
+              onChange={(e) => setDeposit(parseRupiah(e.target.value))}
+              onFocus={(e) => e.target.select()}
+              className={inputCls}
+              placeholder="0"
+            />
           </Field>
-          <Field label="Jumlah Pelunasan">
-            <input type="number" name="payoff_amount" min="0" defaultValue={initial.payoff_amount || ''} className={inputCls} />
+
+          <Field
+            label="Jumlah Pelunasan (Sisa)"
+            hint={payoffManualOverride
+              ? `Manual mode. Auto value: Rp ${autoPayoff.toLocaleString('id-ID')}`
+              : 'AUTO = Total Cost − DP. Bisa override manual.'}
+            className="md:col-span-2"
+          >
+            <div className="flex gap-2 items-center">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={fmtRupiah(payoffAmount)}
+                onChange={handlePayoffChange}
+                onFocus={(e) => e.target.select()}
+                className={inputCls + (payoffManualOverride ? '' : ' bg-blue-50 font-bold')}
+              />
+              {payoffManualOverride && (
+                <button
+                  type="button"
+                  onClick={resetPayoffAuto}
+                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold rounded whitespace-nowrap"
+                >
+                  ↺ Reset Auto
+                </button>
+              )}
+            </div>
           </Field>
+
           <Field label="Tanggal Pelunasan">
             <input type="date" name="payoff_date" defaultValue={initial.payoff_date || ''} className={inputCls} />
           </Field>
@@ -65,7 +170,7 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
       </Section>
 
       <Field label="Catatan (opsional)">
-        <textarea name="notes" defaultValue={initial.vendor_notes || ''} rows="3" className={inputCls + ' resize-none'} placeholder="Catatan tambahan tentang PNR ini..." />
+        <textarea name="notes" defaultValue={initial.vendor_notes || initial.notes || ''} rows="3" className={inputCls + ' resize-none'} placeholder="Catatan tambahan tentang PNR ini..." />
       </Field>
 
       {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium">{error}</div>}
