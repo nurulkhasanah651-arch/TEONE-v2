@@ -1,14 +1,9 @@
-// Finance landing — Round 80: sync auto income projection (peserta × breakdown) ke total
+// Finance landing — Round 82: STATIC import (bukan try/catch require) untuk fix sync
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah } from '@/lib/utils/format';
-
-// Defensive import — kalau price-breakdown utility ga ada, fallback ke 0
-let computeIncomeProjection = null;
-try {
-  computeIncomeProjection = require('@/lib/utils/price-breakdown').computeIncomeProjection;
-} catch {}
+import { computeIncomeProjection } from '@/lib/utils/price-breakdown';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,27 +23,26 @@ export default async function FinancePage() {
   const totalTrips = trips.length;
   const totalPNR = pnrRes.count ?? 0;
 
-  // Aggregate manual income/hpp dari trip_finance_items
-  const manualIncome = items.filter((i) => i.item_type === 'income').reduce((s, i) => s + (i.total_amount || 0), 0);
-  const totalHPP = items.filter((i) => i.item_type === 'hpp').reduce((s, i) => s + (i.total_amount || 0), 0);
+  // Manual income/hpp dari trip_finance_items
+  const manualIncome = items.filter((i) => i.item_type === 'income').reduce((s, i) => s + (Number(i.total_amount) || 0), 0);
+  const totalHPP = items.filter((i) => i.item_type === 'hpp').reduce((s, i) => s + (Number(i.total_amount) || 0), 0);
 
-  // Aggregate AUTO income projection per trip (peserta × breakdown)
+  // AUTO income projection per trip
+  const paxByTrip = {};
+  for (const p of allPax) {
+    if (!paxByTrip[p.trip_id]) paxByTrip[p.trip_id] = [];
+    paxByTrip[p.trip_id].push(p);
+  }
+
   let autoIncome = 0;
-  if (typeof computeIncomeProjection === 'function') {
-    const paxByTrip = {};
-    for (const p of allPax) {
-      if (!paxByTrip[p.trip_id]) paxByTrip[p.trip_id] = [];
-      paxByTrip[p.trip_id].push(p);
-    }
-    for (const t of trips) {
-      if (t.status === 'cancelled') continue;
-      const breakdown = t.price_breakdown || {};
-      const pax = paxByTrip[t.id] || [];
-      try {
-        const proj = computeIncomeProjection(pax, breakdown);
-        autoIncome += proj.total || 0;
-      } catch {}
-    }
+  for (const t of trips) {
+    if (t.status === 'cancelled') continue;
+    const breakdown = t.price_breakdown || {};
+    const pax = paxByTrip[t.id] || [];
+    try {
+      const proj = computeIncomeProjection(pax, breakdown);
+      autoIncome += proj.total || 0;
+    } catch {}
   }
 
   const totalIncome = autoIncome + manualIncome;
@@ -66,7 +60,7 @@ export default async function FinancePage() {
         <StatCard
           label="Total Income"
           value={fmtRupiah(totalIncome)}
-          sub={autoIncome > 0 ? `Auto: ${fmtRupiah(autoIncome)} + Manual: ${fmtRupiah(manualIncome)}` : null}
+          sub={autoIncome > 0 ? `Auto: ${fmtRupiah(autoIncome)} + Manual: ${fmtRupiah(manualIncome)}` : 'Auto: Rp 0 + Manual: Rp 0'}
           color="text-green-700"
           bg="bg-green-50"
           small
@@ -80,8 +74,8 @@ export default async function FinancePage() {
           href="/finance/cashflow"
           icon="💰"
           title="Proyeksi Income per Group"
-          desc="Auto income (peserta × breakdown) + HPP (tiket, hotel, vendor) per trip. Real cashflow di Accounting."
-          badge={`${items.length} item manual + auto`}
+          desc="Auto income (peserta × breakdown) + HPP per kategori (tiket, hotel, LA, transport, visa, dll). Per item ada DP/Total/Sisa + Request Payment ke Finance."
+          badge={`${items.length} item HPP/income`}
           color="from-green-500 to-emerald-700"
         />
         <SectionCard
