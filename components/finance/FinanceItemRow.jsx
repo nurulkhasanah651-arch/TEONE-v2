@@ -1,7 +1,7 @@
 'use client';
 
-// Round 85: FinanceItemRow — DP via Request Payment (input amount)
-// Status awal: "Belum Dibayar". Setelah approved → DP amount masuk dp_paid
+// Round 86: FinanceItemRow — 2-step button workflow (Request Deposit → Request Pelunasan)
+// + Deadline countdown + auto-fill amount based on phase
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -26,14 +26,31 @@ function parseInput(s) {
   if (s == null) return '';
   return String(s).replace(/[^0-9]/g, '');
 }
+function fmtDate(s) {
+  if (!s) return '—';
+  try {
+    return new Date(s).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch { return s; }
+}
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.floor((d - today) / (1000 * 60 * 60 * 24));
+  return diff;
+}
 
 function deriveStatus(item) {
   const total = Number(item.total_amount) || 0;
   const dp = Number(item.dp_paid) || 0;
+  const deposit = Number(item.deposit_planned) || 0;
   const reqStatus = item.payment_request_status;
+  const phase = item.payment_phase || 'deposit';
 
   if (reqStatus === 'requested') {
-    return { code: 'requested', label: '⏳ Request Approval', color: 'bg-amber-100 text-amber-800' };
+    const phaseLabel = phase === 'deposit' ? 'Deposit' : 'Pelunasan';
+    return { code: 'requested', label: `⏳ ${phaseLabel} Req`, color: 'bg-amber-100 text-amber-800' };
   }
   if (reqStatus === 'rejected') {
     return { code: 'rejected', label: '✕ Rejected', color: 'bg-red-100 text-red-800' };
@@ -42,9 +59,9 @@ function deriveStatus(item) {
     return { code: 'lunas', label: '💰 Lunas', color: 'bg-blue-100 text-blue-800' };
   }
   if (dp > 0) {
-    return { code: 'dp_paid', label: '💵 DP Sudah Dibayar', color: 'bg-green-100 text-green-800' };
+    return { code: 'deposit_paid', label: '💵 Deposit Sudah Dibayar', color: 'bg-green-100 text-green-800' };
   }
-  return { code: 'pending', label: '❌ Belum Dibayar', color: 'bg-slate-100 text-slate-700' };
+  return { code: 'pending', label: '❌ Deposit Belum Dibayar', color: 'bg-slate-100 text-slate-700' };
 }
 
 export default function FinanceItemRow({ item, tripId, isFinance = false }) {
@@ -54,11 +71,15 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
   const [showReqForm, setShowReqForm] = useState(false);
   const [reqAmount, setReqAmount] = useState('');
   const [reqNote, setReqNote] = useState('');
+  const [reqPhase, setReqPhase] = useState('deposit'); // 'deposit' atau 'pelunasan'
 
   const total = Number(i.total_amount) || 0;
   const dp = Number(i.dp_paid) || 0;
   const sisa = Math.max(total - dp, 0);
+  const deposit = Number(i.deposit_planned) || 0;
   const reqAmt = Number(i.payment_request_amount) || 0;
+  const deadline = i.deadline_pelunasan;
+  const daysToDeadline = daysUntil(deadline);
   const status = deriveStatus(i);
 
   function handleDelete() {
@@ -72,12 +93,12 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
 
   function handleRequestPayment() {
     const amt = parseInt(reqAmount) || 0;
-    if (amt <= 0) { alert('Masukkan jumlah yang valid'); return; }
+    if (amt <= 0) { alert('Jumlah harus > 0'); return; }
     if (amt > sisa) {
       if (!confirm(`Jumlah ${fmtRupiah(amt)} > sisa ${fmtRupiah(sisa)}. Lanjut?`)) return;
     }
     startTransition(async () => {
-      const r = await requestPaymentToAccounting(i.id, tripId, reqNote, amt);
+      const r = await requestPaymentToAccounting(i.id, tripId, reqNote, amt, reqPhase);
       if (r?.error) alert(r.error);
       setShowReqForm(false);
       setReqAmount('');
@@ -96,7 +117,8 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
   }
 
   function handleApprove() {
-    if (!confirm(`Approve payment ${fmtRupiah(reqAmt)} untuk "${i.category} — ${i.component}"?\n\nDP akan ter-update otomatis.`)) return;
+    const phaseLabel = (i.payment_phase || 'deposit') === 'deposit' ? 'Deposit' : 'Pelunasan';
+    if (!confirm(`Approve ${phaseLabel} ${fmtRupiah(reqAmt)} untuk "${i.category} — ${i.component}"?\n\nDP akan ter-update otomatis.`)) return;
     startTransition(async () => {
       const r = await approvePayment(i.id, tripId);
       if (r?.error) alert(r.error);
@@ -104,9 +126,15 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
     });
   }
 
-  // Pre-fill request amount: sisa kalau ada, atau total kalau belum bayar
-  function openRequestForm() {
-    setReqAmount(String(sisa > 0 ? sisa : total));
+  function openRequestDeposit() {
+    setReqPhase('deposit');
+    setReqAmount(String(deposit > 0 ? deposit : Math.round(total / 2))); // default deposit planned, fallback 50%
+    setShowReqForm(true);
+  }
+
+  function openRequestPelunasan() {
+    setReqPhase('pelunasan');
+    setReqAmount(String(sisa));
     setShowReqForm(true);
   }
 
@@ -125,30 +153,57 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
           </div>
 
           {i.item_type === 'hpp' ? (
-            <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
-              <div className="bg-slate-50 rounded px-2 py-1">
-                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Total</p>
-                <p className="font-bold text-slate-800">{fmtRupiah(total)}</p>
+            <>
+              <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
+                <div className="bg-slate-50 rounded px-2 py-1">
+                  <p className="text-[10px] text-slate-500 uppercase tracking-wider">Total</p>
+                  <p className="font-bold text-slate-800">{fmtRupiah(total)}</p>
+                </div>
+                <div className={dp > 0 ? 'bg-green-50 rounded px-2 py-1' : 'bg-slate-50 rounded px-2 py-1'}>
+                  <p className={`text-[10px] uppercase tracking-wider ${dp > 0 ? 'text-green-700' : 'text-slate-500'}`}>Dibayar</p>
+                  <p className={`font-bold ${dp > 0 ? 'text-green-800' : 'text-slate-500'}`}>{fmtRupiah(dp)}</p>
+                </div>
+                <div className={`rounded px-2 py-1 ${sisa > 0 ? 'bg-amber-50' : 'bg-blue-50'}`}>
+                  <p className={`text-[10px] uppercase tracking-wider ${sisa > 0 ? 'text-amber-700' : 'text-blue-700'}`}>Sisa</p>
+                  <p className={`font-bold ${sisa > 0 ? 'text-amber-800' : 'text-blue-800'}`}>{fmtRupiah(sisa)}</p>
+                </div>
               </div>
-              <div className={dp > 0 ? 'bg-green-50 rounded px-2 py-1' : 'bg-slate-50 rounded px-2 py-1'}>
-                <p className={`text-[10px] uppercase tracking-wider ${dp > 0 ? 'text-green-700' : 'text-slate-500'}`}>DP Dibayar</p>
-                <p className={`font-bold ${dp > 0 ? 'text-green-800' : 'text-slate-500'}`}>{fmtRupiah(dp)}</p>
-              </div>
-              <div className={`rounded px-2 py-1 ${sisa > 0 ? 'bg-amber-50' : 'bg-blue-50'}`}>
-                <p className={`text-[10px] uppercase tracking-wider ${sisa > 0 ? 'text-amber-700' : 'text-blue-700'}`}>Sisa</p>
-                <p className={`font-bold ${sisa > 0 ? 'text-amber-800' : 'text-blue-800'}`}>{fmtRupiah(sisa)}</p>
-              </div>
-            </div>
+
+              {/* Deadline info */}
+              {deadline && (
+                <div className={`mt-2 px-2 py-1 rounded text-xs flex items-center gap-2 flex-wrap ${
+                  daysToDeadline < 0 ? 'bg-red-50 text-red-800' :
+                  daysToDeadline <= 7 ? 'bg-amber-50 text-amber-800' :
+                  'bg-slate-50 text-slate-700'
+                }`}>
+                  <span className="font-bold">📅 Deadline Pelunasan:</span>
+                  <span>{fmtDate(deadline)}</span>
+                  {daysToDeadline != null && (
+                    <span className="font-bold">
+                      {daysToDeadline < 0 ? `⚠ Lewat ${Math.abs(daysToDeadline)} hari!` :
+                       daysToDeadline === 0 ? '⏰ HARI INI!' :
+                       daysToDeadline <= 7 ? `⏰ ${daysToDeadline} hari lagi` :
+                       `${daysToDeadline} hari lagi`}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {deposit > 0 && dp === 0 && (
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Rencana Deposit: <span className="font-bold">{fmtRupiah(deposit)}</span>
+                </p>
+              )}
+            </>
           ) : (
             <p className="text-sm font-bold text-green-700 mt-1">{fmtRupiah(total)}</p>
           )}
 
           {i.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">📝 {i.notes}</p>}
 
-          {/* Show pending request amount */}
           {status.code === 'requested' && reqAmt > 0 && (
             <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
-              📨 Request: <span className="font-bold">{fmtRupiah(reqAmt)}</span>
+              📨 Request {i.payment_phase === 'pelunasan' ? 'Pelunasan' : 'Deposit'}: <span className="font-bold">{fmtRupiah(reqAmt)}</span>
               {i.payment_requested_note && <span className="block mt-0.5 italic">"{i.payment_requested_note}"</span>}
               {i.payment_requested_by && <span className="block mt-0.5 text-amber-600">by {i.payment_requested_by}</span>}
             </div>
@@ -157,15 +212,29 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
 
         <div className="flex gap-1 flex-wrap">
           {/* HPP actions */}
-          {i.item_type === 'hpp' && status.code !== 'requested' && sisa > 0 && (
-            <button
-              type="button"
-              onClick={openRequestForm}
-              disabled={pending}
-              className="px-2 py-1 text-xs font-semibold rounded bg-amber-100 hover:bg-amber-200 text-amber-800"
-            >
-              📨 Request Bayar
-            </button>
+          {i.item_type === 'hpp' && status.code !== 'requested' && (
+            <>
+              {dp === 0 && (
+                <button
+                  type="button"
+                  onClick={openRequestDeposit}
+                  disabled={pending}
+                  className="px-2 py-1 text-xs font-semibold rounded bg-amber-100 hover:bg-amber-200 text-amber-800"
+                >
+                  📨 Request Deposit
+                </button>
+              )}
+              {dp > 0 && sisa > 0 && (
+                <button
+                  type="button"
+                  onClick={openRequestPelunasan}
+                  disabled={pending}
+                  className="px-2 py-1 text-xs font-semibold rounded bg-blue-100 hover:bg-blue-200 text-blue-800"
+                >
+                  📨 Request Pelunasan
+                </button>
+              )}
+            </>
           )}
 
           {i.item_type === 'hpp' && status.code === 'requested' && (
@@ -204,19 +273,20 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
 
       {/* Request payment form */}
       {showReqForm && (
-        <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded space-y-2">
-          <p className="text-xs font-bold text-amber-800 uppercase tracking-wider">Request Payment ke Finance/Owner</p>
+        <div className={`mt-3 p-3 border rounded space-y-2 ${reqPhase === 'pelunasan' ? 'bg-blue-50 border-blue-200' : 'bg-amber-50 border-amber-200'}`}>
+          <p className={`text-xs font-bold uppercase tracking-wider ${reqPhase === 'pelunasan' ? 'text-blue-800' : 'text-amber-800'}`}>
+            Request {reqPhase === 'pelunasan' ? 'Pelunasan' : 'Deposit'} ke Finance/Owner
+          </p>
           <label className="block">
-            <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Jumlah yang Di-Request (Rp)</span>
+            <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Jumlah (Rp)</span>
             <input
               type="text"
               inputMode="numeric"
               value={fmtInput(reqAmount)}
               onChange={(e) => setReqAmount(parseInput(e.target.value))}
-              placeholder={`Max sisa: ${fmtRupiah(sisa)}`}
+              placeholder={`Sisa: ${fmtRupiah(sisa)}`}
               className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm bg-white"
             />
-            <span className="text-[10px] text-slate-500 mt-0.5 block">Default = sisa. Bisa input partial (mis. DP saja).</span>
           </label>
           <label className="block">
             <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Catatan (Opsional)</span>
@@ -224,7 +294,7 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
               type="text"
               value={reqNote}
               onChange={(e) => setReqNote(e.target.value)}
-              placeholder="Catatan untuk Finance/Owner"
+              placeholder="Catatan untuk Finance"
               className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm bg-white"
             />
           </label>
@@ -240,7 +310,7 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
               type="button"
               onClick={handleRequestPayment}
               disabled={pending || !reqAmount}
-              className="px-3 py-1 text-xs font-semibold rounded bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-50"
+              className={`px-3 py-1 text-xs font-semibold rounded text-white disabled:opacity-50 ${reqPhase === 'pelunasan' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-amber-500 hover:bg-amber-600'}`}
             >
               📨 Kirim Request
             </button>
