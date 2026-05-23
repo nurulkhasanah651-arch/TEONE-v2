@@ -1,10 +1,22 @@
 'use client';
 
-// Form to add a new finance item (HPP or Income)
+// Round 82: FinanceItemForm — 9 HPP categories + DP/Total/Sisa
+// Sisa auto-compute = total - DP
 
 import { useState } from 'react';
 import { createFinanceItem } from '@/lib/actions/finance';
 import { HPP_CATEGORIES, INCOME_CATEGORIES, PAYMENT_STATUS_OPTS } from '@/lib/utils/finance-constants';
+
+function fmtRupiah(v) {
+  if (v === '' || v == null) return '';
+  const n = String(v).replace(/[^0-9]/g, '');
+  if (!n) return '';
+  return Number(n).toLocaleString('id-ID');
+}
+function parseRupiah(s) {
+  if (s == null) return '';
+  return String(s).replace(/[^0-9]/g, '');
+}
 
 export default function FinanceItemForm({ tripId, type }) {
   const [open, setOpen] = useState(false);
@@ -13,15 +25,20 @@ export default function FinanceItemForm({ tripId, type }) {
   const cats = type === 'hpp' ? HPP_CATEGORIES : INCOME_CATEGORIES;
   const firstCategory = Object.keys(cats)[0];
   const [category, setCategory] = useState(firstCategory);
-  const [basicFare, setBasicFare] = useState(0);
-  const [qty, setQty] = useState(1);
-  const totalAuto = (+basicFare || 0) * (+qty || 0);
+
+  const [totalAmount, setTotalAmount] = useState(''); // string raw (no dot)
+  const [dpPaid, setDpPaid] = useState('');           // string raw (no dot)
+  const totalNum = parseInt(totalAmount) || 0;
+  const dpNum = parseInt(dpPaid) || 0;
+  const sisa = Math.max(totalNum - dpNum, 0);
 
   const action = createFinanceItem.bind(null, tripId);
 
   async function handleSubmit(formData) {
     setPending(true);
     setError('');
+    formData.set('total_amount', String(totalNum));
+    formData.set('dp_paid', String(dpNum));
     const result = await action(formData);
     if (result?.error) {
       setError(result.error);
@@ -29,8 +46,8 @@ export default function FinanceItemForm({ tripId, type }) {
     } else {
       setOpen(false);
       setPending(false);
-      setBasicFare(0);
-      setQty(1);
+      setTotalAmount('');
+      setDpPaid('');
     }
   }
 
@@ -46,7 +63,7 @@ export default function FinanceItemForm({ tripId, type }) {
   }
 
   return (
-    <form action={handleSubmit} className="space-y-3">
+    <form action={handleSubmit} className="space-y-3 border border-brand-200 rounded-xl p-4 bg-brand-50/30">
       <input type="hidden" name="type" value={type} />
 
       <div className="flex items-center justify-between">
@@ -57,7 +74,7 @@ export default function FinanceItemForm({ tripId, type }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Field label="Category" required>
+        <Field label="Kategori" required>
           <select name="category" required value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
             {Object.keys(cats).map((k) => <option key={k} value={k}>{k}</option>)}
           </select>
@@ -67,44 +84,64 @@ export default function FinanceItemForm({ tripId, type }) {
             {(cats[category] || []).map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </Field>
-        <Field label="Basic Fare (per unit)">
-          <input type="number" name="basic_fare" min="0" value={basicFare} onChange={(e) => setBasicFare(e.target.value)} onFocus={(e) => e.target.select()} className={inputCls} />
+
+        {type === 'hpp' && (
+          <Field label="Vendor / Maskapai">
+            <input name="vendor_name" className={inputCls} placeholder="Nama vendor/maskapai/hotel" />
+          </Field>
+        )}
+
+        <Field label="Total Harga (Rp)" required>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={fmtRupiah(totalAmount)}
+            onChange={(e) => setTotalAmount(parseRupiah(e.target.value))}
+            placeholder="5.000.000"
+            className={inputCls}
+          />
         </Field>
-        <Field label="Qty">
-          <input type="number" name="qty" min="0" value={qty} onChange={(e) => setQty(e.target.value)} onFocus={(e) => e.target.select()} className={inputCls} />
-        </Field>
-        <Field label="Total Amount" hint="Auto = fare × qty. Bisa override manual.">
-          <input type="number" name="total_amount" min="0" defaultValue={totalAuto || ''} onFocus={(e) => e.target.select()} className={inputCls} placeholder={String(totalAuto)} />
-        </Field>
-        <Field label="Notes">
-          <input name="notes" className={inputCls} placeholder="(opsional)" />
-        </Field>
+
         {type === 'hpp' && (
           <>
-            <Field label="Vendor Name">
-              <input name="vendor_name" className={inputCls} placeholder="Nama vendor/maskapai/hotel" />
+            <Field label="DP Sudah Dibayar (Rp)" hint="Kalau belum bayar, biarkan 0">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={fmtRupiah(dpPaid)}
+                onChange={(e) => setDpPaid(parseRupiah(e.target.value))}
+                placeholder="0"
+                className={inputCls}
+              />
             </Field>
-            <Field label="Payment Status">
-              <select name="payment_status" defaultValue="belum bayar" className={inputCls}>
-                {PAYMENT_STATUS_OPTS.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+            <Field label="Sisa Pelunasan (Auto)" hint="Total − DP">
+              <input
+                type="text"
+                value={'Rp ' + sisa.toLocaleString('id-ID')}
+                readOnly
+                className={inputCls + ' bg-slate-100 font-bold'}
+              />
             </Field>
           </>
         )}
+
+        <Field label="Notes" className={type === 'hpp' ? '' : 'md:col-span-2'}>
+          <input name="notes" className={inputCls} placeholder="Catatan (opsional)" />
+        </Field>
       </div>
 
       {error && <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700 font-medium">{error}</div>}
 
-      <button type="submit" disabled={pending} className="w-full py-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors">
+      <button type="submit" disabled={pending || !totalAmount} className="w-full py-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors">
         {pending ? 'Menyimpan...' : 'Simpan Item'}
       </button>
     </form>
   );
 }
 
-function Field({ label, required, hint, children }) {
+function Field({ label, required, hint, children, className = '' }) {
   return (
-    <label className="block">
+    <label className={`block ${className}`}>
       <span className="text-xs font-semibold text-slate-700 block mb-1">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </span>
@@ -114,4 +151,4 @@ function Field({ label, required, hint, children }) {
   );
 }
 
-const inputCls = 'w-full px-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-brand-500 focus:border-brand-500 outline-none bg-white';
+const inputCls = 'w-full px-2.5 py-1.5 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-brand-500 focus:border-brand-500 outline-none bg-white';
