@@ -1,6 +1,6 @@
 'use client';
 
-// Round 85: FinanceItemForm — INPUT TOTAL ONLY (DP via request payment, no input awal)
+// Round 86: FinanceItemForm — Total + Deposit Planned + Deadline Pelunasan
 
 import { useState } from 'react';
 import { createFinanceItem } from '@/lib/actions/finance';
@@ -26,7 +26,12 @@ export default function FinanceItemForm({ tripId, type }) {
   const [category, setCategory] = useState(firstCategory);
 
   const [totalAmount, setTotalAmount] = useState('');
+  const [depositPlanned, setDepositPlanned] = useState('');
+  const [deadlinePelunasan, setDeadlinePelunasan] = useState('');
+
   const totalNum = parseInt(totalAmount) || 0;
+  const depositNum = parseInt(depositPlanned) || 0;
+  const sisa = Math.max(totalNum - depositNum, 0);
 
   const action = createFinanceItem.bind(null, tripId);
 
@@ -34,7 +39,8 @@ export default function FinanceItemForm({ tripId, type }) {
     setPending(true);
     setError('');
     formData.set('total_amount', String(totalNum));
-    formData.set('dp_paid', '0'); // selalu 0 saat create — DP via request payment
+    formData.set('deposit_planned', String(depositNum));
+    formData.set('deadline_pelunasan', deadlinePelunasan || '');
     const result = await action(formData);
     if (result?.error) {
       setError(result.error);
@@ -43,6 +49,8 @@ export default function FinanceItemForm({ tripId, type }) {
       setOpen(false);
       setPending(false);
       setTotalAmount('');
+      setDepositPlanned('');
+      setDeadlinePelunasan('');
     }
   }
 
@@ -86,18 +94,51 @@ export default function FinanceItemForm({ tripId, type }) {
           </Field>
         )}
 
-        <Field label="Total Harga (Rp)" required hint="Status awal: Belum Dibayar. DP & Pelunasan via Request Payment di item.">
+        <Field label="Total Harga (Rp)" required>
           <input
             type="text"
             inputMode="numeric"
             value={fmtRupiah(totalAmount)}
             onChange={(e) => setTotalAmount(parseRupiah(e.target.value))}
-            placeholder="5.000.000"
+            placeholder="10.000.000"
             className={inputCls}
           />
         </Field>
 
-        <Field label="Notes">
+        {type === 'hpp' && (
+          <>
+            <Field label="Nominal Deposit (Rp)" hint="Rencana DP yang akan di-request ke Finance">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={fmtRupiah(depositPlanned)}
+                onChange={(e) => setDepositPlanned(parseRupiah(e.target.value))}
+                placeholder="3.000.000"
+                className={inputCls}
+              />
+            </Field>
+
+            <Field label="Sisa Pelunasan (Auto)" hint="Total − Deposit">
+              <input
+                type="text"
+                value={'Rp ' + sisa.toLocaleString('id-ID')}
+                readOnly
+                className={inputCls + ' bg-slate-100 font-bold'}
+              />
+            </Field>
+
+            <Field label="Deadline Pelunasan" hint="Tanggal harus lunas. Kalau lewat → warning.">
+              <input
+                type="date"
+                value={deadlinePelunasan}
+                onChange={(e) => setDeadlinePelunasan(e.target.value)}
+                className={inputCls}
+              />
+            </Field>
+          </>
+        )}
+
+        <Field label="Notes" className={type === 'hpp' ? '' : 'md:col-span-2'}>
           <input name="notes" className={inputCls} placeholder="Catatan (opsional)" />
         </Field>
       </div>
