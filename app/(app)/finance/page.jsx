@@ -1,27 +1,58 @@
-// Finance landing — 3 sections: Cashflow per Group, Payment Checklist, PNR Inventory
+// Finance landing — Round 80: sync auto income projection (peserta × breakdown) ke total
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah } from '@/lib/utils/format';
+
+// Defensive import — kalau price-breakdown utility ga ada, fallback ke 0
+let computeIncomeProjection = null;
+try {
+  computeIncomeProjection = require('@/lib/utils/price-breakdown').computeIncomeProjection;
+} catch {}
 
 export const dynamic = 'force-dynamic';
 
 export default async function FinancePage() {
   const supabase = createClient();
 
-  // Aggregate stats
-  const [tripsRes, itemsRes, pnrRes] = await Promise.all([
-    supabase.from('trips').select('id', { count: 'exact', head: true }),
-    supabase.from('trip_finance_items').select('item_type, total_amount'),
+  const [tripsRes, itemsRes, pnrRes, paxRes] = await Promise.all([
+    supabase.from('trips').select('id, status, price_breakdown'),
+    supabase.from('trip_finance_items').select('trip_id, item_type, total_amount'),
     supabase.from('flight_inventory').select('id', { count: 'exact', head: true }),
+    supabase.from('trip_passengers').select('trip_id, room_type, price_paid, age_type'),
   ]);
 
-  const totalTrips = tripsRes.count ?? 0;
+  const trips = tripsRes.data || [];
   const items = itemsRes.data || [];
-  const totalIncome = items.filter((i) => i.item_type === 'income').reduce((s, i) => s + (i.total_amount || 0), 0);
-  const totalHPP = items.filter((i) => i.item_type === 'hpp').reduce((s, i) => s + (i.total_amount || 0), 0);
-  const totalProfit = totalIncome - totalHPP;
+  const allPax = paxRes.data || [];
+  const totalTrips = trips.length;
   const totalPNR = pnrRes.count ?? 0;
+
+  // Aggregate manual income/hpp dari trip_finance_items
+  const manualIncome = items.filter((i) => i.item_type === 'income').reduce((s, i) => s + (i.total_amount || 0), 0);
+  const totalHPP = items.filter((i) => i.item_type === 'hpp').reduce((s, i) => s + (i.total_amount || 0), 0);
+
+  // Aggregate AUTO income projection per trip (peserta × breakdown)
+  let autoIncome = 0;
+  if (typeof computeIncomeProjection === 'function') {
+    const paxByTrip = {};
+    for (const p of allPax) {
+      if (!paxByTrip[p.trip_id]) paxByTrip[p.trip_id] = [];
+      paxByTrip[p.trip_id].push(p);
+    }
+    for (const t of trips) {
+      if (t.status === 'cancelled') continue;
+      const breakdown = t.price_breakdown || {};
+      const pax = paxByTrip[t.id] || [];
+      try {
+        const proj = computeIncomeProjection(pax, breakdown);
+        autoIncome += proj.total || 0;
+      } catch {}
+    }
+  }
+
+  const totalIncome = autoIncome + manualIncome;
+  const totalProfit = totalIncome - totalHPP;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -30,22 +61,27 @@ export default async function FinancePage() {
         <p className="mt-1 text-slate-600">Kelola cashflow, payment, dan inventory tiket dalam satu tempat.</p>
       </div>
 
-      {/* Top stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Total Trip" value={totalTrips} color="text-brand-700" bg="bg-brand-50" />
-        <StatCard label="Total Income" value={fmtRupiah(totalIncome)} color="text-green-700" bg="bg-green-50" small />
+        <StatCard
+          label="Total Income"
+          value={fmtRupiah(totalIncome)}
+          sub={autoIncome > 0 ? `Auto: ${fmtRupiah(autoIncome)} + Manual: ${fmtRupiah(manualIncome)}` : null}
+          color="text-green-700"
+          bg="bg-green-50"
+          small
+        />
         <StatCard label="Total HPP" value={fmtRupiah(totalHPP)} color="text-amber-700" bg="bg-amber-50" small />
         <StatCard label="Total Profit" value={fmtRupiah(totalProfit)} color={totalProfit >= 0 ? 'text-blue-700' : 'text-red-700'} bg={totalProfit >= 0 ? 'bg-blue-50' : 'bg-red-50'} small />
       </div>
 
-      {/* 3 main sections */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <SectionCard
           href="/finance/cashflow"
           icon="💰"
           title="Proyeksi Income per Group"
-          desc="Proyeksi HPP (tiket, hotel, vendor) + Cash In (room types, visa, asuransi) per trip. Belum final — angka real ada di Accounting."
-          badge={`${items.length} item terdaftar`}
+          desc="Auto income (peserta × breakdown) + HPP (tiket, hotel, vendor) per trip. Real cashflow di Accounting."
+          badge={`${items.length} item manual + auto`}
           color="from-green-500 to-emerald-700"
         />
         <SectionCard
@@ -69,11 +105,12 @@ export default async function FinancePage() {
   );
 }
 
-function StatCard({ label, value, color, bg, small = false }) {
+function StatCard({ label, value, sub, color, bg, small = false }) {
   return (
     <div className={`rounded-xl border border-slate-200 shadow-card p-4 ${bg}`}>
       <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">{label}</p>
       <p className={`mt-1 font-bold ${color} ${small ? 'text-lg' : 'text-2xl'}`}>{value}</p>
+      {sub && <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>}
     </div>
   );
 }
