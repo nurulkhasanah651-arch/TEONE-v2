@@ -1,9 +1,10 @@
 'use client';
 
-// Round 100c: InvoicePanel
-// - Auto-fill amount dari payment_template (DP/P1/P2/P3/Pelunasan) + priceBreakdown (Visa/Asuransi)
-// - Per family: per-pax dari template juga
-// - Wording WA receipt sudah di-handle di lib/actions/invoices.js
+// Round 101: InvoicePanel — Family invoice dengan custom amount per peserta
+// - Mode family: tambah toggle "Custom per-pax"
+// - Toggle ON: table input per anggota family (untuk adult/child/infant beda harga)
+// - Toggle OFF: input 1 amount × N pax (default behavior Round 100)
+// - 1 invoice tetap (total = sum), sync matrix per pax sesuai amount masing-masing
 
 import { useState, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -55,7 +56,7 @@ export default function InvoicePanelForPassenger({
   paidMilestones = [],
   familyGroup = null,
   familyMembers = [],
-  paymentTemplate = {},   // Round 100c: { DP: 5000000, P1: 10000000, ... }
+  paymentTemplate = {},
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -69,6 +70,10 @@ export default function InvoicePanelForPassenger({
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [error, setError] = useState('');
 
+  // Round 101: per-pax custom amounts (untuk family mode)
+  const [customPerPax, setCustomPerPax] = useState(false);
+  const [perPaxAmounts, setPerPaxAmounts] = useState({});  // { passenger_id: amount string }
+
   const isFamilyHead = !!(familyGroup && passenger?.is_family_head);
   const familyMemberCount = familyMembers?.length || 0;
   const familyMemberIds = (familyMembers || []).map((m) => m.id);
@@ -76,22 +81,17 @@ export default function InvoicePanelForPassenger({
   const paidCount = invoices.filter((i) => i.status === 'paid').length;
   const pendingCount = invoices.filter((i) => i.status !== 'paid' && i.status !== 'cancelled').length;
 
-  // === Round 100c: Resolver preset amount per milestone ===
-  // Source priority: payment_template[milestone] → priceBreakdown[milestone.lower()]
   function getPresetAmount(key) {
     if (!key || key === 'Custom') return 0;
-    // payment_template biasanya keyed by milestone code
     if (paymentTemplate && Object.prototype.hasOwnProperty.call(paymentTemplate, key)) {
       const v = Number(paymentTemplate[key]);
       if (v > 0) return v;
     }
-    // priceBreakdown (lowercase keys usually)
     const lc = String(key).toLowerCase();
     if (priceBreakdown && Object.prototype.hasOwnProperty.call(priceBreakdown, lc)) {
       const v = Number(priceBreakdown[lc]);
       if (v > 0) return v;
     }
-    // Common aliases
     const aliases = {
       Pelunasan: ['pelunasan', 'P_lunas', 'Lunas'],
       Visa: ['visa'],
@@ -112,7 +112,6 @@ export default function InvoicePanelForPassenger({
     return 0;
   }
 
-  // Auto-fill amount saat mode atau milestone berubah
   useEffect(() => {
     if (!mode) return;
     if (milestone === 'Custom') return;
@@ -121,12 +120,27 @@ export default function InvoicePanelForPassenger({
       const isFamily = mode === 'family_invoice' || mode === 'family_receipt';
       if (isFamily) {
         setAmountPerPax(String(preset));
+        // Round 101: auto-fill per-pax map kalau toggle custom ON
+        if (customPerPax) {
+          const newMap = {};
+          for (const m of familyMembers) {
+            newMap[m.id] = String(preset);
+          }
+          setPerPaxAmounts(newMap);
+        }
       } else {
         setAmount(String(preset));
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [milestone, mode]);
+  }, [milestone, mode, customPerPax]);
+
+  function setPerPaxAmount(id, val) {
+    setPerPaxAmounts((prev) => ({ ...prev, [id]: parseInput(val) }));
+  }
+
+  // Total dari per-pax map
+  const perPaxTotal = familyMembers.reduce((s, m) => s + (parseInt(perPaxAmounts[m.id]) || 0), 0);
 
   function handleGenerate() {
     const finalMilestone = milestone === 'Custom' ? customMilestone : milestone;
@@ -136,10 +150,30 @@ export default function InvoicePanelForPassenger({
     const isReceipt = mode === 'receipt' || mode === 'family_receipt';
 
     let totalAmt = 0;
+    let passengerAmountsMap = null;
+
     if (isFamily) {
-      const perPax = parseInt(amountPerPax) || 0;
-      if (perPax <= 0) { alert('Amount per pax harus > 0'); return; }
-      totalAmt = perPax * familyMemberCount;
+      if (customPerPax) {
+        // Custom per-pax mode
+        const map = {};
+        for (const m of familyMembers) {
+          const v = parseInt(perPaxAmounts[m.id]) || 0;
+          if (v > 0) map[String(m.id)] = v;
+        }
+        const sum = Object.values(map).reduce((s, v) => s + v, 0);
+        if (sum <= 0) { alert('Minimal 1 peserta harus punya amount > 0'); return; }
+        totalAmt = sum;
+        passengerAmountsMap = map;
+      } else {
+        const perPax = parseInt(amountPerPax) || 0;
+        if (perPax <= 0) { alert('Amount per pax harus > 0'); return; }
+        totalAmt = perPax * familyMemberCount;
+        // build flat per-pax map for sync (semua dapat amount sama)
+        passengerAmountsMap = {};
+        for (const m of familyMembers) {
+          passengerAmountsMap[String(m.id)] = perPax;
+        }
+      }
     } else {
       totalAmt = parseInt(amount) || 0;
       if (totalAmt <= 0) { alert('Amount harus > 0'); return; }
@@ -149,7 +183,7 @@ export default function InvoicePanelForPassenger({
       setError('');
       let r;
       const baseDesc = isFamily
-        ? `${finalMilestone} — ${familyGroup?.name || 'Keluarga'} (${familyMemberCount} pax)`
+        ? `${finalMilestone} — ${familyGroup?.name || 'Keluarga'} (${familyMemberCount} pax${customPerPax ? ', custom per-pax' : ''})`
         : `${finalMilestone} — ${customer?.name || 'Peserta'}`;
       const receiptDesc = isFamily
         ? `Receipt ${finalMilestone} — ${familyGroup?.name || 'Keluarga'} (${familyMemberCount} pax)`
@@ -159,6 +193,7 @@ export default function InvoicePanelForPassenger({
         family_group_id: familyGroup.id,
         is_family_invoice: true,
         covers_passenger_ids: familyMemberIds,
+        passenger_amounts: passengerAmountsMap || {},
       } : {};
 
       if (isReceipt) {
@@ -191,6 +226,8 @@ export default function InvoicePanelForPassenger({
       setAmountPerPax('');
       setDueDate('');
       setCustomMilestone('');
+      setCustomPerPax(false);
+      setPerPaxAmounts({});
       router.refresh();
     });
   }
@@ -235,14 +272,14 @@ export default function InvoicePanelForPassenger({
     setAmountPerPax('');
     setDueDate('');
     setPaymentDate(new Date().toISOString().slice(0, 10));
-    // Trigger auto-fill via useEffect (milestone tetap, mode berubah)
+    setCustomPerPax(false);
+    setPerPaxAmounts({});
   }
 
   const isFamilyMode = mode === 'family_invoice' || mode === 'family_receipt';
-  const totalFamily = (parseInt(amountPerPax) || 0) * familyMemberCount;
+  const totalFamily = customPerPax ? perPaxTotal : (parseInt(amountPerPax) || 0) * familyMemberCount;
   const currentPreset = getPresetAmount(milestone);
 
-  // Daftar milestone yang punya preset di template
   const templateKeys = Object.keys(paymentTemplate || {}).filter((k) => Number(paymentTemplate[k]) > 0);
 
   return (
@@ -275,6 +312,7 @@ export default function InvoicePanelForPassenger({
               {invoices.map((inv) => {
                 const s = STATUS_BADGE[inv.status] || STATUS_BADGE.draft;
                 const coverCount = Array.isArray(inv.covers_passenger_ids) ? inv.covers_passenger_ids.length : 0;
+                const hasPerPax = inv.passenger_amounts && typeof inv.passenger_amounts === 'object' && Object.keys(inv.passenger_amounts).length > 0;
                 return (
                   <div key={inv.id} className="bg-white border border-slate-200 rounded p-2 text-xs">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -285,7 +323,7 @@ export default function InvoicePanelForPassenger({
                         <span className="font-semibold">{inv.milestone}</span>
                         {inv.is_family_invoice && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold">
-                            👨‍👩‍👧 Family ({coverCount} pax)
+                            👨‍👩‍👧 Family ({coverCount} pax){hasPerPax && ' · custom'}
                           </span>
                         )}
                         <span className="text-slate-500">·</span>
@@ -309,7 +347,6 @@ export default function InvoicePanelForPassenger({
                                 ? 'bg-blue-100 hover:bg-blue-200 text-blue-800'
                                 : 'bg-amber-100 hover:bg-amber-200 text-amber-800'
                             }`}
-                            title={inv.status === 'paid' ? 'Kirim receipt "Pembayaran Sudah Diterima" ke WA' : 'Kirim invoice penagihan ke WA'}
                           >
                             📤 {inv.status === 'paid' ? 'Send Receipt WA' : (inv.status === 'sent' ? 'Resend Invoice WA' : 'Send Invoice WA')}
                           </button>
@@ -348,7 +385,6 @@ export default function InvoicePanelForPassenger({
                 </p>
               )}
 
-              {/* Round 100c: Tampilkan template ringkas */}
               {templateKeys.length > 0 && (
                 <p className="text-[10px] text-slate-600 bg-slate-50 border border-slate-200 rounded px-2 py-1">
                   📋 Template group: {templateKeys.map((k) => `${k} ${fmtRupiah(paymentTemplate[k])}`).join(' · ')}
@@ -379,6 +415,9 @@ export default function InvoicePanelForPassenger({
                 <>
                   <p className="text-[10px] text-indigo-800 bg-indigo-50 border border-indigo-200 rounded px-2 py-1 mt-2">
                     👨‍👩‍👧 <b>{familyGroup.name}</b> — 1 invoice family cover {familyMemberCount} pax, kirim ke no HP kepala saja
+                    <span className="block text-[9px] text-indigo-600 mt-0.5">
+                      Bisa custom amount per pax (untuk adult, child no bed, infant beda harga)
+                    </span>
                   </p>
                   <div className="grid grid-cols-2 gap-2">
                     <button
@@ -455,26 +494,7 @@ export default function InvoicePanelForPassenger({
                   </label>
                 )}
 
-                {isFamilyMode ? (
-                  <label className="block">
-                    <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">
-                      Jumlah PER PAX (Rp) — auto × {familyMemberCount}
-                    </span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={fmtInput(amountPerPax)}
-                      onChange={(e) => setAmountPerPax(parseInput(e.target.value))}
-                      placeholder="5.000.000"
-                      className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white"
-                    />
-                    {currentPreset > 0 && (
-                      <span className="text-[9px] text-green-700 block mt-0.5">
-                        ✓ Auto dari template: {fmtRupiah(currentPreset)} / pax
-                      </span>
-                    )}
-                  </label>
-                ) : (
+                {!isFamilyMode && (
                   <label className="block">
                     <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">Jumlah (Rp)</span>
                     <input
@@ -517,15 +537,99 @@ export default function InvoicePanelForPassenger({
                 )}
               </div>
 
+              {/* Round 101: Family mode → toggle custom per-pax */}
               {isFamilyMode && (
-                <div className="p-2 bg-indigo-50 border border-indigo-200 rounded text-xs">
-                  <p className="font-bold text-indigo-800">📊 Preview Family Invoice</p>
-                  <p className="text-indigo-700 mt-0.5">
-                    {fmtRupiah(parseInt(amountPerPax) || 0)} × {familyMemberCount} pax = <b>{fmtRupiah(totalFamily)}</b>
-                  </p>
-                  <p className="text-[10px] text-indigo-600 mt-1">
-                    Sync auto ke {familyMemberCount} peserta di matrix (Rp {Math.round((totalFamily) / Math.max(familyMemberCount,1)).toLocaleString('id-ID')} per pax)
-                  </p>
+                <div className="border border-indigo-200 rounded p-2 bg-indigo-50/30 space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={customPerPax}
+                      onChange={(e) => {
+                        setCustomPerPax(e.target.checked);
+                        if (e.target.checked) {
+                          // Auto-fill all with current amountPerPax (atau preset)
+                          const base = parseInt(amountPerPax) || currentPreset || 0;
+                          const map = {};
+                          for (const m of familyMembers) map[m.id] = String(base);
+                          setPerPaxAmounts(map);
+                        }
+                      }}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-xs font-bold text-indigo-800">
+                      ⚙ Custom amount per peserta (untuk adult, child no bed, infant beda harga)
+                    </span>
+                  </label>
+
+                  {!customPerPax ? (
+                    <label className="block">
+                      <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">
+                        Jumlah PER PAX (Rp) — auto × {familyMemberCount}
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={fmtInput(amountPerPax)}
+                        onChange={(e) => setAmountPerPax(parseInput(e.target.value))}
+                        placeholder="5.000.000"
+                        className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white"
+                      />
+                      {currentPreset > 0 && (
+                        <span className="text-[9px] text-green-700 block mt-0.5">
+                          ✓ Auto dari template: {fmtRupiah(currentPreset)} / pax
+                        </span>
+                      )}
+                    </label>
+                  ) : (
+                    <div>
+                      <p className="text-[10px] font-semibold text-slate-700 mb-1">
+                        Set amount per peserta:
+                      </p>
+                      <div className="space-y-1">
+                        {familyMembers.map((m) => {
+                          const c = m.customers || {};
+                          const isHead = String(m.id) === String(familyGroup?.head_passenger_id);
+                          return (
+                            <div key={m.id} className="flex items-center gap-2 bg-white p-1.5 rounded border border-slate-200">
+                              <span className="text-xs flex-1 min-w-0 truncate">
+                                {isHead ? '👑 ' : '👤 '}
+                                <span className="font-medium">{c.name || `#${m.id}`}</span>
+                                {m.room_type && <span className="ml-1 text-[10px] text-slate-500">· {m.room_type}</span>}
+                              </span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={fmtInput(perPaxAmounts[m.id] || '')}
+                                onChange={(e) => setPerPaxAmount(m.id, e.target.value)}
+                                placeholder="0"
+                                className="w-32 px-2 py-1 border border-slate-300 rounded text-xs text-right bg-white"
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        💡 Isi 0 atau kosong kalau peserta itu gak ikut bayar milestone ini
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="bg-indigo-100 border border-indigo-300 rounded p-2 text-xs">
+                    <p className="font-bold text-indigo-900 flex items-center justify-between">
+                      <span>📊 TOTAL INVOICE FAMILY:</span>
+                      <span className="text-base">{fmtRupiah(totalFamily)}</span>
+                    </p>
+                    {!customPerPax && (
+                      <p className="text-[10px] text-indigo-700 mt-0.5">
+                        {fmtRupiah(parseInt(amountPerPax) || 0)} × {familyMemberCount} pax
+                      </p>
+                    )}
+                    {customPerPax && (
+                      <p className="text-[10px] text-indigo-700 mt-0.5">
+                        Sum dari {familyMembers.filter((m) => (parseInt(perPaxAmounts[m.id]) || 0) > 0).length} peserta dari {familyMemberCount}
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -539,12 +643,17 @@ export default function InvoicePanelForPassenger({
                     💡 Mode Receipt = WA akan kirim pesan "✅ Pembayaran Sudah Diterima"
                   </span>
                 )}
+                {isFamilyMode && customPerPax && (
+                  <span className="block mt-0.5 text-indigo-700 font-semibold">
+                    💡 Custom per-pax = matrix Payment Checklist akan sync amount BEDA per peserta (sesuai input di atas)
+                  </span>
+                )}
               </p>
 
               <div className="flex gap-1.5 justify-end">
                 <button
                   type="button"
-                  onClick={() => { setMode(null); setError(''); }}
+                  onClick={() => { setMode(null); setError(''); setCustomPerPax(false); setPerPaxAmounts({}); }}
                   className="px-2 py-1 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
                 >
                   Batal
@@ -552,7 +661,7 @@ export default function InvoicePanelForPassenger({
                 <button
                   type="button"
                   onClick={handleGenerate}
-                  disabled={pending || (isFamilyMode ? !amountPerPax : !amount)}
+                  disabled={pending || (isFamilyMode ? (customPerPax ? perPaxTotal <= 0 : !amountPerPax) : !amount)}
                   className={`px-3 py-1 text-xs font-semibold rounded text-white disabled:opacity-50 ${
                     isFamilyMode ? 'bg-indigo-500 hover:bg-indigo-600' :
                     mode === 'receipt' ? 'bg-green-500 hover:bg-green-600' : 'bg-pink-500 hover:bg-pink-600'
