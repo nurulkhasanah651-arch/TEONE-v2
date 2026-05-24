@@ -1,7 +1,8 @@
 'use client';
 
-// Participants list for a trip — add / edit / delete inline
-// Includes auto-computed age + passport validity status
+// Round 100: ParticipantsList — family-aware
+// - Tampilkan badge family (👨‍👩‍👧 Keluarga Andi) + crown 👑 untuk kepala
+// - Auto-group peserta family bersama saat render
 
 import { useState } from 'react';
 import { addParticipant, updateParticipant, removeParticipant } from '@/lib/actions/participants';
@@ -9,11 +10,39 @@ import { fmtRupiah, fmtDate, calcAge, passportStatus } from '@/lib/utils/format'
 
 const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Family'];
 
-export default function ParticipantsList({ tripId, participants = [] }) {
+export default function ParticipantsList({ tripId, participants = [], familyGroups = [] }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+
+  // Map family id → family info
+  const familyMap = {};
+  for (const fg of familyGroups) familyMap[fg.id] = fg;
+
+  // Reorder: family members grouped together (head first), then ungrouped
+  const familyMembers = {};
+  const ungrouped = [];
+  for (const p of participants) {
+    if (p.family_group_id) {
+      if (!familyMembers[p.family_group_id]) familyMembers[p.family_group_id] = [];
+      familyMembers[p.family_group_id].push(p);
+    } else {
+      ungrouped.push(p);
+    }
+  }
+  // Sort each family: head first
+  for (const fid in familyMembers) {
+    familyMembers[fid].sort((a, b) => (b.is_family_head ? 1 : 0) - (a.is_family_head ? 1 : 0));
+  }
+  // Flatten in order: each family block, then ungrouped
+  const orderedParticipants = [];
+  for (const fg of familyGroups) {
+    if (familyMembers[fg.id]) {
+      for (const m of familyMembers[fg.id]) orderedParticipants.push(m);
+    }
+  }
+  for (const p of ungrouped) orderedParticipants.push(p);
 
   async function handleAdd(formData) {
     setPending(true);
@@ -54,7 +83,10 @@ export default function ParticipantsList({ tripId, participants = [] }) {
       <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
         <div>
           <h2 className="font-bold text-brand-700">Daftar Peserta</h2>
-          <p className="text-xs text-slate-500 mt-0.5">{participants.length} peserta terdaftar</p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {participants.length} peserta
+            {familyGroups.length > 0 && ` · ${familyGroups.length} family`}
+          </p>
         </div>
         {!showForm && (
           <button
@@ -65,6 +97,13 @@ export default function ParticipantsList({ tripId, participants = [] }) {
           </button>
         )}
       </div>
+
+      {/* Hint */}
+      {familyGroups.length > 0 && (
+        <p className="px-5 py-2 text-[11px] text-indigo-800 bg-indigo-50 border-b border-indigo-200">
+          💡 Peserta keluarga di-group bareng. Untuk bikin/edit family → scroll ke section <b>👨‍👩‍👧‍👦 Family Groups</b>.
+        </p>
+      )}
 
       {/* Add form */}
       {showForm && (
@@ -81,7 +120,7 @@ export default function ParticipantsList({ tripId, participants = [] }) {
       )}
 
       {/* List */}
-      {participants.length === 0 && !showForm ? (
+      {orderedParticipants.length === 0 && !showForm ? (
         <div className="p-12 text-center">
           <p className="text-4xl mb-3">👥</p>
           <p className="text-lg font-bold text-slate-700">Belum ada peserta</p>
@@ -89,13 +128,15 @@ export default function ParticipantsList({ tripId, participants = [] }) {
         </div>
       ) : (
         <div className="divide-y divide-slate-100">
-          {participants.map((p, idx) => {
+          {orderedParticipants.map((p, idx) => {
             const c = p.customers || {};
             const isEditing = editingId === p.id;
             const [first, ...rest] = (c.name || '').split(' ');
             const last = rest.join(' ');
             const age = calcAge(c.birthday);
             const ppStatus = passportStatus(c.passport_expiry);
+            const fg = p.family_group_id ? familyMap[p.family_group_id] : null;
+            const isHead = p.is_family_head;
 
             if (isEditing) {
               return (
@@ -128,13 +169,21 @@ export default function ParticipantsList({ tripId, participants = [] }) {
             }
 
             return (
-              <div key={p.id} className="px-5 py-3 hover:bg-slate-50 transition-colors">
+              <div key={p.id} className={`px-5 py-3 hover:bg-slate-50 transition-colors ${fg ? 'border-l-4 border-indigo-300' : ''}`}>
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="flex-1 min-w-0">
                     {/* Name + chips */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-mono text-slate-400">#{idx + 1}</span>
+                      {isHead && <span className="text-base" title="Kepala keluarga">👑</span>}
                       <p className="font-bold text-brand-700">{c.name || '—'}</p>
+                      {fg && (
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
+                          isHead ? 'bg-indigo-100 text-indigo-800' : 'bg-indigo-50 text-indigo-700'
+                        }`}>
+                          👨‍👩‍👧 {fg.name}{isHead ? ' (Kepala)' : ''}
+                        </span>
+                      )}
                       {age != null && <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">{age} thn</span>}
                       {c.gender && <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">{c.gender}</span>}
                       {p.room_type && <span className="text-[11px] px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold">{p.room_type}</span>}
@@ -143,7 +192,7 @@ export default function ParticipantsList({ tripId, participants = [] }) {
 
                     {/* Contact + birth */}
                     <div className="mt-1 text-xs text-slate-600 flex flex-wrap gap-x-3 gap-y-1">
-                      {c.phone && <span>📞 {c.phone}</span>}
+                      {c.phone && <span>📞 {c.phone}{isHead && fg && <span className="text-indigo-700 font-semibold ml-1">(no HP family)</span>}</span>}
                       {c.email && <span>✉ {c.email}</span>}
                       {(c.city || c.birthday) && (
                         <span>🎂 {c.city || '—'}{c.birthday ? `, ${fmtDate(c.birthday)}` : ''}</span>
