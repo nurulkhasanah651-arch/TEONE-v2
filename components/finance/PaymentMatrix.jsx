@@ -1,9 +1,6 @@
 'use client';
 
-// Payment Matrix — Round 100: family-aware
-// - Pass familyGroup + familyMembers ke InvoicePanel
-// - Tampilkan badge family di kolom Peserta
-// - Sort: family members grouped bareng (head first)
+// Payment Matrix — Round 100c: pass paymentTemplate ke InvoicePanel untuk auto-fill amount
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -16,10 +13,10 @@ export default function PaymentMatrix({
   tripId,
   passengers = [],
   paymentsByPassenger = {},
-  template = {},
-  breakdown = {},
+  template = {},          // payment_template
+  breakdown = {},         // price_breakdown
   invoicesByPassenger = {},
-  familyGroups = [],   // Round 100
+  familyGroups = [],
 }) {
   const [pending, startTransition] = useTransition();
   const [editingCell, setEditingCell] = useState(null);
@@ -37,11 +34,9 @@ export default function PaymentMatrix({
     }
   }
 
-  // Family lookup
   const familyMap = {};
   for (const fg of familyGroups) familyMap[fg.id] = fg;
 
-  // Build family-aware ordered passengers (family blocks together, head first)
   const byFamily = {};
   const ungrouped = [];
   for (const p of passengers) {
@@ -154,7 +149,6 @@ export default function PaymentMatrix({
               const optionalPaid = expectedTotal - mainExpected;
               const remaining = expectedTotal - totalPaid;
 
-              // Family info
               const fg = p.family_group_id ? familyMap[p.family_group_id] : null;
               const isHead = p.is_family_head;
               const familyMembers = fg ? (byFamily[fg.id] || []) : [];
@@ -296,7 +290,6 @@ export default function PaymentMatrix({
                           </div>
                         )}
 
-                        {/* Invoice Panel — family-aware */}
                         <div className="mt-3">
                           <InvoicePanelForPassenger
                             tripId={tripId}
@@ -304,6 +297,7 @@ export default function PaymentMatrix({
                             customer={c}
                             invoices={invoicesByPassenger[p.id] || []}
                             priceBreakdown={breakdown}
+                            paymentTemplate={template}
                             paidMilestones={pays.map((py) => py.type)}
                             familyGroup={fg}
                             familyMembers={familyMembers}
