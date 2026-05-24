@@ -1,6 +1,6 @@
 'use client';
 
-// Payment Matrix — Round 100c: pass paymentTemplate ke InvoicePanel untuk auto-fill amount
+// Payment Matrix — Round 100e: defensive ordering (catch stragglers)
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -13,8 +13,8 @@ export default function PaymentMatrix({
   tripId,
   passengers = [],
   paymentsByPassenger = {},
-  template = {},          // payment_template
-  breakdown = {},         // price_breakdown
+  template = {},
+  breakdown = {},
   invoicesByPassenger = {},
   familyGroups = [],
 }) {
@@ -37,10 +37,11 @@ export default function PaymentMatrix({
   const familyMap = {};
   for (const fg of familyGroups) familyMap[fg.id] = fg;
 
+  // Group passengers — defensive: stale family_group_id treated as ungrouped
   const byFamily = {};
   const ungrouped = [];
   for (const p of passengers) {
-    if (p.family_group_id) {
+    if (p.family_group_id && familyMap[p.family_group_id]) {
       if (!byFamily[p.family_group_id]) byFamily[p.family_group_id] = [];
       byFamily[p.family_group_id].push(p);
     } else {
@@ -50,11 +51,25 @@ export default function PaymentMatrix({
   for (const fid in byFamily) {
     byFamily[fid].sort((a, b) => (b.is_family_head ? 1 : 0) - (a.is_family_head ? 1 : 0));
   }
+
+  const seen = new Set();
   const orderedPassengers = [];
   for (const fg of familyGroups) {
-    if (byFamily[fg.id]) for (const m of byFamily[fg.id]) orderedPassengers.push(m);
+    if (byFamily[fg.id]) {
+      for (const m of byFamily[fg.id]) {
+        orderedPassengers.push(m);
+        seen.add(m.id);
+      }
+    }
   }
-  for (const p of ungrouped) orderedPassengers.push(p);
+  for (const p of ungrouped) {
+    orderedPassengers.push(p);
+    seen.add(p.id);
+  }
+  // Stragglers — must never lose any participant
+  for (const p of passengers) {
+    if (!seen.has(p.id)) orderedPassengers.push(p);
+  }
 
   function handleToggle(passengerId, type, tplAmount) {
     startTransition(async () => {
@@ -149,8 +164,8 @@ export default function PaymentMatrix({
               const optionalPaid = expectedTotal - mainExpected;
               const remaining = expectedTotal - totalPaid;
 
-              const fg = p.family_group_id ? familyMap[p.family_group_id] : null;
-              const isHead = p.is_family_head;
+              const fg = (p.family_group_id && familyMap[p.family_group_id]) ? familyMap[p.family_group_id] : null;
+              const isHead = p.is_family_head && fg;
               const familyMembers = fg ? (byFamily[fg.id] || []) : [];
 
               return (
