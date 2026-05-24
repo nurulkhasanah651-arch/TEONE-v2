@@ -1,4 +1,4 @@
-// Round 93: Admin Invoice list page
+// Round 97: Invoices list page — GROUP BY TRIP + link ke Master Trip + tracking per group
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
@@ -23,98 +23,259 @@ function fmtDate(s) {
 
 export default async function InvoicesPage() {
   const supabase = createClient();
-  const { data: invoices } = await supabase
-    .from('invoices')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(200);
 
-  const list = invoices || [];
-  const stats = {
-    total: list.length,
-    draft: list.filter((i) => i.status === 'draft').length,
-    sent: list.filter((i) => i.status === 'sent').length,
-    paid: list.filter((i) => i.status === 'paid').length,
-    totalAmount: list.reduce((s, i) => s + Number(i.amount || 0), 0),
-    paidAmount: list.filter((i) => i.status === 'paid').reduce((s, i) => s + Number(i.amount || 0), 0),
+  // Fetch invoices + trips + passengers parallel
+  const [invoicesRes, tripsRes, passengersRes, customersRes] = await Promise.all([
+    supabase.from('invoices').select('*').order('created_at', { ascending: false }).limit(500),
+    supabase.from('trips').select('id, kode_trip, name, departure, status'),
+    supabase.from('trip_passengers').select('id, trip_id, customer_id'),
+    supabase.from('customers').select('id, name'),
+  ]);
+
+  const allInvoices = invoicesRes.data || [];
+  const trips = tripsRes.data || [];
+  const allPassengers = passengersRes.data || [];
+  const customers = customersRes.data || [];
+
+  const tripMap = Object.fromEntries(trips.map((t) => [t.id, t]));
+  const custMap = Object.fromEntries(customers.map((c) => [c.id, c]));
+
+  // Group by trip_id
+  const byTrip = {};
+  // Init untuk semua trip yang ada peserta-nya
+  for (const t of trips) {
+    const peserta = allPassengers.filter((p) => p.trip_id === t.id);
+    byTrip[t.id] = {
+      trip: t,
+      pesertaCount: peserta.length,
+      pesertaIds: peserta.map((p) => p.id),
+      invoices: [],
+      stats: { total: 0, paid: 0, sent: 0, draft: 0, totalAmount: 0, paidAmount: 0 },
+    };
+  }
+  // Untuk invoice yang trip_id-nya tidak ada di trips
+  byTrip['_no_trip'] = {
+    trip: { id: '_no_trip', kode_trip: '—', name: 'Tanpa Trip', status: '—' },
+    pesertaCount: 0,
+    pesertaIds: [],
+    invoices: [],
+    stats: { total: 0, paid: 0, sent: 0, draft: 0, totalAmount: 0, paidAmount: 0 },
   };
-  const sisa = stats.totalAmount - stats.paidAmount;
+
+  for (const inv of allInvoices) {
+    const key = inv.trip_id && byTrip[inv.trip_id] ? inv.trip_id : '_no_trip';
+    const g = byTrip[key];
+    if (!g) continue;
+    g.invoices.push(inv);
+    g.stats.total += 1;
+    g.stats.totalAmount += Number(inv.amount) || 0;
+    if (inv.status === 'paid') {
+      g.stats.paid += 1;
+      g.stats.paidAmount += Number(inv.amount) || 0;
+    } else if (inv.status === 'sent') {
+      g.stats.sent += 1;
+    } else if (inv.status === 'draft') {
+      g.stats.draft += 1;
+    }
+  }
+
+  // Filter: tampilkan group yang ada invoice ATAU ada peserta
+  const groups = Object.values(byTrip)
+    .filter((g) => g.invoices.length > 0 || g.pesertaCount > 0)
+    .sort((a, b) => {
+      // Yang ada invoice belakang dulu
+      if (a.invoices.length !== b.invoices.length) return b.invoices.length - a.invoices.length;
+      return (b.trip.departure || '').localeCompare(a.trip.departure || '');
+    });
+
+  // Grand totals
+  const grand = {
+    totalInvoices: allInvoices.length,
+    paidInvoices: allInvoices.filter((i) => i.status === 'paid').length,
+    totalAmount: allInvoices.reduce((s, i) => s + Number(i.amount || 0), 0),
+    paidAmount: allInvoices.filter((i) => i.status === 'paid').reduce((s, i) => s + Number(i.amount || 0), 0),
+  };
+  const sisa = grand.totalAmount - grand.paidAmount;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold text-brand-700">Invoices</h1>
-          <p className="mt-1 text-slate-600">Daftar invoice tagihan ke peserta. Generate via Payment Checklist.</p>
+          <p className="mt-1 text-slate-600">Tracking invoice per group/trip. Generate dari Payment Checklist.</p>
         </div>
-        <Link
-          href="/settings/company"
-          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg"
-        >
-          ⚙ Pengaturan Perusahaan
+        <Link href="/finance/payments" className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg">
+          → Payment Checklist (Generate Invoice)
         </Link>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Total Invoice" value={stats.total} color="text-brand-700" bg="bg-brand-50" />
-        <StatCard label="Total Tagihan" value={fmtRupiah(stats.totalAmount)} color="text-slate-700" bg="bg-slate-50" small />
-        <StatCard label="Sudah Dibayar" value={fmtRupiah(stats.paidAmount)} color="text-green-700" bg="bg-green-50" small />
-        <StatCard label="Sisa" value={fmtRupiah(sisa)} color="text-amber-700" bg="bg-amber-50" small />
+        <StatCard label="Total Invoice" value={grand.totalInvoices} color="text-brand-700" bg="bg-brand-50" />
+        <StatCard label="Total Tagihan" value={fmtRupiah(grand.totalAmount)} color="text-slate-700" bg="bg-slate-50" small />
+        <StatCard label="Sudah Dibayar" value={fmtRupiah(grand.paidAmount)} color="text-green-700" bg="bg-green-50" small />
+        <StatCard label="Sisa Tagihan" value={fmtRupiah(sisa)} color="text-amber-700" bg="bg-amber-50" small />
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-200">
-          <h2 className="font-bold text-brand-700">Daftar Invoice ({list.length})</h2>
+      {/* GROUP BY TRIP */}
+      {groups.length === 0 ? (
+        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+          <p className="text-4xl mb-3">📄</p>
+          <p className="text-lg font-bold text-slate-700">Belum ada invoice</p>
+          <p className="mt-1 text-sm text-slate-500">Generate dari /finance/payments/[trip] → klik peserta → Generate Invoice</p>
         </div>
-        {list.length === 0 ? (
-          <div className="p-12 text-center text-sm text-slate-500">
-            Belum ada invoice. Generate dari Payment Checklist di /finance/payments/[trip].
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr className="text-left text-xs font-bold text-slate-600 uppercase tracking-wider">
-                  <th className="px-3 py-2">Invoice No</th>
-                  <th className="px-3 py-2">Peserta</th>
-                  <th className="px-3 py-2">Trip</th>
-                  <th className="px-3 py-2">Milestone</th>
-                  <th className="px-3 py-2 text-right">Amount</th>
-                  <th className="px-3 py-2">Due</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {list.map((i) => {
-                  const s = STATUS_BADGE[i.status] || STATUS_BADGE.draft;
-                  return (
-                    <tr key={i.id} className="hover:bg-slate-50">
-                      <td className="px-3 py-2 font-mono text-xs font-bold text-brand-700">{i.invoice_no}</td>
-                      <td className="px-3 py-2 text-xs">{i.customer_name || '—'}</td>
-                      <td className="px-3 py-2 text-xs">
-                        <Link href={`/trips/${i.trip_id}`} className="text-brand-600 hover:underline">
-                          {i.trip_kode || i.trip_id}
+      ) : (
+        <div className="space-y-4">
+          {groups.map((g) => {
+            const t = g.trip;
+            const progress = g.stats.total > 0 ? Math.round((g.stats.paid / g.stats.total) * 100) : 0;
+            return (
+              <div key={t.id} className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+                {/* Header per group */}
+                <div className="px-5 py-3 bg-gradient-to-r from-brand-50 to-blue-50 border-b border-brand-200 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-mono font-bold text-brand-700 bg-white px-2 py-0.5 rounded">{t.kode_trip || `#${t.id}`}</span>
+                      <h2 className="text-base font-bold text-brand-700">{t.name}</h2>
+                      {t.departure && <span className="text-xs text-slate-500">{fmtDate(t.departure)}</span>}
+                    </div>
+                    <div className="mt-1 flex items-center gap-3 text-xs text-slate-600 flex-wrap">
+                      <span>👥 {g.pesertaCount} peserta</span>
+                      <span>📄 {g.stats.total} invoice</span>
+                      <span className="text-green-700 font-semibold">✓ {g.stats.paid} paid</span>
+                      {g.stats.sent > 0 && <span className="text-amber-700">⏳ {g.stats.sent} sent</span>}
+                      {g.stats.draft > 0 && <span className="text-slate-600">📝 {g.stats.draft} draft</span>}
+                      <span className="font-semibold">Progress: <span className="text-brand-700">{progress}%</span></span>
+                    </div>
+                    <div className="mt-2 flex items-center gap-3 text-xs flex-wrap">
+                      <span>Total: <span className="font-bold text-slate-800">{fmtRupiah(g.stats.totalAmount)}</span></span>
+                      <span>Paid: <span className="font-bold text-green-700">{fmtRupiah(g.stats.paidAmount)}</span></span>
+                      <span>Sisa: <span className="font-bold text-amber-700">{fmtRupiah(g.stats.totalAmount - g.stats.paidAmount)}</span></span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    {t.id !== '_no_trip' && (
+                      <>
+                        <Link href={`/trips/${t.id}`} className="text-xs font-semibold px-3 py-1.5 rounded bg-white hover:bg-slate-100 text-brand-700 border border-slate-200">
+                          → Master Trip
                         </Link>
-                      </td>
-                      <td className="px-3 py-2 text-xs font-semibold">{i.milestone}</td>
-                      <td className="px-3 py-2 text-right font-bold">{fmtRupiah(i.amount)}</td>
-                      <td className="px-3 py-2 text-xs">{fmtDate(i.due_date)}</td>
-                      <td className="px-3 py-2">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${s.color}`}>{s.label}</span>
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <Link href={`/invoices/${i.id}`} className="text-xs font-semibold text-brand-600 hover:underline">
-                          Detail →
+                        <Link href={`/finance/payments/${t.id}`} className="text-xs font-semibold px-3 py-1.5 rounded bg-brand-500 hover:bg-brand-600 text-white">
+                          📄 Generate Invoice
                         </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Per Peserta Status */}
+                {g.pesertaCount > 0 && t.id !== '_no_trip' && (
+                  <PesertaInvoiceStatus
+                    pesertaIds={g.pesertaIds}
+                    allPassengers={allPassengers}
+                    custMap={custMap}
+                    groupInvoices={g.invoices}
+                    tripId={t.id}
+                  />
+                )}
+
+                {/* List Invoice */}
+                {g.invoices.length === 0 ? (
+                  <p className="px-5 py-4 text-center text-sm text-slate-500 italic">
+                    Belum ada invoice untuk trip ini.
+                    {t.id !== '_no_trip' && (
+                      <> <Link href={`/finance/payments/${t.id}`} className="text-brand-600 hover:underline font-semibold">Generate dulu →</Link></>
+                    )}
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr className="text-left text-xs font-bold text-slate-600 uppercase tracking-wider">
+                          <th className="px-3 py-2">Invoice No</th>
+                          <th className="px-3 py-2">Peserta</th>
+                          <th className="px-3 py-2">Milestone</th>
+                          <th className="px-3 py-2 text-right">Amount</th>
+                          <th className="px-3 py-2">Due/Paid</th>
+                          <th className="px-3 py-2">Status</th>
+                          <th className="px-3 py-2"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {g.invoices.map((i) => {
+                          const s = STATUS_BADGE[i.status] || STATUS_BADGE.draft;
+                          return (
+                            <tr key={i.id} className="hover:bg-slate-50">
+                              <td className="px-3 py-2 font-mono text-xs font-bold text-brand-700">{i.invoice_no}</td>
+                              <td className="px-3 py-2 text-xs">{i.customer_name || '—'}</td>
+                              <td className="px-3 py-2 text-xs font-semibold">{i.milestone}</td>
+                              <td className="px-3 py-2 text-right font-bold">{fmtRupiah(i.amount)}</td>
+                              <td className="px-3 py-2 text-xs text-slate-500">
+                                {i.status === 'paid'
+                                  ? `Paid: ${fmtDate(i.paid_at)}`
+                                  : `Due: ${fmtDate(i.due_date)}`}
+                              </td>
+                              <td className="px-3 py-2">
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${s.color}`}>{s.label}</span>
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                <Link href={`/invoices/${i.id}`} className="text-xs font-semibold text-brand-600 hover:underline">
+                                  Detail →
+                                </Link>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PesertaInvoiceStatus({ pesertaIds, allPassengers, custMap, groupInvoices, tripId }) {
+  // Per peserta: jumlah invoice + status
+  const peserta = pesertaIds.map((pid) => {
+    const p = allPassengers.find((x) => x.id === pid);
+    const c = p ? custMap[p.customer_id] : null;
+    const myInvoices = groupInvoices.filter((inv) => inv.passenger_id === pid);
+    return {
+      id: pid,
+      name: c?.name || '—',
+      total: myInvoices.length,
+      paid: myInvoices.filter((i) => i.status === 'paid').length,
+      pending: myInvoices.filter((i) => i.status !== 'paid' && i.status !== 'cancelled').length,
+    };
+  });
+
+  return (
+    <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
+      <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-2">
+        Status Per Peserta ({peserta.length})
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {peserta.map((p) => {
+          const isEmpty = p.total === 0;
+          const allPaid = p.total > 0 && p.paid === p.total;
+          const cls = isEmpty
+            ? 'bg-slate-100 text-slate-500 border-slate-200'
+            : allPaid
+            ? 'bg-green-50 text-green-800 border-green-300'
+            : 'bg-amber-50 text-amber-800 border-amber-300';
+          return (
+            <span
+              key={p.id}
+              className={`text-[10px] px-2 py-1 rounded border font-semibold ${cls}`}
+              title={`${p.name}: ${p.total} invoice (${p.paid} paid, ${p.pending} pending)`}
+            >
+              {isEmpty ? '❌' : allPaid ? '✅' : '⏳'} {p.name} {!isEmpty && `(${p.paid}/${p.total})`}
+            </span>
+          );
+        })}
       </div>
     </div>
   );
