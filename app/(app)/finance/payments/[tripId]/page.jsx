@@ -1,4 +1,4 @@
-// Payment Checklist per trip — Round 48: pass breakdown + payments untuk expected calc
+// Payment Checklist per trip — Round 96: fetch invoices + pass ke PaymentMatrix
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -24,7 +24,7 @@ export default async function TripPaymentsPage({ params }) {
 
   let customerMap = {};
   if (customerIds.length > 0) {
-    const { data: cust } = await supabase.from('customers').select('id, name, phone').in('id', customerIds);
+    const { data: cust } = await supabase.from('customers').select('id, name, phone, email').in('id', customerIds);
     customerMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
   }
   const passengersWithCustomers = passengers.map((p) => ({ ...p, customers: customerMap[p.customer_id] || null }));
@@ -38,10 +38,24 @@ export default async function TripPaymentsPage({ params }) {
     }
   }
 
+  // Round 96: Fetch invoices for this trip
+  let invoicesByPassenger = {};
+  try {
+    const { data: invs } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('trip_id', tripId)
+      .order('created_at', { ascending: false });
+    for (const inv of (invs || [])) {
+      if (!inv.passenger_id) continue;
+      if (!invoicesByPassenger[inv.passenger_id]) invoicesByPassenger[inv.passenger_id] = [];
+      invoicesByPassenger[inv.passenger_id].push(inv);
+    }
+  } catch {}
+
   const template = (trip.payment_template && typeof trip.payment_template === 'object') ? trip.payment_template : {};
   const breakdown = (trip.price_breakdown && typeof trip.price_breakdown === 'object') ? trip.price_breakdown : {};
 
-  // Expected total = sum expected per peserta (WAJIB + ✓ optional)
   const totalExpected = passengers.reduce(
     (s, p) => s + expectedPerPassenger(p, breakdown, paymentsByPassenger[p.id] || []),
     0
@@ -56,6 +70,9 @@ export default async function TripPaymentsPage({ params }) {
         <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.kode_trip || `#${trip.id}`} — {trip.name}</h1>
         <p className="mt-1 text-slate-600">
           WAJIB: room + tips + city tax · OPTIONAL: visa/asuransi/customs (cuma masuk expected setelah ✓)
+        </p>
+        <p className="mt-1 text-xs text-pink-700 bg-pink-50 inline-block px-3 py-1 rounded">
+          💡 Tip: Klik nama peserta untuk expand → ada section <b>📄 Invoices</b> untuk generate + kirim ke WA peserta
         </p>
       </div>
 
@@ -74,6 +91,7 @@ export default async function TripPaymentsPage({ params }) {
         paymentsByPassenger={paymentsByPassenger}
         template={template}
         breakdown={breakdown}
+        invoicesByPassenger={invoicesByPassenger}
       />
     </div>
   );
