@@ -1,4 +1,4 @@
-// Trip Detail — Round 95: fetch invoices per peserta, pass ke ParticipantsList
+// Trip Detail — Round 77: tambah TripDownloadButton (download CSV lengkap per trip)
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -50,29 +50,12 @@ export default async function TripDetailPage({ params }) {
     documents = Array.isArray(data) ? data : [];
   } catch { documents = []; }
 
-  // Finance items
+  // Finance items (untuk download)
   let financeItems = [];
   try {
     const { data } = await supabase.from('trip_finance_items').select('*').eq('trip_id', id).order('created_at', { ascending: false });
     financeItems = Array.isArray(data) ? data : [];
   } catch { financeItems = []; }
-
-  // Round 95: Fetch invoices for this trip
-  let invoicesByPassenger = {};
-  try {
-    const { data: invs } = await supabase
-      .from('invoices')
-      .select('*')
-      .eq('trip_id', id)
-      .order('created_at', { ascending: false });
-    if (Array.isArray(invs)) {
-      for (const inv of invs) {
-        if (!inv.passenger_id) continue;
-        if (!invoicesByPassenger[inv.passenger_id]) invoicesByPassenger[inv.passenger_id] = [];
-        invoicesByPassenger[inv.passenger_id].push(inv);
-      }
-    }
-  } catch {}
 
   // Recent CS
   let recentCS = [];
@@ -152,13 +135,7 @@ export default async function TripDetailPage({ params }) {
 
       <TripDocuments tripId={id} documents={documents} readOnly={false} />
 
-      {/* Round 95: pass invoices + breakdown ke ParticipantsList */}
-      <ParticipantsList
-        tripId={trip.id}
-        participants={participants}
-        invoicesByPassenger={invoicesByPassenger}
-        priceBreakdown={trip.price_breakdown || {}}
-      />
+      <ParticipantsList tripId={trip.id} participants={participants} />
 
       {recentCS.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
