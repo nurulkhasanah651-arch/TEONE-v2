@@ -1,11 +1,11 @@
 'use client';
 
-// Round 100: InvoicePanel — family-aware
-// - Kalau peserta = kepala family, tambah option "Generate Family Invoice"
-//   yang cover semua anggota family + amount auto = base × N peserta
-// - Otherwise: same as Round 100b
+// Round 100c: InvoicePanel
+// - Auto-fill amount dari payment_template (DP/P1/P2/P3/Pelunasan) + priceBreakdown (Visa/Asuransi)
+// - Per family: per-pax dari template juga
+// - Wording WA receipt sudah di-handle di lib/actions/invoices.js
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -53,29 +53,80 @@ export default function InvoicePanelForPassenger({
   invoices = [],
   priceBreakdown = {},
   paidMilestones = [],
-  familyGroup = null,         // Round 100: family info (jika peserta kepala family)
-  familyMembers = [],         // Round 100: array of passenger objects (full family termasuk kepala)
+  familyGroup = null,
+  familyMembers = [],
+  paymentTemplate = {},   // Round 100c: { DP: 5000000, P1: 10000000, ... }
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState(false);
-  // mode: 'invoice' | 'receipt' | 'family_invoice' | 'family_receipt' | null
   const [mode, setMode] = useState(null);
   const [milestone, setMilestone] = useState('DP');
   const [customMilestone, setCustomMilestone] = useState('');
-  const [amountPerPax, setAmountPerPax] = useState('');   // for family: harga per pax (auto x N)
-  const [amount, setAmount] = useState('');               // for individual
+  const [amountPerPax, setAmountPerPax] = useState('');
+  const [amount, setAmount] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [error, setError] = useState('');
 
-  // Family head detection
   const isFamilyHead = !!(familyGroup && passenger?.is_family_head);
   const familyMemberCount = familyMembers?.length || 0;
   const familyMemberIds = (familyMembers || []).map((m) => m.id);
 
   const paidCount = invoices.filter((i) => i.status === 'paid').length;
   const pendingCount = invoices.filter((i) => i.status !== 'paid' && i.status !== 'cancelled').length;
+
+  // === Round 100c: Resolver preset amount per milestone ===
+  // Source priority: payment_template[milestone] → priceBreakdown[milestone.lower()]
+  function getPresetAmount(key) {
+    if (!key || key === 'Custom') return 0;
+    // payment_template biasanya keyed by milestone code
+    if (paymentTemplate && Object.prototype.hasOwnProperty.call(paymentTemplate, key)) {
+      const v = Number(paymentTemplate[key]);
+      if (v > 0) return v;
+    }
+    // priceBreakdown (lowercase keys usually)
+    const lc = String(key).toLowerCase();
+    if (priceBreakdown && Object.prototype.hasOwnProperty.call(priceBreakdown, lc)) {
+      const v = Number(priceBreakdown[lc]);
+      if (v > 0) return v;
+    }
+    // Common aliases
+    const aliases = {
+      Pelunasan: ['pelunasan', 'P_lunas', 'Lunas'],
+      Visa: ['visa'],
+      Asuransi: ['asuransi'],
+      DP: ['dp', 'DP'],
+    };
+    const arr = aliases[key] || [];
+    for (const a of arr) {
+      if (paymentTemplate && Object.prototype.hasOwnProperty.call(paymentTemplate, a)) {
+        const v = Number(paymentTemplate[a]);
+        if (v > 0) return v;
+      }
+      if (priceBreakdown && Object.prototype.hasOwnProperty.call(priceBreakdown, a)) {
+        const v = Number(priceBreakdown[a]);
+        if (v > 0) return v;
+      }
+    }
+    return 0;
+  }
+
+  // Auto-fill amount saat mode atau milestone berubah
+  useEffect(() => {
+    if (!mode) return;
+    if (milestone === 'Custom') return;
+    const preset = getPresetAmount(milestone);
+    if (preset > 0) {
+      const isFamily = mode === 'family_invoice' || mode === 'family_receipt';
+      if (isFamily) {
+        setAmountPerPax(String(preset));
+      } else {
+        setAmount(String(preset));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [milestone, mode]);
 
   function handleGenerate() {
     const finalMilestone = milestone === 'Custom' ? customMilestone : milestone;
@@ -144,16 +195,17 @@ export default function InvoicePanelForPassenger({
     });
   }
 
-  function handleSendWA(invoiceId) {
+  function handleSendWA(invoiceId, status) {
     if (!customer?.phone) {
       alert('Peserta belum punya no HP. Tambah di Edit peserta.');
       return;
     }
-    if (!confirm(`Kirim invoice ke WhatsApp ${customer.phone}?`)) return;
+    const label = status === 'paid' ? 'receipt (bukti bayar)' : 'invoice (penagihan)';
+    if (!confirm(`Kirim ${label} ke WhatsApp ${customer.phone}?`)) return;
     startTransition(async () => {
       const r = await sendInvoiceWA(invoiceId);
       if (r?.error) alert(r.error);
-      else alert('✓ Invoice terkirim ke WA');
+      else alert(`✓ ${status === 'paid' ? 'Receipt' : 'Invoice'} terkirim ke WA`);
       router.refresh();
     });
   }
@@ -176,28 +228,6 @@ export default function InvoicePanelForPassenger({
     });
   }
 
-  function quickAmount(key) {
-    const presets = {
-      Visa: priceBreakdown.visa || 0,
-      Asuransi: priceBreakdown.asuransi || 0,
-    };
-    return presets[key] || 0;
-  }
-
-  function handleMilestoneChange(val) {
-    setMilestone(val);
-    if (val !== 'Custom') {
-      const preset = quickAmount(val);
-      if (preset > 0) {
-        if (mode === 'family_invoice' || mode === 'family_receipt') {
-          setAmountPerPax(String(preset));
-        } else {
-          setAmount(String(preset));
-        }
-      }
-    }
-  }
-
   function openMode(m) {
     setMode(m);
     setError('');
@@ -205,10 +235,15 @@ export default function InvoicePanelForPassenger({
     setAmountPerPax('');
     setDueDate('');
     setPaymentDate(new Date().toISOString().slice(0, 10));
+    // Trigger auto-fill via useEffect (milestone tetap, mode berubah)
   }
 
   const isFamilyMode = mode === 'family_invoice' || mode === 'family_receipt';
   const totalFamily = (parseInt(amountPerPax) || 0) * familyMemberCount;
+  const currentPreset = getPresetAmount(milestone);
+
+  // Daftar milestone yang punya preset di template
+  const templateKeys = Object.keys(paymentTemplate || {}).filter((k) => Number(paymentTemplate[k]) > 0);
 
   return (
     <div className="mt-2">
@@ -233,7 +268,6 @@ export default function InvoicePanelForPassenger({
 
       {expanded && (
         <div className="mt-2 p-3 bg-pink-50/50 border border-pink-200 rounded-lg space-y-2">
-          {/* Existing invoices */}
           {invoices.length === 0 ? (
             <p className="text-xs text-slate-500 italic">Belum ada invoice untuk peserta ini.</p>
           ) : (
@@ -268,15 +302,16 @@ export default function InvoicePanelForPassenger({
                         {customer?.phone && (
                           <button
                             type="button"
-                            onClick={() => handleSendWA(inv.id)}
+                            onClick={() => handleSendWA(inv.id, inv.status)}
                             disabled={pending}
                             className={`px-1.5 py-0.5 text-[10px] font-semibold rounded ${
                               inv.status === 'paid'
                                 ? 'bg-blue-100 hover:bg-blue-200 text-blue-800'
                                 : 'bg-amber-100 hover:bg-amber-200 text-amber-800'
                             }`}
+                            title={inv.status === 'paid' ? 'Kirim receipt "Pembayaran Sudah Diterima" ke WA' : 'Kirim invoice penagihan ke WA'}
                           >
-                            📤 {inv.status === 'paid' ? 'Send Receipt WA' : (inv.status === 'sent' ? 'Resend WA' : 'Send WA')}
+                            📤 {inv.status === 'paid' ? 'Send Receipt WA' : (inv.status === 'sent' ? 'Resend Invoice WA' : 'Send Invoice WA')}
                           </button>
                         )}
                         {inv.status !== 'paid' && (
@@ -305,7 +340,6 @@ export default function InvoicePanelForPassenger({
             </div>
           )}
 
-          {/* Generate buttons */}
           {!mode ? (
             <>
               {paidMilestones && paidMilestones.length > 0 && (
@@ -314,7 +348,14 @@ export default function InvoicePanelForPassenger({
                 </p>
               )}
 
-              {/* Individual options */}
+              {/* Round 100c: Tampilkan template ringkas */}
+              {templateKeys.length > 0 && (
+                <p className="text-[10px] text-slate-600 bg-slate-50 border border-slate-200 rounded px-2 py-1">
+                  📋 Template group: {templateKeys.map((k) => `${k} ${fmtRupiah(paymentTemplate[k])}`).join(' · ')}
+                  <span className="block text-[9px] text-slate-500 mt-0.5">Pilih milestone → amount otomatis terisi</span>
+                </p>
+              )}
+
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -334,7 +375,6 @@ export default function InvoicePanelForPassenger({
                 </button>
               </div>
 
-              {/* FAMILY options — hanya muncul kalau kepala family */}
               {isFamilyHead && familyMemberCount > 1 && (
                 <>
                   <p className="text-[10px] text-indigo-800 bg-indigo-50 border border-indigo-200 rounded px-2 py-1 mt-2">
@@ -361,7 +401,6 @@ export default function InvoicePanelForPassenger({
                 </>
               )}
 
-              {/* Warning for non-head family members */}
               {familyGroup && !isFamilyHead && (
                 <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1">
                   ⓘ Peserta ini anggota family <b>{familyGroup.name}</b>. Untuk invoice family, generate dari kepala keluarga.
@@ -385,13 +424,22 @@ export default function InvoicePanelForPassenger({
 
               <div className="grid grid-cols-2 gap-2">
                 <label className="block">
-                  <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">Milestone</span>
+                  <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">
+                    Milestone {currentPreset > 0 && <span className="text-green-700 font-bold">(template {fmtRupiah(currentPreset)})</span>}
+                  </span>
                   <select
                     value={milestone}
-                    onChange={(e) => handleMilestoneChange(e.target.value)}
+                    onChange={(e) => setMilestone(e.target.value)}
                     className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white"
                   >
-                    {MILESTONE_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
+                    {MILESTONE_OPTIONS.map((m) => {
+                      const preset = m !== 'Custom' ? getPresetAmount(m) : 0;
+                      return (
+                        <option key={m} value={m}>
+                          {m}{preset > 0 ? ` — ${fmtRupiah(preset)}` : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 </label>
                 {milestone === 'Custom' && (
@@ -420,6 +468,11 @@ export default function InvoicePanelForPassenger({
                       placeholder="5.000.000"
                       className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white"
                     />
+                    {currentPreset > 0 && (
+                      <span className="text-[9px] text-green-700 block mt-0.5">
+                        ✓ Auto dari template: {fmtRupiah(currentPreset)} / pax
+                      </span>
+                    )}
                   </label>
                 ) : (
                   <label className="block">
@@ -432,6 +485,11 @@ export default function InvoicePanelForPassenger({
                       placeholder="5.000.000"
                       className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white"
                     />
+                    {currentPreset > 0 && (
+                      <span className="text-[9px] text-green-700 block mt-0.5">
+                        ✓ Auto dari template: {fmtRupiah(currentPreset)}
+                      </span>
+                    )}
                   </label>
                 )}
 
@@ -466,7 +524,7 @@ export default function InvoicePanelForPassenger({
                     {fmtRupiah(parseInt(amountPerPax) || 0)} × {familyMemberCount} pax = <b>{fmtRupiah(totalFamily)}</b>
                   </p>
                   <p className="text-[10px] text-indigo-600 mt-1">
-                    Sync auto ke {familyMemberCount} peserta di Payment Checklist matrix (Rp {Math.round(totalFamily / familyMemberCount).toLocaleString('id-ID')} per pax)
+                    Sync auto ke {familyMemberCount} peserta di matrix (Rp {Math.round((totalFamily) / Math.max(familyMemberCount,1)).toLocaleString('id-ID')} per pax)
                   </p>
                 </div>
               )}
@@ -474,8 +532,13 @@ export default function InvoicePanelForPassenger({
               {error && <p className="text-xs text-red-700">{error}</p>}
 
               <p className="text-[10px] text-slate-500">
-                ℹ️ Generate doang. Setelah tergenerate, ada tombol <b>📤 Send WA</b> di row invoice untuk kirim ke
+                ℹ️ Generate doang. Setelah tergenerate, ada tombol <b>📤 Send {mode === 'receipt' || mode === 'family_receipt' ? 'Receipt' : 'Invoice'} WA</b> di row invoice untuk kirim ke
                 {isFamilyMode ? ' kepala family' : ' peserta'}.
+                {(mode === 'receipt' || mode === 'family_receipt') && (
+                  <span className="block mt-0.5 text-green-700 font-semibold">
+                    💡 Mode Receipt = WA akan kirim pesan "✅ Pembayaran Sudah Diterima"
+                  </span>
+                )}
               </p>
 
               <div className="flex gap-1.5 justify-end">
