@@ -52,6 +52,7 @@ export default function InvoicePanelForPassenger({
   customer,
   invoices = [],
   priceBreakdown = {},
+  paidMilestones = [],  // Round 100b: milestone yang udah ✓ di matrix
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -255,22 +256,32 @@ export default function InvoicePanelForPassenger({
 
           {/* Generate buttons */}
           {!mode ? (
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={openReceiptForm}
-                className="py-1.5 border-2 border-dashed border-green-400 hover:border-green-600 text-green-700 text-xs font-semibold rounded transition-colors"
-              >
-                📋 Generate Receipt (Sudah Bayar)
-              </button>
-              <button
-                type="button"
-                onClick={openInvoiceForm}
-                className="py-1.5 border-2 border-dashed border-pink-300 hover:border-pink-500 text-pink-700 text-xs font-semibold rounded transition-colors"
-              >
-                📄 Generate Invoice (Belum Bayar)
-              </button>
-            </div>
+            <>
+              {/* Hint kalau ada milestone yang udah ✓ di matrix tapi belum ada receipt invoice-nya */}
+              {paidMilestones && paidMilestones.length > 0 && (
+                <p className="text-[10px] text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1">
+                  💡 Sudah centang di matrix: <span className="font-bold">{paidMilestones.join(', ')}</span> — generate bukti pembayaran ↓
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={openReceiptForm}
+                  className="py-2 border-2 border-green-500 bg-green-50 hover:bg-green-100 text-green-800 text-xs font-bold rounded transition-colors"
+                >
+                  📋 Pembayaran Sudah Diterima
+                  <span className="block text-[9px] font-normal mt-0.5">Generate bukti / receipt</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={openInvoiceForm}
+                  className="py-2 border-2 border-dashed border-pink-300 hover:border-pink-500 text-pink-700 text-xs font-semibold rounded transition-colors"
+                >
+                  📄 Tagih Pembayaran
+                  <span className="block text-[9px] font-normal mt-0.5">Generate invoice (belum bayar)</span>
+                </button>
+              </div>
+            </>
           ) : (
             <div className={`p-2 border rounded space-y-2 bg-white ${
               mode === 'receipt' ? 'border-green-400' : 'border-pink-400'
@@ -278,7 +289,7 @@ export default function InvoicePanelForPassenger({
               <p className={`text-xs font-bold uppercase tracking-wider ${
                 mode === 'receipt' ? 'text-green-800' : 'text-pink-800'
               }`}>
-                {mode === 'receipt' ? '📋 Receipt — Status Lunas' : '📄 Invoice — Belum Dibayar'}
+                {mode === 'receipt' ? '📋 Pembayaran Sudah Diterima — Generate Bukti' : '📄 Tagih Pembayaran — Generate Invoice'}
               </p>
 
               <div className="grid grid-cols-2 gap-2">
@@ -361,7 +372,7 @@ export default function InvoicePanelForPassenger({
                     mode === 'receipt' ? 'bg-green-500 hover:bg-green-600' : 'bg-pink-500 hover:bg-pink-600'
                   }`}
                 >
-                  {pending ? '...' : (mode === 'receipt' ? '📋 Generate Receipt' : '📄 Generate Invoice')}
+                  {pending ? '...' : (mode === 'receipt' ? '📋 Catat Pembayaran Diterima' : '📄 Kirim Tagihan')}
                 </button>
               </div>
             </div>
