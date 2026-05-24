@@ -1,8 +1,11 @@
-// Trip Detail — Round 100: fetch family_groups + render FamilyGroupManager
+// Trip Detail — Round 100h: fetch family_groups VIA SERVICE ROLE
+// (Supabase auto-re-enable RLS, jadi authenticated role kena block.
+//  Pakai service role buat SELECT family_groups bypass RLS.)
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
 import ParticipantsList from '@/components/trips/ParticipantsList';
@@ -12,6 +15,15 @@ import TripDownloadButton from '@/components/trips/TripDownloadButton';
 import FamilyGroupManager from '@/components/families/FamilyGroupManager';
 
 export const dynamic = 'force-dynamic';
+
+function getServiceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createServiceClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
 
 export default async function TripDetailPage({ params }) {
   const { id } = await params;
@@ -44,16 +56,24 @@ export default async function TripDetailPage({ params }) {
     }
   } catch { participants = []; }
 
-  // Round 100: Family groups for this trip
+  // Round 100h: Family groups — pakai SERVICE ROLE bypass RLS
   let familyGroups = [];
   try {
-    const { data: fg } = await supabase
+    const serviceClient = getServiceClient();
+    const client = serviceClient || supabase; // fallback ke cookie client kalau service role missing
+    const { data: fg, error: fgError } = await client
       .from('family_groups')
       .select('*')
       .eq('trip_id', id)
       .order('created_at', { ascending: true });
+    if (fgError) {
+      console.error('[family_groups fetch error]', fgError.message);
+    }
     familyGroups = Array.isArray(fg) ? fg : [];
-  } catch { familyGroups = []; }
+  } catch (e) {
+    console.error('[family_groups fetch exception]', e?.message);
+    familyGroups = [];
+  }
 
   // Documents
   let documents = [];
@@ -62,7 +82,7 @@ export default async function TripDetailPage({ params }) {
     documents = Array.isArray(data) ? data : [];
   } catch { documents = []; }
 
-  // Finance items (untuk download)
+  // Finance items
   let financeItems = [];
   try {
     const { data } = await supabase.from('trip_finance_items').select('*').eq('trip_id', id).order('created_at', { ascending: false });
@@ -147,7 +167,6 @@ export default async function TripDetailPage({ params }) {
 
       <TripDocuments tripId={id} documents={documents} readOnly={false} />
 
-      {/* Round 100: Family Groups manager — di atas ParticipantsList */}
       <FamilyGroupManager tripId={trip.id} passengers={participants} familyGroups={familyGroups} />
 
       <ParticipantsList tripId={trip.id} participants={participants} familyGroups={familyGroups} />
