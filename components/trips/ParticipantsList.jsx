@@ -1,8 +1,8 @@
 'use client';
 
-// Round 100: ParticipantsList — family-aware
-// - Tampilkan badge family (👨‍👩‍👧 Keluarga Andi) + crown 👑 untuk kepala
-// - Auto-group peserta family bersama saat render
+// Round 100e: ParticipantsList — defensive ordering
+// Bug Round 100: peserta dengan family_group_id yg ga match familyGroups
+// fetched → ga ke-render. Sekarang catch stragglers di akhir.
 
 import { useState } from 'react';
 import { addParticipant, updateParticipant, removeParticipant } from '@/lib/actions/participants';
@@ -16,33 +16,46 @@ export default function ParticipantsList({ tripId, participants = [], familyGrou
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
 
-  // Map family id → family info
   const familyMap = {};
   for (const fg of familyGroups) familyMap[fg.id] = fg;
 
-  // Reorder: family members grouped together (head first), then ungrouped
+  // Group passengers per family (only valid families)
   const familyMembers = {};
   const ungrouped = [];
   for (const p of participants) {
-    if (p.family_group_id) {
+    if (p.family_group_id && familyMap[p.family_group_id]) {
       if (!familyMembers[p.family_group_id]) familyMembers[p.family_group_id] = [];
       familyMembers[p.family_group_id].push(p);
     } else {
+      // Treat passengers with stale/missing family_group_id as ungrouped
       ungrouped.push(p);
     }
   }
-  // Sort each family: head first
   for (const fid in familyMembers) {
     familyMembers[fid].sort((a, b) => (b.is_family_head ? 1 : 0) - (a.is_family_head ? 1 : 0));
   }
-  // Flatten in order: each family block, then ungrouped
+
+  // Build ordered list with defensive seen-tracking
+  const seen = new Set();
   const orderedParticipants = [];
   for (const fg of familyGroups) {
     if (familyMembers[fg.id]) {
-      for (const m of familyMembers[fg.id]) orderedParticipants.push(m);
+      for (const m of familyMembers[fg.id]) {
+        orderedParticipants.push(m);
+        seen.add(m.id);
+      }
     }
   }
-  for (const p of ungrouped) orderedParticipants.push(p);
+  for (const p of ungrouped) {
+    orderedParticipants.push(p);
+    seen.add(p.id);
+  }
+  // Stragglers (any participant missed) — must NEVER lose data
+  for (const p of participants) {
+    if (!seen.has(p.id)) {
+      orderedParticipants.push(p);
+    }
+  }
 
   async function handleAdd(formData) {
     setPending(true);
@@ -98,14 +111,12 @@ export default function ParticipantsList({ tripId, participants = [], familyGrou
         )}
       </div>
 
-      {/* Hint */}
       {familyGroups.length > 0 && (
         <p className="px-5 py-2 text-[11px] text-indigo-800 bg-indigo-50 border-b border-indigo-200">
           💡 Peserta keluarga di-group bareng. Untuk bikin/edit family → scroll ke section <b>👨‍👩‍👧‍👦 Family Groups</b>.
         </p>
       )}
 
-      {/* Add form */}
       {showForm && (
         <div className="p-5 bg-brand-50/50 border-b border-slate-200">
           <h3 className="font-bold text-brand-700 mb-3">Tambah Peserta Baru</h3>
@@ -119,7 +130,6 @@ export default function ParticipantsList({ tripId, participants = [], familyGrou
         </div>
       )}
 
-      {/* List */}
       {orderedParticipants.length === 0 && !showForm ? (
         <div className="p-12 text-center">
           <p className="text-4xl mb-3">👥</p>
@@ -135,8 +145,8 @@ export default function ParticipantsList({ tripId, participants = [], familyGrou
             const last = rest.join(' ');
             const age = calcAge(c.birthday);
             const ppStatus = passportStatus(c.passport_expiry);
-            const fg = p.family_group_id ? familyMap[p.family_group_id] : null;
-            const isHead = p.is_family_head;
+            const fg = (p.family_group_id && familyMap[p.family_group_id]) ? familyMap[p.family_group_id] : null;
+            const isHead = p.is_family_head && fg;
 
             if (isEditing) {
               return (
@@ -172,7 +182,6 @@ export default function ParticipantsList({ tripId, participants = [], familyGrou
               <div key={p.id} className={`px-5 py-3 hover:bg-slate-50 transition-colors ${fg ? 'border-l-4 border-indigo-300' : ''}`}>
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="flex-1 min-w-0">
-                    {/* Name + chips */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-mono text-slate-400">#{idx + 1}</span>
                       {isHead && <span className="text-base" title="Kepala keluarga">👑</span>}
@@ -190,7 +199,6 @@ export default function ParticipantsList({ tripId, participants = [], familyGrou
                       {p.status && <span className="text-[11px] px-2 py-0.5 rounded bg-green-50 text-green-700 font-semibold">{p.status}</span>}
                     </div>
 
-                    {/* Contact + birth */}
                     <div className="mt-1 text-xs text-slate-600 flex flex-wrap gap-x-3 gap-y-1">
                       {c.phone && <span>📞 {c.phone}{isHead && fg && <span className="text-indigo-700 font-semibold ml-1">(no HP family)</span>}</span>}
                       {c.email && <span>✉ {c.email}</span>}
@@ -199,7 +207,6 @@ export default function ParticipantsList({ tripId, participants = [], familyGrou
                       )}
                     </div>
 
-                    {/* Passport */}
                     {(c.passport_no || c.passport_expiry) && (
                       <div className="mt-1 text-xs text-slate-600 flex flex-wrap gap-x-3 gap-y-1 items-center">
                         {c.passport_no && <span>📕 {c.passport_no}</span>}
@@ -219,7 +226,6 @@ export default function ParticipantsList({ tripId, participants = [], familyGrou
                       </div>
                     )}
 
-                    {/* Price */}
                     {p.price_paid > 0 && (
                       <p className="mt-1 text-xs font-semibold text-green-700">{fmtRupiah(p.price_paid)}</p>
                     )}
@@ -258,7 +264,6 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
 
   return (
     <form action={onSubmit} className="space-y-4">
-      {/* Personal info */}
       <FormSection title="Data Pribadi">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Nama Depan" required>
@@ -289,7 +294,6 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
         </div>
       </FormSection>
 
-      {/* Passport */}
       <FormSection title="Data Passport">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="No Passport">
@@ -311,7 +315,6 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
         </div>
       </FormSection>
 
-      {/* Room & Price */}
       <FormSection title="Booking">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Tipe Kamar">
