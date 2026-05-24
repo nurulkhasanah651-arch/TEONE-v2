@@ -1,17 +1,26 @@
 'use client';
 
-// Payment Matrix — Round 48: MAIN vs OPTIONAL milestones
+// Payment Matrix — Round 96: tambah InvoicePanel di expanded detail
 //   MAIN (wajib): Room + Tips + City Tax + DP/P1/P2/P3/Pelunasan
 //   OPTIONAL (opt-in via ✓): Visa, Asuransi, Land Tour, Custom items
 //   Expected per peserta = MAIN + ✓ optionals (auto naik saat checklist)
+//   + Section "📄 Invoices" per peserta — generate + send WA + tracking
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toggleMilestone, updatePaymentAmount, updatePaymentNotes } from '@/lib/actions/payments';
 import { fmtRupiah } from '@/lib/utils/format';
 import { deriveMilestones, expectedPerPassenger, mainExpectedPerPassenger } from '@/lib/utils/price-breakdown';
+import InvoicePanelForPassenger from '@/components/invoice/InvoicePanelForPassenger';
 
-export default function PaymentMatrix({ tripId, passengers = [], paymentsByPassenger = {}, template = {}, breakdown = {} }) {
+export default function PaymentMatrix({
+  tripId,
+  passengers = [],
+  paymentsByPassenger = {},
+  template = {},
+  breakdown = {},
+  invoicesByPassenger = {},   // Round 96: tambah prop ini
+}) {
   const [pending, startTransition] = useTransition();
   const [editingCell, setEditingCell] = useState(null);
   const [editingNotes, setEditingNotes] = useState(null);
@@ -243,6 +252,17 @@ export default function PaymentMatrix({ tripId, passengers = [], paymentsByPasse
                             })}
                           </div>
                         )}
+
+                        {/* Round 96: Invoice Panel per peserta */}
+                        <div className="mt-3">
+                          <InvoicePanelForPassenger
+                            tripId={tripId}
+                            passenger={p}
+                            customer={c}
+                            invoices={invoicesByPassenger[p.id] || []}
+                            priceBreakdown={breakdown}
+                          />
+                        </div>
                       </td>
                     </tr>
                   )}
