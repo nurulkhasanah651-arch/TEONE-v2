@@ -1,4 +1,4 @@
-// Payment Checklist per trip — Round 96: fetch invoices + pass ke PaymentMatrix
+// Payment Checklist per trip — Round 100: fetch family_groups + pass ke PaymentMatrix
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -38,7 +38,7 @@ export default async function TripPaymentsPage({ params }) {
     }
   }
 
-  // Round 96: Fetch invoices for this trip
+  // Invoices for this trip
   let invoicesByPassenger = {};
   try {
     const { data: invs } = await supabase
@@ -52,6 +52,17 @@ export default async function TripPaymentsPage({ params }) {
       invoicesByPassenger[inv.passenger_id].push(inv);
     }
   } catch {}
+
+  // Round 100: family groups
+  let familyGroups = [];
+  try {
+    const { data: fg } = await supabase
+      .from('family_groups')
+      .select('*')
+      .eq('trip_id', tripId)
+      .order('created_at', { ascending: true });
+    familyGroups = Array.isArray(fg) ? fg : [];
+  } catch { familyGroups = []; }
 
   const template = (trip.payment_template && typeof trip.payment_template === 'object') ? trip.payment_template : {};
   const breakdown = (trip.price_breakdown && typeof trip.price_breakdown === 'object') ? trip.price_breakdown : {};
@@ -74,6 +85,11 @@ export default async function TripPaymentsPage({ params }) {
         <p className="mt-1 text-xs text-pink-700 bg-pink-50 inline-block px-3 py-1 rounded">
           💡 Tip: Klik nama peserta untuk expand → ada section <b>📄 Invoices</b> untuk generate + kirim ke WA peserta
         </p>
+        {familyGroups.length > 0 && (
+          <p className="mt-1 text-xs text-indigo-800 bg-indigo-50 inline-block px-3 py-1 rounded">
+            👨‍👩‍👧 {familyGroups.length} family group aktif — kepala bisa generate 1 invoice family cover semua anggota
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -92,6 +108,7 @@ export default async function TripPaymentsPage({ params }) {
         template={template}
         breakdown={breakdown}
         invoicesByPassenger={invoicesByPassenger}
+        familyGroups={familyGroups}
       />
     </div>
   );
