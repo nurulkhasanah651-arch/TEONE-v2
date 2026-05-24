@@ -1,10 +1,10 @@
 'use client';
 
-// Round 100: Family Group Manager
-// - Tampil di halaman trip detail di atas / di dalam ParticipantsList
-// - Bikin family baru: select kepala + multi-select anggota
-// - Edit family: rename, ganti kepala
-// - Bubarkan family
+// Round 100f: FamilyGroupManager — DEFENSIVE
+// Bug Round 100: peserta dengan family_group_id orphan (family udah
+// terhapus) dianggap "sudah dalam family" → ga bisa add ke family baru.
+// Fix: cek family_group_id BOTH ada AND match dengan familyGroups
+// fetched. Kalau orphan → treat as ungrouped (bisa di-add).
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -21,27 +21,40 @@ export default function FamilyGroupManager({ tripId, passengers = [], familyGrou
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
-  // FORM STATE — create
   const [name, setName] = useState('');
   const [headId, setHeadId] = useState('');
   const [memberIds, setMemberIds] = useState([]);
 
-  // FORM STATE — edit
   const [editName, setEditName] = useState('');
   const [editHeadId, setEditHeadId] = useState('');
 
-  // Group passengers by family
+  // Build family map
   const familyMap = {};
   for (const fg of familyGroups) {
     familyMap[fg.id] = { ...fg, members: [] };
   }
+
+  // Distribute passengers — DEFENSIVE: orphan family_group_id → treat as ungrouped
   for (const p of passengers) {
     if (p.family_group_id && familyMap[p.family_group_id]) {
       familyMap[p.family_group_id].members.push(p);
     }
+    // orphan or null → handled below
   }
   const familiesList = Object.values(familyMap);
-  const ungroupedPassengers = passengers.filter((p) => !p.family_group_id);
+
+  // ungroupedPassengers: peserta yang TIDAK ada di family valid
+  // (termasuk yang punya family_group_id orphan!)
+  const ungroupedPassengers = passengers.filter((p) => {
+    if (!p.family_group_id) return true; // truly ungrouped
+    if (!familyMap[p.family_group_id]) return true; // orphan → treat as ungrouped
+    return false; // in valid family
+  });
+
+  // Detect orphan peserta (warning purposes)
+  const orphanPassengers = passengers.filter(
+    (p) => p.family_group_id && !familyMap[p.family_group_id]
+  );
 
   function resetCreate() {
     setName('');
@@ -122,6 +135,9 @@ export default function FamilyGroupManager({ tripId, passengers = [], familyGrou
           <h2 className="font-bold text-brand-700">👨‍👩‍👧‍👦 Family Groups</h2>
           <p className="text-xs text-slate-500 mt-0.5">
             Group peserta keluarga jadi 1 invoice (1 no HP kepala) — {familiesList.length} family · {ungroupedPassengers.length} individu
+            {orphanPassengers.length > 0 && (
+              <span className="text-amber-700 ml-1">· ⚠ {orphanPassengers.length} orphan (treated as individu)</span>
+            )}
           </p>
         </div>
         {!showCreate && (
@@ -134,7 +150,14 @@ export default function FamilyGroupManager({ tripId, passengers = [], familyGrou
         )}
       </div>
 
-      {/* CREATE FORM */}
+      {orphanPassengers.length > 0 && (
+        <p className="px-5 py-2 text-[11px] text-amber-800 bg-amber-50 border-b border-amber-200">
+          ⚠ Ada {orphanPassengers.length} peserta dengan family_group_id orphan (family-nya sudah terhapus).
+          Mereka diperlakukan sebagai peserta individu dan bisa di-add ke family baru di bawah.
+          (Untuk cleanup permanen: run SQL_CLEANUP_ORPHAN.txt)
+        </p>
+      )}
+
       {showCreate && (
         <div className="p-5 bg-indigo-50/40 border-b border-indigo-200 space-y-3">
           <p className="text-sm font-bold text-indigo-800">Bikin Family Group Baru</p>
@@ -233,7 +256,6 @@ export default function FamilyGroupManager({ tripId, passengers = [], familyGrou
         </div>
       )}
 
-      {/* EXISTING FAMILIES */}
       {familiesList.length === 0 && !showCreate && (
         <div className="p-8 text-center">
           <p className="text-3xl mb-2">👨‍👩‍👧‍👦</p>
