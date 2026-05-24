@@ -1,10 +1,9 @@
 'use client';
 
-// Payment Matrix — Round 96: tambah InvoicePanel di expanded detail
-//   MAIN (wajib): Room + Tips + City Tax + DP/P1/P2/P3/Pelunasan
-//   OPTIONAL (opt-in via ✓): Visa, Asuransi, Land Tour, Custom items
-//   Expected per peserta = MAIN + ✓ optionals (auto naik saat checklist)
-//   + Section "📄 Invoices" per peserta — generate + send WA + tracking
+// Payment Matrix — Round 100: family-aware
+// - Pass familyGroup + familyMembers ke InvoicePanel
+// - Tampilkan badge family di kolom Peserta
+// - Sort: family members grouped bareng (head first)
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -19,7 +18,8 @@ export default function PaymentMatrix({
   paymentsByPassenger = {},
   template = {},
   breakdown = {},
-  invoicesByPassenger = {},   // Round 96: tambah prop ini
+  invoicesByPassenger = {},
+  familyGroups = [],   // Round 100
 }) {
   const [pending, startTransition] = useTransition();
   const [editingCell, setEditingCell] = useState(null);
@@ -36,6 +36,30 @@ export default function PaymentMatrix({
       paymentLookup[pid][p.type] = p;
     }
   }
+
+  // Family lookup
+  const familyMap = {};
+  for (const fg of familyGroups) familyMap[fg.id] = fg;
+
+  // Build family-aware ordered passengers (family blocks together, head first)
+  const byFamily = {};
+  const ungrouped = [];
+  for (const p of passengers) {
+    if (p.family_group_id) {
+      if (!byFamily[p.family_group_id]) byFamily[p.family_group_id] = [];
+      byFamily[p.family_group_id].push(p);
+    } else {
+      ungrouped.push(p);
+    }
+  }
+  for (const fid in byFamily) {
+    byFamily[fid].sort((a, b) => (b.is_family_head ? 1 : 0) - (a.is_family_head ? 1 : 0));
+  }
+  const orderedPassengers = [];
+  for (const fg of familyGroups) {
+    if (byFamily[fg.id]) for (const m of byFamily[fg.id]) orderedPassengers.push(m);
+  }
+  for (const p of ungrouped) orderedPassengers.push(p);
 
   function handleToggle(passengerId, type, tplAmount) {
     startTransition(async () => {
@@ -119,7 +143,7 @@ export default function PaymentMatrix({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {passengers.map((p, idx) => {
+            {orderedPassengers.map((p, idx) => {
               const c = p.customers || {};
               const pays = paymentsByPassenger[p.id] || [];
               const totalPaid = pays.reduce((s, x) => s + (x.amount || 0), 0);
@@ -130,16 +154,30 @@ export default function PaymentMatrix({
               const optionalPaid = expectedTotal - mainExpected;
               const remaining = expectedTotal - totalPaid;
 
+              // Family info
+              const fg = p.family_group_id ? familyMap[p.family_group_id] : null;
+              const isHead = p.is_family_head;
+              const familyMembers = fg ? (byFamily[fg.id] || []) : [];
+
               return (
                 <>
-                  <tr key={p.id} className={`hover:bg-slate-50 ${isExpanded ? 'bg-amber-50/40' : ''}`}>
+                  <tr key={p.id} className={`hover:bg-slate-50 ${isExpanded ? 'bg-amber-50/40' : ''} ${fg ? 'border-l-4 border-indigo-300' : ''}`}>
                     <td className="px-3 py-2 sticky left-0 bg-white hover:bg-slate-50 z-10">
                       <button
                         onClick={() => setExpandedRow(isExpanded ? null : p.id)}
                         className="text-left w-full hover:bg-slate-100 -ml-1 px-1 py-0.5 rounded transition-colors"
                       >
-                        <p className="font-semibold text-brand-700 text-sm">
-                          {isExpanded ? '▾' : '▸'} {c.name || '—'}
+                        <p className="font-semibold text-brand-700 text-sm flex items-center gap-1 flex-wrap">
+                          {isExpanded ? '▾' : '▸'}
+                          {isHead && <span title="Kepala Family">👑</span>}
+                          <span>{c.name || '—'}</span>
+                          {fg && (
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
+                              isHead ? 'bg-indigo-100 text-indigo-800' : 'bg-indigo-50 text-indigo-700'
+                            }`}>
+                              👨‍👩‍👧 {fg.name.length > 14 ? fg.name.slice(0, 14) + '…' : fg.name}
+                            </span>
+                          )}
                         </p>
                         <p className="text-[10px] text-slate-500">
                           #{idx + 1}{p.room_type && ` · ${p.room_type}`} ·
@@ -213,6 +251,11 @@ export default function PaymentMatrix({
                       <td colSpan={milestones.length + 2} className="px-5 py-3">
                         <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">
                           Detail Pembayaran — {c.name}
+                          {fg && (
+                            <span className="ml-2 text-[10px] font-normal text-indigo-700">
+                              👨‍👩‍👧 {fg.name} · {isHead ? 'Kepala' : 'Anggota'}
+                            </span>
+                          )}
                           <span className="ml-2 text-[10px] font-normal text-slate-600">
                             Room: {p.room_type || '—'} · Wajib: {fmtRupiah(mainExpected)} · Optional ✓: {fmtRupiah(optionalPaid)} · Expected: {fmtRupiah(expectedTotal)}
                           </span>
@@ -253,7 +296,7 @@ export default function PaymentMatrix({
                           </div>
                         )}
 
-                        {/* Round 96+100b: Invoice Panel per peserta + paidMilestones */}
+                        {/* Invoice Panel — family-aware */}
                         <div className="mt-3">
                           <InvoicePanelForPassenger
                             tripId={tripId}
@@ -262,6 +305,8 @@ export default function PaymentMatrix({
                             invoices={invoicesByPassenger[p.id] || []}
                             priceBreakdown={breakdown}
                             paidMilestones={pays.map((py) => py.type)}
+                            familyGroup={fg}
+                            familyMembers={familyMembers}
                           />
                         </div>
                       </td>
