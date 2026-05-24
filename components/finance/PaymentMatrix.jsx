@@ -253,7 +253,7 @@ export default function PaymentMatrix({
                           </div>
                         )}
 
-                        {/* Round 96: Invoice Panel per peserta */}
+                        {/* Round 96+100b: Invoice Panel per peserta + paidMilestones */}
                         <div className="mt-3">
                           <InvoicePanelForPassenger
                             tripId={tripId}
@@ -261,6 +261,7 @@ export default function PaymentMatrix({
                             customer={c}
                             invoices={invoicesByPassenger[p.id] || []}
                             priceBreakdown={breakdown}
+                            paidMilestones={pays.map((py) => py.type)}
                           />
                         </div>
                       </td>
