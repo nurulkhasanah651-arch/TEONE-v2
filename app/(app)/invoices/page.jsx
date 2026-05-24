@@ -1,4 +1,4 @@
-// Round 97: Invoices list page — GROUP BY TRIP + link ke Master Trip + tracking per group
+// Round 99: Invoices page + NOTIF banner pending payment + group by trip + link Master Trip
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
@@ -20,29 +20,41 @@ function fmtDate(s) {
     return new Date(s).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
   } catch { return s; }
 }
+function fmtDateTime(s) {
+  if (!s) return '—';
+  try {
+    return new Date(s).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  } catch { return s; }
+}
 
 export default async function InvoicesPage() {
   const supabase = createClient();
 
-  // Fetch invoices + trips + passengers parallel
-  const [invoicesRes, tripsRes, passengersRes, customersRes] = await Promise.all([
+  const [invoicesRes, tripsRes, passengersRes, customersRes, pendingPaymentsRes] = await Promise.all([
     supabase.from('invoices').select('*').order('created_at', { ascending: false }).limit(500),
     supabase.from('trips').select('id, kode_trip, name, departure, status'),
     supabase.from('trip_passengers').select('id, trip_id, customer_id'),
     supabase.from('customers').select('id, name'),
+    // Round 99: Pending payments (perlu approve)
+    supabase
+      .from('invoice_payments')
+      .select('*, invoices(id, invoice_no, milestone, trip_id, customer_name, trip_kode)')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(50),
   ]);
 
   const allInvoices = invoicesRes.data || [];
   const trips = tripsRes.data || [];
   const allPassengers = passengersRes.data || [];
   const customers = customersRes.data || [];
+  const pendingPayments = pendingPaymentsRes.data || [];
 
   const tripMap = Object.fromEntries(trips.map((t) => [t.id, t]));
   const custMap = Object.fromEntries(customers.map((c) => [c.id, c]));
 
-  // Group by trip_id
+  // Group invoices by trip_id
   const byTrip = {};
-  // Init untuk semua trip yang ada peserta-nya
   for (const t of trips) {
     const peserta = allPassengers.filter((p) => p.trip_id === t.id);
     byTrip[t.id] = {
@@ -53,7 +65,6 @@ export default async function InvoicesPage() {
       stats: { total: 0, paid: 0, sent: 0, draft: 0, totalAmount: 0, paidAmount: 0 },
     };
   }
-  // Untuk invoice yang trip_id-nya tidak ada di trips
   byTrip['_no_trip'] = {
     trip: { id: '_no_trip', kode_trip: '—', name: 'Tanpa Trip', status: '—' },
     pesertaCount: 0,
@@ -79,16 +90,13 @@ export default async function InvoicesPage() {
     }
   }
 
-  // Filter: tampilkan group yang ada invoice ATAU ada peserta
   const groups = Object.values(byTrip)
     .filter((g) => g.invoices.length > 0 || g.pesertaCount > 0)
     .sort((a, b) => {
-      // Yang ada invoice belakang dulu
       if (a.invoices.length !== b.invoices.length) return b.invoices.length - a.invoices.length;
       return (b.trip.departure || '').localeCompare(a.trip.departure || '');
     });
 
-  // Grand totals
   const grand = {
     totalInvoices: allInvoices.length,
     paidInvoices: allInvoices.filter((i) => i.status === 'paid').length,
@@ -109,6 +117,72 @@ export default async function InvoicesPage() {
         </Link>
       </div>
 
+      {/* ROUND 99 — NOTIF BANNER pending payment */}
+      {pendingPayments.length > 0 && (
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-xl shadow-card overflow-hidden">
+          <div className="px-5 py-3 bg-amber-100 border-b border-amber-300 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🔔</span>
+              <div>
+                <h3 className="font-bold text-amber-900">
+                  {pendingPayments.length} Bukti Pembayaran Menunggu Verifikasi
+                </h3>
+                <p className="text-xs text-amber-700">
+                  Peserta sudah upload bukti transfer. Klik untuk approve.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="divide-y divide-amber-200 max-h-80 overflow-y-auto">
+            {pendingPayments.map((p) => {
+              const inv = p.invoices;
+              return (
+                <div key={p.id} className="px-5 py-3 hover:bg-amber-100/50 transition-colors">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono font-bold text-amber-900 text-sm">{inv?.invoice_no || '—'}</span>
+                        <span className="text-xs font-semibold text-amber-800">{inv?.milestone}</span>
+                        <span className="text-xs text-slate-600">·</span>
+                        <span className="font-semibold text-slate-800">{inv?.customer_name || '—'}</span>
+                        {inv?.trip_kode && (
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-amber-200 text-amber-900 font-mono">{inv.trip_kode}</span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs text-amber-700">
+                        Bayar <span className="font-bold">{fmtRupiah(p.amount)}</span> · {fmtDate(p.payment_date)} · {p.payment_method}
+                      </p>
+                      {p.note_from_customer && (
+                        <p className="mt-1 text-xs italic text-slate-600">"{p.note_from_customer}"</p>
+                      )}
+                      <p className="text-[10px] text-slate-500 mt-0.5">Diupload: {fmtDateTime(p.created_at)}</p>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {p.proof_url && (
+                        <a
+                          href={p.proof_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-xs font-semibold rounded"
+                        >
+                          📎 Lihat Bukti
+                        </a>
+                      )}
+                      <Link
+                        href={`/invoices/${inv?.id}`}
+                        className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded"
+                      >
+                        Review & Approve →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Total Invoice" value={grand.totalInvoices} color="text-brand-700" bg="bg-brand-50" />
         <StatCard label="Total Tagihan" value={fmtRupiah(grand.totalAmount)} color="text-slate-700" bg="bg-slate-50" small />
@@ -116,7 +190,6 @@ export default async function InvoicesPage() {
         <StatCard label="Sisa Tagihan" value={fmtRupiah(sisa)} color="text-amber-700" bg="bg-amber-50" small />
       </div>
 
-      {/* GROUP BY TRIP */}
       {groups.length === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
           <p className="text-4xl mb-3">📄</p>
@@ -130,7 +203,6 @@ export default async function InvoicesPage() {
             const progress = g.stats.total > 0 ? Math.round((g.stats.paid / g.stats.total) * 100) : 0;
             return (
               <div key={t.id} className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-                {/* Header per group */}
                 <div className="px-5 py-3 bg-gradient-to-r from-brand-50 to-blue-50 border-b border-brand-200 flex items-center justify-between flex-wrap gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -166,7 +238,6 @@ export default async function InvoicesPage() {
                   </div>
                 </div>
 
-                {/* Per Peserta Status */}
                 {g.pesertaCount > 0 && t.id !== '_no_trip' && (
                   <PesertaInvoiceStatus
                     pesertaIds={g.pesertaIds}
@@ -177,7 +248,6 @@ export default async function InvoicesPage() {
                   />
                 )}
 
-                {/* List Invoice */}
                 {g.invoices.length === 0 ? (
                   <p className="px-5 py-4 text-center text-sm text-slate-500 italic">
                     Belum ada invoice untuk trip ini.
@@ -238,7 +308,6 @@ export default async function InvoicesPage() {
 }
 
 function PesertaInvoiceStatus({ pesertaIds, allPassengers, custMap, groupInvoices, tripId }) {
-  // Per peserta: jumlah invoice + status
   const peserta = pesertaIds.map((pid) => {
     const p = allPassengers.find((x) => x.id === pid);
     const c = p ? custMap[p.customer_id] : null;
