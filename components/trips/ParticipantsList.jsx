@@ -1,20 +1,15 @@
 'use client';
 
-// Round 95: ParticipantsList — add InvoicePanel per peserta
+// Participants list for a trip — add / edit / delete inline
+// Includes auto-computed age + passport validity status
 
 import { useState } from 'react';
 import { addParticipant, updateParticipant, removeParticipant } from '@/lib/actions/participants';
 import { fmtRupiah, fmtDate, calcAge, passportStatus } from '@/lib/utils/format';
-import InvoicePanelForPassenger from '@/components/invoice/InvoicePanelForPassenger';
 
 const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Family'];
 
-export default function ParticipantsList({
-  tripId,
-  participants = [],
-  invoicesByPassenger = {},   // { passenger_id: [invoice, ...] }
-  priceBreakdown = {},
-}) {
+export default function ParticipantsList({ tripId, participants = [] }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
@@ -71,6 +66,7 @@ export default function ParticipantsList({
         )}
       </div>
 
+      {/* Add form */}
       {showForm && (
         <div className="p-5 bg-brand-50/50 border-b border-slate-200">
           <h3 className="font-bold text-brand-700 mb-3">Tambah Peserta Baru</h3>
@@ -84,6 +80,7 @@ export default function ParticipantsList({
         </div>
       )}
 
+      {/* List */}
       {participants.length === 0 && !showForm ? (
         <div className="p-12 text-center">
           <p className="text-4xl mb-3">👥</p>
@@ -93,13 +90,12 @@ export default function ParticipantsList({
       ) : (
         <div className="divide-y divide-slate-100">
           {participants.map((p, idx) => {
-            const c = p.customers || p.customer || {};
+            const c = p.customers || {};
             const isEditing = editingId === p.id;
             const [first, ...rest] = (c.name || '').split(' ');
             const last = rest.join(' ');
             const age = calcAge(c.birthday);
             const ppStatus = passportStatus(c.passport_expiry);
-            const pesertaInvoices = invoicesByPassenger[p.id] || [];
 
             if (isEditing) {
               return (
@@ -135,6 +131,7 @@ export default function ParticipantsList({
               <div key={p.id} className="px-5 py-3 hover:bg-slate-50 transition-colors">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="flex-1 min-w-0">
+                    {/* Name + chips */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-mono text-slate-400">#{idx + 1}</span>
                       <p className="font-bold text-brand-700">{c.name || '—'}</p>
@@ -144,6 +141,7 @@ export default function ParticipantsList({
                       {p.status && <span className="text-[11px] px-2 py-0.5 rounded bg-green-50 text-green-700 font-semibold">{p.status}</span>}
                     </div>
 
+                    {/* Contact + birth */}
                     <div className="mt-1 text-xs text-slate-600 flex flex-wrap gap-x-3 gap-y-1">
                       {c.phone && <span>📞 {c.phone}</span>}
                       {c.email && <span>✉ {c.email}</span>}
@@ -152,15 +150,19 @@ export default function ParticipantsList({
                       )}
                     </div>
 
+                    {/* Passport */}
                     {(c.passport_no || c.passport_expiry) && (
                       <div className="mt-1 text-xs text-slate-600 flex flex-wrap gap-x-3 gap-y-1 items-center">
                         {c.passport_no && <span>📕 {c.passport_no}</span>}
-                        {c.passport_expiry && <span>Exp: {fmtDate(c.passport_expiry)}</span>}
+                        {c.passport_issued_at && <span>Issued: {c.passport_issued_at}{c.passport_issued_date ? ` (${fmtDate(c.passport_issued_date)})` : ''}</span>}
+                        {c.passport_expiry && (
+                          <span>Exp: {fmtDate(c.passport_expiry)}</span>
+                        )}
                         {ppStatus && (
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
-                            ppStatus.color === 'red' ? 'bg-red-100 text-red-700' :
+                            ppStatus.color === 'red'   ? 'bg-red-100 text-red-700' :
                             ppStatus.color === 'amber' ? 'bg-amber-100 text-amber-700' :
-                            'bg-green-100 text-green-700'
+                                                          'bg-green-100 text-green-700'
                           }`}>
                             {ppStatus.label}
                           </span>
@@ -168,6 +170,7 @@ export default function ParticipantsList({
                       </div>
                     )}
 
+                    {/* Price */}
                     {p.price_paid > 0 && (
                       <p className="mt-1 text-xs font-semibold text-green-700">{fmtRupiah(p.price_paid)}</p>
                     )}
@@ -185,19 +188,10 @@ export default function ParticipantsList({
                       disabled={pending}
                       className="text-xs px-2.5 py-1 rounded bg-red-50 text-red-700 hover:bg-red-100 font-semibold transition-colors"
                     >
-                      🗑
+                      🗑 Hapus
                     </button>
                   </div>
                 </div>
-
-                {/* Round 95: Invoice panel per peserta */}
-                <InvoicePanelForPassenger
-                  tripId={tripId}
-                  passenger={p}
-                  customer={c}
-                  invoices={pesertaInvoices}
-                  priceBreakdown={priceBreakdown}
-                />
               </div>
             );
           })}
@@ -215,6 +209,7 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
 
   return (
     <form action={onSubmit} className="space-y-4">
+      {/* Personal info */}
       <FormSection title="Data Pribadi">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Nama Depan" required>
@@ -245,23 +240,29 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
         </div>
       </FormSection>
 
+      {/* Passport */}
       <FormSection title="Data Passport">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="No Passport">
             <input name="passport_no" defaultValue={initial.passport_no || ''} className={inputCls} placeholder="A1234567" />
           </Field>
           <Field label="Diterbitkan di">
-            <input name="passport_issued_at" defaultValue={initial.passport_issued_at || ''} className={inputCls} placeholder="Jakarta, Imigrasi" />
+            <input name="passport_issued_at" defaultValue={initial.passport_issued_at || ''} className={inputCls} placeholder="Jakarta, Imigrasi Kelas I, dll" />
           </Field>
           <Field label="Tanggal Issue">
             <input type="date" name="passport_issued_date" defaultValue={initial.passport_issued_date || ''} className={inputCls} />
           </Field>
-          <Field label="Tanggal Expiry" hint={ppStatus ? `Status: ${ppStatus.label}` : ''} hintColor={ppStatus?.color}>
+          <Field
+            label="Tanggal Expiry"
+            hint={ppStatus ? `Status: ${ppStatus.label}` : ''}
+            hintColor={ppStatus?.color}
+          >
             <input type="date" name="passport_expiry" value={expiry} onChange={(e) => setExpiry(e.target.value)} className={inputCls} />
           </Field>
         </div>
       </FormSection>
 
+      {/* Room & Price */}
       <FormSection title="Booking">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Tipe Kamar">
@@ -277,10 +278,19 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
       </FormSection>
 
       <div className="flex gap-2 pt-1">
-        <button type="submit" disabled={pending} className="flex-1 py-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white text-sm font-semibold rounded-lg">
+        <button
+          type="submit"
+          disabled={pending}
+          className="flex-1 py-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors"
+        >
           {pending ? 'Menyimpan...' : submitLabel}
         </button>
-        <button type="button" onClick={onCancel} disabled={pending} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={pending}
+          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg transition-colors"
+        >
           Batal
         </button>
       </div>
