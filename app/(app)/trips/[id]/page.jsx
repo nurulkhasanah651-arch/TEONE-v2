@@ -1,4 +1,4 @@
-// Trip Detail — Round 77: tambah TripDownloadButton (download CSV lengkap per trip)
+// Trip Detail — Round 100: fetch family_groups + render FamilyGroupManager
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -9,6 +9,7 @@ import ParticipantsList from '@/components/trips/ParticipantsList';
 import TripDocuments from '@/components/trips/TripDocuments';
 import TLAssignButton from '@/components/trips/TLAssignButton';
 import TripDownloadButton from '@/components/trips/TripDownloadButton';
+import FamilyGroupManager from '@/components/families/FamilyGroupManager';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +43,17 @@ export default async function TripDetailPage({ params }) {
       participants = safeTp.map((p) => ({ ...p, customers: cMap[p.customer_id] || null }));
     }
   } catch { participants = []; }
+
+  // Round 100: Family groups for this trip
+  let familyGroups = [];
+  try {
+    const { data: fg } = await supabase
+      .from('family_groups')
+      .select('*')
+      .eq('trip_id', id)
+      .order('created_at', { ascending: true });
+    familyGroups = Array.isArray(fg) ? fg : [];
+  } catch { familyGroups = []; }
 
   // Documents
   let documents = [];
@@ -135,7 +147,10 @@ export default async function TripDetailPage({ params }) {
 
       <TripDocuments tripId={id} documents={documents} readOnly={false} />
 
-      <ParticipantsList tripId={trip.id} participants={participants} />
+      {/* Round 100: Family Groups manager — di atas ParticipantsList */}
+      <FamilyGroupManager tripId={trip.id} passengers={participants} familyGroups={familyGroups} />
+
+      <ParticipantsList tripId={trip.id} participants={participants} familyGroups={familyGroups} />
 
       {recentCS.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
