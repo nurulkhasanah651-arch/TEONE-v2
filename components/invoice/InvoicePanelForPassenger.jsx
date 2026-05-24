@@ -1,15 +1,16 @@
 'use client';
 
-// Round 95: Inline invoice panel per peserta di /trips/[id]
-// - List existing invoices peserta ini
-// - Per invoice: status + button Send WA / Resend Receipt / Mark Paid
-// - Tombol "+ Generate Invoice Baru" → inline form
+// Round 97: InvoicePanel — SPLIT Generate vs Send WA + Generate Receipt
+// - "📄 Generate Invoice" (status draft) untuk yang belum dibayar
+// - "📋 Generate Receipt" (status paid) untuk yang sudah dibayar
+// - Tombol "📤 Send WA" terpisah, klik kapan aja
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   createInvoice,
+  createInvoiceAsPaid,
   sendInvoiceWA,
   markInvoicePaidManual,
   deleteInvoice,
@@ -47,57 +48,58 @@ const MILESTONE_OPTIONS = ['DP', 'P1', 'P2', 'P3', 'Pelunasan', 'Visa', 'Asurans
 
 export default function InvoicePanelForPassenger({
   tripId,
-  passenger,        // { id, customer_id, room_type, ... }
-  customer,         // { id, name, phone, email, ... }
-  invoices = [],    // list invoice yang sudah ada untuk peserta ini
-  priceBreakdown = {}, // dari trip.price_breakdown
+  passenger,
+  customer,
+  invoices = [],
+  priceBreakdown = {},
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState(false);
-  const [showForm, setShowForm] = useState(false);
+  const [mode, setMode] = useState(null); // 'invoice' | 'receipt' | null
   const [milestone, setMilestone] = useState('DP');
+  const [customMilestone, setCustomMilestone] = useState('');
   const [amount, setAmount] = useState('');
   const [dueDate, setDueDate] = useState('');
-  const [customMilestone, setCustomMilestone] = useState('');
-  const [autoSend, setAutoSend] = useState(true);
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [error, setError] = useState('');
 
   const paidCount = invoices.filter((i) => i.status === 'paid').length;
-  const unpaidCount = invoices.filter((i) => i.status !== 'paid' && i.status !== 'cancelled').length;
+  const pendingCount = invoices.filter((i) => i.status !== 'paid' && i.status !== 'cancelled').length;
 
   function handleGenerate() {
     const finalMilestone = milestone === 'Custom' ? customMilestone : milestone;
     if (!finalMilestone) { alert('Pilih milestone'); return; }
     const amt = parseInt(amount) || 0;
     if (amt <= 0) { alert('Amount harus > 0'); return; }
-    if (!customer?.phone && autoSend) {
-      alert('Peserta belum punya no HP. Tambah di Edit peserta dulu, atau matikan Auto-Send.');
-      return;
-    }
 
     startTransition(async () => {
       setError('');
-      const r = await createInvoice({
-        trip_id: tripId,
-        passenger_id: passenger.id,
-        customer_id: customer?.id || passenger.customer_id,
-        milestone: finalMilestone,
-        amount: amt,
-        due_date: dueDate || null,
-        description: `${finalMilestone} — ${customer?.name || 'Peserta'}`,
-      });
+      let r;
+      if (mode === 'receipt') {
+        r = await createInvoiceAsPaid({
+          trip_id: tripId,
+          passenger_id: passenger.id,
+          customer_id: customer?.id || passenger.customer_id,
+          milestone: finalMilestone,
+          amount: amt,
+          payment_date: paymentDate || null,
+          description: `Receipt ${finalMilestone} — ${customer?.name || 'Peserta'}`,
+        });
+      } else {
+        r = await createInvoice({
+          trip_id: tripId,
+          passenger_id: passenger.id,
+          customer_id: customer?.id || passenger.customer_id,
+          milestone: finalMilestone,
+          amount: amt,
+          due_date: dueDate || null,
+          description: `${finalMilestone} — ${customer?.name || 'Peserta'}`,
+        });
+      }
       if (r?.error) { setError(r.error); return; }
 
-      // Auto-send WA
-      if (autoSend && r.invoice_id) {
-        const s = await sendInvoiceWA(r.invoice_id);
-        if (s?.error) {
-          alert('Invoice dibuat tapi gagal kirim WA: ' + s.error);
-        }
-      }
-
-      setShowForm(false);
+      setMode(null);
       setAmount('');
       setDueDate('');
       setCustomMilestone('');
@@ -106,11 +108,15 @@ export default function InvoicePanelForPassenger({
   }
 
   function handleSendWA(invoiceId) {
-    if (!confirm(`Kirim invoice ke WA ${customer?.phone}?`)) return;
+    if (!customer?.phone) {
+      alert('Peserta belum punya no HP. Tambah di Edit peserta.');
+      return;
+    }
+    if (!confirm(`Kirim invoice ke WhatsApp ${customer.phone}?`)) return;
     startTransition(async () => {
       const r = await sendInvoiceWA(invoiceId);
       if (r?.error) alert(r.error);
-      else alert('✓ Terkirim');
+      else alert('✓ Invoice terkirim ke WA');
       router.refresh();
     });
   }
@@ -133,14 +139,8 @@ export default function InvoicePanelForPassenger({
     });
   }
 
-  function quickFillAmount(key) {
-    // Quick fill dari breakdown (mis. klik "DP" auto-fill amount dari template)
+  function quickAmount(key) {
     const presets = {
-      DP: 5000000,
-      P1: 5000000,
-      P2: 5000000,
-      P3: 5000000,
-      Pelunasan: 0,
       Visa: priceBreakdown.visa || 0,
       Asuransi: priceBreakdown.asuransi || 0,
     };
@@ -150,14 +150,27 @@ export default function InvoicePanelForPassenger({
   function handleMilestoneChange(val) {
     setMilestone(val);
     if (val !== 'Custom') {
-      const preset = quickFillAmount(val);
+      const preset = quickAmount(val);
       if (preset > 0) setAmount(String(preset));
     }
   }
 
+  function openInvoiceForm() {
+    setMode('invoice');
+    setError('');
+    setAmount('');
+    setDueDate('');
+  }
+
+  function openReceiptForm() {
+    setMode('receipt');
+    setError('');
+    setAmount('');
+    setPaymentDate(new Date().toISOString().slice(0, 10));
+  }
+
   return (
     <div className="mt-2">
-      {/* Toggle button */}
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
@@ -168,11 +181,10 @@ export default function InvoicePanelForPassenger({
         <span className="mr-1">📄</span>
         Invoice ({invoices.length})
         {paidCount > 0 && <span className="ml-2 text-green-700">✓ {paidCount} lunas</span>}
-        {unpaidCount > 0 && <span className="ml-2 text-amber-700">⏳ {unpaidCount} pending</span>}
+        {pendingCount > 0 && <span className="ml-2 text-amber-700">⏳ {pendingCount} pending</span>}
         <span className="ml-2 text-slate-500">{expanded ? '▴' : '▾'}</span>
       </button>
 
-      {/* Expanded panel */}
       {expanded && (
         <div className="mt-2 p-3 bg-pink-50/50 border border-pink-200 rounded-lg space-y-2">
           {/* Existing invoices */}
@@ -193,19 +205,26 @@ export default function InvoicePanelForPassenger({
                         <span className="text-slate-500">·</span>
                         <span className="font-bold">{fmtRupiah(inv.amount)}</span>
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${s.color}`}>{s.label}</span>
-                        {inv.due_date && (
+                        {inv.due_date && inv.status !== 'paid' && (
                           <span className="text-[10px] text-slate-500">Due: {fmtDate(inv.due_date)}</span>
+                        )}
+                        {inv.paid_at && inv.status === 'paid' && (
+                          <span className="text-[10px] text-green-600">Paid: {fmtDate(inv.paid_at)}</span>
                         )}
                       </div>
                       <div className="flex gap-1 flex-wrap">
-                        {inv.status !== 'paid' && customer?.phone && (
+                        {customer?.phone && (
                           <button
                             type="button"
                             onClick={() => handleSendWA(inv.id)}
                             disabled={pending}
-                            className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 hover:bg-amber-200 text-amber-800"
+                            className={`px-1.5 py-0.5 text-[10px] font-semibold rounded ${
+                              inv.status === 'paid'
+                                ? 'bg-blue-100 hover:bg-blue-200 text-blue-800'
+                                : 'bg-amber-100 hover:bg-amber-200 text-amber-800'
+                            }`}
                           >
-                            📤 {inv.status === 'sent' ? 'Resend' : 'Send'} WA
+                            📤 {inv.status === 'paid' ? 'Send Receipt WA' : (inv.status === 'sent' ? 'Resend WA' : 'Send WA')}
                           </button>
                         )}
                         {inv.status !== 'paid' && (
@@ -216,16 +235,6 @@ export default function InvoicePanelForPassenger({
                             className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-green-100 hover:bg-green-200 text-green-800"
                           >
                             ✓ Mark Paid
-                          </button>
-                        )}
-                        {inv.status === 'paid' && customer?.phone && (
-                          <button
-                            type="button"
-                            onClick={() => handleSendWA(inv.id)}
-                            disabled={pending}
-                            className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-blue-100 hover:bg-blue-200 text-blue-800"
-                          >
-                            📤 Resend Receipt
                           </button>
                         )}
                         <button
@@ -244,18 +253,33 @@ export default function InvoicePanelForPassenger({
             </div>
           )}
 
-          {/* Generate new invoice form */}
-          {!showForm ? (
-            <button
-              type="button"
-              onClick={() => setShowForm(true)}
-              className="w-full py-1.5 border-2 border-dashed border-pink-300 hover:border-pink-500 text-pink-700 text-xs font-semibold rounded transition-colors"
-            >
-              + Generate Invoice Baru
-            </button>
+          {/* Generate buttons */}
+          {!mode ? (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={openReceiptForm}
+                className="py-1.5 border-2 border-dashed border-green-400 hover:border-green-600 text-green-700 text-xs font-semibold rounded transition-colors"
+              >
+                📋 Generate Receipt (Sudah Bayar)
+              </button>
+              <button
+                type="button"
+                onClick={openInvoiceForm}
+                className="py-1.5 border-2 border-dashed border-pink-300 hover:border-pink-500 text-pink-700 text-xs font-semibold rounded transition-colors"
+              >
+                📄 Generate Invoice (Belum Bayar)
+              </button>
+            </div>
           ) : (
-            <div className="p-2 bg-white border border-pink-300 rounded space-y-2">
-              <p className="text-xs font-bold text-pink-800 uppercase tracking-wider">Generate Invoice Baru</p>
+            <div className={`p-2 border rounded space-y-2 bg-white ${
+              mode === 'receipt' ? 'border-green-400' : 'border-pink-400'
+            }`}>
+              <p className={`text-xs font-bold uppercase tracking-wider ${
+                mode === 'receipt' ? 'text-green-800' : 'text-pink-800'
+              }`}>
+                {mode === 'receipt' ? '📋 Receipt — Status Lunas' : '📄 Invoice — Belum Dibayar'}
+              </p>
 
               <div className="grid grid-cols-2 gap-2">
                 <label className="block">
@@ -291,33 +315,40 @@ export default function InvoicePanelForPassenger({
                     className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white"
                   />
                 </label>
-                <label className="block">
-                  <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">Due Date</span>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white"
-                  />
-                </label>
+                {mode === 'invoice' ? (
+                  <label className="block">
+                    <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">Due Date</span>
+                    <input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white"
+                    />
+                  </label>
+                ) : (
+                  <label className="block">
+                    <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">Tanggal Bayar</span>
+                    <input
+                      type="date"
+                      value={paymentDate}
+                      max={new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => setPaymentDate(e.target.value)}
+                      className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white"
+                    />
+                  </label>
+                )}
               </div>
 
-              <label className="flex items-center gap-1.5 text-[11px] text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={autoSend}
-                  onChange={(e) => setAutoSend(e.target.checked)}
-                />
-                <span>📤 Auto-send WA setelah generate</span>
-                {!customer?.phone && <span className="text-red-600">(peserta belum punya no HP)</span>}
-              </label>
-
               {error && <p className="text-xs text-red-700">{error}</p>}
+
+              <p className="text-[10px] text-slate-500">
+                ℹ️ Generate doang. Setelah tergenerate, ada tombol <b>📤 Send WA</b> di row invoice untuk kirim ke peserta.
+              </p>
 
               <div className="flex gap-1.5 justify-end">
                 <button
                   type="button"
-                  onClick={() => { setShowForm(false); setError(''); }}
+                  onClick={() => { setMode(null); setError(''); }}
                   className="px-2 py-1 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
                 >
                   Batal
@@ -326,9 +357,11 @@ export default function InvoicePanelForPassenger({
                   type="button"
                   onClick={handleGenerate}
                   disabled={pending || !amount}
-                  className="px-3 py-1 text-xs font-semibold rounded bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white"
+                  className={`px-3 py-1 text-xs font-semibold rounded text-white disabled:opacity-50 ${
+                    mode === 'receipt' ? 'bg-green-500 hover:bg-green-600' : 'bg-pink-500 hover:bg-pink-600'
+                  }`}
                 >
-                  {pending ? '...' : (autoSend ? '📄 Generate + Send WA' : '📄 Generate')}
+                  {pending ? '...' : (mode === 'receipt' ? '📋 Generate Receipt' : '📄 Generate Invoice')}
                 </button>
               </div>
             </div>
