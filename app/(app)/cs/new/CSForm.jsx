@@ -1,11 +1,12 @@
 'use client';
 
-// CS Daily form — Round 48: room dropdown extended (+ Child/Infant/Land Tour Only)
+// CS Daily form NEW — Round 102b: tambah DP nominal + Family Name per peserta row
+// - DP > 0: auto create dp_payment_request (status pending) → /invoices tab
+// - Family Name diisi: group peserta dengan family_name sama → auto-create family group
 
 import { useState } from 'react';
 import { createCSUpdate } from '@/lib/actions/cs';
 
-// Pilihan room/base price — sesuai price_breakdown Master Trip
 const ROOM_TYPES = [
   'Single', 'Twin', 'Double', 'Triple', 'Quad', 'Family',
   'Child no Bed', 'Infant', 'Land Tour Only',
@@ -21,6 +22,17 @@ const SOURCES = [
   { value: 'ads_google',  label: '🔍 Ads Google' },
   { value: 'ads_tiktok',  label: '🎵 Ads TikTok' },
 ];
+
+function fmtInput(v) {
+  if (v === '' || v == null) return '';
+  const n = String(v).replace(/[^0-9]/g, '');
+  if (!n) return '';
+  return Number(n).toLocaleString('id-ID');
+}
+function parseInput(s) {
+  if (s == null) return '';
+  return String(s).replace(/[^0-9]/g, '');
+}
 
 export default function CSForm({ trips }) {
   const [error, setError] = useState('');
@@ -38,7 +50,12 @@ export default function CSForm({ trips }) {
   const sisaSeat = selectedTrip ? selectedTrip.seat_left ?? 0 : 0;
 
   function addParticipant() {
-    setParticipants((arr) => [...arr, { first_name: '', last_name: '', phone: '', email: '', source: 'whatsapp', room_type: '', price_paid: '' }]);
+    setParticipants((arr) => [...arr, {
+      first_name: '', last_name: '', phone: '', email: '',
+      source: 'whatsapp', room_type: '', price_paid: '',
+      dp_amount: '', dp_date: new Date().toISOString().slice(0, 10), dp_method: 'transfer',
+      family_name: '',
+    }]);
   }
   function updParticipant(i, key, val) {
     setParticipants((arr) => arr.map((p, idx) => idx === i ? { ...p, [key]: val } : p));
@@ -49,6 +66,17 @@ export default function CSForm({ trips }) {
 
   const filledParticipants = participants.filter((p) => (p.first_name?.trim() || p.last_name?.trim()));
   const participantsJson = JSON.stringify(filledParticipants);
+  const totalDPInputed = filledParticipants.reduce((s, p) => s + (parseInt(p.dp_amount) || 0), 0);
+
+  // Detect families from family_name
+  const familyGroupsPreview = {};
+  filledParticipants.forEach((p, idx) => {
+    const fn = (p.family_name || '').trim();
+    if (!fn) return;
+    if (!familyGroupsPreview[fn]) familyGroupsPreview[fn] = [];
+    familyGroupsPreview[fn].push({ idx, name: `${p.first_name} ${p.last_name}`.trim() });
+  });
+  const familyCount = Object.keys(familyGroupsPreview).length;
 
   async function handleSubmit(formData) {
     setPending(true);
@@ -119,9 +147,12 @@ export default function CSForm({ trips }) {
         </div>
       </Section>
 
-      <Section title="Detail Peserta Baru (Opsional)">
-        <p className="text-xs text-slate-500 -mt-2 mb-3">
-          Isi nama peserta yang closing hari ini → otomatis masuk ke master file trip.
+      <Section title="Detail Peserta Baru + DP + Family (Opsional)">
+        <p className="text-[11px] text-slate-500 -mt-2 mb-3">
+          💡 <b>DP</b>: nominal yang sudah dibayar → masuk Invoice tab untuk Finance approve →
+          matrix DP auto-centang + WA receipt.<br />
+          💡 <b>Family Name</b>: isi nama family yang sama untuk peserta yang satu keluarga
+          (peserta pertama dengan nama family yang sama jadi <b>kepala</b>).
         </p>
 
         {participants.length === 0 ? (
@@ -130,41 +161,157 @@ export default function CSForm({ trips }) {
           </button>
         ) : (
           <div className="space-y-3">
-            {participants.map((p, i) => (
-              <div key={i} className="border border-slate-200 rounded-lg p-3 bg-white">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-bold text-brand-700">Peserta #{i + 1}</p>
-                  <button type="button" onClick={() => rmParticipant(i)} className="text-xs px-2 py-0.5 rounded bg-red-50 text-red-700 hover:bg-red-100 font-semibold">✕ Hapus</button>
+            {participants.map((p, i) => {
+              const fnTrim = (p.family_name || '').trim();
+              const familyMembers = fnTrim ? familyGroupsPreview[fnTrim] || [] : [];
+              const isFirstOfFamily = familyMembers.length > 0 && familyMembers[0].idx === i;
+
+              return (
+                <div key={i} className={`border rounded-lg p-3 bg-white ${
+                  fnTrim ? 'border-indigo-300 border-l-4' : 'border-slate-200'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-bold text-brand-700">
+                      Peserta #{i + 1}
+                      {fnTrim && (
+                        <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold">
+                          👨‍👩‍👧 {fnTrim}{isFirstOfFamily ? ' 👑 KEPALA' : ' (anggota)'}
+                        </span>
+                      )}
+                    </p>
+                    <button type="button" onClick={() => rmParticipant(i)} className="text-xs px-2 py-0.5 rounded bg-red-50 text-red-700 hover:bg-red-100 font-semibold">✕ Hapus</button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <PaxInput label="Nama Depan" value={p.first_name} onChange={(v) => updParticipant(i, 'first_name', v)} />
+                    <PaxInput label="Nama Belakang" value={p.last_name} onChange={(v) => updParticipant(i, 'last_name', v)} />
+                    <PaxInput label="No HP / WA" value={p.phone} onChange={(v) => updParticipant(i, 'phone', v)} />
+                    <PaxInput label="Email" value={p.email} type="email" onChange={(v) => updParticipant(i, 'email', v)} />
+                    <label className="block">
+                      <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Dari Sumber</span>
+                      <select value={p.source} onChange={(e) => updParticipant(i, 'source', e.target.value)} className={miniInput}>
+                        {SOURCES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Tipe (Base Price)</span>
+                      <select value={p.room_type} onChange={(e) => updParticipant(i, 'room_type', e.target.value)} className={miniInput}>
+                        <option value="">— Pilih —</option>
+                        {ROOM_TYPES.map((r) => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </label>
+                    <label className="block col-span-2">
+                      <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Harga Bayar Override (opsional)</span>
+                      <input type="number" value={p.price_paid} min="0" onChange={(e) => updParticipant(i, 'price_paid', e.target.value)} className={miniInput} placeholder="Auto dari breakdown kalau kosong" />
+                    </label>
+                  </div>
+
+                  {/* === FAMILY GROUP === */}
+                  <div className="mt-3 pt-3 border-t border-dashed border-indigo-300 bg-indigo-50/30 -mx-3 px-3 pb-2">
+                    <p className="text-[11px] font-bold text-indigo-800 uppercase tracking-wider mb-2">
+                      👨‍👩‍👧‍👦 Family Group (Opsional)
+                    </p>
+                    <label className="block">
+                      <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">
+                        Nama Family
+                        <span className="text-[9px] text-slate-500 font-normal ml-1">
+                          (Isi sama dengan peserta lain untuk masuk family yang sama)
+                        </span>
+                      </span>
+                      <input
+                        type="text"
+                        value={p.family_name || ''}
+                        onChange={(e) => updParticipant(i, 'family_name', e.target.value)}
+                        placeholder="e.g. Keluarga Andi Santoso"
+                        className={miniInput}
+                      />
+                    </label>
+                    {fnTrim && (
+                      <p className="mt-1 text-[10px] text-indigo-700">
+                        {familyMembers.length > 1
+                          ? `✓ ${familyMembers.length} peserta di family ini: ${familyMembers.map((m) => m.name).join(', ')}`
+                          : '✓ Family group baru — tambahin peserta lain dengan family name sama biar group-nya berisi'}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* === DP === */}
+                  <div className="mt-3 pt-3 border-t border-dashed border-blue-300 bg-blue-50/30 -mx-3 px-3 pb-2 rounded-b-lg">
+                    <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-2">
+                      💵 DP Sudah Dibayar (Opsional)
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <label className="block">
+                        <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">Nominal DP (Rp)</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={fmtInput(p.dp_amount)}
+                          onChange={(e) => updParticipant(i, 'dp_amount', parseInput(e.target.value))}
+                          placeholder="5.000.000"
+                          className={miniInput}
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">Tgl Bayar</span>
+                        <input
+                          type="date"
+                          value={p.dp_date || new Date().toISOString().slice(0, 10)}
+                          max={new Date().toISOString().slice(0, 10)}
+                          onChange={(e) => updParticipant(i, 'dp_date', e.target.value)}
+                          className={miniInput}
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">Metode</span>
+                        <select
+                          value={p.dp_method || 'transfer'}
+                          onChange={(e) => updParticipant(i, 'dp_method', e.target.value)}
+                          className={miniInput}
+                        >
+                          <option value="transfer">Transfer</option>
+                          <option value="cash">Cash</option>
+                          <option value="manual">Manual</option>
+                        </select>
+                      </label>
+                    </div>
+                    {parseInt(p.dp_amount) > 0 && (
+                      <p className="mt-1 text-[10px] text-blue-700">
+                        ✓ DP Rp {Number(p.dp_amount).toLocaleString('id-ID')} → /invoices tab (pending Finance approval)
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <PaxInput label="Nama Depan" value={p.first_name} onChange={(v) => updParticipant(i, 'first_name', v)} />
-                  <PaxInput label="Nama Belakang" value={p.last_name} onChange={(v) => updParticipant(i, 'last_name', v)} />
-                  <PaxInput label="No HP / WA" value={p.phone} onChange={(v) => updParticipant(i, 'phone', v)} />
-                  <PaxInput label="Email" value={p.email} type="email" onChange={(v) => updParticipant(i, 'email', v)} />
-                  <label className="block">
-                    <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Dari Sumber</span>
-                    <select value={p.source} onChange={(e) => updParticipant(i, 'source', e.target.value)} className={miniInput}>
-                      {SOURCES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Tipe (Base Price)</span>
-                    <select value={p.room_type} onChange={(e) => updParticipant(i, 'room_type', e.target.value)} className={miniInput}>
-                      <option value="">— Pilih —</option>
-                      {ROOM_TYPES.map((r) => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                    <span className="text-[9px] text-slate-500 block mt-0.5">Pilihan mengikuti price_breakdown trip</span>
-                  </label>
-                  <label className="block col-span-2">
-                    <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Harga Bayar Override (opsional)</span>
-                    <input type="number" value={p.price_paid} min="0" onChange={(e) => updParticipant(i, 'price_paid', e.target.value)} className={miniInput} placeholder="Auto dari breakdown kalau kosong" />
-                  </label>
-                </div>
-              </div>
-            ))}
+              );
+            })}
             <button type="button" onClick={addParticipant} className="w-full py-2 border-2 border-dashed border-brand-300 hover:border-brand-500 text-brand-600 text-xs font-semibold rounded-lg transition-colors">
               + Tambah Peserta Lain
             </button>
+          </div>
+        )}
+
+        {/* Summary cards */}
+        {(totalDPInputed > 0 || familyCount > 0) && (
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+            {totalDPInputed > 0 && (
+              <div className="p-2 bg-blue-100 border border-blue-300 rounded text-xs">
+                <p className="font-bold text-blue-900">
+                  💵 Total DP: Rp {totalDPInputed.toLocaleString('id-ID')}
+                </p>
+                <p className="text-[10px] text-blue-700 mt-0.5">
+                  Submit → muncul di /invoices untuk Finance approve
+                </p>
+              </div>
+            )}
+            {familyCount > 0 && (
+              <div className="p-2 bg-indigo-100 border border-indigo-300 rounded text-xs">
+                <p className="font-bold text-indigo-900">
+                  👨‍👩‍👧 {familyCount} Family Group akan dibuat
+                </p>
+                <p className="text-[10px] text-indigo-700 mt-0.5">
+                  {Object.entries(familyGroupsPreview).map(([name, ms]) => `${name}: ${ms.length} pax`).join(' · ')}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </Section>
@@ -177,10 +324,10 @@ export default function CSForm({ trips }) {
         <textarea name="notes" rows="3" className={inputCls + ' resize-none'} placeholder="Hal penting hari ini..." />
       </Field>
 
-      {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium">{error}</div>}
+      {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium whitespace-pre-wrap">{error}</div>}
 
       <button type="submit" disabled={pending} className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-semibold rounded-lg shadow-card">
-        {pending ? 'Menyimpan...' : `Simpan${filledParticipants.length > 0 ? ` + ${filledParticipants.length} Peserta` : ''}`}
+        {pending ? 'Menyimpan...' : `Simpan${filledParticipants.length > 0 ? ` + ${filledParticipants.length} Peserta` : ''}${totalDPInputed > 0 ? ` + DP ${totalDPInputed.toLocaleString('id-ID')}` : ''}${familyCount > 0 ? ` + ${familyCount} Family` : ''}`}
       </button>
     </form>
   );
