@@ -1,6 +1,7 @@
 'use client';
 
-// Payment Matrix — Round 100e: defensive ordering (catch stragglers)
+// Payment Matrix — Round 102e: pass expectedTotal+totalPaid+sisa per peserta ke InvoicePanel
+// supaya InvoicePanel bisa auto-fill Pelunasan amount = sisa
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -37,7 +38,6 @@ export default function PaymentMatrix({
   const familyMap = {};
   for (const fg of familyGroups) familyMap[fg.id] = fg;
 
-  // Group passengers — defensive: stale family_group_id treated as ungrouped
   const byFamily = {};
   const ungrouped = [];
   for (const p of passengers) {
@@ -66,7 +66,6 @@ export default function PaymentMatrix({
     orderedPassengers.push(p);
     seen.add(p.id);
   }
-  // Stragglers — must never lose any participant
   for (const p of passengers) {
     if (!seen.has(p.id)) orderedPassengers.push(p);
   }
@@ -119,6 +118,19 @@ export default function PaymentMatrix({
     custom:          'text-purple-700 border-b-purple-300 bg-purple-50/40',
     template_custom: 'text-purple-700 border-b-purple-300 bg-purple-50/40',
   };
+
+  // Round 102e: Pre-compute expected+paid per pax untuk passing ke InvoicePanel (& family members)
+  const paxExpectedMap = {};
+  for (const p of passengers) {
+    const pays = paymentsByPassenger[p.id] || [];
+    const totalPaid = pays.reduce((s, x) => s + (x.amount || 0), 0);
+    const expectedTotal = expectedPerPassenger(p, breakdown, pays);
+    paxExpectedMap[p.id] = {
+      expectedTotal,
+      totalPaid,
+      sisa: Math.max(expectedTotal - totalPaid, 0),
+    };
+  }
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
@@ -316,6 +328,10 @@ export default function PaymentMatrix({
                             paidMilestones={pays.map((py) => py.type)}
                             familyGroup={fg}
                             familyMembers={familyMembers}
+                            expectedTotal={expectedTotal}
+                            totalPaidPerPax={totalPaid}
+                            sisaPerPax={remaining}
+                            paxExpectedMap={paxExpectedMap}
                           />
                         </div>
                       </td>
