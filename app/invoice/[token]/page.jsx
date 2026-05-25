@@ -1,5 +1,6 @@
-// Round 109: SAFE MODE — wrap everything in try/catch, log all errors visible
-// All non-critical sections fail gracefully so we can see what's actually breaking
+// Round 110: Invoice page — SELALU tampil Total Dibayar + Sisa Tagihan
+// Fix: roomTypeToKey smart mapping (Twin→double, dll)
+// Fix: section "Sudah Dibayar + Sisa" SELALU tampil walaupun breakdown kosong
 
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -12,9 +13,19 @@ function fmtDate(s) {
   try { return new Date(s).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }); }
   catch { return s; }
 }
-function roomTypeKey(rt) {
-  if (!rt) return '';
-  return String(rt).toLowerCase().replace(/[^a-z_]/g, '');
+
+// Smart mapping room_type → breakdown key (dari lib/utils/price-breakdown.js)
+function roomTypeToKey(roomType) {
+  if (!roomType) return null;
+  const t = String(roomType).toLowerCase().trim();
+  if (t.includes('quad')) return 'quad';
+  if (t.includes('triple')) return 'triple';
+  if (t.includes('double') || t.includes('twin')) return 'double';
+  if (t.includes('single')) return 'single';
+  if (t.includes('family')) return 'family';
+  if (t.includes('child')) return 'child_no_bed';
+  if (t.includes('infant')) return 'infant';
+  return null;
 }
 
 const STATUS_BADGE = {
@@ -25,123 +36,90 @@ const STATUS_BADGE = {
   cancelled: { label: 'Cancelled', color: 'bg-slate-100 text-slate-500' },
 };
 
-// Lazy dynamic imports for components yang mungkin missing
 async function loadClientComponents() {
   const result = { PaymentProofForm: null, PrintInvoiceButton: null, errors: [] };
   try {
     const mod = await import('@/components/invoice/PaymentProofForm');
     result.PaymentProofForm = mod.default;
-  } catch (e) {
-    result.errors.push(`PaymentProofForm: ${e.message}`);
-  }
+  } catch (e) { result.errors.push(`PaymentProofForm: ${e.message}`); }
   try {
     const mod = await import('@/components/invoice/PrintInvoiceButton');
     result.PrintInvoiceButton = mod.default;
-  } catch (e) {
-    result.errors.push(`PrintInvoiceButton: ${e.message}`);
-  }
+  } catch (e) { result.errors.push(`PrintInvoiceButton: ${e.message}`); }
   return result;
 }
 
 export default async function PublicInvoicePage({ params }) {
   const errors = [];
   let token = '';
-
-  // STEP 1: Get params (defensive — works for both Next 14 sync params & Next 15 async)
   try {
     const p = await Promise.resolve(params);
     token = p?.token || '';
-  } catch (e) {
-    errors.push(`params: ${e.message}`);
-  }
+  } catch (e) { errors.push(`params: ${e.message}`); }
 
-  if (!token) {
-    return <ErrorBox title="Token kosong" errors={['Tidak ada token di URL']} />;
-  }
+  if (!token) return <ErrorBox title="Token kosong" errors={['Tidak ada token di URL']} />;
 
-  // STEP 2: Init supabase
   let supabase;
-  try {
-    supabase = createClient();
-  } catch (e) {
-    return <ErrorBox title="Database client gagal init" errors={[e.message]} />;
-  }
+  try { supabase = createClient(); }
+  catch (e) { return <ErrorBox title="DB init gagal" errors={[e.message]} />; }
 
-  // STEP 3: Fetch invoice
+  // Fetch invoice
   let inv = null;
   try {
     const { data, error } = await supabase
-      .from('invoices')
-      .select('*')
-      .eq('public_token', token)
-      .maybeSingle();
-    if (error) errors.push(`invoice query: ${error.message}`);
+      .from('invoices').select('*').eq('public_token', token).maybeSingle();
+    if (error) errors.push(`invoice: ${error.message}`);
     inv = data;
-  } catch (e) {
-    errors.push(`invoice fetch: ${e.message}`);
-  }
+  } catch (e) { errors.push(`invoice fetch: ${e.message}`); }
 
-  if (!inv) {
-    return <ErrorBox title="Invoice tidak ditemukan" errors={[`Token: ${token}`, ...errors]} />;
-  }
+  if (!inv) return <ErrorBox title="Invoice tidak ditemukan" errors={[`Token: ${token}`, ...errors]} />;
 
-  // STEP 4: Fetch company settings (non-critical)
+  // Fetch company
   let company = {};
   try {
     const { data } = await supabase.from('company_settings').select('*').eq('id', 1).maybeSingle();
     company = data || {};
-  } catch (e) {
-    errors.push(`company: ${e.message}`);
-  }
+  } catch (e) { errors.push(`company: ${e.message}`); }
 
-  // STEP 5: Fetch payments untuk invoice ini
+  // Fetch payments untuk invoice ini
   let payments = [];
   try {
     const { data } = await supabase
       .from('invoice_payments').select('*')
       .eq('invoice_id', inv.id).order('created_at', { ascending: false });
     payments = data || [];
-  } catch (e) {
-    errors.push(`invoice_payments: ${e.message}`);
-  }
+  } catch (e) { errors.push(`invoice_payments: ${e.message}`); }
 
-  // STEP 6: Fetch trip (defensive — kalau column gak ada, skip)
+  // Fetch trip
   let trip = null;
   let breakdown = {};
   if (inv.trip_id) {
     try {
-      const { data } = await supabase.from('trips')
-        .select('*').eq('id', inv.trip_id).maybeSingle();
+      const { data } = await supabase.from('trips').select('*').eq('id', inv.trip_id).maybeSingle();
       trip = data;
       breakdown = (trip?.price_breakdown && typeof trip.price_breakdown === 'object') ? trip.price_breakdown : {};
-    } catch (e) {
-      errors.push(`trip: ${e.message}`);
-    }
+    } catch (e) { errors.push(`trip: ${e.message}`); }
   }
 
-  // STEP 7: Fetch passenger + participant payments (defensive)
+  // Fetch passenger + participant_payments
   let passenger = null;
   let participantPayments = [];
   if (inv.passenger_id) {
     try {
       const { data } = await supabase.from('trip_passengers')
-        .select('id, room_type, age_type').eq('id', inv.passenger_id).maybeSingle();
+        .select('id, name, room_type, age_type, price_paid').eq('id', inv.passenger_id).maybeSingle();
       passenger = data;
-    } catch (e) {
-      errors.push(`passenger: ${e.message}`);
-    }
+    } catch (e) { errors.push(`passenger: ${e.message}`); }
     try {
       const { data } = await supabase.from('participant_payments')
         .select('*').eq('passenger_id', inv.passenger_id);
       participantPayments = data || [];
-    } catch (e) {
-      errors.push(`participant_payments: ${e.message}`);
-    }
+    } catch (e) { errors.push(`participant_payments: ${e.message}`); }
   }
 
-  // STEP 8: Compute breakdown
-  const roomKey = roomTypeKey(passenger?.room_type);
-  const roomPrice = Number(breakdown[roomKey] || breakdown[passenger?.room_type] || 0);
+  // === COMPUTE BREAKDOWN (smart mapping) ===
+  const roomKey = roomTypeToKey(passenger?.room_type);
+  const roomPrice = Number((roomKey && breakdown[roomKey]) || 0);
   const tips = Number(breakdown.tips || 0);
   const cityTax = Number(breakdown.city_tax || breakdown.cityTax || 0);
   const visaPrice = Number(breakdown.visa || 0);
@@ -150,27 +128,34 @@ export default async function PublicInvoicePage({ params }) {
   const paidTypes = new Set(participantPayments.map((p) => p.type));
   const totalPaidReal = participantPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
 
+  // expectedTotalReal — kalau breakdown ada pakai itu, kalau gak ada fallback ke passenger.price_paid
   let expectedTotalReal = roomPrice + tips + cityTax;
   const optItems = [];
   if (paidTypes.has('Visa') && visaPrice > 0) { expectedTotalReal += visaPrice; optItems.push({ label: 'Visa', amount: visaPrice }); }
   if (paidTypes.has('Asuransi') && asuransiPrice > 0) { expectedTotalReal += asuransiPrice; optItems.push({ label: 'Asuransi', amount: asuransiPrice }); }
 
+  // FALLBACK: kalau breakdown empty (0), pakai price_paid passenger
+  if (expectedTotalReal === 0 && passenger?.price_paid) {
+    expectedTotalReal = Number(passenger.price_paid);
+  }
+
   const sisaReal = Math.max(expectedTotalReal - totalPaidReal, 0);
   const isLunas = expectedTotalReal > 0 && sisaReal === 0;
 
+  // Tour breakdown items
   const tourItems = [];
   if (roomPrice > 0) tourItems.push({ label: `Paket Tour (${passenger?.room_type || 'Room'})`, amount: roomPrice });
   if (tips > 0) tourItems.push({ label: 'Tips', amount: tips });
   if (cityTax > 0) tourItems.push({ label: 'City Tax', amount: cityTax });
   for (const opt of optItems) tourItems.push({ label: opt.label, amount: opt.amount, detail: 'opt-in' });
 
+  // Sisa untuk invoice ini
   const totalPaidThisInvoice = (payments || [])
     .filter((p) => p.status === 'verified')
     .reduce((s, p) => s + Number(p.amount || 0), 0);
-  const sisaInvoice = Math.max(Number(inv.amount) - totalPaidThisInvoice, 0);
+  const sisaInvoice = Math.max(Number(inv.amount || 0) - totalPaidThisInvoice, 0);
   const status = STATUS_BADGE[inv.status] || STATUS_BADGE.sent;
 
-  // STEP 9: Load client components (dynamic, optional)
   const { PaymentProofForm, PrintInvoiceButton, errors: clientErrors } = await loadClientComponents();
   errors.push(...clientErrors);
 
@@ -185,10 +170,9 @@ export default async function PublicInvoicePage({ params }) {
         }
       `}} />
 
-      {/* SAFE MODE: tampilin error kalau ada */}
       {errors.length > 0 && (
         <div className="max-w-2xl mx-auto mb-4 bg-amber-50 border border-amber-300 rounded-lg p-4 no-print">
-          <p className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-2">⚠ Warnings (page tetap jalan, ini debug info)</p>
+          <p className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-2">⚠ Warnings (debug)</p>
           <ul className="text-xs text-amber-900 space-y-1 ml-4 list-disc">
             {errors.map((e, i) => <li key={i} className="font-mono">{e}</li>)}
           </ul>
@@ -224,9 +208,10 @@ export default async function PublicInvoicePage({ params }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Ditagih Kepada</p>
-              <p className="font-bold text-slate-800">{inv.customer_name || '—'}</p>
+              <p className="font-bold text-slate-800">{inv.customer_name || passenger?.name || '—'}</p>
               {inv.customer_phone && <p className="text-xs text-slate-600">📞 {inv.customer_phone}</p>}
               {inv.customer_email && <p className="text-xs text-slate-600">✉ {inv.customer_email}</p>}
+              {passenger?.room_type && <p className="text-xs text-slate-600 mt-1">🛏 {passenger.room_type}</p>}
             </div>
             <div className="text-right">
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Trip</p>
@@ -246,8 +231,8 @@ export default async function PublicInvoicePage({ params }) {
           </div>
         </div>
 
-        {/* ROUND 106: BREAKDOWN PAKET TOUR */}
-        {tourItems.length > 0 && inv.status !== 'paid' && (
+        {/* BREAKDOWN PAKET TOUR (kalau ada breakdown) */}
+        {tourItems.length > 0 && (
           <div className="p-6 border-b border-slate-200 bg-blue-50/30">
             <p className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-3">📋 Breakdown Paket Tour</p>
             <table className="w-full">
@@ -295,61 +280,59 @@ export default async function PublicInvoicePage({ params }) {
             </tbody>
             <tfoot className="bg-slate-50">
               <tr>
-                <td className="px-3 py-3 text-right font-bold text-slate-700">TOTAL TAGIHAN</td>
+                <td className="px-3 py-3 text-right font-bold text-slate-700">TOTAL TAGIHAN INVOICE INI</td>
                 <td className="px-3 py-3 text-right font-bold text-2xl text-brand-700">{fmtRupiah(inv.amount)}</td>
               </tr>
-              {totalPaidThisInvoice > 0 && totalPaidThisInvoice < Number(inv.amount) && (
-                <>
-                  <tr>
-                    <td className="px-3 py-1 text-right text-sm text-green-700">Sudah Dibayar untuk invoice ini</td>
-                    <td className="px-3 py-1 text-right text-sm font-bold text-green-700">{fmtRupiah(totalPaidThisInvoice)}</td>
-                  </tr>
-                  <tr>
-                    <td className="px-3 py-1 text-right text-sm font-bold text-slate-700">Sisa invoice ini</td>
-                    <td className="px-3 py-1 text-right text-sm font-bold text-amber-700">{fmtRupiah(sisaInvoice)}</td>
-                  </tr>
-                </>
-              )}
             </tfoot>
           </table>
         </div>
 
-        {/* ROUND 106: REAL SISA PEMBAYARAN OVERVIEW */}
-        {expectedTotalReal > 0 && (
-          <div className={`p-6 border-t border-b ${isLunas ? 'bg-green-50/40 border-green-200' : 'bg-amber-50/40 border-amber-200'}`}>
-            <p className={`text-xs font-bold uppercase tracking-wider mb-3 ${isLunas ? 'text-green-800' : 'text-amber-800'}`}>
-              📊 Ringkasan Total Pembayaran Trip
-            </p>
-            <div className="space-y-1.5 text-sm">
+        {/* ============================================== */}
+        {/* SELALU TAMPIL: Total Dibayar + Sisa Tagihan    */}
+        {/* ============================================== */}
+        <div className={`p-6 border-t-2 border-b-2 ${isLunas ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-300'}`}>
+          <p className={`text-xs font-bold uppercase tracking-wider mb-3 ${isLunas ? 'text-green-800' : 'text-amber-800'}`}>
+            📊 Ringkasan Pembayaran Trip
+          </p>
+          <div className="space-y-2 text-sm">
+            {expectedTotalReal > 0 && (
               <div className="flex justify-between">
                 <span className="text-slate-700">Total Tagihan Trip:</span>
                 <span className="font-bold text-slate-800">{fmtRupiah(expectedTotalReal)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-green-700">Sudah Dibayar:</span>
-                <span className="font-bold text-green-700">{fmtRupiah(totalPaidReal)}</span>
-              </div>
-              {participantPayments.length > 0 && (
-                <div className="ml-3 text-xs text-slate-600 space-y-0.5">
-                  {participantPayments.map((p, i) => (
-                    <div key={i} className="flex justify-between">
-                      <span>✓ {p.type}{p.paid_at ? ` · ${fmtDate(p.paid_at)}` : ''}</span>
-                      <span>{fmtRupiah(p.amount)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className={`flex justify-between pt-2 border-t-2 ${isLunas ? 'border-green-300' : 'border-amber-300'}`}>
-                <span className={`font-bold ${isLunas ? 'text-green-800' : 'text-amber-800'}`}>
-                  {isLunas ? '🎉 LUNAS' : 'Sisa Pembayaran:'}
-                </span>
-                <span className={`font-bold text-xl ${isLunas ? 'text-green-700' : 'text-amber-700'}`}>
-                  {isLunas ? '✓' : fmtRupiah(sisaReal)}
-                </span>
-              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-green-700 font-semibold">✅ Sudah Dibayar:</span>
+              <span className="font-bold text-green-700 text-lg">{fmtRupiah(totalPaidReal)}</span>
             </div>
+            {participantPayments.length > 0 && (
+              <div className="ml-3 text-xs text-slate-600 space-y-0.5 bg-white/50 rounded p-2">
+                {participantPayments.map((p, i) => (
+                  <div key={i} className="flex justify-between">
+                    <span>✓ {p.type}{p.paid_at ? ` · ${fmtDate(p.paid_at)}` : ''}</span>
+                    <span className="font-semibold">{fmtRupiah(p.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {participantPayments.length === 0 && (
+              <p className="ml-3 text-xs italic text-slate-500">Belum ada pembayaran tercatat</p>
+            )}
+            <div className={`flex justify-between pt-3 mt-2 border-t-2 ${isLunas ? 'border-green-400' : 'border-amber-400'}`}>
+              <span className={`font-bold text-base ${isLunas ? 'text-green-800' : 'text-amber-800'}`}>
+                {isLunas ? '🎉 LUNAS' : '⚠ Sisa Pembayaran:'}
+              </span>
+              <span className={`font-bold text-2xl ${isLunas ? 'text-green-700' : 'text-amber-700'}`}>
+                {isLunas ? '✓' : fmtRupiah(sisaReal)}
+              </span>
+            </div>
+            {expectedTotalReal === 0 && (
+              <p className="text-[11px] italic text-amber-700 mt-1">
+                ⓘ Total tagihan trip belum di-set di sistem (price_breakdown / price_paid kosong)
+              </p>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Bank Info */}
         {!isLunas && (company.bank_account_no || company.bank_name) && (
@@ -367,7 +350,7 @@ export default async function PublicInvoicePage({ params }) {
           </div>
         )}
 
-        {/* Action Buttons — render only if component loaded */}
+        {/* Action Buttons */}
         {PrintInvoiceButton && (
           <div className="px-6 pb-4 no-print">
             <div className="flex gap-2 flex-wrap">
@@ -376,7 +359,7 @@ export default async function PublicInvoicePage({ params }) {
           </div>
         )}
 
-        {/* Payment Proof Form — render only if component loaded */}
+        {/* Payment Proof Form */}
         {PaymentProofForm && !isLunas && inv.status !== 'paid' && (
           <div className="px-6 pb-6 no-print">
             <PaymentProofForm token={inv.public_token} expectedAmount={sisaInvoice || inv.amount} />
