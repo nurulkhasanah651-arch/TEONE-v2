@@ -1,10 +1,22 @@
-// Round 99: Invoices page + NOTIF banner pending payment + group by trip + link Master Trip
+// Round 102b: Invoices page + DP Approval Panel (paling atas)
+// Plus existing Round 99: NOTIF banner pending payment + group by trip
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { fmtRupiah } from '@/lib/utils/format';
+import DPApprovalPanel from '@/components/accounting/DPApprovalPanel';
 
 export const dynamic = 'force-dynamic';
+
+function getServiceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createServiceClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
 
 const STATUS_BADGE = {
   draft:     { label: 'Draft',         color: 'bg-slate-100 text-slate-700' },
@@ -29,19 +41,25 @@ function fmtDateTime(s) {
 
 export default async function InvoicesPage() {
   const supabase = createClient();
+  const serviceClient = getServiceClient() || supabase;
 
-  const [invoicesRes, tripsRes, passengersRes, customersRes, pendingPaymentsRes] = await Promise.all([
+  const [invoicesRes, tripsRes, passengersRes, customersRes, pendingPaymentsRes, dpRequestsRes] = await Promise.all([
     supabase.from('invoices').select('*').order('created_at', { ascending: false }).limit(500),
     supabase.from('trips').select('id, kode_trip, name, departure, status'),
     supabase.from('trip_passengers').select('id, trip_id, customer_id'),
     supabase.from('customers').select('id, name'),
-    // Round 99: Pending payments (perlu approve)
     supabase
       .from('invoice_payments')
       .select('*, invoices(id, invoice_no, milestone, trip_id, customer_name, trip_kode)')
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
       .limit(50),
+    // Round 102b: DP payment requests via service role (bypass RLS)
+    serviceClient
+      .from('dp_payment_requests')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200),
   ]);
 
   const allInvoices = invoicesRes.data || [];
@@ -49,11 +67,13 @@ export default async function InvoicesPage() {
   const allPassengers = passengersRes.data || [];
   const customers = customersRes.data || [];
   const pendingPayments = pendingPaymentsRes.data || [];
+  const dpRequests = dpRequestsRes.data || [];
+
+  const pendingDPCount = dpRequests.filter((r) => r.status === 'pending').length;
 
   const tripMap = Object.fromEntries(trips.map((t) => [t.id, t]));
   const custMap = Object.fromEntries(customers.map((c) => [c.id, c]));
 
-  // Group invoices by trip_id
   const byTrip = {};
   for (const t of trips) {
     const peserta = allPassengers.filter((p) => p.trip_id === t.id);
@@ -117,7 +137,19 @@ export default async function InvoicesPage() {
         </Link>
       </div>
 
-      {/* ROUND 99 — NOTIF BANNER pending payment */}
+      {/* Round 102b: DP Approval Banner notif kalau ada pending */}
+      {pendingDPCount > 0 && (
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-3 rounded">
+          <p className="text-sm font-bold text-blue-900">
+            💵 {pendingDPCount} DP Payment dari CS menunggu approve — scroll ke section di bawah
+          </p>
+        </div>
+      )}
+
+      {/* Round 102b: DP Approval Panel — dari CS Daily input */}
+      <DPApprovalPanel requests={dpRequests} />
+
+      {/* ROUND 99 — NOTIF BANNER pending payment (peserta upload bukti dari public invoice page) */}
       {pendingPayments.length > 0 && (
         <div className="bg-amber-50 border-2 border-amber-300 rounded-xl shadow-card overflow-hidden">
           <div className="px-5 py-3 bg-amber-100 border-b border-amber-300 flex items-center justify-between flex-wrap gap-2">
@@ -128,7 +160,7 @@ export default async function InvoicesPage() {
                   {pendingPayments.length} Bukti Pembayaran Menunggu Verifikasi
                 </h3>
                 <p className="text-xs text-amber-700">
-                  Peserta sudah upload bukti transfer. Klik untuk approve.
+                  Peserta sudah upload bukti transfer dari invoice page. Klik untuk approve.
                 </p>
               </div>
             </div>
