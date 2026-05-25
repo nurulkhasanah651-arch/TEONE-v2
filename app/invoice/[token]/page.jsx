@@ -1,572 +1,446 @@
-'use server';
+// Round 109: SAFE MODE — wrap everything in try/catch, log all errors visible
+// All non-critical sections fail gracefully so we can see what's actually breaking
 
-// Round 106: WA template lebih jelas — emphasis "Sisa Pembayaran Kamu: Rp X"
-// + Buildwa message pakai expected dari breakdown (Round 102e fix included)
-
-import { revalidatePath } from 'next/cache';
+import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
-function genToken() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let t = '';
-  for (let i = 0; i < 32; i++) t += chars[Math.floor(Math.random() * chars.length)];
-  return t;
-}
+export const dynamic = 'force-dynamic';
 
 function fmtRupiah(n) { return 'Rp ' + (Number(n) || 0).toLocaleString('id-ID'); }
-
-function normalizePhone(phone) {
-  if (!phone) return '';
-  let p = String(phone).replace(/[^0-9]/g, '');
-  if (p.startsWith('0')) p = '62' + p.substring(1);
-  if (p.startsWith('8')) p = '62' + p;
-  return p;
+function fmtDate(s) {
+  if (!s) return '—';
+  try { return new Date(s).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }); }
+  catch { return s; }
+}
+function roomTypeKey(rt) {
+  if (!rt) return '';
+  return String(rt).toLowerCase().replace(/[^a-z_]/g, '');
 }
 
-async function sendFonnte(phone, message) {
-  const token = process.env.FONNTE_TOKEN;
-  if (!token) return { error: 'FONNTE_TOKEN belum di-set' };
+const STATUS_BADGE = {
+  draft: { label: 'Draft', color: 'bg-slate-200 text-slate-700' },
+  sent: { label: 'Belum Dibayar', color: 'bg-amber-100 text-amber-800' },
+  paid: { label: '✅ LUNAS', color: 'bg-green-100 text-green-800' },
+  overdue: { label: '⚠ Overdue', color: 'bg-red-100 text-red-800' },
+  cancelled: { label: 'Cancelled', color: 'bg-slate-100 text-slate-500' },
+};
+
+// Lazy dynamic imports for components yang mungkin missing
+async function loadClientComponents() {
+  const result = { PaymentProofForm: null, PrintInvoiceButton: null, errors: [] };
   try {
-    const res = await fetch('https://api.fonnte.com/send', {
-      method: 'POST',
-      headers: { 'Authorization': token, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ target: phone, message, countryCode: '62' }),
-    });
-    const data = await res.json();
-    if (!res.ok || data.status === false) {
-      return { error: 'Fonnte error: ' + (data.reason || data.message || 'unknown') };
-    }
-    return { ok: true };
+    const mod = await import('@/components/invoice/PaymentProofForm');
+    result.PaymentProofForm = mod.default;
   } catch (e) {
-    return { error: 'Network error: ' + (e?.message || 'unknown') };
+    result.errors.push(`PaymentProofForm: ${e.message}`);
   }
+  try {
+    const mod = await import('@/components/invoice/PrintInvoiceButton');
+    result.PrintInvoiceButton = mod.default;
+  } catch (e) {
+    result.errors.push(`PrintInvoiceButton: ${e.message}`);
+  }
+  return result;
 }
 
-function revalidateAll(tripId) {
-  revalidatePath('/invoices');
-  revalidatePath('/finance');
-  revalidatePath('/finance/payments');
-  revalidatePath('/finance/cashflow');
-  revalidatePath('/accounting');
-  revalidatePath('/dashboard');
-  if (tripId) {
-    revalidatePath(`/finance/payments/${tripId}`);
-    revalidatePath(`/finance/cashflow/${tripId}`);
-    revalidatePath(`/trips/${tripId}`);
+export default async function PublicInvoicePage({ params }) {
+  const errors = [];
+  let token = '';
+
+  // STEP 1: Get params (defensive — works for both Next 14 sync params & Next 15 async)
+  try {
+    const p = await Promise.resolve(params);
+    token = p?.token || '';
+  } catch (e) {
+    errors.push(`params: ${e.message}`);
   }
-}
 
-export async function getExpectedAndPaidForPassenger(supabase, trip_id, passenger_id) {
-  const [tripRes, paxRes, paysRes] = await Promise.all([
-    supabase.from('trips').select('price_breakdown, payment_template').eq('id', trip_id).maybeSingle(),
-    supabase.from('trip_passengers').select('room_type, age_type').eq('id', passenger_id).maybeSingle(),
-    supabase.from('participant_payments').select('type, amount').eq('passenger_id', passenger_id),
-  ]);
+  if (!token) {
+    return <ErrorBox title="Token kosong" errors={['Tidak ada token di URL']} />;
+  }
 
-  const breakdown = (tripRes.data?.price_breakdown && typeof tripRes.data.price_breakdown === 'object') ? tripRes.data.price_breakdown : {};
-  const template = (tripRes.data?.payment_template && typeof tripRes.data.payment_template === 'object') ? tripRes.data.payment_template : {};
-  const roomType = paxRes.data?.room_type || '';
-  const pays = paysRes.data || [];
-  const paidTypes = new Set(pays.map((p) => p.type));
+  // STEP 2: Init supabase
+  let supabase;
+  try {
+    supabase = createClient();
+  } catch (e) {
+    return <ErrorBox title="Database client gagal init" errors={[e.message]} />;
+  }
 
-  const totalPaid = pays.reduce((s, p) => s + Number(p.amount || 0), 0);
+  // STEP 3: Fetch invoice
+  let inv = null;
+  try {
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('public_token', token)
+      .maybeSingle();
+    if (error) errors.push(`invoice query: ${error.message}`);
+    inv = data;
+  } catch (e) {
+    errors.push(`invoice fetch: ${e.message}`);
+  }
 
-  const roomKey = String(roomType).toLowerCase().replace(/[^a-z_]/g, '');
-  const roomPrice = Number(
-    breakdown[roomKey] || breakdown[roomType] || breakdown[roomType?.toLowerCase()] || 0
-  );
-  const tips = Number(breakdown.tips || breakdown.Tips || 0);
-  const cityTax = Number(breakdown.city_tax || breakdown.cityTax || breakdown.CityTax || 0);
+  if (!inv) {
+    return <ErrorBox title="Invoice tidak ditemukan" errors={[`Token: ${token}`, ...errors]} />;
+  }
 
-  const mainExpected = roomPrice + tips + cityTax;
+  // STEP 4: Fetch company settings (non-critical)
+  let company = {};
+  try {
+    const { data } = await supabase.from('company_settings').select('*').eq('id', 1).maybeSingle();
+    company = data || {};
+  } catch (e) {
+    errors.push(`company: ${e.message}`);
+  }
 
-  let optExpected = 0;
-  if (paidTypes.has('Visa')) optExpected += Number(breakdown.visa || 0);
-  if (paidTypes.has('Asuransi')) optExpected += Number(breakdown.asuransi || 0);
+  // STEP 5: Fetch payments untuk invoice ini
+  let payments = [];
+  try {
+    const { data } = await supabase
+      .from('invoice_payments').select('*')
+      .eq('invoice_id', inv.id).order('created_at', { ascending: false });
+    payments = data || [];
+  } catch (e) {
+    errors.push(`invoice_payments: ${e.message}`);
+  }
 
-  const expectedTotal = mainExpected + optExpected;
-  const sisa = Math.max(expectedTotal - totalPaid, 0);
-
-  const milestones = ['DP', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'Pelunasan'];
-  let nextMilestone = null;
-  for (const m of milestones) {
-    if (!paidTypes.has(m) && Number(template[m]) > 0) {
-      nextMilestone = { type: m, amount: Number(template[m]) };
-      break;
+  // STEP 6: Fetch trip (defensive — kalau column gak ada, skip)
+  let trip = null;
+  let breakdown = {};
+  if (inv.trip_id) {
+    try {
+      const { data } = await supabase.from('trips')
+        .select('*').eq('id', inv.trip_id).maybeSingle();
+      trip = data;
+      breakdown = (trip?.price_breakdown && typeof trip.price_breakdown === 'object') ? trip.price_breakdown : {};
+    } catch (e) {
+      errors.push(`trip: ${e.message}`);
     }
   }
-  if (!nextMilestone && sisa > 0) {
-    nextMilestone = { type: 'Pelunasan', amount: sisa };
-  }
 
-  return { expectedTotal, totalPaid, sisa, mainExpected, optExpected, nextMilestone, roomPrice, tips, cityTax, roomType };
-}
-
-async function syncInvoiceToMatrix(supabase, inv, paidAmount) {
-  if (!inv?.milestone) return;
-  const totalAmount = Number(paidAmount || inv.amount) || 0;
-  if (totalAmount <= 0) return;
-
-  let pesertaIds = [];
-  if (inv.is_family_invoice && Array.isArray(inv.covers_passenger_ids) && inv.covers_passenger_ids.length > 0) {
-    pesertaIds = inv.covers_passenger_ids;
-  } else if (inv.passenger_id) {
-    pesertaIds = [inv.passenger_id];
-  } else {
-    return;
-  }
-
-  const perPaxMap = (inv.passenger_amounts && typeof inv.passenger_amounts === 'object') ? inv.passenger_amounts : {};
-  const hasCustomPerPax = Object.keys(perPaxMap).length > 0;
-
-  const noteText = inv.is_family_invoice
-    ? `Synced dari Family Invoice ${inv.invoice_no} (cover ${pesertaIds.length} peserta, total Rp ${totalAmount.toLocaleString('id-ID')})`
-    : `Synced dari Invoice ${inv.invoice_no}`;
-
-  for (const pid of pesertaIds) {
-    let amountPerPax;
-    if (hasCustomPerPax) {
-      const v = perPaxMap[String(pid)] ?? perPaxMap[pid];
-      amountPerPax = Number(v) || 0;
-    } else {
-      amountPerPax = pesertaIds.length > 1 ? Math.round(totalAmount / pesertaIds.length) : totalAmount;
+  // STEP 7: Fetch passenger + participant payments (defensive)
+  let passenger = null;
+  let participantPayments = [];
+  if (inv.passenger_id) {
+    try {
+      const { data } = await supabase.from('trip_passengers')
+        .select('id, room_type, age_type').eq('id', inv.passenger_id).maybeSingle();
+      passenger = data;
+    } catch (e) {
+      errors.push(`passenger: ${e.message}`);
     }
-    if (amountPerPax <= 0) continue;
-
-    const { data: existing } = await supabase
-      .from('participant_payments').select('id, amount')
-      .eq('passenger_id', pid).eq('type', inv.milestone).maybeSingle();
-
-    if (existing) {
-      if (Number(existing.amount) !== amountPerPax) {
-        await supabase.from('participant_payments').update({ amount: amountPerPax, notes: noteText }).eq('id', existing.id);
-      }
-    } else {
-      await supabase.from('participant_payments').insert({
-        passenger_id: pid, type: inv.milestone, amount: amountPerPax,
-        paid_at: new Date().toISOString(), notes: noteText,
-      });
+    try {
+      const { data } = await supabase.from('participant_payments')
+        .select('*').eq('passenger_id', inv.passenger_id);
+      participantPayments = data || [];
+    } catch (e) {
+      errors.push(`participant_payments: ${e.message}`);
     }
   }
-}
 
-async function generateInvoiceNo(supabase, tripId) {
-  const { data: trip } = await supabase.from('trips').select('kode_trip, id').eq('id', tripId).maybeSingle();
-  const kode = (trip?.kode_trip || tripId).replace(/[^A-Z0-9]/gi, '').toUpperCase();
-  const { count } = await supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('trip_id', tripId);
-  const seq = String((count || 0) + 1).padStart(3, '0');
-  return `TEONE-${kode}-${seq}`;
-}
+  // STEP 8: Compute breakdown
+  const roomKey = roomTypeKey(passenger?.room_type);
+  const roomPrice = Number(breakdown[roomKey] || breakdown[passenger?.room_type] || 0);
+  const tips = Number(breakdown.tips || 0);
+  const cityTax = Number(breakdown.city_tax || breakdown.cityTax || 0);
+  const visaPrice = Number(breakdown.visa || 0);
+  const asuransiPrice = Number(breakdown.asuransi || 0);
 
-export async function createInvoice(params) {
-  const {
-    trip_id, passenger_id, customer_id, milestone, amount, due_date, description,
-    family_group_id = null, covers_passenger_ids = null, is_family_invoice = false,
-    passenger_amounts = null,
-  } = params;
+  const paidTypes = new Set(participantPayments.map((p) => p.type));
+  const totalPaidReal = participantPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
 
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-  if (!trip_id || !milestone || !amount) return { error: 'trip_id, milestone, amount wajib' };
+  let expectedTotalReal = roomPrice + tips + cityTax;
+  const optItems = [];
+  if (paidTypes.has('Visa') && visaPrice > 0) { expectedTotalReal += visaPrice; optItems.push({ label: 'Visa', amount: visaPrice }); }
+  if (paidTypes.has('Asuransi') && asuransiPrice > 0) { expectedTotalReal += asuransiPrice; optItems.push({ label: 'Asuransi', amount: asuransiPrice }); }
 
-  const [tripRes, custRes] = await Promise.all([
-    supabase.from('trips').select('name, kode_trip').eq('id', trip_id).maybeSingle(),
-    customer_id ? supabase.from('customers').select('name, phone, email').eq('id', customer_id).maybeSingle() : Promise.resolve({ data: null }),
-  ]);
+  const sisaReal = Math.max(expectedTotalReal - totalPaidReal, 0);
+  const isLunas = expectedTotalReal > 0 && sisaReal === 0;
 
-  const trip = tripRes.data; const cust = custRes.data;
-  const invoice_no = await generateInvoiceNo(supabase, trip_id);
-  const token = genToken();
+  const tourItems = [];
+  if (roomPrice > 0) tourItems.push({ label: `Paket Tour (${passenger?.room_type || 'Room'})`, amount: roomPrice });
+  if (tips > 0) tourItems.push({ label: 'Tips', amount: tips });
+  if (cityTax > 0) tourItems.push({ label: 'City Tax', amount: cityTax });
+  for (const opt of optItems) tourItems.push({ label: opt.label, amount: opt.amount, detail: 'opt-in' });
 
-  const payload = {
-    invoice_no, trip_id,
-    passenger_id: passenger_id || null,
-    customer_id: customer_id || null,
-    milestone, amount: Number(amount) || 0,
-    due_date: due_date || null, status: 'draft',
-    description: description || `${milestone} — ${trip?.name || trip_id}`,
-    public_token: token,
-    created_by: user.user_metadata?.full_name || user.email || 'unknown',
-    customer_name: cust?.name || null, customer_phone: cust?.phone || null,
-    customer_email: cust?.email || null,
-    trip_name: trip?.name || null, trip_kode: trip?.kode_trip || null,
-    family_group_id: family_group_id || null,
-    covers_passenger_ids: is_family_invoice && Array.isArray(covers_passenger_ids) ? covers_passenger_ids : [],
-    is_family_invoice: !!is_family_invoice,
-    passenger_amounts: passenger_amounts && typeof passenger_amounts === 'object' ? passenger_amounts : {},
-  };
+  const totalPaidThisInvoice = (payments || [])
+    .filter((p) => p.status === 'verified')
+    .reduce((s, p) => s + Number(p.amount || 0), 0);
+  const sisaInvoice = Math.max(Number(inv.amount) - totalPaidThisInvoice, 0);
+  const status = STATUS_BADGE[inv.status] || STATUS_BADGE.sent;
 
-  let { data, error } = await supabase.from('invoices').insert(payload).select('id, invoice_no, public_token').single();
+  // STEP 9: Load client components (dynamic, optional)
+  const { PaymentProofForm, PrintInvoiceButton, errors: clientErrors } = await loadClientComponents();
+  errors.push(...clientErrors);
 
-  if (error && /family_group_id|covers_passenger_ids|is_family_invoice|passenger_amounts/.test(error.message)) {
-    const stripped = { ...payload };
-    delete stripped.family_group_id;
-    delete stripped.covers_passenger_ids;
-    delete stripped.is_family_invoice;
-    delete stripped.passenger_amounts;
-    const retry = await supabase.from('invoices').insert(stripped).select('id, invoice_no, public_token').single();
-    data = retry.data; error = retry.error;
-  }
-
-  if (error) return { error: error.message };
-
-  revalidateAll(trip_id);
-  return { ok: true, invoice_id: data.id, invoice_no: data.invoice_no, token: data.public_token };
-}
-
-// ============================================================
-// ROUND 106: WA template — Sisa Pembayaran lebih JELAS + BOLD
-// ============================================================
-async function buildWAMessage(supabase, inv) {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://teone.dev';
-  const invoiceLink = `${baseUrl}/invoice/${inv.public_token}`;
-  const { data: company } = await supabase.from('company_settings').select('*').eq('id', 1).maybeSingle();
-  const companyName = company?.company_name || 'Traveling Eropa';
-  const familyTag = inv.is_family_invoice && Array.isArray(inv.covers_passenger_ids)
-    ? ` (${inv.covers_passenger_ids.length} pax)` : '';
-
-  // Family breakdown per pax
-  let breakdownText = '';
-  if (inv.is_family_invoice && inv.passenger_amounts && typeof inv.passenger_amounts === 'object' && Object.keys(inv.passenger_amounts).length > 0) {
-    const pids = Object.keys(inv.passenger_amounts);
-    const { data: pax } = await supabase.from('trip_passengers').select('id, customer_id').in('id', pids.map(Number));
-    const customerIds = (pax || []).map((p) => p.customer_id).filter(Boolean);
-    const { data: custs } = await supabase.from('customers').select('id, name').in('id', customerIds);
-    const custMap = Object.fromEntries((custs || []).map((c) => [c.id, c.name]));
-    const paxMap = Object.fromEntries((pax || []).map((p) => [p.id, custMap[p.customer_id] || `#${p.id}`]));
-    const lines = pids.map((pid) => {
-      const name = paxMap[Number(pid)] || `#${pid}`;
-      const amt = Number(inv.passenger_amounts[pid]) || 0;
-      return `• ${name}: ${fmtRupiah(amt)}`;
-    });
-    if (lines.length > 0) breakdownText = '\n\n📋 Breakdown per peserta:\n' + lines.join('\n');
-  }
-
-  if (inv.status === 'paid') {
-    // RECEIPT MODE — Round 106: Sisa Pembayaran ditebal + jelas
-    let summarySection = '';
-    let nextSection = '';
-    if (inv.trip_id && inv.passenger_id) {
-      const { expectedTotal, totalPaid, sisa, nextMilestone, roomPrice, tips, cityTax, roomType } = await getExpectedAndPaidForPassenger(supabase, inv.trip_id, inv.passenger_id);
-
-      if (expectedTotal > 0) {
-        summarySection = `
-
-━━━━━━━━━━━━━━━━━━━━━━
-📊 *RINGKASAN PEMBAYARAN ANDA*
-━━━━━━━━━━━━━━━━━━━━━━
-
-💼 Paket Tour${roomType ? ` (${roomType})` : ''}: ${fmtRupiah(roomPrice)}
-${tips > 0 ? `🍽 Tips: ${fmtRupiah(tips)}\n` : ''}${cityTax > 0 ? `🏛 City Tax: ${fmtRupiah(cityTax)}\n` : ''}
-💰 Total Tagihan: *${fmtRupiah(expectedTotal)}*
-✅ Sudah Dibayar: *${fmtRupiah(totalPaid)}*`;
-
-        if (sisa === 0) {
-          summarySection += `
-
-🎉 *PEMBAYARAN LUNAS!* 🎉
-Semua tagihan trip ini sudah selesai. Terima kasih!`;
-        } else {
-          summarySection += `
-
-⚠ *SISA PEMBAYARAN KAMU:*
-🟡 *${fmtRupiah(sisa)}*`;
-
-          if (nextMilestone) {
-            nextSection = `
-
-📅 *Payment Selanjutnya:*
-${nextMilestone.type}: ${fmtRupiah(nextMilestone.amount)}`;
-          }
+  return (
+    <div className="min-h-screen bg-slate-100 py-8 px-4">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          body { background: white !important; }
+          .no-print { display: none !important; }
+          .invoice-card { box-shadow: none !important; border: none !important; }
+          .min-h-screen { min-height: auto !important; padding: 0 !important; }
         }
-      }
-    }
+      `}} />
 
-    return `Halo ${inv.customer_name || 'Bapak/Ibu'},
+      {/* SAFE MODE: tampilin error kalau ada */}
+      {errors.length > 0 && (
+        <div className="max-w-2xl mx-auto mb-4 bg-amber-50 border border-amber-300 rounded-lg p-4 no-print">
+          <p className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-2">⚠ Warnings (page tetap jalan, ini debug info)</p>
+          <ul className="text-xs text-amber-900 space-y-1 ml-4 list-disc">
+            {errors.map((e, i) => <li key={i} className="font-mono">{e}</li>)}
+          </ul>
+        </div>
+      )}
 
-✅ *Pembayaran Sudah Diterima*
+      <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden invoice-card">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-brand-600 to-brand-800 text-white p-6">
+          <div className="flex items-start justify-between flex-wrap gap-3">
+            <div>
+              {company.company_logo_url && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={company.company_logo_url} alt={company.company_name || 'Logo'} className="h-12 mb-2 bg-white rounded p-1" />
+              )}
+              <h1 className="text-2xl font-bold">{company.company_name || 'Traveling Eropa'}</h1>
+              {company.company_address && <p className="text-xs mt-1 opacity-90 whitespace-pre-line">{company.company_address}</p>}
+              {company.company_phone && <p className="text-xs opacity-90">📞 {company.company_phone}</p>}
+              {company.company_email && <p className="text-xs opacity-90">✉ {company.company_email}</p>}
+            </div>
+            <div className="text-right">
+              <p className="text-xs opacity-90">INVOICE</p>
+              <p className="text-xl font-bold font-mono">{inv.invoice_no || '—'}</p>
+              <span className={`mt-2 inline-block text-xs font-bold px-3 py-1 rounded-full ${status.color}`}>
+                {status.label}
+              </span>
+            </div>
+          </div>
+        </div>
 
-Trip: ${inv.trip_name}${inv.trip_kode ? ` (${inv.trip_kode})` : ''}
-Receipt: *${inv.invoice_no}*
-${inv.milestone}${familyTag}: *${fmtRupiah(inv.amount)}*
-Tanggal: ${inv.paid_at ? new Date(inv.paid_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '—'}${breakdownText}${summarySection}${nextSection}
+        {/* Customer & Trip Info */}
+        <div className="p-6 border-b border-slate-200">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Ditagih Kepada</p>
+              <p className="font-bold text-slate-800">{inv.customer_name || '—'}</p>
+              {inv.customer_phone && <p className="text-xs text-slate-600">📞 {inv.customer_phone}</p>}
+              {inv.customer_email && <p className="text-xs text-slate-600">✉ {inv.customer_email}</p>}
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Trip</p>
+              <p className="font-bold text-slate-800">{inv.trip_name || trip?.name || inv.trip_id || '—'}</p>
+              {(inv.trip_kode || trip?.kode_trip) && <p className="text-xs text-slate-600 font-mono">{inv.trip_kode || trip?.kode_trip}</p>}
+              {trip?.destination && <p className="text-xs text-slate-600 mt-0.5">{trip.destination}</p>}
+              {trip?.departure && (
+                <p className="text-xs text-slate-600 mt-0.5">
+                  ✈ {fmtDate(trip.departure)}{trip.arrival ? ` → ${fmtDate(trip.arrival)}` : ''}
+                </p>
+              )}
+              {inv.due_date && <p className="text-xs text-slate-600 mt-1">Due: <span className="font-bold">{fmtDate(inv.due_date)}</span></p>}
+              {inv.paid_at && inv.status === 'paid' && (
+                <p className="text-xs text-green-700 mt-1">Paid: <span className="font-bold">{fmtDate(inv.paid_at)}</span></p>
+              )}
+            </div>
+          </div>
+        </div>
 
-📄 Bukti pembayaran (receipt):
-${invoiceLink}
+        {/* ROUND 106: BREAKDOWN PAKET TOUR */}
+        {tourItems.length > 0 && inv.status !== 'paid' && (
+          <div className="p-6 border-b border-slate-200 bg-blue-50/30">
+            <p className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-3">📋 Breakdown Paket Tour</p>
+            <table className="w-full">
+              <tbody className="divide-y divide-blue-100">
+                {tourItems.map((item, i) => (
+                  <tr key={i}>
+                    <td className="py-1.5 text-sm">
+                      <p className="font-semibold text-slate-800">{item.label}</p>
+                      {item.detail && <p className="text-[10px] text-slate-500">{item.detail}</p>}
+                    </td>
+                    <td className="py-1.5 text-right font-bold text-slate-800">{fmtRupiah(item.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="border-t-2 border-blue-300">
+                <tr>
+                  <td className="pt-2 text-sm font-bold text-blue-800">TOTAL PAKET</td>
+                  <td className="pt-2 text-right font-bold text-lg text-blue-800">{fmtRupiah(expectedTotalReal)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
 
-Terima kasih,
-${companyName}`;
-  }
+        {/* Tagihan Saat Ini */}
+        <div className="p-6">
+          <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+            {inv.status === 'paid' ? '✅ Pembayaran Diterima' : '📄 Tagihan Saat Ini'}
+          </p>
+          <table className="w-full">
+            <thead className="bg-slate-50">
+              <tr className="text-left text-xs font-bold text-slate-600 uppercase tracking-wider">
+                <th className="px-3 py-2">Milestone</th>
+                <th className="px-3 py-2 text-right">Jumlah</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              <tr>
+                <td className="px-3 py-3">
+                  <p className="font-semibold text-slate-800">{inv.milestone || '—'}</p>
+                  {inv.description && <p className="text-xs text-slate-500">{inv.description}</p>}
+                </td>
+                <td className="px-3 py-3 text-right font-bold text-slate-800">{fmtRupiah(inv.amount)}</td>
+              </tr>
+            </tbody>
+            <tfoot className="bg-slate-50">
+              <tr>
+                <td className="px-3 py-3 text-right font-bold text-slate-700">TOTAL TAGIHAN</td>
+                <td className="px-3 py-3 text-right font-bold text-2xl text-brand-700">{fmtRupiah(inv.amount)}</td>
+              </tr>
+              {totalPaidThisInvoice > 0 && totalPaidThisInvoice < Number(inv.amount) && (
+                <>
+                  <tr>
+                    <td className="px-3 py-1 text-right text-sm text-green-700">Sudah Dibayar untuk invoice ini</td>
+                    <td className="px-3 py-1 text-right text-sm font-bold text-green-700">{fmtRupiah(totalPaidThisInvoice)}</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-1 text-right text-sm font-bold text-slate-700">Sisa invoice ini</td>
+                    <td className="px-3 py-1 text-right text-sm font-bold text-amber-700">{fmtRupiah(sisaInvoice)}</td>
+                  </tr>
+                </>
+              )}
+            </tfoot>
+          </table>
+        </div>
 
-  // INVOICE MODE — Round 106: tambah breakdown paket
-  let invoiceBreakdownText = '';
-  if (inv.trip_id && inv.passenger_id) {
-    const { expectedTotal, totalPaid, sisa, roomPrice, tips, cityTax, roomType } = await getExpectedAndPaidForPassenger(supabase, inv.trip_id, inv.passenger_id);
+        {/* ROUND 106: REAL SISA PEMBAYARAN OVERVIEW */}
+        {expectedTotalReal > 0 && (
+          <div className={`p-6 border-t border-b ${isLunas ? 'bg-green-50/40 border-green-200' : 'bg-amber-50/40 border-amber-200'}`}>
+            <p className={`text-xs font-bold uppercase tracking-wider mb-3 ${isLunas ? 'text-green-800' : 'text-amber-800'}`}>
+              📊 Ringkasan Total Pembayaran Trip
+            </p>
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-700">Total Tagihan Trip:</span>
+                <span className="font-bold text-slate-800">{fmtRupiah(expectedTotalReal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-green-700">Sudah Dibayar:</span>
+                <span className="font-bold text-green-700">{fmtRupiah(totalPaidReal)}</span>
+              </div>
+              {participantPayments.length > 0 && (
+                <div className="ml-3 text-xs text-slate-600 space-y-0.5">
+                  {participantPayments.map((p, i) => (
+                    <div key={i} className="flex justify-between">
+                      <span>✓ {p.type}{p.paid_at ? ` · ${fmtDate(p.paid_at)}` : ''}</span>
+                      <span>{fmtRupiah(p.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className={`flex justify-between pt-2 border-t-2 ${isLunas ? 'border-green-300' : 'border-amber-300'}`}>
+                <span className={`font-bold ${isLunas ? 'text-green-800' : 'text-amber-800'}`}>
+                  {isLunas ? '🎉 LUNAS' : 'Sisa Pembayaran:'}
+                </span>
+                <span className={`font-bold text-xl ${isLunas ? 'text-green-700' : 'text-amber-700'}`}>
+                  {isLunas ? '✓' : fmtRupiah(sisaReal)}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
-    if (expectedTotal > 0) {
-      invoiceBreakdownText = `
+        {/* Bank Info */}
+        {!isLunas && (company.bank_account_no || company.bank_name) && (
+          <div className="px-6 pt-4 pb-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-2">💳 Transfer ke:</p>
+              <p className="text-lg font-bold text-blue-900">{company.bank_name}</p>
+              {company.bank_account_no && (
+                <p className="font-mono text-xl font-bold text-blue-900 select-all">{company.bank_account_no}</p>
+              )}
+              {company.bank_account_name && (
+                <p className="text-sm text-blue-800">a.n. {company.bank_account_name}</p>
+              )}
+            </div>
+          </div>
+        )}
 
-━━━━━━━━━━━━━━━━━━━━━━
-📋 *RINCIAN PAKET TOUR*
-━━━━━━━━━━━━━━━━━━━━━━
+        {/* Action Buttons — render only if component loaded */}
+        {PrintInvoiceButton && (
+          <div className="px-6 pb-4 no-print">
+            <div className="flex gap-2 flex-wrap">
+              <PrintInvoiceButton invoiceNo={inv.invoice_no} />
+            </div>
+          </div>
+        )}
 
-💼 Paket${roomType ? ` (${roomType})` : ''}: ${fmtRupiah(roomPrice)}
-${tips > 0 ? `🍽 Tips: ${fmtRupiah(tips)}\n` : ''}${cityTax > 0 ? `🏛 City Tax: ${fmtRupiah(cityTax)}\n` : ''}
-💰 Total Paket: *${fmtRupiah(expectedTotal)}*
-${totalPaid > 0 ? `✅ Sudah Dibayar: *${fmtRupiah(totalPaid)}*\n⚠ Sisa Pembayaran: *${fmtRupiah(sisa)}*` : ''}`;
-    }
-  }
+        {/* Payment Proof Form — render only if component loaded */}
+        {PaymentProofForm && !isLunas && inv.status !== 'paid' && (
+          <div className="px-6 pb-6 no-print">
+            <PaymentProofForm token={inv.public_token} expectedAmount={sisaInvoice || inv.amount} />
+          </div>
+        )}
 
-  return `Halo ${inv.customer_name || 'Bapak/Ibu'},
+        {/* Payment History */}
+        {payments && payments.length > 0 && (
+          <div className="px-6 pb-6">
+            <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Riwayat Pembayaran Invoice Ini</p>
+            <div className="space-y-2">
+              {payments.map((p) => (
+                <div key={p.id} className={`p-3 rounded border text-xs ${
+                  p.status === 'verified' ? 'bg-green-50 border-green-200' :
+                  p.status === 'rejected' ? 'bg-red-50 border-red-200' :
+                  'bg-amber-50 border-amber-200'
+                }`}>
+                  <div className="flex justify-between flex-wrap gap-2">
+                    <div>
+                      <p className="font-bold">{fmtRupiah(p.amount)}</p>
+                      <p className="text-[10px]">{fmtDate(p.payment_date)} · {p.payment_method || '—'}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className={`text-[10px] font-bold uppercase ${
+                        p.status === 'verified' ? 'text-green-700' :
+                        p.status === 'rejected' ? 'text-red-700' :
+                        'text-amber-700'
+                      }`}>
+                        {p.status === 'verified' ? '✓ Diverifikasi' :
+                         p.status === 'rejected' ? '✕ Ditolak' :
+                         '⏳ Menunggu Verifikasi'}
+                      </span>
+                      {p.proof_url && (
+                        <a href={p.proof_url} target="_blank" rel="noreferrer" className="block mt-1 text-[10px] underline no-print">Lihat bukti</a>
+                      )}
+                    </div>
+                  </div>
+                  {p.note_from_customer && <p className="mt-1 italic text-slate-600">"{p.note_from_customer}"</p>}
+                  {p.reject_reason && <p className="mt-1 text-red-700">Reason: {p.reject_reason}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-📄 *Invoice ${inv.invoice_no}*
-
-Trip: ${inv.trip_name}${inv.trip_kode ? ` (${inv.trip_kode})` : ''}
-Tagihan: *${inv.milestone}*${familyTag}
-Jumlah: *${fmtRupiah(inv.amount)}*${inv.due_date ? `\nDue Date: ${inv.due_date}` : ''}${breakdownText}${invoiceBreakdownText}
-
-📄 Detail invoice & cara pembayaran:
-${invoiceLink}
-
-Setelah transfer, mohon upload bukti di link di atas atau balas pesan ini.
-
-Terima kasih,
-${companyName}`;
+        {/* Footer */}
+        <div className="bg-slate-50 px-6 py-4 text-center text-xs text-slate-600 border-t border-slate-200">
+          {company.invoice_footer_note || 'Terima kasih atas kepercayaan Anda.'}
+        </div>
+      </div>
+    </div>
+  );
 }
 
-export async function sendInvoiceWA(invoiceId) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  const { data: inv } = await supabase.from('invoices').select('*').eq('id', invoiceId).maybeSingle();
-  if (!inv) return { error: 'Invoice tidak ditemukan' };
-  if (!inv.customer_phone) return { error: 'Peserta belum punya no HP' };
-
-  const message = await buildWAMessage(supabase, inv);
-  const phone = normalizePhone(inv.customer_phone);
-  const result = await sendFonnte(phone, message);
-  if (result?.error) return { error: result.error };
-
-  await supabase.from('invoices')
-    .update({ status: inv.status === 'paid' ? 'paid' : 'sent', sent_at: new Date().toISOString(), sent_via: 'whatsapp' })
-    .eq('id', invoiceId);
-
-  revalidateAll(inv?.trip_id);
-  return { ok: true };
-}
-
-export async function uploadPaymentProof(token, formData) {
-  const supabase = createClient();
-  const { data: inv } = await supabase.from('invoices').select('id, status, amount, trip_id').eq('public_token', token).maybeSingle();
-  if (!inv) return { error: 'Invoice tidak ditemukan' };
-
-  const amount = parseInt(formData.get('amount')) || inv.amount;
-  const payment_method = formData.get('payment_method') || 'transfer';
-  const payment_date = formData.get('payment_date') || new Date().toISOString().slice(0, 10);
-  const note = formData.get('note') || null;
-  const proof_url = formData.get('proof_url') || null;
-  const proof_file_name = formData.get('proof_file_name') || null;
-
-  const { error } = await supabase.from('invoice_payments').insert({
-    invoice_id: inv.id, amount, payment_date, payment_method,
-    proof_url, proof_file_name, note_from_customer: note, status: 'pending',
-  });
-  if (error) return { error: error.message };
-
-  revalidateAll(inv?.trip_id);
-  return { ok: true };
-}
-
-export async function approveInvoicePayment(paymentId) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  const verified_by = user.user_metadata?.full_name || user.email || 'unknown';
-
-  const { data: pay } = await supabase.from('invoice_payments').select('*, invoices(*)').eq('id', paymentId).maybeSingle();
-  if (!pay) return { error: 'Payment record tidak ditemukan' };
-  const inv = pay.invoices;
-  if (!inv) return { error: 'Invoice tidak ditemukan' };
-
-  await supabase.from('invoice_payments').update({ status: 'verified', verified_by, verified_at: new Date().toISOString() }).eq('id', paymentId);
-  await supabase.from('invoices').update({ status: 'paid', paid_at: new Date().toISOString(), paid_by_check: verified_by }).eq('id', inv.id);
-
-  await syncInvoiceToMatrix(supabase, inv, pay.amount);
-
-  if (inv.customer_phone) {
-    const updatedInv = { ...inv, status: 'paid', paid_at: new Date().toISOString() };
-    const message = await buildWAMessage(supabase, updatedInv);
-    await sendFonnte(normalizePhone(inv.customer_phone), message);
-  }
-
-  revalidateAll(inv?.trip_id);
-  return { ok: true };
-}
-
-export async function rejectInvoicePayment(paymentId, reason) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  const { data: pay } = await supabase.from('invoice_payments').select('invoices(trip_id)').eq('id', paymentId).maybeSingle();
-
-  const { error } = await supabase.from('invoice_payments')
-    .update({
-      status: 'rejected', reject_reason: reason || 'Bukti tidak valid',
-      verified_by: user.user_metadata?.full_name || user.email,
-      verified_at: new Date().toISOString(),
-    }).eq('id', paymentId);
-  if (error) return { error: error.message };
-
-  revalidateAll(pay?.invoices?.trip_id);
-  return { ok: true };
-}
-
-export async function markInvoicePaidManual(invoiceId) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  const verified_by = user.user_metadata?.full_name || user.email || 'unknown';
-
-  const { data: inv } = await supabase.from('invoices').select('*').eq('id', invoiceId).maybeSingle();
-  if (!inv) return { error: 'Invoice tidak ditemukan' };
-
-  await supabase.from('invoice_payments').insert({
-    invoice_id: invoiceId, amount: inv.amount,
-    payment_date: new Date().toISOString().slice(0, 10),
-    payment_method: 'manual_mark', status: 'verified',
-    verified_by, verified_at: new Date().toISOString(),
-    note_from_customer: 'Marked paid manually by ' + verified_by,
-  });
-
-  await supabase.from('invoices').update({ status: 'paid', paid_at: new Date().toISOString(), paid_by_check: verified_by }).eq('id', invoiceId);
-
-  await syncInvoiceToMatrix(supabase, inv, inv.amount);
-
-  if (inv.customer_phone) {
-    const updatedInv = { ...inv, status: 'paid', paid_at: new Date().toISOString() };
-    const message = await buildWAMessage(supabase, updatedInv);
-    await sendFonnte(normalizePhone(inv.customer_phone), message);
-  }
-
-  revalidateAll(inv?.trip_id);
-  return { ok: true };
-}
-
-export async function deleteInvoice(invoiceId) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  const { data: invMeta } = await supabase.from('invoices').select('trip_id').eq('id', invoiceId).maybeSingle();
-  const { error } = await supabase.from('invoices').delete().eq('id', invoiceId);
-  if (error) return { error: error.message };
-
-  revalidateAll(invMeta?.trip_id);
-  return { ok: true };
-}
-
-export async function saveCompanySettings(formData) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  const payload = {
-    id: 1,
-    company_name: formData.get('company_name') || 'Traveling Eropa',
-    company_address: formData.get('company_address') || null,
-    company_phone: formData.get('company_phone') || null,
-    company_email: formData.get('company_email') || null,
-    company_npwp: formData.get('company_npwp') || null,
-    company_logo_url: formData.get('company_logo_url') || null,
-    bank_name: formData.get('bank_name') || 'BCA',
-    bank_account_no: formData.get('bank_account_no') || null,
-    bank_account_name: formData.get('bank_account_name') || null,
-    invoice_footer_note: formData.get('invoice_footer_note') || null,
-    updated_at: new Date().toISOString(),
-  };
-
-  const { error } = await supabase.from('company_settings').upsert(payload, { onConflict: 'id' });
-  if (error) return { error: error.message };
-
-  revalidatePath('/settings');
-  revalidatePath('/invoices');
-  return { ok: true };
-}
-
-export async function createInvoiceAsPaid(params) {
-  const {
-    trip_id, passenger_id, customer_id, milestone, amount, payment_date, description,
-    family_group_id = null, covers_passenger_ids = null, is_family_invoice = false,
-    passenger_amounts = null,
-  } = params;
-
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-  if (!trip_id || !milestone || !amount) return { error: 'trip_id, milestone, amount wajib' };
-
-  const [tripRes, custRes] = await Promise.all([
-    supabase.from('trips').select('name, kode_trip').eq('id', trip_id).maybeSingle(),
-    customer_id ? supabase.from('customers').select('name, phone, email').eq('id', customer_id).maybeSingle() : Promise.resolve({ data: null }),
-  ]);
-
-  const trip = tripRes.data; const cust = custRes.data;
-  const invoice_no = await generateInvoiceNo(supabase, trip_id);
-  const token = genToken();
-  const verified_by = user.user_metadata?.full_name || user.email || 'unknown';
-
-  const payload = {
-    invoice_no, trip_id,
-    passenger_id: passenger_id || null,
-    customer_id: customer_id || null,
-    milestone, amount: Number(amount) || 0,
-    status: 'paid',
-    paid_at: payment_date || new Date().toISOString(),
-    paid_by_check: verified_by,
-    description: description || `Receipt ${milestone} — ${trip?.name || trip_id}`,
-    public_token: token, created_by: verified_by,
-    customer_name: cust?.name || null, customer_phone: cust?.phone || null,
-    customer_email: cust?.email || null,
-    trip_name: trip?.name || null, trip_kode: trip?.kode_trip || null,
-    family_group_id: family_group_id || null,
-    covers_passenger_ids: is_family_invoice && Array.isArray(covers_passenger_ids) ? covers_passenger_ids : [],
-    is_family_invoice: !!is_family_invoice,
-    passenger_amounts: passenger_amounts && typeof passenger_amounts === 'object' ? passenger_amounts : {},
-  };
-
-  let { data, error } = await supabase.from('invoices').insert(payload).select('id, invoice_no, public_token').single();
-
-  if (error && /family_group_id|covers_passenger_ids|is_family_invoice|passenger_amounts/.test(error.message)) {
-    const stripped = { ...payload };
-    delete stripped.family_group_id;
-    delete stripped.covers_passenger_ids;
-    delete stripped.is_family_invoice;
-    delete stripped.passenger_amounts;
-    const retry = await supabase.from('invoices').insert(stripped).select('id, invoice_no, public_token').single();
-    data = retry.data; error = retry.error;
-  }
-  if (error) return { error: error.message };
-
-  await supabase.from('invoice_payments').insert({
-    invoice_id: data.id, amount: Number(amount) || 0,
-    payment_date: payment_date || new Date().toISOString().slice(0, 10),
-    payment_method: 'verified_manual', status: 'verified',
-    verified_by, verified_at: new Date().toISOString(),
-    note_from_customer: 'Receipt — sudah dibayar saat invoice digenerate',
-  });
-
-  await syncInvoiceToMatrix(supabase, {
-    invoice_no: data.invoice_no, passenger_id, milestone,
-    is_family_invoice: !!is_family_invoice,
-    covers_passenger_ids: Array.isArray(covers_passenger_ids) ? covers_passenger_ids : [],
-    passenger_amounts: passenger_amounts && typeof passenger_amounts === 'object' ? passenger_amounts : {},
-  }, Number(amount) || 0);
-
-  revalidateAll(trip_id);
-  return { ok: true, invoice_id: data.id, invoice_no: data.invoice_no, token: data.public_token };
+function ErrorBox({ title, errors }) {
+  return (
+    <div className="min-h-screen bg-slate-100 py-8 px-4">
+      <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-6">
+        <h1 className="text-xl font-bold text-red-700 mb-3">⚠ {title}</h1>
+        <ul className="text-xs text-slate-700 space-y-1 ml-4 list-disc">
+          {(errors || []).map((e, i) => <li key={i} className="font-mono">{e}</li>)}
+        </ul>
+        <p className="mt-4 text-xs text-slate-500">Kalau ini terus muncul, kontak admin TEONE.</p>
+      </div>
+    </div>
+  );
 }
