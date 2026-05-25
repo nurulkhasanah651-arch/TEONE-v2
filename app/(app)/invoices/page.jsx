@@ -1,5 +1,5 @@
-// Round 102b: Invoices page + DP Approval Panel (paling atas)
-// Plus existing Round 99: NOTIF banner pending payment + group by trip
+// Round 102d: Invoices page — pass passengers + family_groups ke DPApprovalPanel
+// untuk grouping DP per family
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
@@ -43,20 +43,28 @@ export default async function InvoicesPage() {
   const supabase = createClient();
   const serviceClient = getServiceClient() || supabase;
 
-  const [invoicesRes, tripsRes, passengersRes, customersRes, pendingPaymentsRes, dpRequestsRes] = await Promise.all([
+  const [
+    invoicesRes, tripsRes, passengersRes, customersRes,
+    pendingPaymentsRes, dpRequestsRes, familyGroupsRes
+  ] = await Promise.all([
     supabase.from('invoices').select('*').order('created_at', { ascending: false }).limit(500),
     supabase.from('trips').select('id, kode_trip, name, departure, status'),
-    supabase.from('trip_passengers').select('id, trip_id, customer_id'),
-    supabase.from('customers').select('id, name'),
+    supabase.from('trip_passengers').select('id, trip_id, customer_id, family_group_id, is_family_head'),
+    supabase.from('customers').select('id, name, phone'),
     supabase
       .from('invoice_payments')
       .select('*, invoices(id, invoice_no, milestone, trip_id, customer_name, trip_kode)')
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
       .limit(50),
-    // Round 102b: DP payment requests via service role (bypass RLS)
     serviceClient
       .from('dp_payment_requests')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200),
+    // Round 102d: family groups via service role (bypass RLS)
+    serviceClient
+      .from('family_groups')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(200),
@@ -68,6 +76,14 @@ export default async function InvoicesPage() {
   const customers = customersRes.data || [];
   const pendingPayments = pendingPaymentsRes.data || [];
   const dpRequests = dpRequestsRes.data || [];
+  const familyGroups = familyGroupsRes.data || [];
+
+  // Attach customer to passenger for panel use
+  const custMapForPax = Object.fromEntries(customers.map((c) => [c.id, c]));
+  const passengersWithCustomer = allPassengers.map((p) => ({
+    ...p,
+    customers: custMapForPax[p.customer_id] || null,
+  }));
 
   const pendingDPCount = dpRequests.filter((r) => r.status === 'pending').length;
 
@@ -137,7 +153,6 @@ export default async function InvoicesPage() {
         </Link>
       </div>
 
-      {/* Round 102b: DP Approval Banner notif kalau ada pending */}
       {pendingDPCount > 0 && (
         <div className="bg-blue-50 border-l-4 border-blue-500 p-3 rounded">
           <p className="text-sm font-bold text-blue-900">
@@ -146,10 +161,13 @@ export default async function InvoicesPage() {
         </div>
       )}
 
-      {/* Round 102b: DP Approval Panel — dari CS Daily input */}
-      <DPApprovalPanel requests={dpRequests} />
+      {/* Round 102d: DP Approval Panel — group by family */}
+      <DPApprovalPanel
+        requests={dpRequests}
+        passengers={passengersWithCustomer}
+        familyGroups={familyGroups}
+      />
 
-      {/* ROUND 99 — NOTIF BANNER pending payment (peserta upload bukti dari public invoice page) */}
       {pendingPayments.length > 0 && (
         <div className="bg-amber-50 border-2 border-amber-300 rounded-xl shadow-card overflow-hidden">
           <div className="px-5 py-3 bg-amber-100 border-b border-amber-300 flex items-center justify-between flex-wrap gap-2">
@@ -191,19 +209,13 @@ export default async function InvoicesPage() {
                     </div>
                     <div className="flex gap-2 flex-wrap">
                       {p.proof_url && (
-                        <a
-                          href={p.proof_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-xs font-semibold rounded"
-                        >
+                        <a href={p.proof_url} target="_blank" rel="noreferrer"
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-xs font-semibold rounded">
                           📎 Lihat Bukti
                         </a>
                       )}
-                      <Link
-                        href={`/invoices/${inv?.id}`}
-                        className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded"
-                      >
+                      <Link href={`/invoices/${inv?.id}`}
+                        className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded">
                         Review & Approve →
                       </Link>
                     </div>
@@ -311,9 +323,7 @@ export default async function InvoicesPage() {
                               <td className="px-3 py-2 text-xs font-semibold">{i.milestone}</td>
                               <td className="px-3 py-2 text-right font-bold">{fmtRupiah(i.amount)}</td>
                               <td className="px-3 py-2 text-xs text-slate-500">
-                                {i.status === 'paid'
-                                  ? `Paid: ${fmtDate(i.paid_at)}`
-                                  : `Due: ${fmtDate(i.due_date)}`}
+                                {i.status === 'paid' ? `Paid: ${fmtDate(i.paid_at)}` : `Due: ${fmtDate(i.due_date)}`}
                               </td>
                               <td className="px-3 py-2">
                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${s.color}`}>{s.label}</span>
@@ -368,11 +378,9 @@ function PesertaInvoiceStatus({ pesertaIds, allPassengers, custMap, groupInvoice
             ? 'bg-green-50 text-green-800 border-green-300'
             : 'bg-amber-50 text-amber-800 border-amber-300';
           return (
-            <span
-              key={p.id}
+            <span key={p.id}
               className={`text-[10px] px-2 py-1 rounded border font-semibold ${cls}`}
-              title={`${p.name}: ${p.total} invoice (${p.paid} paid, ${p.pending} pending)`}
-            >
+              title={`${p.name}: ${p.total} invoice (${p.paid} paid, ${p.pending} pending)`}>
               {isEmpty ? '❌' : allPaid ? '✅' : '⏳'} {p.name} {!isEmpty && `(${p.paid}/${p.total})`}
             </span>
           );
