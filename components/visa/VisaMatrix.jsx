@@ -1,5 +1,8 @@
 'use client';
 
+// Round 128: Tampil badge sync visa payment + reminder biometrik
+// Saat finance checklist payment 'Visa' → otomatis muncul badge "✓ Visa Lunas - Segera jadwalkan biometrik!"
+
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toggleParticipantDoc, updateParticipantDocNotes, updateParticipantVisaNotes, updateParticipantVisaStatus } from '@/lib/actions/visa';
@@ -7,6 +10,10 @@ import { fmtDate, daysUntil } from '@/lib/utils/format';
 import { VISA_STATUS_OPTS, STATUS_COLOR_CLASS } from '@/lib/utils/visa-constants';
 
 const STATUS_MAP = Object.fromEntries(VISA_STATUS_OPTS.map((s) => [s.value, s]));
+
+function fmtRupiah(n) {
+  return 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
+}
 
 export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
   const [pending, startTransition] = useTransition();
@@ -69,7 +76,7 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
     return (
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-8 text-center">
         <p className="text-4xl mb-3">👥</p>
-        <p className="text-sm text-slate-500">Belum ada peserta di trip ini.</p>
+        <p className="text-sm text-slate-500">Belum ada peserta aktif di trip ini.</p>
       </div>
     );
   }
@@ -80,9 +87,31 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
     docCounts[doc] = passengers.filter((p) => Array.isArray(p.visa_docs) && p.visa_docs.find((d) => d.name === doc && d.complete)).length;
   }
 
+  // ROUND 128: Summary visa payment status
+  const totalVisaPaid = passengers.filter((p) => p.visaPayment && Number(p.visaPayment.amount) > 0).length;
+  const totalBiometricScheduled = passengers.filter((p) => p.visa_biometric_date).length;
+
   return (
     <div className="space-y-4">
-      {/* Per-participant CARDS — lebih readable untuk per-pax status */}
+      {/* ROUND 128: Top banner — Visa payment progress */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <p className="text-xs font-bold text-blue-800 uppercase tracking-wider">💳 Sync dengan Finance Payment Checklist</p>
+            <p className="text-sm text-slate-700 mt-1">
+              <b>{totalVisaPaid}</b> dari {passengers.length} peserta sudah <b>Lunas Visa</b> (auto-detect dari Finance).
+              {' '}<b>{totalBiometricScheduled}</b> sudah dijadwalkan biometrik.
+            </p>
+          </div>
+          {totalVisaPaid > totalBiometricScheduled && (
+            <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-red-100 text-red-700 animate-pulse">
+              ⚠ {totalVisaPaid - totalBiometricScheduled} peserta sudah lunas visa belum dijadwalkan biometrik
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Per-participant CARDS */}
       {passengers.map((p, idx) => {
         const c = p.customers || {};
         const docs = Array.isArray(p.visa_docs) ? p.visa_docs : [];
@@ -90,10 +119,16 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
         const missingDocs = template.filter((doc) => !docs.find((d) => d.name === doc && d.complete));
         const progress = template.length > 0 ? Math.round((completeDocs.length / template.length) * 100) : 0;
         const status = p.visa_status || 'pending';
-        const statusCfg = STATUS_MAP[status];
+        const statusCfgItem = STATUS_MAP[status];
         const biometricDate = p.visa_biometric_date;
         const bioDays = biometricDate ? daysUntil(biometricDate) : null;
         const isExpanded = expandedRow === p.id;
+
+        // ROUND 128: Visa payment check
+        const visaPaymentAmount = Number(p.visaPayment?.amount || 0);
+        const visaPaymentDate = p.visaPayment?.paid_at;
+        const isVisaPaid = visaPaymentAmount > 0;
+        const needsBiometricSchedule = isVisaPaid && !biometricDate;
 
         return (
           <div key={p.id} className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
@@ -106,9 +141,27 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-mono text-slate-400">#{idx + 1}</span>
                   <p className="font-bold text-brand-700">{c.name || '—'}</p>
-                  {statusCfg && (
-                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${STATUS_COLOR_CLASS[statusCfg.color]}`}>
-                      {statusCfg.label}
+
+                  {/* ROUND 128: Badge sync visa payment status */}
+                  {isVisaPaid && needsBiometricSchedule && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-orange-100 text-orange-800 border border-orange-300 animate-pulse" title={`Visa lunas: ${fmtRupiah(visaPaymentAmount)}${visaPaymentDate ? ` (${fmtDate(visaPaymentDate)})` : ''}`}>
+                      🚨 Segera jadwalkan biometrik!
+                    </span>
+                  )}
+                  {isVisaPaid && biometricDate && (
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200" title={`Visa lunas: ${fmtRupiah(visaPaymentAmount)}`}>
+                      ✓ Sudah lunas visa
+                    </span>
+                  )}
+                  {!isVisaPaid && (
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-500" title="Belum ada payment Visa di Finance Payment Checklist">
+                      💳 Visa belum lunas
+                    </span>
+                  )}
+
+                  {statusCfgItem && (
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${STATUS_COLOR_CLASS[statusCfgItem.color]}`}>
+                      {statusCfgItem.label}
                     </span>
                   )}
                   {biometricDate && (
@@ -126,6 +179,11 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
                   {c.passport_no && <span>📕 {c.passport_no}</span>}
                   {c.passport_expiry && <span>Exp: {fmtDate(c.passport_expiry)}</span>}
                   {c.phone && <span>📞 {c.phone}</span>}
+                  {isVisaPaid && (
+                    <span className="font-semibold text-emerald-700">
+                      💳 Visa: {fmtRupiah(visaPaymentAmount)}{visaPaymentDate ? ` · ${fmtDate(visaPaymentDate)}` : ''}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="text-right">
@@ -138,6 +196,20 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
             {/* Expanded section */}
             {isExpanded && (
               <div className="px-5 py-4 border-t border-slate-200 bg-amber-50/30 space-y-4">
+                {/* Visa payment info card (kalau lunas) */}
+                {isVisaPaid && (
+                  <div className={`p-3 rounded-lg border ${needsBiometricSchedule ? 'bg-orange-50 border-orange-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                    <p className={`text-xs font-bold uppercase tracking-wider ${needsBiometricSchedule ? 'text-orange-800' : 'text-emerald-800'}`}>
+                      {needsBiometricSchedule ? '🚨 Sudah Lunas Visa — Segera Jadwalkan Biometrik!' : '✓ Sudah Lunas Visa'}
+                    </p>
+                    <p className="text-xs text-slate-700 mt-1">
+                      Pembayaran visa: <b>{fmtRupiah(visaPaymentAmount)}</b>
+                      {visaPaymentDate && ` · ${fmtDate(visaPaymentDate)}`}
+                      {' · '}<span className="text-slate-500">Auto-sync dari Finance Payment Checklist</span>
+                    </p>
+                  </div>
+                )}
+
                 {/* Status + biometric */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <label className="block">
@@ -152,13 +224,15 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
                     </select>
                   </label>
                   <label className="block">
-                    <span className="text-xs font-bold text-brand-700 uppercase tracking-wider block mb-1">Tanggal Biometrik</span>
+                    <span className="text-xs font-bold text-brand-700 uppercase tracking-wider block mb-1">
+                      Tanggal Biometrik {needsBiometricSchedule && <span className="text-orange-700">⚠</span>}
+                    </span>
                     <input
                       type="date"
                       defaultValue={biometricDate || ''}
                       onBlur={(e) => handleBiometricChange(p.id, e.target.value)}
                       disabled={pending}
-                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white focus:ring-1 focus:ring-brand-500 outline-none"
+                      className={`w-full px-3 py-1.5 border rounded text-sm bg-white focus:ring-1 focus:ring-brand-500 outline-none ${needsBiometricSchedule ? 'border-orange-400 ring-1 ring-orange-200' : 'border-slate-300'}`}
                     />
                   </label>
                 </div>
@@ -211,7 +285,6 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
                   </div>
                 </div>
 
-                {/* Missing docs summary */}
                 {missingDocs.length > 0 && (
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                     <p className="text-xs font-bold text-amber-800 mb-1">⚠ Dokumen yang Belum Lengkap ({missingDocs.length}):</p>
@@ -219,7 +292,6 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
                   </div>
                 )}
 
-                {/* Personal notes */}
                 <div>
                   <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-1">Catatan Visa untuk Peserta Ini</p>
                   <textarea
@@ -240,6 +312,14 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4">
         <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">📊 Summary Group</p>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2">
+          <div className="p-2 bg-emerald-50 rounded text-center">
+            <p className="text-[10px] text-emerald-700 font-semibold">💳 Visa Lunas</p>
+            <p className="text-sm font-bold text-emerald-700">{totalVisaPaid}/{passengers.length}</p>
+          </div>
+          <div className="p-2 bg-indigo-50 rounded text-center">
+            <p className="text-[10px] text-indigo-700 font-semibold">📅 Biometrik Set</p>
+            <p className="text-sm font-bold text-indigo-700">{totalBiometricScheduled}/{passengers.length}</p>
+          </div>
           {template.map((doc) => (
             <div key={doc} className="p-2 bg-slate-50 rounded text-center">
               <p className="text-[10px] text-slate-600 font-semibold truncate" title={doc}>{doc}</p>
