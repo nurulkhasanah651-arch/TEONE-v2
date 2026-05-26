@@ -1,5 +1,5 @@
-// Cashflow list — Round 123: Include AUTO INCOME dari participant_payments per trip
-// Income = manual income items + auto cash in (peserta active payments)
+// Cashflow LIST page — Round 126: Income include payment dari peserta refunded juga
+// Hanya exclude payment yg is_transferred=true (sudah pindah ke trip lain)
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
@@ -14,7 +14,6 @@ export default async function CashflowListPage() {
   const [tripsRes, itemsRes, passengersRes] = await Promise.all([
     supabase.from('trips').select('id, kode_trip, name, status, departure, quota, sold').order('departure', { ascending: true }),
     supabase.from('trip_finance_items').select('trip_id, item_type, total_amount'),
-    // ROUND 123: Fetch passengers untuk hitung auto income
     supabase.from('trip_passengers').select('id, trip_id, transfer_status, refund_status'),
   ]);
 
@@ -22,31 +21,36 @@ export default async function CashflowListPage() {
   const items = itemsRes.data || [];
   const allPassengers = passengersRes.data || [];
 
-  // ROUND 123: Filter active passengers per trip
-  const activePassengersByTrip = {};
+  // ROUND 126: Map ALL passengers per trip (untuk hitung auto income TOTAL, include refunded)
+  const allPaxByTrip = {};
+  const activePaxByTrip = {};
   for (const p of allPassengers) {
+    if (!allPaxByTrip[p.trip_id]) allPaxByTrip[p.trip_id] = [];
+    allPaxByTrip[p.trip_id].push(p.id);
+
     const isTransferred = p.transfer_status === 'transferred';
     const isRefunded = p.refund_status === 'refunded' || p.refund_status === 'partial_refund';
-    if (isTransferred || isRefunded) continue;
-    if (!activePassengersByTrip[p.trip_id]) activePassengersByTrip[p.trip_id] = [];
-    activePassengersByTrip[p.trip_id].push(p.id);
+    if (!isTransferred && !isRefunded) {
+      if (!activePaxByTrip[p.trip_id]) activePaxByTrip[p.trip_id] = [];
+      activePaxByTrip[p.trip_id].push(p.id);
+    }
   }
 
-  // ROUND 123: Fetch ALL participant_payments (not transferred) — group by passenger
-  const allActivePaxIds = Object.values(activePassengersByTrip).flat();
+  // Fetch all payments yg is_transferred=false, group per trip
+  const allPaxIds = Object.values(allPaxByTrip).flat();
   const autoIncomeByTrip = {};
-  if (allActivePaxIds.length > 0) {
+  if (allPaxIds.length > 0) {
     try {
       const { data: pays } = await supabase
         .from('participant_payments')
         .select('passenger_id, amount, is_transferred')
-        .in('passenger_id', allActivePaxIds);
+        .in('passenger_id', allPaxIds);
       const validPays = (pays || []).filter((p) => p.is_transferred !== true);
 
       // Map passenger_id → trip_id
       const paxToTrip = {};
-      for (const tid in activePassengersByTrip) {
-        for (const pid of activePassengersByTrip[tid]) {
+      for (const tid in allPaxByTrip) {
+        for (const pid of allPaxByTrip[tid]) {
           paxToTrip[pid] = tid;
         }
       }
@@ -61,7 +65,6 @@ export default async function CashflowListPage() {
     }
   }
 
-  // Aggregate per trip
   const byTrip = {};
   for (const t of trips) {
     byTrip[t.id] = {
@@ -72,7 +75,8 @@ export default async function CashflowListPage() {
       hpp: 0,
       profit: 0,
       itemCount: 0,
-      paxActive: (activePassengersByTrip[t.id] || []).length,
+      paxActive: (activePaxByTrip[t.id] || []).length,
+      paxTotal: (allPaxByTrip[t.id] || []).length,
     };
   }
   for (const it of items) {
@@ -87,7 +91,6 @@ export default async function CashflowListPage() {
   }
   const sorted = Object.values(byTrip).sort((a, b) => (b.departure || '').localeCompare(a.departure || ''));
 
-  // Grand totals
   const grand = sorted.reduce((acc, t) => ({
     income: acc.income + t.income,
     autoIncome: acc.autoIncome + t.autoIncome,
@@ -101,10 +104,9 @@ export default async function CashflowListPage() {
       <div>
         <Link href="/finance" className="text-sm text-brand-600 font-medium hover:underline">← Finance</Link>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">Proyeksi Income per Group</h1>
-        <p className="mt-1 text-slate-600">Auto Cash In peserta + Manual Income + HPP. Auto-sync saat transfer/refund.</p>
+        <p className="mt-1 text-slate-600">Auto Cash In (semua payment is_transferred=false) + Manual Income + HPP.</p>
       </div>
 
-      {/* Grand totals */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <StatCard
           label="Total Income (semua trip)"
@@ -116,7 +118,6 @@ export default async function CashflowListPage() {
         <StatCard label="Total Profit" value={fmtRupiah(grand.profit)} color={grand.profit >= 0 ? 'text-blue-700' : 'text-red-700'} bg={grand.profit >= 0 ? 'bg-blue-50' : 'bg-red-50'} />
       </div>
 
-      {/* Per-trip table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200">
           <h2 className="font-bold text-brand-700">Cashflow per Trip</h2>
@@ -145,7 +146,9 @@ export default async function CashflowListPage() {
                     <td className="px-4 py-2.5">
                       <p className="font-bold text-brand-700">{t.kode_trip || `#${t.id}`}</p>
                       <p className="text-xs text-slate-500">{t.name}</p>
-                      <p className="text-[10px] text-slate-400">{fmtDate(t.departure)} · {t.paxActive} pax aktif · {t.itemCount} item</p>
+                      <p className="text-[10px] text-slate-400">
+                        {fmtDate(t.departure)} · {t.paxActive}/{t.paxTotal} pax · {t.itemCount} item
+                      </p>
                     </td>
                     <td className="px-3 py-2.5">
                       <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${s.bg} ${s.text}`}>{s.label}</span>
