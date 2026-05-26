@@ -1,167 +1,83 @@
-'use client';
+═══════════════════════════════════════════════════════════════
+ROUND 127 — HPP Form Auto-Fill Qty + Custom-able
+═══════════════════════════════════════════════════════════════
 
-// Round 86: FinanceItemForm — Total + Deposit Planned + Deadline Pelunasan
+FITUR:
 
-import { useState } from 'react';
-import { createFinanceItem } from '@/lib/actions/finance';
-import { HPP_CATEGORIES, INCOME_CATEGORIES } from '@/lib/utils/finance-constants';
+Saat tambah item HPP/Income di Proyeksi Income:
+✓ Field "Qty (Jumlah Pax)" otomatis terisi dengan jumlah pax aktif
+✓ Ada 2 tombol quick:
+  - "= 20 pax" → set ke jumlah pax aktif
+  - "= 1" → set ke 1 (untuk item satuan: group permit, dll)
+✓ User bisa edit qty manual (custom-able)
+✓ Live preview formula: "Rp 100.000 × 20 = Rp 2.000.000"
+✓ Total Amount auto-compute (basic_fare × qty)
 
-function fmtRupiah(v) {
-  if (v === '' || v == null) return '';
-  const n = String(v).replace(/[^0-9]/g, '');
-  if (!n) return '';
-  return Number(n).toLocaleString('id-ID');
-}
-function parseRupiah(s) {
-  if (s == null) return '';
-  return String(s).replace(/[^0-9]/g, '');
-}
+═══════════════════════════════════════════════════════════════
+2 FILE REPLACE
+═══════════════════════════════════════════════════════════════
 
-export default function FinanceItemForm({ tripId, type }) {
-  const [open, setOpen] = useState(false);
-  const [error, setError] = useState('');
-  const [pending, setPending] = useState(false);
-  const cats = type === 'hpp' ? HPP_CATEGORIES : INCOME_CATEGORIES;
-  const firstCategory = Object.keys(cats)[0];
-  const [category, setCategory] = useState(firstCategory);
+────────────────────────────────────────────────
+FILE 1: components/finance/FinanceItemForm.jsx
+────────────────────────────────────────────────
 
-  const [totalAmount, setTotalAmount] = useState('');
-  const [depositPlanned, setDepositPlanned] = useState('');
-  const [deadlinePelunasan, setDeadlinePelunasan] = useState('');
+1. GitHub → components/finance/FinanceItemForm.jsx → ✎ Edit
+2. Cmd+A → Delete semua
+3. Paste dari: PASTE_THIS_TO_components_finance_FinanceItemForm.jsx.txt
+4. Commit: "feat: r127 - HPP form auto-fill qty with pax count"
 
-  const totalNum = parseInt(totalAmount) || 0;
-  const depositNum = parseInt(depositPlanned) || 0;
-  const sisa = Math.max(totalNum - depositNum, 0);
+────────────────────────────────────────────────
+FILE 2: app/(app)/finance/cashflow/[tripId]/page.jsx
+────────────────────────────────────────────────
 
-  const action = createFinanceItem.bind(null, tripId);
+(Update untuk pass paxCount ke FinanceItemForm)
 
-  async function handleSubmit(formData) {
-    setPending(true);
-    setError('');
-    formData.set('total_amount', String(totalNum));
-    formData.set('deposit_planned', String(depositNum));
-    formData.set('deadline_pelunasan', deadlinePelunasan || '');
-    const result = await action(formData);
-    if (result?.error) {
-      setError(result.error);
-      setPending(false);
-    } else {
-      setOpen(false);
-      setPending(false);
-      setTotalAmount('');
-      setDepositPlanned('');
-      setDeadlinePelunasan('');
-    }
-  }
+1. GitHub → app/(app)/finance/cashflow/[tripId]/page.jsx → ✎ Edit
+2. Cmd+A → Delete semua
+3. Paste dari: PASTE_THIS_TO_finance_cashflow_tripId_page.jsx.txt
+4. Commit: "feat: r127 - pass paxCount to FinanceItemForm"
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="w-full py-2.5 border-2 border-dashed border-brand-300 hover:border-brand-500 text-brand-600 text-sm font-semibold rounded-lg transition-colors"
-      >
-        + Tambah Item {type === 'hpp' ? 'HPP' : 'Income'}
-      </button>
-    );
-  }
+═══════════════════════════════════════════════════════════════
+TEST
+═══════════════════════════════════════════════════════════════
 
-  return (
-    <form action={handleSubmit} className="space-y-3 border border-brand-200 rounded-xl p-4 bg-brand-50/30">
-      <input type="hidden" name="type" value={type} />
+1. Buka /finance/cashflow/[tripId] (mis. trip dengan 20 peserta aktif)
+2. Scroll ke section HPP → klik "+ Tambah Item HPP"
+3. Form muncul:
+   - Field "Qty (Jumlah Pax)": OTOMATIS terisi 20
+   - Hint di bawah: "Default = 20 pax aktif. Bisa custom."
+   - 2 tombol di kanan: "= 20 pax" dan "= 1"
+4. Pilih kategori (mis. Visa) + component
+5. Isi Basic Fare: 100000
+6. Total Amount otomatis: 2.000.000
+7. Preview formula muncul: "Rp 100.000 × 20 = Rp 2.000.000"
+8. Atau kalau visa cuma untuk 5 orang, edit qty jadi 5
+9. Submit
 
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-bold text-brand-700 uppercase tracking-wider">
-          Tambah Item {type === 'hpp' ? 'HPP' : 'Income'}
-        </p>
-        <button type="button" onClick={() => setOpen(false)} className="text-xs text-slate-500 hover:text-slate-700">Batal</button>
-      </div>
+═══════════════════════════════════════════════════════════════
+CONTOH PENGGUNAAN
+═══════════════════════════════════════════════════════════════
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Field label="Kategori" required>
-          <select name="category" required value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
-            {Object.keys(cats).map((k) => <option key={k} value={k}>{k}</option>)}
-          </select>
-        </Field>
-        <Field label="Component" required>
-          <select name="component" required className={inputCls}>
-            {(cats[category] || []).map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </Field>
+A. ITEM PER-PAX (default):
+   - Visa per pax: 100rb × 20 pax = 2jt
+   - Tips per pax: 50rb × 20 pax = 1jt
+   - Klik "Tambah HPP" → qty auto 20 → tinggal isi fare
 
-        {type === 'hpp' && (
-          <Field label="Vendor / Maskapai" className="md:col-span-2">
-            <input name="vendor_name" className={inputCls} placeholder="Nama vendor/maskapai/hotel" />
-          </Field>
-        )}
+B. ITEM SATUAN (group):
+   - Group permit: Rp 5jt × 1 = 5jt
+   - Bus rental: Rp 8jt × 1 = 8jt
+   - Klik tombol "= 1" untuk reset qty ke 1
 
-        <Field label="Total Harga (Rp)" required>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={fmtRupiah(totalAmount)}
-            onChange={(e) => setTotalAmount(parseRupiah(e.target.value))}
-            placeholder="10.000.000"
-            className={inputCls}
-          />
-        </Field>
+C. ITEM PARTIAL (mis. visa cuma untuk yang butuh):
+   - Visa: Rp 100rb × 5 = 500rb (cuma 5 dari 20 pax)
+   - Edit qty manual ke 5
 
-        {type === 'hpp' && (
-          <>
-            <Field label="Nominal Deposit (Rp)" hint="Rencana DP yang akan di-request ke Finance">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={fmtRupiah(depositPlanned)}
-                onChange={(e) => setDepositPlanned(parseRupiah(e.target.value))}
-                placeholder="3.000.000"
-                className={inputCls}
-              />
-            </Field>
+═══════════════════════════════════════════════════════════════
+RECAP
+═══════════════════════════════════════════════════════════════
 
-            <Field label="Sisa Pelunasan (Auto)" hint="Total − Deposit">
-              <input
-                type="text"
-                value={'Rp ' + sisa.toLocaleString('id-ID')}
-                readOnly
-                className={inputCls + ' bg-slate-100 font-bold'}
-              />
-            </Field>
+  □ REPLACE: components/finance/FinanceItemForm.jsx
+  □ REPLACE: app/(app)/finance/cashflow/[tripId]/page.jsx
+  □ Test tambah HPP → qty auto-fill + bisa custom
 
-            <Field label="Deadline Pelunasan" hint="Tanggal harus lunas. Kalau lewat → warning.">
-              <input
-                type="date"
-                value={deadlinePelunasan}
-                onChange={(e) => setDeadlinePelunasan(e.target.value)}
-                className={inputCls}
-              />
-            </Field>
-          </>
-        )}
-
-        <Field label="Notes" className={type === 'hpp' ? '' : 'md:col-span-2'}>
-          <input name="notes" className={inputCls} placeholder="Catatan (opsional)" />
-        </Field>
-      </div>
-
-      {error && <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700 font-medium">{error}</div>}
-
-      <button type="submit" disabled={pending || !totalAmount} className="w-full py-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors">
-        {pending ? 'Menyimpan...' : 'Simpan Item'}
-      </button>
-    </form>
-  );
-}
-
-function Field({ label, required, hint, children, className = '' }) {
-  return (
-    <label className={`block ${className}`}>
-      <span className="text-xs font-semibold text-slate-700 block mb-1">
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
-      </span>
-      {children}
-      {hint && <span className="text-[10px] text-slate-500 block mt-0.5">{hint}</span>}
-    </label>
-  );
-}
-
-const inputCls = 'w-full px-2.5 py-1.5 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-brand-500 focus:border-brand-500 outline-none bg-white';
+═══════════════════════════════════════════════════════════════
