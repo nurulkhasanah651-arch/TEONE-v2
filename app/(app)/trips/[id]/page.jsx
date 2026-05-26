@@ -1,128 +1,113 @@
-// Trip Detail — Round 100h: fetch family_groups VIA SERVICE ROLE
-// (Supabase auto-re-enable RLS, jadi authenticated role kena block.
-//  Pakai service role buat SELECT family_groups bypass RLS.)
+// Trip Detail page — shows all info + edit/delete buttons + participants
+// Round 114/115: fetch allTrips list untuk dropdown Transfer button
+// Server Component fetches the trip + participants
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
 import ParticipantsList from '@/components/trips/ParticipantsList';
-import TripDocuments from '@/components/trips/TripDocuments';
-import TLAssignButton from '@/components/trips/TLAssignButton';
-import TripDownloadButton from '@/components/trips/TripDownloadButton';
-import FamilyGroupManager from '@/components/families/FamilyGroupManager';
 
 export const dynamic = 'force-dynamic';
-
-function getServiceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
-  return createServiceClient(url, key, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-}
 
 export default async function TripDetailPage({ params }) {
   const { id } = await params;
   const supabase = createClient();
   const { data: trip, error } = await supabase.from('trips').select('*').eq('id', id).maybeSingle();
-  if (error || !trip) notFound();
 
-  const s = statusCfg(trip.status) || {};
-  const days = daysUntil(trip.departure);
-  let checklist = [];
-  try {
-    const c = tripChecklist(trip);
-    checklist = Array.isArray(c) ? c : [];
-  } catch { checklist = []; }
-  const revenue = (trip.price || 0) * (trip.sold || 0);
-
-  // Participants
-  let participants = [];
-  try {
-    const { data: tp } = await supabase.from('trip_passengers').select('*').eq('trip_id', id).order('joined_at', { ascending: true });
-    const safeTp = Array.isArray(tp) ? tp : [];
-    if (safeTp.length > 0) {
-      const customerIds = safeTp.map((p) => p.customer_id).filter(Boolean);
-      let cMap = {};
-      if (customerIds.length > 0) {
-        const { data: cust } = await supabase.from('customers').select('*').in('id', customerIds);
-        cMap = Object.fromEntries((Array.isArray(cust) ? cust : []).map((c) => [c.id, c]));
-      }
-      participants = safeTp.map((p) => ({ ...p, customers: cMap[p.customer_id] || null }));
-    }
-  } catch { participants = []; }
-
-  // Round 100h: Family groups — pakai SERVICE ROLE bypass RLS
-  let familyGroups = [];
-  try {
-    const serviceClient = getServiceClient();
-    const client = serviceClient || supabase; // fallback ke cookie client kalau service role missing
-    const { data: fg, error: fgError } = await client
-      .from('family_groups')
-      .select('*')
-      .eq('trip_id', id)
-      .order('created_at', { ascending: true });
-    if (fgError) {
-      console.error('[family_groups fetch error]', fgError.message);
-    }
-    familyGroups = Array.isArray(fg) ? fg : [];
-  } catch (e) {
-    console.error('[family_groups fetch exception]', e?.message);
-    familyGroups = [];
+  if (error || !trip) {
+    notFound();
   }
 
-  // Documents
-  let documents = [];
-  try {
-    const { data } = await supabase.from('trip_documents').select('*').eq('trip_id', id).order('created_at', { ascending: false });
-    documents = Array.isArray(data) ? data : [];
-  } catch { documents = []; }
+  const s = statusCfg(trip.status);
+  const days = daysUntil(trip.departure);
+  const checklist = tripChecklist(trip);
+  const revenue = (trip.price || 0) * (trip.sold || 0);
 
-  // Finance items
-  let financeItems = [];
+  // Round 114: Fetch list trip lain untuk dropdown Transfer
+  let allTrips = [];
   try {
-    const { data } = await supabase.from('trip_finance_items').select('*').eq('trip_id', id).order('created_at', { ascending: false });
-    financeItems = Array.isArray(data) ? data : [];
-  } catch { financeItems = []; }
+    const { data } = await supabase.from('trips')
+      .select('id, name, kode_trip, departure, status')
+      .neq('id', id)
+      .order('departure', { ascending: false, nullsFirst: false });
+    allTrips = data || [];
+  } catch (e) {
+    // defensive — kalau gagal, dropdown jadi kosong tapi page tetap render
+    allTrips = [];
+  }
 
-  // Recent CS
-  let recentCS = [];
-  try {
-    const { data } = await supabase.from('cs_daily_updates').select('*').eq('trip_id', id).order('tanggal', { ascending: false }).limit(5);
-    recentCS = Array.isArray(data) ? data : [];
-  } catch { recentCS = []; }
+  // Fetch participants — 2-step query to bypass Postgrest embedded join issues
+  let participants = [];
+  let participantsDebug = '';
+  {
+    const { data: tp, error: tpErr } = await supabase
+      .from('trip_passengers')
+      .select('*')
+      .eq('trip_id', id)
+      .order('joined_at', { ascending: true });
+
+    if (tpErr) {
+      participantsDebug = `trip_passengers error: ${tpErr.message}`;
+    } else if (tp && tp.length > 0) {
+      participantsDebug = `Found ${tp.length} trip_passenger rows`;
+      const customerIds = tp.map((p) => p.customer_id).filter(Boolean);
+      if (customerIds.length > 0) {
+        const { data: cust, error: cErr } = await supabase
+          .from('customers')
+          .select('*')
+          .in('id', customerIds);
+        if (cErr) participantsDebug += ` · customers error: ${cErr.message}`;
+        const cMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
+        participants = tp.map((p) => ({ ...p, customers: cMap[p.customer_id] || null }));
+      } else {
+        participants = tp.map((p) => ({ ...p, customers: null }));
+      }
+    } else {
+      participantsDebug = `No trip_passengers for trip_id="${id}" (data: ${JSON.stringify(tp)})`;
+    }
+  }
+
+  // Recent CS updates for this trip
+  const { data: recentCS } = await supabase
+    .from('cs_daily_updates')
+    .select('*')
+    .eq('trip_id', id)
+    .order('tanggal', { ascending: false })
+    .limit(5);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* Header */}
       <div>
         <Link href="/trips" className="text-sm text-brand-600 font-medium hover:underline">← Kembali</Link>
         <div className="mt-2 flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${s.bg || 'bg-slate-100'} ${s.text || 'text-slate-700'}`}>
+              <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${s.bg} ${s.text}`}>
                 {trip.kode_trip || `#${trip.id}`}
               </span>
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-md border ${s.bg || 'bg-slate-100'} ${s.text || 'text-slate-700'} ${s.border || 'border-slate-200'}`}>
-                {s.label || trip.status || '—'}
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-md border ${s.bg} ${s.text} ${s.border}`}>
+                {s.label}
               </span>
-              {trip.ticket && <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">{trip.ticket}</span>}
+              {trip.ticket && (
+                <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">{trip.ticket}</span>
+              )}
             </div>
-            <h1 className="text-3xl font-bold text-brand-700">{trip.name || '—'}</h1>
+            <h1 className="text-3xl font-bold text-brand-700">{trip.name}</h1>
             {trip.destination && <p className="mt-1 text-slate-600">{trip.destination}</p>}
           </div>
-          <div className="flex flex-col gap-2">
-            <Link href={`/trips/${trip.id}/edit`} className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-card transition-colors text-center">
-              ✎ Edit Trip
-            </Link>
-            <TripDownloadButton trip={trip} participants={participants} financeItems={financeItems} />
-          </div>
+          <Link
+            href={`/trips/${trip.id}/edit`}
+            className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-card transition-colors"
+          >
+            ✎ Edit Trip
+          </Link>
         </div>
       </div>
 
+      {/* Key stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Seat Terjual" value={`${trip.sold || 0} / ${trip.quota || 0}`} color="text-brand-700" />
         <StatCard label="Sisa Seat" value={trip.seat_left ?? 0} color="text-amber-700" />
@@ -130,32 +115,40 @@ export default async function TripDetailPage({ params }) {
         <StatCard label="Revenue" value={fmtRupiah(revenue)} color="text-green-700" small />
       </div>
 
-      {checklist.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
-          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-            <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider">Status Operasional</h3>
-            <Link href={`/trips/${trip.id}/edit`} className="text-xs font-semibold text-brand-600 hover:underline">✎ Update Status</Link>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {checklist.map((c, i) => (
-              <StatusPill key={c?.label || i} label={c?.label || '—'} value={c?.ok ? 'OK' : 'pending'} ok={!!c?.ok} />
-            ))}
-          </div>
+      {/* Operations Status */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider">Status Operasional</h3>
+          <Link href={`/trips/${trip.id}/edit`} className="text-xs font-semibold text-brand-600 hover:underline">
+            ✎ Update Status
+          </Link>
         </div>
-      )}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <StatusPill label="Tiket" value={trip.ticket_status} okValues={['confirmed', 'issued']} />
+          <StatusPill label="Visa" value={trip.visa} okValues={['done', 'approved', 'process']} />
+          <StatusPill label="Manifest" value={trip.manifest} okValues={['ready']} />
+          <StatusPill label="Room List" value={trip.roomlist} okValues={['ready']} />
+          <StatusPill label="Payment" value={trip.payment} okValues={['lunas']} />
+          <StatusPill label="Briefing TL" value={trip.briefing_tl} okValues={['sudah']} />
+        </div>
+      </div>
 
+      {/* Info grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <InfoCard title="Tanggal">
           <InfoRow label="Keberangkatan" value={fmtDate(trip.departure)} note={days > 0 ? `${days} hari lagi` : null} />
           <InfoRow label="Kepulangan" value={fmtDate(trip.arrival)} />
           <InfoRow label="Deadline Booking" value={fmtDate(trip.deadline_close)} />
         </InfoCard>
-        <InfoCard title="Tim & Penerbangan">
+
+        <InfoCard title="Tim">
           <InfoRow label="PIC (CS)" value={trip.pic || '—'} />
           <InfoRow label="Tour Leader" value={trip.tl_name || '—'} />
-          <InfoRow label="PNR" value={trip.pnr || '—'} />
-          <InfoRow label="Route" value={trip.route || '—'} />
+          {trip.tl_assignment_status && (
+            <InfoRow label="Status TL" value={trip.tl_assignment_status} />
+          )}
         </InfoCard>
+
         {trip.notes && (
           <InfoCard title="Catatan" className="lg:col-span-2">
             <p className="text-sm text-slate-700 whitespace-pre-wrap">{trip.notes}</p>
@@ -163,20 +156,31 @@ export default async function TripDetailPage({ params }) {
         )}
       </div>
 
-      <TLAssignButton trip={trip} />
+      {/* Debug info (temporary) */}
+      {participantsDebug && (
+        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs font-mono text-yellow-800">
+          🔍 Debug: {participantsDebug}
+        </div>
+      )}
 
-      <TripDocuments tripId={id} documents={documents} readOnly={false} />
+      {/* Participants — Round 114/115: pass allTrips untuk dropdown Transfer */}
+      <ParticipantsList
+        tripId={trip.id}
+        participants={participants || []}
+        allTrips={allTrips || []}
+      />
 
-      <FamilyGroupManager tripId={trip.id} passengers={participants} familyGroups={familyGroups} />
-
-      <ParticipantsList tripId={trip.id} participants={participants} familyGroups={familyGroups} />
-
-      {recentCS.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
-            <h2 className="font-bold text-brand-700">Update CS Terbaru</h2>
-            <Link href="/cs/new" className="text-xs font-semibold text-brand-600 hover:underline">+ Tambah Update</Link>
+      {/* Recent CS updates */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+          <h2 className="font-bold text-brand-700">Update CS Terbaru</h2>
+          <Link href="/cs/new" className="text-xs font-semibold text-brand-600 hover:underline">+ Tambah Update</Link>
+        </div>
+        {!recentCS || recentCS.length === 0 ? (
+          <div className="p-8 text-center">
+            <p className="text-sm text-slate-500">Belum ada update CS untuk trip ini</p>
           </div>
+        ) : (
           <div className="divide-y divide-slate-100">
             {recentCS.map((u) => (
               <div key={u.id} className="px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
@@ -189,8 +193,8 @@ export default async function TripDetailPage({ params }) {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -225,12 +229,14 @@ function InfoRow({ label, value, note }) {
   );
 }
 
-function StatusPill({ label, value, ok }) {
+function StatusPill({ label, value, okValues = [] }) {
+  const isOk = value && okValues.includes(value);
+  const display = value || 'pending';
   return (
-    <div className={`rounded-lg p-2.5 border ${ok ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
-      <p className={`text-[10px] font-bold uppercase tracking-wider ${ok ? 'text-green-700' : 'text-slate-500'}`}>{label}</p>
-      <p className={`mt-0.5 text-sm font-bold capitalize ${ok ? 'text-green-800' : 'text-slate-700'}`}>
-        {ok && '✓ '}{value}
+    <div className={`rounded-lg p-2.5 border ${isOk ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
+      <p className={`text-[10px] font-bold uppercase tracking-wider ${isOk ? 'text-green-700' : 'text-slate-500'}`}>{label}</p>
+      <p className={`mt-0.5 text-sm font-bold capitalize ${isOk ? 'text-green-800' : 'text-slate-700'}`}>
+        {isOk && '✓ '}{display}
       </p>
     </div>
   );
