@@ -1,5 +1,5 @@
-// Cashflow per trip — HPP + Cash In items + AUTO INCOME dari participant_payments
-// Round 123: Tambah Cash In Peserta (actual payment), filter peserta active
+// Cashflow per trip — Round 126: Cash In = SEMUA payment is_transferred=false
+// (Include peserta refunded, karena uangnya udah masuk. Refund cash out tercatat di HPP)
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -17,7 +17,6 @@ export default async function CashflowDetailPage({ params }) {
   const [tripRes, itemsRes, passengersRes] = await Promise.all([
     supabase.from('trips').select('*').eq('id', tripId).maybeSingle(),
     supabase.from('trip_finance_items').select('*').eq('trip_id', tripId).order('item_type').order('category'),
-    // ROUND 123: Fetch passengers untuk hitung actual cash in
     supabase.from('trip_passengers').select('id, transfer_status, refund_status').eq('trip_id', tripId),
   ]);
 
@@ -25,23 +24,25 @@ export default async function CashflowDetailPage({ params }) {
   const trip = tripRes.data;
   const items = itemsRes.data || [];
 
-  // ROUND 123: Filter active passengers (exclude transferred + refunded)
-  const activePassengers = (passengersRes.data || []).filter((p) => {
+  const allPassengers = passengersRes.data || [];
+  const activePassengers = allPassengers.filter((p) => {
     const isTransferred = p.transfer_status === 'transferred';
     const isRefunded = p.refund_status === 'refunded' || p.refund_status === 'partial_refund';
     return !isTransferred && !isRefunded;
   });
-  const activePassengerIds = activePassengers.map((p) => p.id);
 
-  // ROUND 123: Fetch actual payments dari peserta active (exclude is_transferred=true)
+  // ROUND 126: Cash In = SEMUA payment yg is_transferred=false untuk SEMUA pax di trip ini
+  // (Include peserta refunded — uang udah masuk; refund tercatat sebagai HPP cash out)
+  // Hanya exclude payment yg sudah ditransfer ke trip lain (is_transferred=true)
+  const allPaxIds = allPassengers.map((p) => p.id);
   let autoCashIn = 0;
   let actualPaymentCount = 0;
-  if (activePassengerIds.length > 0) {
+  if (allPaxIds.length > 0) {
     try {
       const { data: pays } = await supabase
         .from('participant_payments')
-        .select('amount, is_transferred')
-        .in('passenger_id', activePassengerIds);
+        .select('amount, is_transferred, passenger_id')
+        .in('passenger_id', allPaxIds);
       const validPays = (pays || []).filter((p) => p.is_transferred !== true);
       autoCashIn = validPays.reduce((s, p) => s + Number(p.amount || 0), 0);
       actualPaymentCount = validPays.length;
@@ -57,6 +58,12 @@ export default async function CashflowDetailPage({ params }) {
   const totalHPP = hppItems.reduce((s, i) => s + (i.total_amount || 0), 0);
   const profit = totalIncome - totalHPP;
   const margin = totalIncome > 0 ? Math.round((profit / totalIncome) * 100) : null;
+
+  // Separate refund HPP from regular HPP
+  const refundHpp = hppItems.filter((i) => i.category === 'Refund');
+  const regularHpp = hppItems.filter((i) => i.category !== 'Refund');
+  const totalRefundHpp = refundHpp.reduce((s, i) => s + (i.total_amount || 0), 0);
+  const totalRegularHpp = regularHpp.reduce((s, i) => s + (i.total_amount || 0), 0);
 
   function groupByCategory(arr) {
     const grouped = {};
@@ -75,18 +82,18 @@ export default async function CashflowDetailPage({ params }) {
       <div>
         <Link href="/finance/cashflow" className="text-sm text-brand-600 font-medium hover:underline">← Proyeksi Income per Group</Link>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.kode_trip || `#${trip.id}`} — {trip.name}</h1>
-        <p className="mt-1 text-slate-600">Cash In peserta (auto) + Manual Income + HPP items.</p>
+        <p className="mt-1 text-slate-600">Cash In peserta (auto, exclude transferred-out) + Manual Income + HPP (termasuk Refund).</p>
       </div>
 
       {/* Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Total Income" value={fmtRupiah(totalIncome)} sub={`${activePassengers.length} pax · ${actualPaymentCount} payment`} color="text-green-700" bg="bg-green-50" />
-        <StatCard label="Total HPP" value={fmtRupiah(totalHPP)} sub={`${hppItems.length} item`} color="text-amber-700" bg="bg-amber-50" />
+        <StatCard label="Total Income" value={fmtRupiah(totalIncome)} sub={`${actualPaymentCount} payment · ${activePassengers.length} pax aktif`} color="text-green-700" bg="bg-green-50" />
+        <StatCard label="Total HPP" value={fmtRupiah(totalHPP)} sub={`${hppItems.length} item${refundHpp.length > 0 ? ` (${refundHpp.length} refund)` : ''}`} color="text-amber-700" bg="bg-amber-50" />
         <StatCard label="Profit" value={fmtRupiah(profit)} color={profit >= 0 ? 'text-blue-700' : 'text-red-700'} bg={profit >= 0 ? 'bg-blue-50' : 'bg-red-50'} />
         <StatCard label="Margin" value={margin == null ? '—' : `${margin}%`} color={margin == null ? 'text-slate-500' : margin >= 0 ? 'text-purple-700' : 'text-red-700'} bg={margin == null ? 'bg-slate-50' : margin >= 0 ? 'bg-purple-50' : 'bg-red-50'} />
       </div>
 
-      {/* ROUND 123: Cash In Peserta (Auto) — display only */}
+      {/* Cash In Peserta (Auto) */}
       <div className="bg-white rounded-xl border-2 border-green-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b bg-green-50 border-green-200 flex items-center justify-between flex-wrap gap-2">
           <h2 className="font-bold text-green-800 flex items-center gap-2">
@@ -95,18 +102,20 @@ export default async function CashflowDetailPage({ params }) {
           <p className="text-lg font-bold text-green-700">{fmtRupiah(autoCashIn)}</p>
         </div>
         <div className="p-4 text-sm text-slate-600">
-          <p>Auto-aggregated dari <span className="font-mono">participant_payments</span> peserta active.</p>
+          <p>Auto-aggregated dari <span className="font-mono">participant_payments</span>.</p>
           <p className="mt-1 text-xs text-slate-500">
-            • {activePassengers.length} peserta aktif (exclude transferred + refunded)
+            • {actualPaymentCount} payment terhitung (exclude payment yang udah dipindah ke trip lain)
             <br />
-            • {actualPaymentCount} payment terhitung
+            • {activePassengers.length} peserta aktif (selain itu peserta transferred-out atau refunded)
             <br />
-            • Auto refresh saat ada peserta pindah / refund approved
+            • Refund cash out: lihat di section HPP kategori "Refund" ({fmtRupiah(totalRefundHpp)})
+            <br />
+            • Net peserta cash flow (after refund): {fmtRupiah(autoCashIn - totalRefundHpp)}
           </p>
         </div>
       </div>
 
-      {/* INCOME section (manual) */}
+      {/* Manual Income */}
       <FinanceSection
         title="Manual Income (Vendor/Lain-lain)"
         emoji="💸"
@@ -118,9 +127,9 @@ export default async function CashflowDetailPage({ params }) {
         type="income"
       />
 
-      {/* HPP section */}
+      {/* HPP */}
       <FinanceSection
-        title="HPP (Cost)"
+        title="HPP (Cost) — termasuk Refund"
         emoji="🧾"
         color="amber"
         items={hppItems}
@@ -161,7 +170,9 @@ function FinanceSection({ title, emoji, color, items, itemsByCategory, total, tr
         <div className="divide-y divide-slate-100">
           {Object.entries(itemsByCategory).map(([category, list]) => (
             <div key={category} className="p-4">
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{category}</h3>
+              <h3 className={`text-xs font-bold uppercase tracking-wider mb-2 ${category === 'Refund' ? 'text-red-600' : 'text-slate-500'}`}>
+                {category === 'Refund' ? '💸 Refund' : category}
+              </h3>
               <div className="space-y-2">
                 {list.map((it) => (
                   <FinanceItemRow key={it.id} item={it} tripId={tripId} />
