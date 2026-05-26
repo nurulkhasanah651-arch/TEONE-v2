@@ -1,119 +1,104 @@
-// Payment Checklist per trip — Round 100h: fetch family_groups VIA SERVICE ROLE
+// Payment Checklist per trip — template form + matrix
+// Round 123: Filter peserta yang transferred/refunded (gak relevan lagi di trip ini)
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { fmtRupiah } from '@/lib/utils/format';
 import PaymentTemplateForm from '@/components/finance/PaymentTemplateForm';
 import PaymentMatrix from '@/components/finance/PaymentMatrix';
-import { expectedPerPassenger } from '@/lib/utils/price-breakdown';
 
 export const dynamic = 'force-dynamic';
-
-function getServiceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
-  return createServiceClient(url, key, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-}
 
 export default async function TripPaymentsPage({ params }) {
   const { tripId } = await params;
   const supabase = createClient();
 
+  // Fetch trip
   const { data: trip } = await supabase.from('trips').select('*').eq('id', tripId).maybeSingle();
   if (!trip) notFound();
 
-  const { data: tp } = await supabase.from('trip_passengers').select('*').eq('trip_id', tripId).order('joined_at', { ascending: true });
-  const passengers = tp || [];
+  // ROUND 123: Fetch ONLY active passengers (exclude transferred + refunded)
+  const { data: tp } = await supabase
+    .from('trip_passengers')
+    .select('*')
+    .eq('trip_id', tripId)
+    .order('joined_at', { ascending: true });
+
+  const allPassengers = tp || [];
+
+  // Filter: exclude transferred + refunded
+  const passengers = allPassengers.filter((p) => {
+    const isTransferred = p.transfer_status === 'transferred';
+    const isRefunded = p.refund_status === 'refunded' || p.refund_status === 'partial_refund';
+    return !isTransferred && !isRefunded;
+  });
+
+  // Count untuk info
+  const transferredCount = allPassengers.filter((p) => p.transfer_status === 'transferred').length;
+  const refundedCount = allPassengers.filter((p) => p.refund_status === 'refunded' || p.refund_status === 'partial_refund').length;
+
   const passengerIds = passengers.map((p) => p.id);
   const customerIds = passengers.map((p) => p.customer_id).filter(Boolean);
 
+  // Customers
   let customerMap = {};
   if (customerIds.length > 0) {
-    const { data: cust } = await supabase.from('customers').select('id, name, phone, email').in('id', customerIds);
+    const { data: cust } = await supabase.from('customers').select('id, name, phone').in('id', customerIds);
     customerMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
   }
   const passengersWithCustomers = passengers.map((p) => ({ ...p, customers: customerMap[p.customer_id] || null }));
 
+  // ROUND 123: Payments — filter is_transferred (defensive)
   let paymentsByPassenger = {};
   if (passengerIds.length > 0) {
-    const { data: pays } = await supabase.from('participant_payments').select('*').in('passenger_id', passengerIds);
-    for (const p of (pays || [])) {
+    let payments = [];
+    try {
+      const r = await supabase.from('participant_payments')
+        .select('*')
+        .in('passenger_id', passengerIds)
+        .eq('is_transferred', false);
+      payments = r.data || [];
+    } catch {
+      const r = await supabase.from('participant_payments')
+        .select('*')
+        .in('passenger_id', passengerIds);
+      payments = r.data || [];
+    }
+    for (const p of payments) {
       if (!paymentsByPassenger[p.passenger_id]) paymentsByPassenger[p.passenger_id] = [];
       paymentsByPassenger[p.passenger_id].push(p);
     }
   }
 
-  let invoicesByPassenger = {};
-  try {
-    const { data: invs } = await supabase
-      .from('invoices')
-      .select('*')
-      .eq('trip_id', tripId)
-      .order('created_at', { ascending: false });
-    for (const inv of (invs || [])) {
-      if (!inv.passenger_id) continue;
-      if (!invoicesByPassenger[inv.passenger_id]) invoicesByPassenger[inv.passenger_id] = [];
-      invoicesByPassenger[inv.passenger_id].push(inv);
-    }
-  } catch {}
-
-  // Round 100h: family groups via SERVICE ROLE (bypass RLS)
-  let familyGroups = [];
-  try {
-    const serviceClient = getServiceClient();
-    const client = serviceClient || supabase;
-    const { data: fg, error: fgError } = await client
-      .from('family_groups')
-      .select('*')
-      .eq('trip_id', tripId)
-      .order('created_at', { ascending: true });
-    if (fgError) {
-      console.error('[family_groups fetch error]', fgError.message);
-    }
-    familyGroups = Array.isArray(fg) ? fg : [];
-  } catch (e) {
-    console.error('[family_groups fetch exception]', e?.message);
-    familyGroups = [];
-  }
-
   const template = (trip.payment_template && typeof trip.payment_template === 'object') ? trip.payment_template : {};
-  const breakdown = (trip.price_breakdown && typeof trip.price_breakdown === 'object') ? trip.price_breakdown : {};
-
-  const totalExpected = passengers.reduce(
-    (s, p) => s + expectedPerPassenger(p, breakdown, paymentsByPassenger[p.id] || []),
-    0
-  );
+  const totalExpected = passengers.reduce((s, p) => s + (p.price_paid || 0), 0);
   const totalPaid = Object.values(paymentsByPassenger).flat().reduce((s, p) => s + (p.amount || 0), 0);
   const progress = totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : 0;
+  const templateTotal = Object.values(template).reduce((s, v) => s + (+v || 0), 0);
 
   return (
     <div className="max-w-7xl mx-auto space-y-5">
       <div>
         <Link href="/finance/payments" className="text-sm text-brand-600 font-medium hover:underline">← Payment Checklist</Link>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.kode_trip || `#${trip.id}`} — {trip.name}</h1>
-        <p className="mt-1 text-slate-600">
-          WAJIB: room + tips + city tax · OPTIONAL: visa/asuransi/customs (cuma masuk expected setelah ✓)
-        </p>
-        <p className="mt-1 text-xs text-pink-700 bg-pink-50 inline-block px-3 py-1 rounded">
-          💡 Tip: Klik nama peserta untuk expand → ada section <b>📄 Invoices</b> untuk generate + kirim ke WA peserta
-        </p>
-        {familyGroups.length > 0 && (
-          <p className="mt-1 text-xs text-indigo-800 bg-indigo-50 inline-block px-3 py-1 rounded">
-            👨‍👩‍👧 {familyGroups.length} family group aktif — kepala bisa generate 1 invoice family cover semua anggota
-          </p>
+        <p className="mt-1 text-slate-600">Set template payment group → checklist tiap peserta.</p>
+        {(transferredCount > 0 || refundedCount > 0) && (
+          <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs text-amber-800">
+            <span>ⓘ</span>
+            {transferredCount > 0 && <span><b>{transferredCount}</b> peserta pindah trip (di-hide)</span>}
+            {transferredCount > 0 && refundedCount > 0 && <span>·</span>}
+            {refundedCount > 0 && <span><b>{refundedCount}</b> peserta refunded (di-hide)</span>}
+          </div>
         )}
       </div>
 
+      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Peserta" value={passengers.length} color="text-brand-700" bg="bg-brand-50" />
-        <StatCard label="Expected Total" value={fmtRupiah(totalExpected)} color="text-blue-700" bg="bg-blue-50" small />
+        <StatCard label="Peserta Aktif" value={passengers.length} color="text-brand-700" bg="bg-brand-50" />
+        <StatCard label="Template / Pax" value={fmtRupiah(templateTotal)} color="text-purple-700" bg="bg-purple-50" small />
         <StatCard label="Total Paid" value={fmtRupiah(totalPaid)} color="text-green-700" bg="bg-green-50" small />
-        <StatCard label="Progress" value={`${progress}%`} color="text-purple-700" bg="bg-purple-50" />
+        <StatCard label="Progress Total" value={`${progress}%`} color="text-blue-700" bg="bg-blue-50" />
       </div>
 
       <PaymentTemplateForm tripId={tripId} template={template} />
@@ -123,9 +108,6 @@ export default async function TripPaymentsPage({ params }) {
         passengers={passengersWithCustomers}
         paymentsByPassenger={paymentsByPassenger}
         template={template}
-        breakdown={breakdown}
-        invoicesByPassenger={invoicesByPassenger}
-        familyGroups={familyGroups}
       />
     </div>
   );
