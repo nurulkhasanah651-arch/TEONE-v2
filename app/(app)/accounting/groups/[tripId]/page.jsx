@@ -1,15 +1,12 @@
-// Real Cashflow Group — Round 48: pakai expectedPerPassenger dengan payments (WAJIB + ✓ optionals)
+// Real Cashflow detail per trip — Round 124: filter transferred/refunded + admin fee refund visible
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import { statusCfg } from '@/lib/utils/trip-status';
-import { roomTypeToKey, expectedPerPassenger, mainExpectedPerPassenger, ROOM_KEYS, AGE_KEYS, ADDON_KEYS } from '@/lib/utils/price-breakdown';
 
 export const dynamic = 'force-dynamic';
-
-const KEY_MAP = Object.fromEntries([...ROOM_KEYS, ...AGE_KEYS, ...ADDON_KEYS].map((k) => [k.key, k]));
 
 export default async function GroupCashflowDetailPage({ params }) {
   const { tripId } = await params;
@@ -18,88 +15,89 @@ export default async function GroupCashflowDetailPage({ params }) {
   const { data: trip } = await supabase.from('trips').select('*').eq('id', tripId).maybeSingle();
   if (!trip) notFound();
 
-  const [passRes, finItemsRes, pnrRes, custRes, accEntRes] = await Promise.all([
+  const [passRes, finItemsRes, pnrRes, custRes, accEntRes, refundsRes] = await Promise.all([
     supabase.from('trip_passengers').select('*').eq('trip_id', tripId),
-    supabase.from('trip_finance_items').select('*').eq('trip_id', tripId),
+    supabase.from('trip_finance_items').select('*').eq('trip_id', tripId).order('item_type').order('category'),
     supabase.from('flight_inventory').select('*').eq('trip_id', tripId),
     supabase.from('customers').select('id, name'),
     supabase.from('accounting_entries').select('*').eq('trip_id', tripId).order('date', { ascending: false }),
+    // ROUND 124: Fetch refunds approved untuk admin fee tracking
+    supabase.from('refunds').select('*').eq('trip_id', tripId).eq('status', 'approved'),
   ]);
 
-  const passengers = passRes.data || [];
-  const passengerIds = passengers.map((p) => p.id);
+  const allPassengers = passRes.data || [];
   const customers = custRes.data || [];
   const custMap = Object.fromEntries(customers.map((c) => [c.id, c]));
+
+  // ROUND 124: Pisahkan active vs inactive (transferred/refunded)
+  const activePassengers = allPassengers.filter((p) => {
+    const isTransferred = p.transfer_status === 'transferred';
+    const isRefunded = p.refund_status === 'refunded' || p.refund_status === 'partial_refund';
+    return !isTransferred && !isRefunded;
+  });
+  const inactivePassengers = allPassengers.filter((p) => {
+    return p.transfer_status === 'transferred' ||
+           p.refund_status === 'refunded' ||
+           p.refund_status === 'partial_refund';
+  });
+
+  const activePassengerIds = activePassengers.map((p) => p.id);
+
+  // Fetch payments untuk SEMUA peserta (untuk track history), tapi filter is_transferred
+  const allPaxIds = allPassengers.map((p) => p.id);
+  let payments = [];
+  if (allPaxIds.length > 0) {
+    try {
+      const { data } = await supabase.from('participant_payments')
+        .select('*')
+        .in('passenger_id', allPaxIds);
+      payments = (data || []).filter((p) => p.is_transferred !== true);
+    } catch (e) {
+      payments = [];
+    }
+  }
+
+  // Cash in HANYA dari peserta active (yang udah transferred/refunded payment-nya sudah di-track terpisah)
+  const paymentsActive = payments.filter((p) => activePassengerIds.includes(p.passenger_id));
+  const paymentsInactive = payments.filter((p) => !activePassengerIds.includes(p.passenger_id));
+
   const finItems = finItemsRes.data || [];
   const pnrs = pnrRes.data || [];
   const accEntries = accEntRes.data || [];
-  const breakdown = trip.price_breakdown || {};
+  const refunds = refundsRes.data || [];
 
-  let payments = [];
-  if (passengerIds.length > 0) {
-    const { data } = await supabase.from('participant_payments').select('*').in('passenger_id', passengerIds);
-    payments = data || [];
-  }
+  // === CASH IN ===
+  const totalPaymentsIn = paymentsActive.reduce((s, p) => s + (p.amount || 0), 0);
+  const totalPaymentsInactive = paymentsInactive.reduce((s, p) => s + (p.amount || 0), 0);
 
-  const paymentsByPassenger = {};
-  const paidByPassenger = {};
-  for (const p of payments) {
-    paidByPassenger[p.passenger_id] = (paidByPassenger[p.passenger_id] || 0) + (p.amount || 0);
-    if (!paymentsByPassenger[p.passenger_id]) paymentsByPassenger[p.passenger_id] = [];
-    paymentsByPassenger[p.passenger_id].push(p);
-  }
+  // ROUND 124: Admin fee refund — dana hangus jadi cash in retained
+  const totalRefundAdminFee = refunds.reduce((s, r) => s + Number(r.admin_fee || 0), 0);
+  const totalRefundAmount = refunds.reduce((s, r) => s + Number(r.refund_amount || 0), 0);
 
-  const perPaxRows = passengers.map((p) => {
-    const c = custMap[p.customer_id] || {};
-    const key = roomTypeToKey(p.room_type);
-    const cfg = key ? KEY_MAP[key] : null;
-    const main = mainExpectedPerPassenger(p, breakdown);
-    const exp = expectedPerPassenger(p, breakdown, paymentsByPassenger[p.id] || []);
-    const optionalAdd = exp - main;
-    const paid = paidByPassenger[p.id] || 0;
-    const remaining = exp - paid;
-    let status = 'belum';
-    if (paid >= exp && exp > 0) status = 'lunas';
-    else if (paid > 0) status = 'cicilan';
-    if (paid > exp && exp > 0) status = 'overpaid';
-    return {
-      id: p.id,
-      name: c.name || `#${p.id}`,
-      roomLabel: cfg?.label || p.room_type || '—',
-      roomIcon: cfg?.icon || '',
-      main,
-      optionalAdd,
-      expected: exp,
-      paid,
-      remaining,
-      status,
-    };
-  });
+  const manualIn = accEntries.filter((e) => e.type === 'in').reduce((s, e) => s + (e.amount || 0), 0);
 
-  const totalExpected = perPaxRows.reduce((s, r) => s + r.expected, 0);
-  const totalMain = perPaxRows.reduce((s, r) => s + r.main, 0);
-  const totalOptional = perPaxRows.reduce((s, r) => s + r.optionalAdd, 0);
-  const totalPaid = perPaxRows.reduce((s, r) => s + r.paid, 0);
-  const totalRemaining = totalExpected - totalPaid;
-  const collectionRate = totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : 0;
+  // Cash in total = active payments + inactive payments (lama, sebelum refund) + manual
+  // (inactive payments sudah masuk dulu, tinggal kurang refund-nya nanti)
+  const totalRealIn = totalPaymentsIn + totalPaymentsInactive + manualIn;
 
-  // Real cash flow
-  const totalPaymentsIn = payments.reduce((s, p) => s + (p.amount || 0), 0);
-  const manualIn = accEntries.filter((e) => e.type === 'in' && !e.linked_payment_id).reduce((s, e) => s + (e.amount || 0), 0);
-  const totalRealIn = totalPaymentsIn + manualIn;
-
+  // === CASH OUT ===
   const hppLunas = finItems.filter((i) => i.item_type === 'hpp' && i.payment_status === 'lunas');
   const totalHppLunas = hppLunas.reduce((s, i) => s + (i.total_amount || 0), 0);
+  const hppRefundLunas = hppLunas.filter((i) => i.category === 'Refund');
+  const totalHppRefundLunas = hppRefundLunas.reduce((s, i) => s + (i.total_amount || 0), 0);
+  const totalHppOther = totalHppLunas - totalHppRefundLunas;
+
   const totalPnrPaid = pnrs.reduce((s, p) => s + (p.deposit_total || 0) + (p.payoff_amount || 0), 0);
-  const manualOut = accEntries.filter((e) => e.type === 'out' && !e.linked_finance_item_id).reduce((s, e) => s + (e.amount || 0), 0);
+  const manualOut = accEntries.filter((e) => e.type === 'out').reduce((s, e) => s + (e.amount || 0), 0);
   const totalRealOut = totalHppLunas + totalPnrPaid + manualOut;
 
   const realProfit = totalRealIn - totalRealOut;
-  const proyHpp = finItems.filter((i) => i.item_type === 'hpp').reduce((s, i) => s + (i.total_amount || 0), 0);
-  const proyProfit = totalExpected - proyHpp;
-  const hppOwed = proyHpp - totalHppLunas;
 
-  const s = statusCfg(trip.status);
+  // === PROYEKSI ===
+  const proyIncome = finItems.filter((i) => i.item_type === 'income').reduce((s, i) => s + (i.total_amount || 0), 0);
+  const proyHpp = finItems.filter((i) => i.item_type === 'hpp').reduce((s, i) => s + (i.total_amount || 0), 0);
+  const proyProfit = proyIncome - proyHpp;
+  const hppOwed = proyHpp - totalHppLunas;
 
   const netCash = totalRealIn - totalRealOut;
   let titipan = 0, marginLocked = 0, cicilanMengendap = 0;
@@ -115,6 +113,14 @@ export default async function GroupCashflowDetailPage({ params }) {
     marginLocked = netCash;
   }
 
+  const paymentsByPassenger = {};
+  for (const p of payments) {
+    if (!paymentsByPassenger[p.passenger_id]) paymentsByPassenger[p.passenger_id] = [];
+    paymentsByPassenger[p.passenger_id].push(p);
+  }
+
+  const s = statusCfg(trip.status);
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
@@ -124,88 +130,14 @@ export default async function GroupCashflowDetailPage({ params }) {
           <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${s.bg} ${s.text} border ${s.border}`}>{s.label}</span>
         </div>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.name}</h1>
-        <p className="mt-1 text-slate-600">Expected = WAJIB + ✓ Optional · {passengers.length} peserta · {fmtDate(trip.departure)}</p>
+        <p className="mt-1 text-slate-600">
+          Real cashflow detail · {activePassengers.length} peserta aktif
+          {inactivePassengers.length > 0 && <span className="text-amber-600"> · {inactivePassengers.length} transferred/refunded</span>}
+          · Berangkat {fmtDate(trip.departure)}
+        </p>
       </div>
 
-      <div className="bg-white rounded-xl border-2 border-brand-200 shadow-card overflow-hidden">
-        <div className="px-5 py-3 border-b border-brand-200 bg-gradient-to-r from-brand-50 to-blue-50">
-          <h2 className="font-bold text-brand-700">💎 Expected Cash In vs Paid</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            WAJIB = harga room + tips + city tax · OPTIONAL = visa/asuransi/customs (cuma masuk expected setelah finance ✓ checklist)
-          </p>
-        </div>
-        <div className="p-5">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <SummaryCard label="💎 Expected" value={fmtRupiah(totalExpected)} sub={`Wajib ${fmtRupiah(totalMain)} + Opt ${fmtRupiah(totalOptional)}`} color="text-brand-700" bg="bg-brand-50" />
-            <SummaryCard label="✓ Sudah Bayar" value={fmtRupiah(totalPaid)} sub={`${collectionRate}% terkumpul`} color="text-green-700" bg="bg-green-50" />
-            <SummaryCard label="⏳ Sisa Tagihan" value={fmtRupiah(totalRemaining)} sub={totalRemaining > 0 ? 'Belum dibayar' : '✓ Lunas semua'} color={totalRemaining > 0 ? 'text-amber-700' : 'text-green-700'} bg={totalRemaining > 0 ? 'bg-amber-50' : 'bg-green-50'} />
-            <SummaryCard label="📊 Collection" value={`${collectionRate}%`} sub={collectionRate >= 80 ? 'On track' : 'Push payment'} color={collectionRate >= 80 ? 'text-green-700' : 'text-amber-700'} bg={collectionRate >= 80 ? 'bg-green-50' : 'bg-amber-50'} />
-          </div>
-
-          <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden mb-4">
-            <div className="h-full bg-gradient-to-r from-green-400 to-green-600 transition-all" style={{ width: `${Math.min(collectionRate, 100)}%` }} />
-          </div>
-
-          {perPaxRows.length === 0 ? (
-            <p className="text-center text-sm text-slate-500 py-8">Belum ada peserta.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-[11px] font-bold text-slate-600 uppercase">
-                  <tr>
-                    <th className="px-3 py-2 text-left">#</th>
-                    <th className="px-3 py-2 text-left">Nama Peserta</th>
-                    <th className="px-3 py-2 text-left">Room</th>
-                    <th className="px-3 py-2 text-right">Wajib</th>
-                    <th className="px-3 py-2 text-right">+ Opt ✓</th>
-                    <th className="px-3 py-2 text-right">Expected</th>
-                    <th className="px-3 py-2 text-right">Paid</th>
-                    <th className="px-3 py-2 text-right">Sisa</th>
-                    <th className="px-3 py-2 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {perPaxRows.map((r, idx) => (
-                    <tr key={r.id} className={`hover:bg-slate-50 ${r.status === 'belum' && r.expected > 0 ? 'bg-red-50/30' : ''}`}>
-                      <td className="px-3 py-2 text-xs text-slate-500">{idx + 1}</td>
-                      <td className="px-3 py-2 text-sm font-semibold text-slate-800">{r.name}</td>
-                      <td className="px-3 py-2 text-xs">{r.roomIcon} {r.roomLabel}</td>
-                      <td className="px-3 py-2 text-right text-xs text-slate-700">{fmtRupiah(r.main)}</td>
-                      <td className="px-3 py-2 text-right text-xs text-indigo-700">{r.optionalAdd > 0 ? `+${fmtRupiah(r.optionalAdd)}` : '—'}</td>
-                      <td className="px-3 py-2 text-right text-sm font-bold text-brand-700">{fmtRupiah(r.expected)}</td>
-                      <td className="px-3 py-2 text-right text-sm font-semibold text-green-700">{fmtRupiah(r.paid)}</td>
-                      <td className="px-3 py-2 text-right text-sm font-bold">
-                        <span className={r.remaining > 0 ? 'text-amber-700' : r.remaining < 0 ? 'text-red-700' : 'text-slate-400'}>
-                          {fmtRupiah(r.remaining)}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-center"><StatusBadge status={r.status} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="bg-slate-50 font-bold">
-                  <tr>
-                    <td colSpan="3" className="px-3 py-2 text-sm">TOTAL</td>
-                    <td className="px-3 py-2 text-right text-xs text-slate-700">{fmtRupiah(totalMain)}</td>
-                    <td className="px-3 py-2 text-right text-xs text-indigo-700">+{fmtRupiah(totalOptional)}</td>
-                    <td className="px-3 py-2 text-right text-sm text-brand-700">{fmtRupiah(totalExpected)}</td>
-                    <td className="px-3 py-2 text-right text-sm text-green-700">{fmtRupiah(totalPaid)}</td>
-                    <td className="px-3 py-2 text-right text-sm text-amber-700">{fmtRupiah(totalRemaining)}</td>
-                    <td className="px-3 py-2 text-center text-xs text-slate-500">{collectionRate}%</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Link href={`/finance/payments/${tripId}`} className="text-xs font-semibold px-3 py-1.5 rounded bg-brand-500 hover:bg-brand-600 text-white">💳 Buka Payment Checklist</Link>
-            <Link href={`/finance/cashflow/${tripId}`} className="text-xs font-semibold px-3 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700">📈 Proyeksi Income Finance</Link>
-            <Link href={`/trips/${tripId}/edit`} className="text-xs font-semibold px-3 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700">✏️ Edit Master Trip</Link>
-          </div>
-        </div>
-      </div>
-
+      {/* Top summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Real Cash In" value={fmtRupiah(totalRealIn)} color="text-green-700" bg="bg-green-50" />
         <StatCard label="Real Cash Out" value={fmtRupiah(totalRealOut)} color="text-amber-700" bg="bg-amber-50" />
@@ -213,82 +145,220 @@ export default async function GroupCashflowDetailPage({ params }) {
         <StatCard label="Proyeksi Profit" value={fmtRupiah(proyProfit)} color="text-purple-700" bg="bg-purple-50" />
       </div>
 
+      {/* ROUND 124: REFUND TRACKING SECTION */}
+      {refunds.length > 0 && (
+        <div className="bg-white rounded-xl border-2 border-red-200 shadow-card overflow-hidden">
+          <div className="px-5 py-3 border-b bg-red-50 border-red-200 flex items-center justify-between flex-wrap gap-2">
+            <h2 className="font-bold text-red-800 flex items-center gap-2">
+              <span>💸</span> Refund Tracking
+            </h2>
+            <p className="text-xs text-slate-600">{refunds.length} refund approved</p>
+          </div>
+          <div className="p-5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+              <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+                <p className="text-[10px] font-bold text-red-700 uppercase tracking-wider">💸 Total Refund Out</p>
+                <p className="mt-1 text-lg font-bold text-red-700">{fmtRupiah(totalRefundAmount)}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Dana yang dikembalikan ke peserta</p>
+              </div>
+              <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200">
+                <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">🔥 Admin Fee (Dana Hangus)</p>
+                <p className="mt-1 text-lg font-bold text-emerald-700">{fmtRupiah(totalRefundAdminFee)}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Hangus = jadi cash in retained (keuntungan perusahaan)</p>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                <p className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">📊 Total Refund Activity</p>
+                <p className="mt-1 text-lg font-bold text-slate-700">{fmtRupiah(totalRefundAmount + totalRefundAdminFee)}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Total dibayar sebelum refund</p>
+              </div>
+            </div>
+            <details className="text-xs">
+              <summary className="cursor-pointer font-semibold text-slate-700">Detail refund per peserta ▼</summary>
+              <table className="w-full mt-2 text-xs">
+                <thead className="bg-slate-50">
+                  <tr className="text-slate-600">
+                    <th className="px-2 py-1 text-left">Peserta</th>
+                    <th className="px-2 py-1 text-left">Alasan</th>
+                    <th className="px-2 py-1 text-right">Bayar</th>
+                    <th className="px-2 py-1 text-right">Refund</th>
+                    <th className="px-2 py-1 text-right">Admin Fee</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {refunds.map((r) => (
+                    <tr key={r.id}>
+                      <td className="px-2 py-1">{r.passenger_name || '—'}</td>
+                      <td className="px-2 py-1 text-slate-600">{r.reason}</td>
+                      <td className="px-2 py-1 text-right">{fmtRupiah(r.total_paid)}</td>
+                      <td className="px-2 py-1 text-right text-red-700">{fmtRupiah(r.refund_amount)}</td>
+                      <td className="px-2 py-1 text-right text-emerald-700">{fmtRupiah(r.admin_fee)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
+          </div>
+        </div>
+      )}
+
+      {/* Classification */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
         <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">📊 Klasifikasi Uang Saat Ini</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <ClassCard label="🔒 Titipan (vendor)" value={titipan} color="text-amber-700" bg="bg-amber-50" desc="HPP belum lunas yang akan dibayar dari cicilan" />
-          <ClassCard label="⏳ Cicilan Mengendap" value={cicilanMengendap} color="text-yellow-700" bg="bg-yellow-50" desc={hasProjection ? 'HPP proyeksi sudah set' : 'HPP proyeksi BELUM set'} highlight={!hasProjection && cicilanMengendap > 0} />
+          <ClassCard label="🔒 Titipan (untuk vendor)" value={titipan} color="text-amber-700" bg="bg-amber-50" desc="HPP belum lunas yang akan dibayar dari cicilan" />
+          <ClassCard label="⏳ Cicilan Mengendap" value={cicilanMengendap} color="text-yellow-700" bg="bg-yellow-50" desc={hasProjection ? 'HPP proyeksi sudah di-set' : 'HPP proyeksi BELUM di-set di Finance'} highlight={!hasProjection && cicilanMengendap > 0} />
           <ClassCard label="💼 Margin Locked" value={marginLocked} color="text-green-700" bg="bg-green-50" desc="Sudah pasti milik perusahaan" />
         </div>
+        {!hasProjection && totalRealIn > 0 && (
+          <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+            <p className="font-bold">⚠ HPP proyeksi untuk trip ini belum di-set</p>
+            <p className="text-xs mt-1">Cicilan peserta yang sudah masuk = "mengendap" karena belum tahu alokasi untuk vendor. <Link href={`/finance/cashflow/${trip.id}`} className="text-brand-600 hover:underline font-semibold">Set HPP proyeksi di Finance →</Link></p>
+          </div>
+        )}
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-200 bg-amber-50">
-          <h2 className="font-bold text-amber-800 flex items-center gap-2">⬇ HPP & Vendor Cost <span className="text-sm ml-auto">{fmtRupiah(totalRealOut)}</span></h2>
-        </div>
-        <div className="p-5 space-y-3">
-          {hppLunas.length > 0 && (
-            <SubSection title="HPP Lunas" total={totalHppLunas} color="text-amber-700">
-              {hppLunas.map((i) => (
-                <div key={i.id} className="flex justify-between text-sm py-1">
-                  <span className="text-slate-700">{i.component}{i.vendor_name && <span className="text-xs text-slate-400 ml-1">· {i.vendor_name}</span>}</span>
-                  <span className="font-semibold text-amber-700">{fmtRupiah(i.total_amount)}</span>
-                </div>
-              ))}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* CASH IN */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-200 bg-green-50">
+            <h2 className="font-bold text-green-800 flex items-center gap-2">⬆ Real Cash In <span className="text-sm ml-auto">{fmtRupiah(totalRealIn)}</span></h2>
+          </div>
+          <div className="p-5 space-y-3">
+            <SubSection title={`Payment Peserta Aktif (${activePassengers.length})`} total={totalPaymentsIn} color="text-green-700">
+              {activePassengers.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">Belum ada peserta aktif</p>
+              ) : (
+                activePassengers.map((p) => {
+                  const c = custMap[p.customer_id] || {};
+                  const pays = paymentsByPassenger[p.id] || [];
+                  const total = pays.reduce((s, x) => s + (x.amount || 0), 0);
+                  return (
+                    <div key={p.id} className="flex justify-between text-sm py-1">
+                      <span className="text-slate-700">{c.name || `#${p.id}`}</span>
+                      <span className={`font-semibold ${total > 0 ? 'text-green-700' : 'text-slate-400'}`}>{fmtRupiah(total)}</span>
+                    </div>
+                  );
+                })
+              )}
             </SubSection>
-          )}
-          {pnrs.length > 0 && totalPnrPaid > 0 && (
-            <SubSection title="Deposit PNR" total={totalPnrPaid} color="text-amber-700">
-              {pnrs.map((p) => {
-                const t = (p.deposit_total || 0) + (p.payoff_amount || 0);
-                if (t === 0) return null;
-                return (
-                  <div key={p.id} className="flex justify-between text-sm py-1">
-                    <span className="text-slate-700">{p.pnr}{p.vendor && <span className="text-xs text-slate-400 ml-1">· {p.vendor}</span>}</span>
-                    <span className="font-semibold text-amber-700">{fmtRupiah(t)}</span>
+
+            {inactivePassengers.length > 0 && (
+              <SubSection title={`Payment Peserta Transferred/Refunded (${inactivePassengers.length})`} total={totalPaymentsInactive} color="text-amber-700">
+                {inactivePassengers.map((p) => {
+                  const c = custMap[p.customer_id] || {};
+                  const pays = paymentsByPassenger[p.id] || [];
+                  const total = pays.reduce((s, x) => s + (x.amount || 0), 0);
+                  const label = p.transfer_status === 'transferred' ? '📤 Pindah' :
+                                p.refund_status === 'refunded' ? '💸 Refund' :
+                                p.refund_status === 'partial_refund' ? '💸 Partial Refund' : '';
+                  return (
+                    <div key={p.id} className="flex justify-between text-sm py-1">
+                      <span className="text-slate-500">{c.name || `#${p.id}`} <span className="text-[10px] text-amber-600">{label}</span></span>
+                      <span className={`font-semibold ${total > 0 ? 'text-amber-700' : 'text-slate-400'}`}>{fmtRupiah(total)}</span>
+                    </div>
+                  );
+                })}
+              </SubSection>
+            )}
+
+            {manualIn > 0 && (
+              <SubSection title="Manual Cash In" total={manualIn} color="text-green-700">
+                {accEntries.filter((e) => e.type === 'in').map((e) => (
+                  <div key={e.id} className="flex justify-between text-sm py-1">
+                    <span className="text-slate-700">{e.description}{e.category && <span className="text-xs text-slate-400 ml-1">({e.category})</span>}</span>
+                    <span className="font-semibold text-green-700">{fmtRupiah(e.amount)}</span>
                   </div>
-                );
-              })}
+                ))}
+              </SubSection>
+            )}
+          </div>
+        </div>
+
+        {/* CASH OUT */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-200 bg-amber-50">
+            <h2 className="font-bold text-amber-800 flex items-center gap-2">⬇ Real Cash Out <span className="text-sm ml-auto">{fmtRupiah(totalRealOut)}</span></h2>
+          </div>
+          <div className="p-5 space-y-3">
+            {totalHppRefundLunas > 0 && (
+              <SubSection title={`Refund Peserta (${hppRefundLunas.length})`} total={totalHppRefundLunas} color="text-red-700">
+                {hppRefundLunas.map((i) => (
+                  <div key={i.id} className="flex justify-between text-sm py-1">
+                    <span className="text-slate-700">{i.component}</span>
+                    <span className="font-semibold text-red-700">{fmtRupiah(i.total_amount)}</span>
+                  </div>
+                ))}
+              </SubSection>
+            )}
+
+            <SubSection title={`HPP Lunas Vendor (${hppLunas.length - hppRefundLunas.length})`} total={totalHppOther} color="text-amber-700">
+              {hppLunas.filter((i) => i.category !== 'Refund').length === 0 ? (
+                <p className="text-xs text-slate-400 italic">Belum ada HPP lunas (selain refund)</p>
+              ) : (
+                hppLunas.filter((i) => i.category !== 'Refund').map((i) => (
+                  <div key={i.id} className="flex justify-between text-sm py-1">
+                    <span className="text-slate-700">{i.component}{i.vendor_name && <span className="text-xs text-slate-400 ml-1">· {i.vendor_name}</span>}</span>
+                    <span className="font-semibold text-amber-700">{fmtRupiah(i.total_amount)}</span>
+                  </div>
+                ))
+              )}
             </SubSection>
-          )}
-          {manualOut > 0 && (
-            <SubSection title="Manual Cash Out" total={manualOut} color="text-amber-700">
-              {accEntries.filter((e) => e.type === 'out' && !e.linked_finance_item_id).map((e) => (
-                <div key={e.id} className="flex justify-between text-sm py-1">
-                  <span className="text-slate-700">{e.description}{e.category && <span className="text-xs text-slate-400 ml-1">({e.category})</span>}</span>
-                  <span className="font-semibold text-amber-700">{fmtRupiah(e.amount)}</span>
-                </div>
-              ))}
+
+            <SubSection title="Deposit PNR (sudah dibayar ke maskapai)" total={totalPnrPaid} color="text-amber-700">
+              {pnrs.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">Belum ada PNR linked</p>
+              ) : (
+                pnrs.map((p) => {
+                  const totalPaid = (p.deposit_total || 0) + (p.payoff_amount || 0);
+                  return (
+                    <div key={p.id} className="flex justify-between text-sm py-1">
+                      <span className="text-slate-700">{p.pnr}{p.vendor && <span className="text-xs text-slate-400 ml-1">· {p.vendor}</span>}</span>
+                      <span className="font-semibold text-amber-700">{fmtRupiah(totalPaid)}</span>
+                    </div>
+                  );
+                })
+              )}
             </SubSection>
-          )}
-          {hppOwed > 0 && (
-            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
-              <p className="font-bold">💼 Hutang vendor belum dibayar: {fmtRupiah(hppOwed)}</p>
-            </div>
-          )}
+
+            {manualOut > 0 && (
+              <SubSection title="Manual Cash Out" total={manualOut} color="text-amber-700">
+                {accEntries.filter((e) => e.type === 'out').map((e) => (
+                  <div key={e.id} className="flex justify-between text-sm py-1">
+                    <span className="text-slate-700">{e.description}{e.category && <span className="text-xs text-slate-400 ml-1">({e.category})</span>}</span>
+                    <span className="font-semibold text-amber-700">{fmtRupiah(e.amount)}</span>
+                  </div>
+                ))}
+              </SubSection>
+            )}
+
+            {hppOwed > 0 && (
+              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
+                <p className="font-bold">💼 Masih ada hutang vendor: {fmtRupiah(hppOwed)}</p>
+                <p className="mt-1">HPP yang sudah di-input di Finance tapi belum lunas.</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
 
-function StatusBadge({ status }) {
-  const cfg = {
-    lunas:    { label: 'LUNAS ✓',  color: 'bg-green-100 text-green-700' },
-    cicilan:  { label: 'Cicilan',  color: 'bg-amber-100 text-amber-700' },
-    belum:    { label: 'Belum',    color: 'bg-red-100 text-red-700' },
-    overpaid: { label: 'Overpaid', color: 'bg-blue-100 text-blue-700' },
-  };
-  const c = cfg[status] || cfg.belum;
-  return <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${c.color}`}>{c.label}</span>;
-}
-
-function SummaryCard({ label, value, sub, color, bg }) {
-  return (
-    <div className={`rounded-lg p-3 ${bg}`}>
-      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">{label}</p>
-      <p className={`mt-1 text-lg font-bold ${color}`}>{value}</p>
-      {sub && <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
+        <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">📊 Proyeksi vs Real</h3>
+        <table className="w-full text-sm">
+          <thead className="border-b border-slate-200">
+            <tr className="text-xs text-slate-600 uppercase">
+              <th className="py-2 text-left">Metrik</th>
+              <th className="py-2 text-right">Proyeksi (Finance)</th>
+              <th className="py-2 text-right">Real (Accounting)</th>
+              <th className="py-2 text-right">Selisih</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            <tr><td className="py-2">Income</td><td className="py-2 text-right text-slate-700">{fmtRupiah(proyIncome)}</td><td className="py-2 text-right text-green-700 font-semibold">{fmtRupiah(totalRealIn)}</td><td className="py-2 text-right text-slate-500">{fmtRupiah(totalRealIn - proyIncome)}</td></tr>
+            <tr><td className="py-2">HPP / Cost</td><td className="py-2 text-right text-slate-700">{fmtRupiah(proyHpp)}</td><td className="py-2 text-right text-amber-700 font-semibold">{fmtRupiah(totalRealOut)}</td><td className="py-2 text-right text-slate-500">{fmtRupiah(totalRealOut - proyHpp)}</td></tr>
+            <tr className="font-bold border-t-2"><td className="py-2">Profit</td><td className={`py-2 text-right ${proyProfit >= 0 ? 'text-purple-700' : 'text-red-700'}`}>{fmtRupiah(proyProfit)}</td><td className={`py-2 text-right ${realProfit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>{fmtRupiah(realProfit)}</td><td className="py-2 text-right text-slate-500">{fmtRupiah(realProfit - proyProfit)}</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
