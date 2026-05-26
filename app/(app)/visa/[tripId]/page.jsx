@@ -1,4 +1,5 @@
-// Visa detail per trip — Round 49: link ke /roomlist editor
+// Visa detail per trip — Round 128: fetch payment visa untuk sync ke matrix
+// Plus filter peserta active (exclude transferred/refunded)
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -16,22 +17,16 @@ export default async function VisaTripPage({ params }) {
   const { data: trip } = await supabase.from('trips').select('*').eq('id', tripId).maybeSingle();
   if (!trip) notFound();
 
-  let passengers = [];
-  const r1 = await supabase
-    .from('trip_passengers')
-    .select('*')
-    .eq('trip_id', tripId)
-    .order('joined_at', { ascending: true });
-  passengers = r1.data || [];
+  const { data: tp } = await supabase.from('trip_passengers').select('*').eq('trip_id', tripId).order('joined_at', { ascending: true });
+  const allPassengers = tp || [];
 
-  if (passengers.length === 0 && !isNaN(parseInt(tripId))) {
-    const r2 = await supabase
-      .from('trip_passengers')
-      .select('*')
-      .eq('trip_id', parseInt(tripId))
-      .order('joined_at', { ascending: true });
-    if (r2.data && r2.data.length > 0) passengers = r2.data;
-  }
+  // Round 128: Filter active passengers (exclude transferred/refunded)
+  const passengers = allPassengers.filter((p) => {
+    const isTransferred = p.transfer_status === 'transferred';
+    const isRefunded = p.refund_status === 'refunded' || p.refund_status === 'partial_refund';
+    return !isTransferred && !isRefunded;
+  });
+  const inactiveCount = allPassengers.length - passengers.length;
 
   const customerIds = passengers.map((p) => p.customer_id).filter(Boolean);
   let customerMap = {};
@@ -39,7 +34,48 @@ export default async function VisaTripPage({ params }) {
     const { data: cust } = await supabase.from('customers').select('*').in('id', customerIds);
     customerMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
   }
-  const passengersWithCustomers = passengers.map((p) => ({ ...p, customers: customerMap[p.customer_id] || null }));
+
+  // ROUND 128: Fetch payment Visa per peserta untuk sync ke matrix
+  const passengerIds = passengers.map((p) => p.id);
+  const visaPaymentByPassenger = {};
+  if (passengerIds.length > 0) {
+    try {
+      let payQuery = supabase
+        .from('participant_payments')
+        .select('passenger_id, type, amount, is_transferred, paid_at')
+        .in('passenger_id', passengerIds)
+        .eq('type', 'Visa');
+      let payments = null;
+      try {
+        const r = await payQuery.eq('is_transferred', false);
+        payments = r.data;
+      } catch {
+        const r = await payQuery;
+        payments = r.data;
+      }
+      for (const p of (payments || [])) {
+        if (p.is_transferred === true) continue;
+        if (!visaPaymentByPassenger[p.passenger_id]) {
+          visaPaymentByPassenger[p.passenger_id] = { amount: 0, paid_at: null };
+        }
+        visaPaymentByPassenger[p.passenger_id].amount += Number(p.amount || 0);
+        if (p.paid_at) {
+          if (!visaPaymentByPassenger[p.passenger_id].paid_at ||
+              new Date(p.paid_at) > new Date(visaPaymentByPassenger[p.passenger_id].paid_at)) {
+            visaPaymentByPassenger[p.passenger_id].paid_at = p.paid_at;
+          }
+        }
+      }
+    } catch (e) {
+      // defensive
+    }
+  }
+
+  const passengersWithCustomers = passengers.map((p) => ({
+    ...p,
+    customers: customerMap[p.customer_id] || null,
+    visaPayment: visaPaymentByPassenger[p.id] || null,
+  }));
 
   const template = trip.visa_doc_template || [];
   const s = statusCfg(trip.status);
@@ -53,24 +89,15 @@ export default async function VisaTripPage({ params }) {
           <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${s.bg} ${s.text} border ${s.border}`}>{s.label}</span>
         </div>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.name}</h1>
-        <p className="mt-1 text-slate-600">{passengers.length} peserta · Berangkat {fmtDate(trip.departure)}</p>
+        <p className="mt-1 text-slate-600">
+          {passengers.length} peserta aktif
+          {inactiveCount > 0 && <span className="text-amber-600"> · {inactiveCount} transferred/refunded</span>}
+          · Berangkat {fmtDate(trip.departure)}
+        </p>
       </div>
 
-      {passengers.length === 0 && (
-        <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-6">
-          <h3 className="text-xl font-bold text-amber-800">⚠ Trip ini belum ada peserta</h3>
-          <p className="mt-1 text-sm text-amber-700">Tambah peserta dulu dari /trips/[id]/edit atau via CS Daily.</p>
-        </div>
-      )}
-
-      {/* Action bar — manifest, roomlist editor, downloads */}
+      {/* Download exports */}
       <div className="flex flex-wrap gap-2">
-        <Link
-          href={`/visa/${tripId}/roomlist`}
-          className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg flex items-center gap-2"
-        >
-          🛏 Buka Roomlist Editor
-        </Link>
         <a
           href={`/visa/${tripId}/manifest.csv`}
           download={`manifest_${trip.kode_trip || trip.id}.csv`}
@@ -83,22 +110,15 @@ export default async function VisaTripPage({ params }) {
           download={`roomlist_${trip.kode_trip || trip.id}.csv`}
           className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-semibold rounded-lg flex items-center gap-2"
         >
-          📥 Roomlist (CSV)
-        </a>
-        <a
-          href={`/visa/${tripId}/roomlist.xls`}
-          download={`roomlist_${trip.kode_trip || trip.id}.xls`}
-          className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-lg flex items-center gap-2"
-        >
-          📊 Roomlist (Excel)
+          🛏 Download Roomlist (CSV)
         </a>
       </div>
 
+      {/* Group info + template editor */}
       <VisaGroupForm trip={trip} template={template} />
 
-      {passengers.length > 0 && (
-        <VisaMatrix tripId={tripId} template={template} passengers={passengersWithCustomers} />
-      )}
+      {/* Matrix */}
+      <VisaMatrix tripId={tripId} template={template} passengers={passengersWithCustomers} />
     </div>
   );
 }
