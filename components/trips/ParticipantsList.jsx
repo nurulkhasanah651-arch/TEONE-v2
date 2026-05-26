@@ -1,61 +1,22 @@
 'use client';
 
-// Round 100e: ParticipantsList — defensive ordering
-// Bug Round 100: peserta dengan family_group_id yg ga match familyGroups
-// fetched → ga ke-render. Sekarang catch stragglers di akhir.
+// Participants list for a trip — add / edit / delete inline
+// Round 114 + 115: integrated Transfer + Refund buttons per row
+// Includes auto-computed age + passport validity status
 
 import { useState } from 'react';
 import { addParticipant, updateParticipant, removeParticipant } from '@/lib/actions/participants';
 import { fmtRupiah, fmtDate, calcAge, passportStatus } from '@/lib/utils/format';
+import TransferPassengerButton from './TransferPassengerButton';
+import RefundPassengerButton from './RefundPassengerButton';
 
 const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Family'];
 
-export default function ParticipantsList({ tripId, participants = [], familyGroups = [] }) {
+export default function ParticipantsList({ tripId, participants = [], allTrips = [] }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
-
-  const familyMap = {};
-  for (const fg of familyGroups) familyMap[fg.id] = fg;
-
-  // Group passengers per family (only valid families)
-  const familyMembers = {};
-  const ungrouped = [];
-  for (const p of participants) {
-    if (p.family_group_id && familyMap[p.family_group_id]) {
-      if (!familyMembers[p.family_group_id]) familyMembers[p.family_group_id] = [];
-      familyMembers[p.family_group_id].push(p);
-    } else {
-      // Treat passengers with stale/missing family_group_id as ungrouped
-      ungrouped.push(p);
-    }
-  }
-  for (const fid in familyMembers) {
-    familyMembers[fid].sort((a, b) => (b.is_family_head ? 1 : 0) - (a.is_family_head ? 1 : 0));
-  }
-
-  // Build ordered list with defensive seen-tracking
-  const seen = new Set();
-  const orderedParticipants = [];
-  for (const fg of familyGroups) {
-    if (familyMembers[fg.id]) {
-      for (const m of familyMembers[fg.id]) {
-        orderedParticipants.push(m);
-        seen.add(m.id);
-      }
-    }
-  }
-  for (const p of ungrouped) {
-    orderedParticipants.push(p);
-    seen.add(p.id);
-  }
-  // Stragglers (any participant missed) — must NEVER lose data
-  for (const p of participants) {
-    if (!seen.has(p.id)) {
-      orderedParticipants.push(p);
-    }
-  }
 
   async function handleAdd(formData) {
     setPending(true);
@@ -96,10 +57,7 @@ export default function ParticipantsList({ tripId, participants = [], familyGrou
       <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
         <div>
           <h2 className="font-bold text-brand-700">Daftar Peserta</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {participants.length} peserta
-            {familyGroups.length > 0 && ` · ${familyGroups.length} family`}
-          </p>
+          <p className="text-xs text-slate-500 mt-0.5">{participants.length} peserta terdaftar</p>
         </div>
         {!showForm && (
           <button
@@ -111,12 +69,7 @@ export default function ParticipantsList({ tripId, participants = [], familyGrou
         )}
       </div>
 
-      {familyGroups.length > 0 && (
-        <p className="px-5 py-2 text-[11px] text-indigo-800 bg-indigo-50 border-b border-indigo-200">
-          💡 Peserta keluarga di-group bareng. Untuk bikin/edit family → scroll ke section <b>👨‍👩‍👧‍👦 Family Groups</b>.
-        </p>
-      )}
-
+      {/* Add form */}
       {showForm && (
         <div className="p-5 bg-brand-50/50 border-b border-slate-200">
           <h3 className="font-bold text-brand-700 mb-3">Tambah Peserta Baru</h3>
@@ -130,7 +83,8 @@ export default function ParticipantsList({ tripId, participants = [], familyGrou
         </div>
       )}
 
-      {orderedParticipants.length === 0 && !showForm ? (
+      {/* List */}
+      {participants.length === 0 && !showForm ? (
         <div className="p-12 text-center">
           <p className="text-4xl mb-3">👥</p>
           <p className="text-lg font-bold text-slate-700">Belum ada peserta</p>
@@ -138,15 +92,25 @@ export default function ParticipantsList({ tripId, participants = [], familyGrou
         </div>
       ) : (
         <div className="divide-y divide-slate-100">
-          {orderedParticipants.map((p, idx) => {
+          {participants.map((p, idx) => {
             const c = p.customers || {};
             const isEditing = editingId === p.id;
             const [first, ...rest] = (c.name || '').split(' ');
             const last = rest.join(' ');
             const age = calcAge(c.birthday);
             const ppStatus = passportStatus(c.passport_expiry);
-            const fg = (p.family_group_id && familyMap[p.family_group_id]) ? familyMap[p.family_group_id] : null;
-            const isHead = p.is_family_head && fg;
+
+            // Round 114/115: combined passenger object with customer data for buttons
+            const passengerWithDetails = {
+              ...p,
+              name: c.name || p.name || '—',
+              phone: c.phone || p.phone,
+            };
+
+            // Visual indicator for transferred / refunded passengers
+            const isTransferred = p.transfer_status === 'transferred';
+            const isRefunded = p.refund_status === 'refunded' || p.refund_status === 'partial_refund';
+            const rowBg = isTransferred ? 'bg-amber-50/40 opacity-75' : isRefunded ? 'bg-red-50/30 opacity-80' : 'hover:bg-slate-50';
 
             if (isEditing) {
               return (
@@ -179,34 +143,37 @@ export default function ParticipantsList({ tripId, participants = [], familyGrou
             }
 
             return (
-              <div key={p.id} className={`px-5 py-3 hover:bg-slate-50 transition-colors ${fg ? 'border-l-4 border-indigo-300' : ''}`}>
+              <div key={p.id} className={`px-5 py-3 transition-colors ${rowBg}`}>
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="flex-1 min-w-0">
+                    {/* Name + chips */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-mono text-slate-400">#{idx + 1}</span>
-                      {isHead && <span className="text-base" title="Kepala keluarga">👑</span>}
                       <p className="font-bold text-brand-700">{c.name || '—'}</p>
-                      {fg && (
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
-                          isHead ? 'bg-indigo-100 text-indigo-800' : 'bg-indigo-50 text-indigo-700'
-                        }`}>
-                          👨‍👩‍👧 {fg.name}{isHead ? ' (Kepala)' : ''}
-                        </span>
-                      )}
                       {age != null && <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">{age} thn</span>}
                       {c.gender && <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">{c.gender}</span>}
                       {p.room_type && <span className="text-[11px] px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold">{p.room_type}</span>}
                       {p.status && <span className="text-[11px] px-2 py-0.5 rounded bg-green-50 text-green-700 font-semibold">{p.status}</span>}
+                      {isTransferred && (
+                        <span className="text-[11px] px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">📤 Pindah Trip</span>
+                      )}
+                      {isRefunded && (
+                        <span className="text-[11px] px-2 py-0.5 rounded bg-red-100 text-red-800 font-bold">
+                          💸 {p.refund_status === 'refunded' ? 'Refunded' : 'Partial Refund'}
+                        </span>
+                      )}
                     </div>
 
+                    {/* Contact + birth */}
                     <div className="mt-1 text-xs text-slate-600 flex flex-wrap gap-x-3 gap-y-1">
-                      {c.phone && <span>📞 {c.phone}{isHead && fg && <span className="text-indigo-700 font-semibold ml-1">(no HP family)</span>}</span>}
+                      {c.phone && <span>📞 {c.phone}</span>}
                       {c.email && <span>✉ {c.email}</span>}
                       {(c.city || c.birthday) && (
                         <span>🎂 {c.city || '—'}{c.birthday ? `, ${fmtDate(c.birthday)}` : ''}</span>
                       )}
                     </div>
 
+                    {/* Passport */}
                     {(c.passport_no || c.passport_expiry) && (
                       <div className="mt-1 text-xs text-slate-600 flex flex-wrap gap-x-3 gap-y-1 items-center">
                         {c.passport_no && <span>📕 {c.passport_no}</span>}
@@ -226,25 +193,50 @@ export default function ParticipantsList({ tripId, participants = [], familyGrou
                       </div>
                     )}
 
+                    {/* Price */}
                     {p.price_paid > 0 && (
                       <p className="mt-1 text-xs font-semibold text-green-700">{fmtRupiah(p.price_paid)}</p>
                     )}
+
+                    {/* Refund details (kalau sudah refunded) */}
+                    {isRefunded && p.refund_amount > 0 && (
+                      <p className="mt-1 text-xs text-red-700">
+                        Refund: {fmtRupiah(p.refund_amount)}
+                        {p.refund_reason && ` · ${p.refund_reason}`}
+                      </p>
+                    )}
                   </div>
-                  <div className="flex gap-1.5">
-                    <button
-                      onClick={() => { setEditingId(p.id); setShowForm(false); setError(''); }}
-                      disabled={pending}
-                      className="text-xs px-2.5 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200 font-semibold transition-colors"
-                    >
-                      ✎ Edit
-                    </button>
-                    <button
-                      onClick={() => handleRemove(p.id, c.name)}
-                      disabled={pending}
-                      className="text-xs px-2.5 py-1 rounded bg-red-50 text-red-700 hover:bg-red-100 font-semibold transition-colors"
-                    >
-                      🗑 Hapus
-                    </button>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-1.5 flex-wrap items-center">
+                    {/* Hide edit/delete kalau udah transferred/refunded — gak relevan lagi */}
+                    {!isTransferred && !isRefunded && (
+                      <>
+                        <button
+                          onClick={() => { setEditingId(p.id); setShowForm(false); setError(''); }}
+                          disabled={pending}
+                          className="text-xs px-2.5 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200 font-semibold transition-colors"
+                        >
+                          ✎ Edit
+                        </button>
+                        <TransferPassengerButton passenger={passengerWithDetails} allTrips={allTrips} />
+                        <RefundPassengerButton passenger={passengerWithDetails} />
+                        <button
+                          onClick={() => handleRemove(p.id, c.name)}
+                          disabled={pending}
+                          className="text-xs px-2.5 py-1 rounded bg-red-50 text-red-700 hover:bg-red-100 font-semibold transition-colors"
+                        >
+                          🗑 Hapus
+                        </button>
+                      </>
+                    )}
+                    {/* Kalau transferred/refunded, tetap show button (akan auto jadi badge dari komponen-nya) */}
+                    {isTransferred && (
+                      <TransferPassengerButton passenger={passengerWithDetails} allTrips={allTrips} />
+                    )}
+                    {isRefunded && (
+                      <RefundPassengerButton passenger={passengerWithDetails} />
+                    )}
                   </div>
                 </div>
               </div>
@@ -264,6 +256,7 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
 
   return (
     <form action={onSubmit} className="space-y-4">
+      {/* Personal info */}
       <FormSection title="Data Pribadi">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Nama Depan" required>
@@ -294,6 +287,7 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
         </div>
       </FormSection>
 
+      {/* Passport */}
       <FormSection title="Data Passport">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="No Passport">
@@ -315,6 +309,7 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
         </div>
       </FormSection>
 
+      {/* Room & Price */}
       <FormSection title="Booking">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Tipe Kamar">
