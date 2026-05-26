@@ -1,5 +1,5 @@
-// Cashflow per trip — Round 126: Cash In = SEMUA payment is_transferred=false
-// (Include peserta refunded, karena uangnya udah masuk. Refund cash out tercatat di HPP)
+// Cashflow per trip — Round 127: pass paxCount ke FinanceItemForm untuk auto-fill qty
+// + Round 126: Cash In include payment refunded (exclude is_transferred=true)
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -30,10 +30,8 @@ export default async function CashflowDetailPage({ params }) {
     const isRefunded = p.refund_status === 'refunded' || p.refund_status === 'partial_refund';
     return !isTransferred && !isRefunded;
   });
+  const paxCount = activePassengers.length;
 
-  // ROUND 126: Cash In = SEMUA payment yg is_transferred=false untuk SEMUA pax di trip ini
-  // (Include peserta refunded — uang udah masuk; refund tercatat sebagai HPP cash out)
-  // Hanya exclude payment yg sudah ditransfer ke trip lain (is_transferred=true)
   const allPaxIds = allPassengers.map((p) => p.id);
   let autoCashIn = 0;
   let actualPaymentCount = 0;
@@ -59,11 +57,8 @@ export default async function CashflowDetailPage({ params }) {
   const profit = totalIncome - totalHPP;
   const margin = totalIncome > 0 ? Math.round((profit / totalIncome) * 100) : null;
 
-  // Separate refund HPP from regular HPP
   const refundHpp = hppItems.filter((i) => i.category === 'Refund');
-  const regularHpp = hppItems.filter((i) => i.category !== 'Refund');
   const totalRefundHpp = refundHpp.reduce((s, i) => s + (i.total_amount || 0), 0);
-  const totalRegularHpp = regularHpp.reduce((s, i) => s + (i.total_amount || 0), 0);
 
   function groupByCategory(arr) {
     const grouped = {};
@@ -82,12 +77,14 @@ export default async function CashflowDetailPage({ params }) {
       <div>
         <Link href="/finance/cashflow" className="text-sm text-brand-600 font-medium hover:underline">← Proyeksi Income per Group</Link>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.kode_trip || `#${trip.id}`} — {trip.name}</h1>
-        <p className="mt-1 text-slate-600">Cash In peserta (auto, exclude transferred-out) + Manual Income + HPP (termasuk Refund).</p>
+        <p className="mt-1 text-slate-600">
+          Cash In peserta + Manual Income + HPP.
+          <span className="ml-2 text-xs font-semibold text-brand-600">📊 {paxCount} pax aktif</span>
+        </p>
       </div>
 
-      {/* Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Total Income" value={fmtRupiah(totalIncome)} sub={`${actualPaymentCount} payment · ${activePassengers.length} pax aktif`} color="text-green-700" bg="bg-green-50" />
+        <StatCard label="Total Income" value={fmtRupiah(totalIncome)} sub={`${actualPaymentCount} payment · ${paxCount} pax aktif`} color="text-green-700" bg="bg-green-50" />
         <StatCard label="Total HPP" value={fmtRupiah(totalHPP)} sub={`${hppItems.length} item${refundHpp.length > 0 ? ` (${refundHpp.length} refund)` : ''}`} color="text-amber-700" bg="bg-amber-50" />
         <StatCard label="Profit" value={fmtRupiah(profit)} color={profit >= 0 ? 'text-blue-700' : 'text-red-700'} bg={profit >= 0 ? 'bg-blue-50' : 'bg-red-50'} />
         <StatCard label="Margin" value={margin == null ? '—' : `${margin}%`} color={margin == null ? 'text-slate-500' : margin >= 0 ? 'text-purple-700' : 'text-red-700'} bg={margin == null ? 'bg-slate-50' : margin >= 0 ? 'bg-purple-50' : 'bg-red-50'} />
@@ -106,16 +103,16 @@ export default async function CashflowDetailPage({ params }) {
           <p className="mt-1 text-xs text-slate-500">
             • {actualPaymentCount} payment terhitung (exclude payment yang udah dipindah ke trip lain)
             <br />
-            • {activePassengers.length} peserta aktif (selain itu peserta transferred-out atau refunded)
+            • {paxCount} peserta aktif (selain itu peserta transferred-out atau refunded)
             <br />
-            • Refund cash out: lihat di section HPP kategori "Refund" ({fmtRupiah(totalRefundHpp)})
+            • Refund cash out: {fmtRupiah(totalRefundHpp)} (lihat di HPP kategori "Refund")
             <br />
-            • Net peserta cash flow (after refund): {fmtRupiah(autoCashIn - totalRefundHpp)}
+            • Net peserta cash flow (after refund): <b>{fmtRupiah(autoCashIn - totalRefundHpp)}</b>
           </p>
         </div>
       </div>
 
-      {/* Manual Income */}
+      {/* Manual Income — pass paxCount */}
       <FinanceSection
         title="Manual Income (Vendor/Lain-lain)"
         emoji="💸"
@@ -125,9 +122,10 @@ export default async function CashflowDetailPage({ params }) {
         total={manualIncome}
         tripId={tripId}
         type="income"
+        paxCount={paxCount}
       />
 
-      {/* HPP */}
+      {/* HPP — pass paxCount untuk auto-fill qty */}
       <FinanceSection
         title="HPP (Cost) — termasuk Refund"
         emoji="🧾"
@@ -137,12 +135,13 @@ export default async function CashflowDetailPage({ params }) {
         total={totalHPP}
         tripId={tripId}
         type="hpp"
+        paxCount={paxCount}
       />
     </div>
   );
 }
 
-function FinanceSection({ title, emoji, color, items, itemsByCategory, total, tripId, type }) {
+function FinanceSection({ title, emoji, color, items, itemsByCategory, total, tripId, type, paxCount }) {
   const headerBg = color === 'green' ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200';
   const titleColor = color === 'green' ? 'text-green-800' : 'text-amber-800';
   const totalColor = color === 'green' ? 'text-green-700' : 'text-amber-700';
@@ -159,7 +158,7 @@ function FinanceSection({ title, emoji, color, items, itemsByCategory, total, tr
       </div>
 
       <div className="p-4 border-b border-slate-200 bg-slate-50">
-        <FinanceItemForm tripId={tripId} type={type} />
+        <FinanceItemForm tripId={tripId} type={type} paxCount={paxCount} />
       </div>
 
       {items.length === 0 ? (
