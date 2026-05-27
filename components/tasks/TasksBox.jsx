@@ -1,5 +1,8 @@
 'use client';
 
+// Round 147: TasksBox + History tab + notif auto-trigger
+// Path: components/tasks/TasksBox.jsx
+
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createTask, markTaskDone, reopenTask, deleteTask } from '@/lib/actions/team-collab';
@@ -64,11 +67,18 @@ export default function TasksBox({ currentUserId, members = [], myTasks = [], as
   const assignedPending = assignedByMe.filter((t) => t.status === 'pending');
   const assignedDone = assignedByMe.filter((t) => t.status === 'done');
 
+  // ROUND 147: History = SEMUA done (myDone + assignedDone) — unique by id
+  const allDoneMap = new Map();
+  [...myDone, ...assignedDone].forEach((t) => allDoneMap.set(t.id, t));
+  const allDone = Array.from(allDoneMap.values()).sort((a, b) =>
+    new Date(b.completed_at || 0) - new Date(a.completed_at || 0)
+  );
+
   return (
     <div className="space-y-4">
       {/* Tabs + add button */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => setTab('mine')}
             className={`px-4 py-2 text-sm font-bold rounded-lg ${tab === 'mine' ? 'bg-brand-500 text-white' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}`}
@@ -80,6 +90,12 @@ export default function TasksBox({ currentUserId, members = [], myTasks = [], as
             className={`px-4 py-2 text-sm font-bold rounded-lg ${tab === 'assigned' ? 'bg-brand-500 text-white' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}`}
           >
             📤 Saya Assign ({assignedPending.length})
+          </button>
+          <button
+            onClick={() => setTab('history')}
+            className={`px-4 py-2 text-sm font-bold rounded-lg ${tab === 'history' ? 'bg-green-500 text-white' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+          >
+            📚 History ({allDone.length})
           </button>
         </div>
         <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-lg">
@@ -144,23 +160,6 @@ export default function TasksBox({ currentUserId, members = [], myTasks = [], as
             onDelete={handleDelete}
             iAmAssignee
           />
-          {myDone.length > 0 && (
-            <TaskListSection
-              title={`✓ Sudah Selesai (${myDone.length})`}
-              tasks={myDone}
-              emptyText=""
-              currentUserId={currentUserId}
-              pending={pending}
-              doneTaskId={doneTaskId}
-              setDoneTaskId={setDoneTaskId}
-              doneNote={doneNote}
-              setDoneNote={setDoneNote}
-              onMarkDone={handleMarkDone}
-              onReopen={handleReopen}
-              onDelete={handleDelete}
-              iAmAssignee
-            />
-          )}
         </div>
       )}
 
@@ -181,29 +180,40 @@ export default function TasksBox({ currentUserId, members = [], myTasks = [], as
             onReopen={handleReopen}
             onDelete={handleDelete}
           />
-          {assignedDone.length > 0 && (
-            <TaskListSection
-              title={`✓ Selesai Dikerjakan (${assignedDone.length})`}
-              tasks={assignedDone}
-              emptyText=""
-              currentUserId={currentUserId}
-              pending={pending}
-              doneTaskId={doneTaskId}
-              setDoneTaskId={setDoneTaskId}
-              doneNote={doneNote}
-              setDoneNote={setDoneNote}
-              onMarkDone={handleMarkDone}
-              onReopen={handleReopen}
-              onDelete={handleDelete}
-            />
-          )}
+        </div>
+      )}
+
+      {/* ROUND 147: HISTORY tab — semua tugas selesai */}
+      {tab === 'history' && (
+        <div className="space-y-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <p className="text-xs font-bold text-green-800">📚 History Tugas Selesai</p>
+            <p className="text-[11px] text-green-700 mt-0.5">
+              Semua tugas yang udah selesai (yang kamu kerjain + yang kamu assign + selesai). Urut dari terbaru.
+            </p>
+          </div>
+          <TaskListSection
+            title={`✓ Total ${allDone.length} tugas selesai`}
+            tasks={allDone}
+            emptyText="Belum ada tugas yang selesai. Yuk mulai kerjain! 💪"
+            currentUserId={currentUserId}
+            pending={pending}
+            doneTaskId={doneTaskId}
+            setDoneTaskId={setDoneTaskId}
+            doneNote={doneNote}
+            setDoneNote={setDoneNote}
+            onMarkDone={handleMarkDone}
+            onReopen={handleReopen}
+            onDelete={handleDelete}
+            showAssignerAndAssignee
+          />
         </div>
       )}
     </div>
   );
 }
 
-function TaskListSection({ title, tasks, emptyText, iAmAssignee, currentUserId, pending, doneTaskId, setDoneTaskId, doneNote, setDoneNote, onMarkDone, onReopen, onDelete }) {
+function TaskListSection({ title, tasks, emptyText, iAmAssignee, showAssignerAndAssignee, currentUserId, pending, doneTaskId, setDoneTaskId, doneNote, setDoneNote, onMarkDone, onReopen, onDelete }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-200 bg-slate-50">
@@ -219,6 +229,7 @@ function TaskListSection({ title, tasks, emptyText, iAmAssignee, currentUserId, 
               task={t}
               currentUserId={currentUserId}
               iAmAssignee={iAmAssignee}
+              showAssignerAndAssignee={showAssignerAndAssignee}
               pending={pending}
               isMarkingDone={doneTaskId === t.id}
               setDoneTaskId={setDoneTaskId}
@@ -235,7 +246,7 @@ function TaskListSection({ title, tasks, emptyText, iAmAssignee, currentUserId, 
   );
 }
 
-function TaskRow({ task: t, currentUserId, iAmAssignee, pending, isMarkingDone, setDoneTaskId, doneNote, setDoneNote, onMarkDone, onReopen, onDelete }) {
+function TaskRow({ task: t, currentUserId, iAmAssignee, showAssignerAndAssignee, pending, isMarkingDone, setDoneTaskId, doneNote, setDoneNote, onMarkDone, onReopen, onDelete }) {
   const days = t.deadline ? daysUntil(t.deadline) : null;
   const overdue = days != null && days < 0 && t.status === 'pending';
   const dueSoon = days != null && days >= 0 && days <= 2 && t.status === 'pending';
@@ -261,11 +272,15 @@ function TaskRow({ task: t, currentUserId, iAmAssignee, pending, isMarkingDone, 
           <p className={`text-sm font-bold ${isDone ? 'text-slate-500 line-through' : 'text-slate-800'}`}>{t.title}</p>
           {t.description && <p className={`text-xs mt-0.5 ${isDone ? 'text-slate-400' : 'text-slate-600'}`}>{t.description}</p>}
           <p className="text-[11px] text-slate-500 mt-1">
-            {iAmAssignee ? `Dari: ${t.assigner_name}` : `Untuk: ${t.assignee_name}`}
+            {showAssignerAndAssignee
+              ? <>📤 Dari: <b>{t.assigner_name}</b> · 📥 Untuk: <b>{t.assignee_name}</b></>
+              : iAmAssignee
+                ? `Dari: ${t.assigner_name}`
+                : `Untuk: ${t.assignee_name}`}
           </p>
           {isDone && t.completed_at && (
             <p className="text-[11px] text-green-700 mt-1">
-              Selesai {fmtDate(t.completed_at)}{t.completed_note ? ` · "${t.completed_note}"` : ''}
+              ✓ Selesai {fmtDate(t.completed_at)}{t.completed_note ? ` · "${t.completed_note}"` : ''}
             </p>
           )}
 
