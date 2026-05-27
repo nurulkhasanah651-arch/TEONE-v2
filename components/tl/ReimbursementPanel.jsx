@@ -1,6 +1,6 @@
 'use client';
 
-// Round 129: Reimbursement panel — list + approve/reject (Internal) atau create (TL)
+// Round 132: Reimbursement Panel — UPLOAD BUKTI LANGSUNG (no link)
 // Path: components/tl/ReimbursementPanel.jsx
 
 import { useState, useTransition } from 'react';
@@ -10,6 +10,7 @@ import {
   rejectReimbursement,
   markReimbursementPaid,
 } from '@/lib/actions/tlmanage';
+import FileUploadInput from './FileUploadInput';
 
 function fmtRupiah(n) { return 'Rp ' + (Number(n) || 0).toLocaleString('id-ID'); }
 function fmtDate(s) {
@@ -32,8 +33,8 @@ const STATUS_CFG = {
 export default function ReimbursementPanel({
   tripId,
   requests = [],
-  canApprove = false,  // true untuk internal
-  canRequest = true,   // true untuk TL & internal
+  canApprove = false,
+  canRequest = true,
   userEmail = '',
   userName = '',
   userRole = 'tour_leader',
@@ -66,6 +67,9 @@ export default function ReimbursementPanel({
     if (!description.trim()) { setError('Deskripsi wajib'); return; }
     const amt = parseNum(amount);
     if (amt <= 0) { setError('Nominal wajib > 0'); return; }
+    if (!receiptUrl) {
+      if (!confirm('Belum upload bukti expense. Tetap kirim request?\n\n(Sangat disarankan upload bukti untuk approval cepat)')) return;
+    }
 
     startTransition(async () => {
       const r = await createReimbursement({
@@ -76,7 +80,7 @@ export default function ReimbursementPanel({
         category,
         description: description.trim(),
         amount: amt,
-        receiptUrl: receiptUrl.trim(),
+        receiptUrl,
         spentAt,
         notes: notes.trim(),
       });
@@ -180,16 +184,7 @@ export default function ReimbursementPanel({
             <Field label="Tanggal Pengeluaran">
               <input type="date" value={spentAt} onChange={(e) => setSpentAt(e.target.value)} className={inputCls} />
             </Field>
-            <Field label="Link Bukti (opsional)">
-              <input
-                type="url"
-                value={receiptUrl}
-                onChange={(e) => setReceiptUrl(e.target.value)}
-                placeholder="https://drive.google.com/..."
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Deskripsi" required className="md:col-span-2">
+            <Field label="Deskripsi" required>
               <input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -197,15 +192,33 @@ export default function ReimbursementPanel({
                 className={inputCls}
               />
             </Field>
-            <Field label="Catatan tambahan" className="md:col-span-2">
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-                className={`${inputCls} resize-none`}
-              />
-            </Field>
           </div>
+
+          {/* ROUND 132: DIRECT UPLOAD bukti */}
+          <div className="p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
+            <FileUploadInput
+              tripId={tripId}
+              subfolder="reimbursement"
+              value={receiptUrl}
+              onChange={setReceiptUrl}
+              label="📎 Upload Bukti Expense (foto/PDF/Excel)"
+              maxSizeMB={20}
+            />
+            <p className="text-[11px] text-blue-700 mt-2">
+              💡 Foto struk, screenshot transfer, atau scan invoice langsung dari device. Bisa JPG, PNG, PDF, Excel.
+            </p>
+          </div>
+
+          <Field label="Catatan tambahan">
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              className={`${inputCls} resize-none`}
+              placeholder="(opsional)"
+            />
+          </Field>
+
           <div className="flex gap-2">
             <button
               onClick={handleCreate}
