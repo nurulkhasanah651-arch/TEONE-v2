@@ -1,6 +1,5 @@
-// Round 140: Standalone passport management page per trip
+// Round 141 HOTFIX: passport-manage per trip — pakai 2 query terpisah (sama kaya master trip page)
 // Path: app/(app)/trips/[id]/passport-manage/page.jsx
-// Standalone — gak touch ParticipantsList. List semua peserta + tombol passport per row.
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
@@ -41,6 +40,7 @@ export const dynamic = 'force-dynamic';
 export default async function PassportManagePage({ params }) {
   const { id: tripId } = await params;
 
+  // Pakai service client utk bypass RLS
   const supabase = getServiceClient() || createClient();
 
   const { data: trip } = await supabase
@@ -53,17 +53,35 @@ export default async function PassportManagePage({ params }) {
     redirect('/trips');
   }
 
+  // QUERY 1: ambil trip_passengers (tanpa nested customers)
   const { data: passengers } = await supabase
     .from('trip_passengers')
-    .select('id, customer_id, room_type, customers(*)')
+    .select('*')
     .eq('trip_id', tripId);
 
   const list = passengers || [];
 
+  // QUERY 2: ambil customers separately
+  const customerIds = list.map((p) => p.customer_id).filter(Boolean);
+  let customerMap = {};
+  if (customerIds.length > 0) {
+    const { data: customers } = await supabase
+      .from('customers')
+      .select('*')
+      .in('id', customerIds);
+    customerMap = Object.fromEntries((customers || []).map((c) => [c.id, c]));
+  }
+
+  // Merge customer data ke setiap passenger
+  const enrichedList = list.map((p) => ({
+    ...p,
+    customers: customerMap[p.customer_id] || {},
+  }));
+
   // Stats
-  const withPassport = list.filter((p) => p?.customers?.passport_no).length;
-  const withoutPassport = list.length - withPassport;
-  const expiringSoon = list.filter((p) => {
+  const withPassport = enrichedList.filter((p) => p?.customers?.passport_no || p?.customers?.passport_photo_url).length;
+  const withoutPassport = enrichedList.length - withPassport;
+  const expiringSoon = enrichedList.filter((p) => {
     const exp = p?.customers?.passport_expiry;
     if (!exp) return false;
     try {
@@ -73,7 +91,7 @@ export default async function PassportManagePage({ params }) {
       return days < 180 && days >= 0;
     } catch { return false; }
   }).length;
-  const expired = list.filter((p) => {
+  const expired = enrichedList.filter((p) => {
     const exp = p?.customers?.passport_expiry;
     if (!exp) return false;
     try { return new Date(exp) < new Date(); } catch { return false; }
@@ -96,7 +114,7 @@ export default async function PassportManagePage({ params }) {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Total Peserta" value={list.length} icon="👥" color="brand" />
+        <StatCard label="Total Peserta" value={enrichedList.length} icon="👥" color="brand" />
         <StatCard label="Sudah Ada Passport" value={withPassport} icon="✅" color="green" />
         <StatCard label="Belum Upload" value={withoutPassport} icon="⏳" color="amber" />
         <StatCard label="Expired/Hampir" value={expired + expiringSoon} icon="⚠" color="red" />
@@ -116,6 +134,12 @@ export default async function PassportManagePage({ params }) {
         >
           ← Master Trip
         </Link>
+        <Link
+          href="/passport-manage"
+          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg inline-flex items-center"
+        >
+          📋 Semua Trip
+        </Link>
       </div>
 
       {/* Passenger list */}
@@ -125,7 +149,7 @@ export default async function PassportManagePage({ params }) {
           <p className="text-xs text-slate-500 mt-0.5">Klik 🛂 Update Passport untuk upload + AI extract data passport</p>
         </div>
 
-        {list.length === 0 ? (
+        {enrichedList.length === 0 ? (
           <div className="p-8 text-center text-slate-500">
             <p className="text-3xl mb-2">📋</p>
             <p className="text-sm">Belum ada peserta di trip ini.</p>
@@ -138,7 +162,7 @@ export default async function PassportManagePage({ params }) {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {list.map((p, idx) => {
+            {enrichedList.map((p, idx) => {
               const c = p?.customers || {};
               const fullName = `${c.first_name || ''} ${c.surname || ''}`.trim() || c.name || `Peserta #${idx + 1}`;
               const ppStatus = passportStatus(c.passport_expiry);
@@ -195,10 +219,6 @@ export default async function PassportManagePage({ params }) {
             })}
           </div>
         )}
-      </div>
-
-      <div className="text-xs text-slate-500 text-center pt-2">
-        💡 Bookmark URL: <code className="bg-slate-100 px-1 py-0.5 rounded">teone.dev/trips/{tripId}/passport-manage</code>
       </div>
     </div>
   );
