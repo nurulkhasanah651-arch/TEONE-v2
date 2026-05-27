@@ -1,12 +1,13 @@
 'use client';
 
-// Round 133: CS Daily form NEW — tambah Upload Bukti Transfer DP per peserta
-// Bukti masuk ke /invoices DP Approval Panel buat finance lihat sebelum approve
-// Path: app/(app)/cs/new/CSForm.jsx (atau di mana CSForm new berada)
+// Round 134: CS Daily form NEW — tambah Passport Upload + AI Auto-Extract
+// (sudah include R133 DP bukti transfer)
+// Path: app/(app)/cs/new/CSForm.jsx
 
 import { useState } from 'react';
 import { createCSUpdate } from '@/lib/actions/cs';
 import FileUploadInput from '@/components/tl/FileUploadInput';
+import PassportUploadAI from '@/components/cs/PassportUploadAI';
 
 const ROOM_TYPES = [
   'Single', 'Twin', 'Double', 'Triple', 'Quad', 'Family',
@@ -35,6 +36,18 @@ function parseInput(s) {
   return String(s).replace(/[^0-9]/g, '');
 }
 
+const BLANK_PAX = {
+  first_name: '', last_name: '', phone: '', email: '',
+  source: 'whatsapp', room_type: '', price_paid: '',
+  dp_amount: '', dp_date: new Date().toISOString().slice(0, 10),
+  dp_method: 'transfer', dp_proof_url: '',
+  family_name: '',
+  // Passport fields
+  passport_photo_url: '', passport_number: '', passport_surname: '',
+  passport_given_names: '', nationality: '', dob: '', passport_expiry: '',
+  passport_issued_at: '', place_of_birth: '', sex: '', mrz_raw: '',
+};
+
 export default function CSForm({ trips }) {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
@@ -51,13 +64,7 @@ export default function CSForm({ trips }) {
   const sisaSeat = selectedTrip ? selectedTrip.seat_left ?? 0 : 0;
 
   function addParticipant() {
-    setParticipants((arr) => [...arr, {
-      first_name: '', last_name: '', phone: '', email: '',
-      source: 'whatsapp', room_type: '', price_paid: '',
-      dp_amount: '', dp_date: new Date().toISOString().slice(0, 10),
-      dp_method: 'transfer', dp_proof_url: '',
-      family_name: '',
-    }]);
+    setParticipants((arr) => [...arr, { ...BLANK_PAX, dp_date: new Date().toISOString().slice(0, 10) }]);
   }
   function updParticipant(i, key, val) {
     setParticipants((arr) => arr.map((p, idx) => idx === i ? { ...p, [key]: val } : p));
@@ -66,13 +73,27 @@ export default function CSForm({ trips }) {
     setParticipants((arr) => arr.filter((_, idx) => idx !== i));
   }
 
+  // ROUND 134: handle batch update dari AI extraction
+  function handlePassportExtracted(i, updates) {
+    setParticipants((arr) => arr.map((p, idx) => {
+      if (idx !== i) return p;
+      const next = { ...p };
+      for (const [k, v] of Object.entries(updates)) {
+        if (k === 'first_name_auto' && !p.first_name) next.first_name = v;
+        else if (k === 'last_name_auto' && !p.last_name) next.last_name = v;
+        else next[k] = v;
+      }
+      return next;
+    }));
+  }
+
   const filledParticipants = participants.filter((p) => (p.first_name?.trim() || p.last_name?.trim()));
   const participantsJson = JSON.stringify(filledParticipants);
   const totalDPInputed = filledParticipants.reduce((s, p) => s + (parseInt(p.dp_amount) || 0), 0);
   const dpWithProof = filledParticipants.filter((p) => parseInt(p.dp_amount) > 0 && p.dp_proof_url).length;
   const dpWithoutProof = filledParticipants.filter((p) => parseInt(p.dp_amount) > 0 && !p.dp_proof_url).length;
+  const passportUploaded = filledParticipants.filter((p) => p.passport_photo_url).length;
 
-  // Detect families
   const familyGroupsPreview = {};
   filledParticipants.forEach((p, idx) => {
     const fn = (p.family_name || '').trim();
@@ -151,12 +172,11 @@ export default function CSForm({ trips }) {
         </div>
       </Section>
 
-      <Section title="Detail Peserta Baru + DP + Family (Opsional)">
+      <Section title="Detail Peserta Baru + Passport AI + DP + Family">
         <p className="text-[11px] text-slate-500 -mt-2 mb-3">
-          💡 <b>DP</b>: nominal + <b>bukti transfer</b> → masuk Invoice tab buat Finance approve →
-          matrix DP auto-centang + WA receipt.<br />
-          💡 <b>Family Name</b>: isi nama family yang sama untuk peserta yang satu keluarga
-          (peserta pertama jadi <b>kepala</b>).
+          💡 <b>🛂 Passport</b>: upload foto → AI auto-fill nama, no passport, tgl lahir, expired, dll<br />
+          💡 <b>💵 DP</b>: nominal + bukti transfer → masuk Invoice tab buat Finance approve<br />
+          💡 <b>👨‍👩‍👧 Family Name</b>: peserta pertama dengan nama family sama jadi <b>kepala</b>
         </p>
 
         {participants.length === 0 ? (
@@ -164,7 +184,7 @@ export default function CSForm({ trips }) {
             + Tambah Peserta
           </button>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {participants.map((p, i) => {
               const fnTrim = (p.family_name || '').trim();
               const familyMembers = fnTrim ? familyGroupsPreview[fnTrim] || [] : [];
@@ -178,6 +198,7 @@ export default function CSForm({ trips }) {
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs font-bold text-brand-700">
                       Peserta #{i + 1}
+                      {p.passport_photo_url && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 font-bold">🛂 Passport ✓</span>}
                       {fnTrim && (
                         <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold">
                           👨‍👩‍👧 {fnTrim}{isFirstOfFamily ? ' 👑 KEPALA' : ' (anggota)'}
@@ -186,6 +207,18 @@ export default function CSForm({ trips }) {
                     </p>
                     <button type="button" onClick={() => rmParticipant(i)} className="text-xs px-2 py-0.5 rounded bg-red-50 text-red-700 hover:bg-red-100 font-semibold">✕ Hapus</button>
                   </div>
+
+                  {/* ROUND 134: PASSPORT AI section — TOP priority */}
+                  <div className="mb-3 pb-3 border-b border-dashed border-purple-300">
+                    <PassportUploadAI
+                      tripId={tripId || 'cs-passport'}
+                      paxIndex={i}
+                      passportData={p}
+                      onChange={(key, val) => updParticipant(i, key, val)}
+                      onExtracted={(updates) => handlePassportExtracted(i, updates)}
+                    />
+                  </div>
+
                   <div className="grid grid-cols-2 gap-2">
                     <PaxInput label="Nama Depan" value={p.first_name} onChange={(v) => updParticipant(i, 'first_name', v)} />
                     <PaxInput label="Nama Belakang" value={p.last_name} onChange={(v) => updParticipant(i, 'last_name', v)} />
@@ -210,7 +243,7 @@ export default function CSForm({ trips }) {
                     </label>
                   </div>
 
-                  {/* === FAMILY GROUP === */}
+                  {/* FAMILY */}
                   <div className="mt-3 pt-3 border-t border-dashed border-indigo-300 bg-indigo-50/30 -mx-3 px-3 pb-2">
                     <p className="text-[11px] font-bold text-indigo-800 uppercase tracking-wider mb-2">
                       👨‍👩‍👧‍👦 Family Group (Opsional)
@@ -239,7 +272,7 @@ export default function CSForm({ trips }) {
                     )}
                   </div>
 
-                  {/* === DP === */}
+                  {/* DP */}
                   <div className="mt-3 pt-3 border-t border-dashed border-blue-300 bg-blue-50/30 -mx-3 px-3 pb-2 rounded-b-lg">
                     <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-2">
                       💵 DP Sudah Dibayar (Opsional)
@@ -280,12 +313,11 @@ export default function CSForm({ trips }) {
                       </label>
                     </div>
 
-                    {/* ROUND 133: UPLOAD BUKTI TRANSFER DP */}
                     {dpAmt > 0 && (
                       <div className="mt-2 p-2 bg-white border-2 border-blue-300 rounded">
                         <FileUploadInput
                           tripId={tripId || 'dp-cs'}
-                          subfolder={`dp-bukti/${(p.first_name || 'pax').trim().replace(/\s+/g, '_')}`}
+                          subfolder={`dp-bukti/pax${i}`}
                           value={p.dp_proof_url}
                           onChange={(url) => updParticipant(i, 'dp_proof_url', url)}
                           label="📎 Upload Bukti Transfer DP"
@@ -299,7 +331,7 @@ export default function CSForm({ trips }) {
 
                     {dpAmt > 0 && (
                       <p className="mt-1 text-[10px] text-blue-700">
-                        ✓ DP Rp {Number(p.dp_amount).toLocaleString('id-ID')} → /invoices tab (pending Finance approval)
+                        ✓ DP Rp {Number(p.dp_amount).toLocaleString('id-ID')} → /invoices (pending Finance approval)
                         {p.dp_proof_url ? ' · 📎 Bukti sudah di-upload' : ' · ⚠ belum upload bukti'}
                       </p>
                     )}
@@ -313,27 +345,36 @@ export default function CSForm({ trips }) {
           </div>
         )}
 
-        {/* Summary cards */}
-        {(totalDPInputed > 0 || familyCount > 0) && (
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+        {(totalDPInputed > 0 || familyCount > 0 || passportUploaded > 0) && (
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
+            {passportUploaded > 0 && (
+              <div className="p-2 bg-purple-100 border border-purple-300 rounded text-xs">
+                <p className="font-bold text-purple-900">
+                  🛂 Passport: {passportUploaded}/{filledParticipants.length}
+                </p>
+                <p className="text-[10px] text-purple-700 mt-0.5">
+                  AI auto-extract data passport
+                </p>
+              </div>
+            )}
             {totalDPInputed > 0 && (
               <div className="p-2 bg-blue-100 border border-blue-300 rounded text-xs">
                 <p className="font-bold text-blue-900">
-                  💵 Total DP: Rp {totalDPInputed.toLocaleString('id-ID')}
+                  💵 DP: Rp {totalDPInputed.toLocaleString('id-ID')}
                 </p>
                 <p className="text-[10px] text-blue-700 mt-0.5">
                   📎 {dpWithProof} ada bukti
-                  {dpWithoutProof > 0 && <span className="text-amber-700 font-bold"> · ⚠ {dpWithoutProof} belum upload bukti</span>}
+                  {dpWithoutProof > 0 && <span className="text-amber-700 font-bold"> · ⚠ {dpWithoutProof} belum</span>}
                 </p>
               </div>
             )}
             {familyCount > 0 && (
               <div className="p-2 bg-indigo-100 border border-indigo-300 rounded text-xs">
                 <p className="font-bold text-indigo-900">
-                  👨‍👩‍👧 {familyCount} Family Group akan dibuat
+                  👨‍👩‍👧 {familyCount} Family Group
                 </p>
                 <p className="text-[10px] text-indigo-700 mt-0.5">
-                  {Object.entries(familyGroupsPreview).map(([name, ms]) => `${name}: ${ms.length} pax`).join(' · ')}
+                  {Object.entries(familyGroupsPreview).map(([name, ms]) => `${name}: ${ms.length}`).join(' · ')}
                 </p>
               </div>
             )}
@@ -352,7 +393,7 @@ export default function CSForm({ trips }) {
       {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium whitespace-pre-wrap">{error}</div>}
 
       <button type="submit" disabled={pending} className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-semibold rounded-lg shadow-card">
-        {pending ? 'Menyimpan...' : `Simpan${filledParticipants.length > 0 ? ` + ${filledParticipants.length} Peserta` : ''}${totalDPInputed > 0 ? ` + DP ${totalDPInputed.toLocaleString('id-ID')}` : ''}${familyCount > 0 ? ` + ${familyCount} Family` : ''}`}
+        {pending ? 'Menyimpan...' : `Simpan${filledParticipants.length > 0 ? ` + ${filledParticipants.length} Peserta` : ''}${passportUploaded > 0 ? ` + ${passportUploaded} Passport` : ''}${totalDPInputed > 0 ? ` + DP ${totalDPInputed.toLocaleString('id-ID')}` : ''}${familyCount > 0 ? ` + ${familyCount} Family` : ''}`}
       </button>
     </form>
   );
