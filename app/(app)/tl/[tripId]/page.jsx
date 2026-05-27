@@ -1,4 +1,6 @@
-// TL trip detail — Round 129: dual role (TL read-only + Internal management)
+// TL trip detail — Round 130 LENGKAP:
+// R129: Petty Cash + Reimbursement + Trip Docs
+// R130: Pre-Departure Checklist + TL Expense (auto-route) + Final Report + Vendor Reviews
 // Path: app/(app)/tl/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -10,6 +12,10 @@ import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
 import PettyCashEditor from '@/components/tl/PettyCashEditor';
 import ReimbursementPanel from '@/components/tl/ReimbursementPanel';
 import TripDocsSection from '@/components/tl/TripDocsSection';
+import PreDepartureChecklist from '@/components/tl/PreDepartureChecklist';
+import TLExpenseForm from '@/components/tl/TLExpenseForm';
+import FinalReportForm from '@/components/tl/FinalReportForm';
+import VendorReviewSection from '@/components/tl/VendorReviewSection';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,7 +43,7 @@ export default async function TLTripDetailPage({ params }) {
   const { data: trip } = await supabase.from('trips').select('*').eq('id', tripId).maybeSingle();
   if (!trip) notFound();
 
-  const { data: tp } = await supabase.from('trip_passengers').select('*').eq('trip_id', tripId).order('joined_at', { ascending: true });
+  const { data: tp } = await supabase.from('trip_passengers').select('*').eq('trip_id', tripId);
   const allPassengers = tp || [];
   const passengers = allPassengers.filter((p) => {
     const isT = p.transfer_status === 'transferred';
@@ -52,29 +58,23 @@ export default async function TLTripDetailPage({ params }) {
     customerMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
   }
 
-  // Round 129: Fetch petty cash + reimbursements + docs
-  let pettyCash = null;
-  let reimbursements = [];
-  let docs = [];
-  try {
-    const r = await serviceClient.from('trip_petty_cash').select('*').eq('trip_id', tripId).maybeSingle();
-    pettyCash = r.data;
-  } catch {}
-  try {
-    const r = await serviceClient
-      .from('reimbursement_requests').select('*').eq('trip_id', tripId).order('created_at', { ascending: false });
-    reimbursements = r.data || [];
-  } catch {}
-  try {
-    const r = await serviceClient
-      .from('trip_documents').select('*').eq('trip_id', tripId).order('created_at', { ascending: false });
-    docs = r.data || [];
-  } catch {}
+  // R129 data
+  let pettyCash = null, reimbursements = [], docs = [];
+  try { const r = await serviceClient.from('trip_petty_cash').select('*').eq('trip_id', tripId).maybeSingle(); pettyCash = r.data; } catch {}
+  try { const r = await serviceClient.from('reimbursement_requests').select('*').eq('trip_id', tripId).order('created_at', { ascending: false }); reimbursements = r.data || []; } catch {}
+  try { const r = await serviceClient.from('trip_documents').select('*').eq('trip_id', tripId).order('created_at', { ascending: false }); docs = r.data || []; } catch {}
+
+  // R130 data
+  let checklist = null, finalReport = null, vendorReviews = [];
+  try { const r = await serviceClient.from('tl_checklist').select('*').eq('trip_id', tripId).maybeSingle(); checklist = r.data; } catch {}
+  try { const r = await serviceClient.from('tl_final_report').select('*').eq('trip_id', tripId).maybeSingle(); finalReport = r.data; } catch {}
+  try { const r = await serviceClient.from('tl_vendor_reviews').select('*').eq('trip_id', tripId).order('created_at', { ascending: false }); vendorReviews = r.data || []; } catch {}
 
   const s = statusCfg(trip.status);
   const days = daysUntil(trip.departure);
-  const checklist = tripChecklist(trip);
-  const okCount = checklist.filter((c) => c.ok).length;
+  const tripChecklistData = tripChecklist(trip);
+  const okCount = tripChecklistData.filter((c) => c.ok).length;
+  const tripCompleted = trip.status === 'completed' || (days != null && days < -1);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -100,28 +100,22 @@ export default async function TLTripDetailPage({ params }) {
         </p>
       </div>
 
-      {/* Quick info */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <InfoCard label="📅 Keberangkatan" value={fmtDate(trip.departure)} />
         <InfoCard label="📅 Kepulangan" value={fmtDate(trip.arrival)} />
         <InfoCard label="🪑 Seat" value={`${trip.sold || 0} / ${trip.quota || 0}`} />
-        <InfoCard label="✅ Checklist" value={`${okCount}/${checklist.length}`} />
+        <InfoCard label="✅ Status" value={`${okCount}/${tripChecklistData.length}`} />
       </div>
 
-      {/* Status checklist */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
-        <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">📋 Status Operasional Trip</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-          {checklist.map((c) => (
-            <div key={c.label} className={`p-2.5 rounded-lg text-center border ${c.ok ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
-              <p className={`text-2xl ${c.ok ? 'text-green-600' : 'text-slate-300'}`}>{c.ok ? '✓' : '○'}</p>
-              <p className={`text-xs font-semibold mt-0.5 ${c.ok ? 'text-green-700' : 'text-slate-600'}`}>{c.label}</p>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* PRE-DEPARTURE CHECKLIST (R130) */}
+      <PreDepartureChecklist
+        tripId={tripId}
+        checklist={checklist || {}}
+        canEdit={isTL || isInternal}
+        userEmail={userEmail}
+      />
 
-      {/* ROUND 129: PETTY CASH (TL view-only, Internal editable) */}
+      {/* PETTY CASH (R129) */}
       <PettyCashEditor
         tripId={tripId}
         current={pettyCash}
@@ -129,7 +123,18 @@ export default async function TLTripDetailPage({ params }) {
         userEmail={userEmail}
       />
 
-      {/* ROUND 129: REIMBURSEMENT */}
+      {/* TL EXPENSE FORM (R130 — auto route ke petty / reimbursement) */}
+      {(isTL || isInternal) && (
+        <TLExpenseForm
+          tripId={tripId}
+          pettyCash={pettyCash}
+          userEmail={userEmail}
+          userName={userName}
+          userRole={role}
+        />
+      )}
+
+      {/* REIMBURSEMENT (R129) */}
       <ReimbursementPanel
         tripId={tripId}
         requests={reimbursements}
@@ -140,11 +145,30 @@ export default async function TLTripDetailPage({ params }) {
         userRole={role}
       />
 
-      {/* ROUND 129: DOCS */}
+      {/* TRIP DOCS (R129) */}
       <TripDocsSection
         tripId={tripId}
         docs={docs}
         canEdit={isInternal || isTL}
+        userEmail={userEmail}
+      />
+
+      {/* FINAL REPORT (R130) — tampil setelah trip berlangsung atau ada draft */}
+      {(tripCompleted || finalReport || isTL || isInternal) && (
+        <FinalReportForm
+          tripId={tripId}
+          report={finalReport}
+          canEdit={isTL || isInternal}
+          canReview={isInternal}
+          userEmail={userEmail}
+        />
+      )}
+
+      {/* VENDOR REVIEWS (R130) */}
+      <VendorReviewSection
+        tripId={tripId}
+        reviews={vendorReviews}
+        canEdit={isTL || isInternal}
         userEmail={userEmail}
       />
 
