@@ -1,7 +1,7 @@
 'use client';
 
-// Round 134: CS Daily form NEW — tambah Passport Upload + AI Auto-Extract
-// (sudah include R133 DP bukti transfer)
+// Round 150 (v2): CS Daily form NEW — tambah input "Days to Close" (langsung ketik angka)
+// (sudah include R134 Passport AI + R133 DP bukti transfer)
 // Path: app/(app)/cs/new/CSForm.jsx
 
 import { useState } from 'react';
@@ -46,12 +46,15 @@ const BLANK_PAX = {
   passport_photo_url: '', passport_number: '', passport_surname: '',
   passport_given_names: '', nationality: '', dob: '', passport_expiry: '',
   passport_issued_at: '', place_of_birth: '', sex: '', mrz_raw: '',
+  // R150 v2: langsung input angka hari
+  days_to_close: '',
 };
 
 export default function CSForm({ trips }) {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const [tripId, setTripId] = useState('');
+  const [tanggalClosing, setTanggalClosing] = useState(new Date().toISOString().slice(0, 10));
   const [sources, setSources] = useState({
     ig: 0, wa: 0, offline: 0, alumni: 0, mitra: 0,
     ads_meta: 0, ads_google: 0, ads_tiktok: 0,
@@ -73,7 +76,6 @@ export default function CSForm({ trips }) {
     setParticipants((arr) => arr.filter((_, idx) => idx !== i));
   }
 
-  // ROUND 134: handle batch update dari AI extraction
   function handlePassportExtracted(i, updates) {
     setParticipants((arr) => arr.map((p, idx) => {
       if (idx !== i) return p;
@@ -93,6 +95,16 @@ export default function CSForm({ trips }) {
   const dpWithProof = filledParticipants.filter((p) => parseInt(p.dp_amount) > 0 && p.dp_proof_url).length;
   const dpWithoutProof = filledParticipants.filter((p) => parseInt(p.dp_amount) > 0 && !p.dp_proof_url).length;
   const passportUploaded = filledParticipants.filter((p) => p.passport_photo_url).length;
+
+  // R150 v2: aggregate days-to-close (langsung dari input angka)
+  const chatDatesFilled = filledParticipants.filter((p) => p.days_to_close !== '' && p.days_to_close != null).length;
+  const avgDaysToClose = (() => {
+    const vals = filledParticipants
+      .map((p) => parseInt(p.days_to_close))
+      .filter((d) => !isNaN(d) && d >= 0);
+    if (vals.length === 0) return null;
+    return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
+  })();
 
   const familyGroupsPreview = {};
   filledParticipants.forEach((p, idx) => {
@@ -128,8 +140,15 @@ export default function CSForm({ trips }) {
         </select>
       </Field>
 
-      <Field label="Tanggal" required>
-        <input type="date" name="tanggal" defaultValue={today} required className={inputCls} />
+      <Field label="Tanggal Closing" required hint="Default hari ini. Dipakai untuk hitung 'Days to Close' per peserta.">
+        <input
+          type="date"
+          name="tanggal"
+          value={tanggalClosing}
+          onChange={(e) => setTanggalClosing(e.target.value)}
+          required
+          className={inputCls}
+        />
       </Field>
 
       <Section title="Closing Hari Ini (per Sumber)">
@@ -172,9 +191,10 @@ export default function CSForm({ trips }) {
         </div>
       </Section>
 
-      <Section title="Detail Peserta Baru + Passport AI + DP + Family">
+      <Section title="Detail Peserta Baru + Passport AI + DP + Family + Chat-to-Close">
         <p className="text-[11px] text-slate-500 -mt-2 mb-3">
-          💡 <b>🛂 Passport</b>: upload foto → AI auto-fill nama, no passport, tgl lahir, expired, dll<br />
+          💡 <b>⏱ Days to Close</b>: ketik berapa hari (contoh: 4) dari chat pertama sampai closing → analytics di Ads Manager<br />
+          💡 <b>🛂 Passport</b>: upload foto → AI auto-fill data passport<br />
           💡 <b>💵 DP</b>: nominal + bukti transfer → masuk Invoice tab buat Finance approve<br />
           💡 <b>👨‍👩‍👧 Family Name</b>: peserta pertama dengan nama family sama jadi <b>kepala</b>
         </p>
@@ -190,6 +210,11 @@ export default function CSForm({ trips }) {
               const familyMembers = fnTrim ? familyGroupsPreview[fnTrim] || [] : [];
               const isFirstOfFamily = familyMembers.length > 0 && familyMembers[0].idx === i;
               const dpAmt = parseInt(p.dp_amount) || 0;
+              // R150 v2: langsung dari input angka
+              const daysToCloseNum = p.days_to_close === '' || p.days_to_close == null
+                ? null
+                : parseInt(p.days_to_close);
+              const daysToClose = (daysToCloseNum != null && !isNaN(daysToCloseNum)) ? daysToCloseNum : null;
 
               return (
                 <div key={i} className={`border rounded-lg p-3 bg-white ${
@@ -199,6 +224,15 @@ export default function CSForm({ trips }) {
                     <p className="text-xs font-bold text-brand-700">
                       Peserta #{i + 1}
                       {p.passport_photo_url && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 font-bold">🛂 Passport ✓</span>}
+                      {daysToClose != null && (
+                        <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                          daysToClose <= 3 ? 'bg-emerald-100 text-emerald-800'
+                            : daysToClose <= 14 ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-orange-100 text-orange-800'
+                        }`}>
+                          ⏱ {daysToClose}d close
+                        </span>
+                      )}
                       {fnTrim && (
                         <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold">
                           👨‍👩‍👧 {fnTrim}{isFirstOfFamily ? ' 👑 KEPALA' : ' (anggota)'}
@@ -208,7 +242,7 @@ export default function CSForm({ trips }) {
                     <button type="button" onClick={() => rmParticipant(i)} className="text-xs px-2 py-0.5 rounded bg-red-50 text-red-700 hover:bg-red-100 font-semibold">✕ Hapus</button>
                   </div>
 
-                  {/* ROUND 134: PASSPORT AI section — TOP priority */}
+                  {/* PASSPORT AI section */}
                   <div className="mb-3 pb-3 border-b border-dashed border-purple-300">
                     <PassportUploadAI
                       tripId={tripId || 'cs-passport'}
@@ -241,6 +275,48 @@ export default function CSForm({ trips }) {
                       <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Harga Bayar Override (opsional)</span>
                       <input type="number" value={p.price_paid} min="0" onChange={(e) => updParticipant(i, 'price_paid', e.target.value)} className={miniInput} placeholder="Auto dari breakdown kalau kosong" />
                     </label>
+                  </div>
+
+                  {/* R150 v2: TIME-TO-CLOSING — langsung ketik angka */}
+                  <div className="mt-3 pt-3 border-t border-dashed border-emerald-300 bg-emerald-50/30 -mx-3 px-3 pb-2">
+                    <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider mb-2">
+                      ⏱ Berapa Lama Chat Sampai Closing
+                    </p>
+                    <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
+                      <label className="block">
+                        <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">
+                          Berapa hari dari chat pertama sampai closing?
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="365"
+                          step="1"
+                          value={p.days_to_close}
+                          onChange={(e) => updParticipant(i, 'days_to_close', e.target.value.replace(/[^0-9]/g, ''))}
+                          placeholder="contoh: 4"
+                          className={miniInput}
+                        />
+                      </label>
+                      {daysToClose != null && (
+                        <div className={`px-3 py-1.5 rounded text-sm font-bold border ${
+                          daysToClose <= 3 ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                            : daysToClose <= 14 ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                            : 'bg-orange-100 text-orange-700 border-orange-300'
+                        }`}>
+                          {daysToClose} hari
+                        </div>
+                      )}
+                    </div>
+                    {daysToClose != null && (
+                      <p className="mt-1 text-[10px] text-emerald-700">
+                        {daysToClose === 0 && '⚡ Hot lead — closing langsung hari yang sama'}
+                        {daysToClose >= 1 && daysToClose <= 3 && '🔥 Fast conversion — kurang dari 1 minggu'}
+                        {daysToClose >= 4 && daysToClose <= 14 && '👍 Normal — 1-2 minggu'}
+                        {daysToClose >= 15 && daysToClose <= 30 && '🐢 Slow — 2-4 minggu, butuh nurturing'}
+                        {daysToClose > 30 && '🐌 Very slow — perlu strategi follow-up baru'}
+                      </p>
+                    )}
                   </div>
 
                   {/* FAMILY */}
@@ -345,8 +421,18 @@ export default function CSForm({ trips }) {
           </div>
         )}
 
-        {(totalDPInputed > 0 || familyCount > 0 || passportUploaded > 0) && (
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
+        {(totalDPInputed > 0 || familyCount > 0 || passportUploaded > 0 || chatDatesFilled > 0) && (
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-2">
+            {chatDatesFilled > 0 && avgDaysToClose != null && (
+              <div className="p-2 bg-emerald-100 border border-emerald-300 rounded text-xs">
+                <p className="font-bold text-emerald-900">
+                  ⏱ Avg Days to Close: {avgDaysToClose}
+                </p>
+                <p className="text-[10px] text-emerald-700 mt-0.5">
+                  {chatDatesFilled}/{filledParticipants.length} peserta tracked
+                </p>
+              </div>
+            )}
             {passportUploaded > 0 && (
               <div className="p-2 bg-purple-100 border border-purple-300 rounded text-xs">
                 <p className="font-bold text-purple-900">
@@ -393,7 +479,7 @@ export default function CSForm({ trips }) {
       {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium whitespace-pre-wrap">{error}</div>}
 
       <button type="submit" disabled={pending} className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-semibold rounded-lg shadow-card">
-        {pending ? 'Menyimpan...' : `Simpan${filledParticipants.length > 0 ? ` + ${filledParticipants.length} Peserta` : ''}${passportUploaded > 0 ? ` + ${passportUploaded} Passport` : ''}${totalDPInputed > 0 ? ` + DP ${totalDPInputed.toLocaleString('id-ID')}` : ''}${familyCount > 0 ? ` + ${familyCount} Family` : ''}`}
+        {pending ? 'Menyimpan...' : `Simpan${filledParticipants.length > 0 ? ` + ${filledParticipants.length} Peserta` : ''}${passportUploaded > 0 ? ` + ${passportUploaded} Passport` : ''}${totalDPInputed > 0 ? ` + DP ${totalDPInputed.toLocaleString('id-ID')}` : ''}${familyCount > 0 ? ` + ${familyCount} Family` : ''}${chatDatesFilled > 0 ? ` · ⏱ avg ${avgDaysToClose}d` : ''}`}
       </button>
     </form>
   );
