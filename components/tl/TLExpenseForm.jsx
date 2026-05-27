@@ -1,6 +1,6 @@
 'use client';
 
-// Round 132: TL Expense Form — UPLOAD BUKTI LANGSUNG (no link)
+// Round 132 HOTFIX: TL Expense Form — tambah tombol "+ Tambah Expense Lagi"
 // Path: components/tl/TLExpenseForm.jsx
 
 import { useState, useTransition } from 'react';
@@ -25,7 +25,8 @@ export default function TLExpenseForm({
   const [spentAt, setSpentAt] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
-  const [result, setResult] = useState(null);
+  const [lastSaved, setLastSaved] = useState(null);
+  const [savedCount, setSavedCount] = useState(0);
 
   const allocated = Number(pettyCash?.allocated_amount || 0);
   const spent = Number(pettyCash?.spent_amount || 0);
@@ -58,27 +59,49 @@ export default function TLExpenseForm({
     }
   }
 
+  function resetForm() {
+    setCategory(CATEGORIES[0]);
+    setDescription('');
+    setAmount('');
+    setReceiptUrl('');
+    setNotes('');
+    setSpentAt(new Date().toISOString().slice(0, 10));
+    setError('');
+  }
+
   function handleSubmit() {
-    setError(''); setResult(null);
+    setError('');
     if (!description.trim()) { setError('Deskripsi wajib'); return; }
     if (expenseAmt <= 0) { setError('Nominal wajib > 0'); return; }
     if (!receiptUrl) {
       if (!confirm('Belum upload bukti expense. Tetap submit?\n\n(Sangat disarankan upload bukti untuk validasi)')) return;
     }
 
+    const desc = description.trim();
+    const amt = expenseAmt;
+
     startTransition(async () => {
       const r = await addTLExpense({
-        tripId, category, description: description.trim(),
-        amount: expenseAmt, receiptUrl, spentAt,
+        tripId, category, description: desc,
+        amount: amt, receiptUrl, spentAt,
         notes: notes.trim(), userEmail, userName, userRole,
       });
       if (r?.error) { setError(r.error); return; }
-      setResult(r);
-      setDescription(''); setAmount(''); setReceiptUrl(''); setNotes('');
+      setLastSaved({ description: desc, amount: amt, category, ...r });
+      setSavedCount((c) => c + 1);
+      // Auto-reset form untuk siap input expense baru
+      resetForm();
     });
   }
 
-  if (!open && !result) {
+  function handleDone() {
+    setOpen(false);
+    setLastSaved(null);
+    setSavedCount(0);
+    resetForm();
+  }
+
+  if (!open) {
     return (
       <button
         onClick={() => setOpen(true)}
@@ -94,12 +117,17 @@ export default function TLExpenseForm({
       <div className="px-5 py-3 border-b bg-green-50 border-green-200 flex items-center justify-between">
         <h3 className="font-bold text-green-800 flex items-center gap-2">
           <span>💸</span> Catat Expense TL
+          {savedCount > 0 && (
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-700">
+              {savedCount} expense tersimpan
+            </span>
+          )}
         </h3>
         <button
-          onClick={() => { setOpen(false); setResult(null); setError(''); }}
-          className="text-xs text-slate-500 hover:text-slate-700"
+          onClick={handleDone}
+          className="text-xs px-3 py-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold"
         >
-          Tutup
+          ✓ Selesai
         </button>
       </div>
 
@@ -111,102 +139,101 @@ export default function TLExpenseForm({
         {remaining === 0 && allocated === 0 && <span className="text-red-700 font-bold">⚠ Petty cash belum di-set</span>}
       </div>
 
-      {result?.ok && (
-        <div className="px-5 py-3 bg-blue-50 border-b border-blue-200">
-          <p className="text-sm font-bold text-blue-800">{result.summary?.message}</p>
-          {result.reimbursementId && (
-            <p className="text-xs text-blue-700 mt-1">
-              Reimbursement ID: <span className="font-mono">{result.reimbursementId.slice(0, 8)}...</span> · status: pending
+      {lastSaved && (
+        <div className="px-5 py-3 bg-blue-50 border-b border-blue-200 flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <p className="text-sm font-bold text-blue-800">✓ Tersimpan: {lastSaved.description}</p>
+            <p className="text-xs text-blue-700">
+              {lastSaved.category} · {fmtRupiah(lastSaved.amount)}
+              {lastSaved.reimbursementId && ` · Reimbursement ID ${String(lastSaved.reimbursementId).slice(0, 8)}...`}
             </p>
-          )}
+          </div>
+          <p className="text-[11px] text-blue-700 italic">Form sudah di-reset, siap input expense berikutnya ↓</p>
         </div>
       )}
 
-      {open && (
-        <div className="p-5 space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Field label="Kategori" required>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
-                {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </Field>
-            <Field label="Nominal (IDR)" required>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">Rp</span>
-                <input
-                  type="text"
-                  value={amount}
-                  onChange={(e) => setAmount(formatNum(parseNum(e.target.value)))}
-                  className={`${inputCls} pl-10 font-mono`}
-                  placeholder="500.000"
-                />
-              </div>
-            </Field>
-            <Field label="Tanggal Pengeluaran">
-              <input type="date" value={spentAt} onChange={(e) => setSpentAt(e.target.value)} className={inputCls} />
-            </Field>
-            <Field label="Deskripsi" required>
+      <div className="p-5 space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field label="Kategori" required>
+            <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
+              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
+          <Field label="Nominal (IDR)" required>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">Rp</span>
               <input
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Contoh: Taksi airport ke hotel"
-                className={inputCls}
+                type="text"
+                value={amount}
+                onChange={(e) => setAmount(formatNum(parseNum(e.target.value)))}
+                className={`${inputCls} pl-10 font-mono`}
+                placeholder="500.000"
               />
-            </Field>
-          </div>
-
-          {/* ROUND 132: DIRECT UPLOAD bukti */}
-          <div className="p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
-            <FileUploadInput
-              tripId={tripId}
-              subfolder="expense"
-              value={receiptUrl}
-              onChange={setReceiptUrl}
-              label="📎 Upload Bukti Expense (foto/PDF/Excel)"
-              maxSizeMB={20}
-            />
-            <p className="text-[11px] text-blue-700 mt-2">
-              💡 Foto struk, screenshot transfer, atau scan invoice langsung dari device. Bisa JPG, PNG, PDF, Excel.
-            </p>
-          </div>
-
-          <Field label="Catatan tambahan">
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-              className={`${inputCls} resize-none`}
-              placeholder="(opsional)"
+            </div>
+          </Field>
+          <Field label="Tanggal Pengeluaran">
+            <input type="date" value={spentAt} onChange={(e) => setSpentAt(e.target.value)} className={inputCls} />
+          </Field>
+          <Field label="Deskripsi" required>
+            <input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Contoh: Taksi airport ke hotel"
+              className={inputCls}
             />
           </Field>
-
-          {routingPreview && (
-            <div className={`p-3 rounded-lg border ${routingPreview.color}`}>
-              <p className="text-xs font-bold uppercase tracking-wider">{routingPreview.label}</p>
-              <p className="text-xs mt-1">{routingPreview.detail}</p>
-            </div>
-          )}
-
-          {error && <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">⚠ {error}</div>}
-
-          <div className="flex gap-2">
-            <button
-              onClick={handleSubmit}
-              disabled={pending}
-              className="flex-1 py-2 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg disabled:opacity-50"
-            >
-              {pending ? 'Memproses...' : '💸 Catat Expense'}
-            </button>
-            <button
-              onClick={() => { setOpen(false); setError(''); }}
-              disabled={pending}
-              className="px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50"
-            >
-              Batal
-            </button>
-          </div>
         </div>
-      )}
+
+        <div className="p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
+          <FileUploadInput
+            tripId={tripId}
+            subfolder="expense"
+            value={receiptUrl}
+            onChange={setReceiptUrl}
+            label="📎 Upload Bukti Expense (foto/PDF/Excel)"
+            maxSizeMB={20}
+          />
+          <p className="text-[11px] text-blue-700 mt-2">
+            💡 Foto struk, screenshot transfer, atau scan invoice langsung dari device. Bisa JPG, PNG, PDF, Excel.
+          </p>
+        </div>
+
+        <Field label="Catatan tambahan">
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            className={`${inputCls} resize-none`}
+            placeholder="(opsional)"
+          />
+        </Field>
+
+        {routingPreview && (
+          <div className={`p-3 rounded-lg border ${routingPreview.color}`}>
+            <p className="text-xs font-bold uppercase tracking-wider">{routingPreview.label}</p>
+            <p className="text-xs mt-1">{routingPreview.detail}</p>
+          </div>
+        )}
+
+        {error && <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">⚠ {error}</div>}
+
+        <div className="flex gap-2">
+          <button
+            onClick={handleSubmit}
+            disabled={pending}
+            className="flex-1 py-2 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg disabled:opacity-50"
+          >
+            {pending ? 'Memproses...' : (savedCount > 0 ? '➕ Catat Expense Berikutnya' : '💸 Catat Expense')}
+          </button>
+          <button
+            onClick={handleDone}
+            disabled={pending}
+            className="px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50"
+          >
+            ✓ Selesai
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
