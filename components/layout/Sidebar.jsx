@@ -1,7 +1,7 @@
 'use client';
 
-// Round 144: Sidebar dengan 3 role filter
-// Roles: owner=manager (full) · cs (no finance/accounting/invoices) · ops (no accounting) · tour_leader (TL only)
+// Round 146: Sidebar — restore Chat Tim + To-Do + Master TL + role filter
+// Roles: owner=manager (full) · cs (no finance/accounting/invoices) · ops (no accounting) · tour_leader (TL portal + chat only)
 // Path: components/layout/Sidebar.jsx
 
 import { useEffect, useState } from 'react';
@@ -9,8 +9,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
-// roles: array role yang boleh lihat menu ini
-// kalau gak ada roles → semua role bisa lihat
 const NAV = [
   { href: '/dashboard',       label: 'Dashboard',    icon: '◆',  roles: ['owner', 'manager', 'cs', 'ops'] },
   { href: '/trips',           label: 'Master Trip',  icon: '✈',  roles: ['owner', 'manager', 'cs', 'ops'] },
@@ -22,6 +20,9 @@ const NAV = [
   { href: '/visa',            label: 'Visa',         icon: '🛂', roles: ['owner', 'manager', 'cs', 'ops'] },
   { href: '/passport-manage', label: 'Passport AI',  icon: '🤖', roles: ['owner', 'manager', 'cs', 'ops'] },
   { href: '/tl',              label: 'Portal TL',    icon: '👤', roles: ['owner', 'manager', 'cs', 'ops', 'tour_leader'] },
+  { href: '/tl-master',       label: 'Master TL',    icon: '👥', roles: ['owner', 'manager'] },
+  { href: '/tasks',           label: 'To-Do List',   icon: '✅', roles: ['owner', 'manager', 'cs', 'ops'] },
+  { href: '/chat',            label: 'Chat Tim',     icon: '💬', roles: ['owner', 'manager', 'cs', 'ops', 'tour_leader'] },
 ];
 
 export default function Sidebar() {
@@ -43,14 +44,14 @@ export default function Sidebar() {
 
   // Filter NAV berdasarkan role
   const visibleNav = NAV.filter((item) => {
-    if (!item.roles) return true; // no roles defined = visible to all
-    if (!role) return false; // role not loaded yet
+    if (!item.roles) return true;
+    if (!role) return false;
     return item.roles.includes(role);
   });
 
-  // Kalau role = tour_leader, hanya tampilin Portal TL
+  // TL: hanya tampilin Portal TL + Chat (terbatas)
   const finalNav = role === 'tour_leader'
-    ? NAV.filter((item) => item.href === '/tl')
+    ? NAV.filter((item) => ['/tl', '/chat'].includes(item.href))
     : visibleNav;
 
   return (
