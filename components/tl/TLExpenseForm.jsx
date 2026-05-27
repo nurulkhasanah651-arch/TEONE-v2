@@ -1,6 +1,6 @@
 'use client';
 
-// Round 130: TL Expense Form — auto-route ke petty cash atau reimbursement
+// Round 131: TL Expense Form — UPLOAD BUKTI prominent + auto-routing
 // Path: components/tl/TLExpenseForm.jsx
 
 import { useState, useTransition } from 'react';
@@ -13,11 +13,7 @@ function formatNum(n) { return n ? Number(n).toLocaleString('id-ID') : ''; }
 function fmtRupiah(n) { return 'Rp ' + (Number(n) || 0).toLocaleString('id-ID'); }
 
 export default function TLExpenseForm({
-  tripId,
-  pettyCash,         // { allocated_amount, spent_amount }
-  userEmail = '',
-  userName = '',
-  userRole = 'tour_leader',
+  tripId, pettyCash, userEmail = '', userName = '', userRole = 'tour_leader',
 }) {
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
@@ -35,7 +31,6 @@ export default function TLExpenseForm({
   const remaining = Math.max(allocated - spent, 0);
   const expenseAmt = parseNum(amount);
 
-  // Live preview routing
   let routingPreview = null;
   if (expenseAmt > 0) {
     if (remaining >= expenseAmt) {
@@ -63,31 +58,22 @@ export default function TLExpenseForm({
   }
 
   function handleSubmit() {
-    setError('');
-    setResult(null);
+    setError(''); setResult(null);
     if (!description.trim()) { setError('Deskripsi wajib'); return; }
     if (expenseAmt <= 0) { setError('Nominal wajib > 0'); return; }
+    if (!receiptUrl.trim()) {
+      if (!confirm('Belum ada bukti expense. Tetap submit?\n\n(Disarankan upload bukti untuk validasi)')) return;
+    }
 
     startTransition(async () => {
       const r = await addTLExpense({
-        tripId,
-        category,
-        description: description.trim(),
-        amount: expenseAmt,
-        receiptUrl: receiptUrl.trim(),
-        spentAt,
-        notes: notes.trim(),
-        userEmail,
-        userName,
-        userRole,
+        tripId, category, description: description.trim(),
+        amount: expenseAmt, receiptUrl: receiptUrl.trim(), spentAt,
+        notes: notes.trim(), userEmail, userName, userRole,
       });
       if (r?.error) { setError(r.error); return; }
       setResult(r);
-      // Reset form
-      setDescription('');
-      setAmount('');
-      setReceiptUrl('');
-      setNotes('');
+      setDescription(''); setAmount(''); setReceiptUrl(''); setNotes('');
     });
   }
 
@@ -116,17 +102,12 @@ export default function TLExpenseForm({
         </button>
       </div>
 
-      {/* Petty cash summary */}
       <div className="px-5 py-2 bg-purple-50/50 border-b border-purple-100 text-xs flex items-center justify-between flex-wrap gap-2">
         <span className="text-purple-700">
           💵 Petty Cash Remaining: <b>{fmtRupiah(remaining)}</b>
-          {allocated > 0 && (
-            <span className="text-slate-500"> · dari {fmtRupiah(allocated)} (spent {fmtRupiah(spent)})</span>
-          )}
+          {allocated > 0 && <span className="text-slate-500"> · dari {fmtRupiah(allocated)} (spent {fmtRupiah(spent)})</span>}
         </span>
-        {remaining === 0 && allocated === 0 && (
-          <span className="text-red-700 font-bold">⚠ Petty cash belum di-set</span>
-        )}
+        {remaining === 0 && allocated === 0 && <span className="text-red-700 font-bold">⚠ Petty cash belum di-set</span>}
       </div>
 
       {result?.ok && (
@@ -163,16 +144,7 @@ export default function TLExpenseForm({
             <Field label="Tanggal Pengeluaran">
               <input type="date" value={spentAt} onChange={(e) => setSpentAt(e.target.value)} className={inputCls} />
             </Field>
-            <Field label="Link Bukti (opsional)">
-              <input
-                type="url"
-                value={receiptUrl}
-                onChange={(e) => setReceiptUrl(e.target.value)}
-                placeholder="https://drive.google.com/..."
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Deskripsi" required className="md:col-span-2">
+            <Field label="Deskripsi" required>
               <input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -180,17 +152,42 @@ export default function TLExpenseForm({
                 className={inputCls}
               />
             </Field>
-            <Field label="Catatan" className="md:col-span-2">
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-                className={`${inputCls} resize-none`}
-              />
-            </Field>
           </div>
 
-          {/* Live routing preview */}
+          {/* PROMINENT UPLOAD BUKTI SECTION */}
+          <div className="p-4 bg-blue-50 border-2 border-blue-300 border-dashed rounded-lg">
+            <p className="text-sm font-bold text-blue-800 mb-2">📎 Upload Bukti Expense (Sangat Disarankan)</p>
+            <p className="text-xs text-blue-700 mb-2">
+              📌 Cara upload bukti:
+              <br />1. Foto/scan struk/invoice
+              <br />2. Upload ke <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="underline font-bold">Google Drive</a> atau <a href="https://www.dropbox.com" target="_blank" rel="noreferrer" className="underline font-bold">Dropbox</a>
+              <br />3. Set sharing: "Anyone with the link can view"
+              <br />4. Copy link → paste di bawah
+            </p>
+            <input
+              type="url"
+              value={receiptUrl}
+              onChange={(e) => setReceiptUrl(e.target.value)}
+              placeholder="https://drive.google.com/file/d/... atau link bukti lain"
+              className={`${inputCls} bg-white`}
+            />
+            {receiptUrl && (
+              <a href={receiptUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">
+                ✓ Cek link bukti
+              </a>
+            )}
+          </div>
+
+          <Field label="Catatan tambahan">
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              className={`${inputCls} resize-none`}
+              placeholder="(opsional)"
+            />
+          </Field>
+
           {routingPreview && (
             <div className={`p-3 rounded-lg border ${routingPreview.color}`}>
               <p className="text-xs font-bold uppercase tracking-wider">{routingPreview.label}</p>
@@ -198,9 +195,7 @@ export default function TLExpenseForm({
             </div>
           )}
 
-          {error && (
-            <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">⚠ {error}</div>
-          )}
+          {error && <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">⚠ {error}</div>}
 
           <div className="flex gap-2">
             <button
