@@ -1,7 +1,6 @@
 'use client';
 
-// Round 146: Sidebar — restore Chat Tim + To-Do + Master TL + role filter
-// Roles: owner=manager (full) · cs (no finance/accounting/invoices) · ops (no accounting) · tour_leader (TL portal + chat only)
+// Round 148: Sidebar + Ads Manager
 // Path: components/layout/Sidebar.jsx
 
 import { useEffect, useState } from 'react';
@@ -13,6 +12,7 @@ const NAV = [
   { href: '/dashboard',       label: 'Dashboard',    icon: '◆',  roles: ['owner', 'manager', 'cs', 'ops'] },
   { href: '/trips',           label: 'Master Trip',  icon: '✈',  roles: ['owner', 'manager', 'cs', 'ops'] },
   { href: '/cs',              label: 'CS Daily',     icon: '☎',  roles: ['owner', 'manager', 'cs', 'ops'] },
+  { href: '/ads',             label: 'Ads Manager',  icon: '📢', roles: ['owner', 'manager', 'cs', 'ops'] },
   { href: '/finance',         label: 'Finance',      icon: '$',  roles: ['owner', 'manager', 'ops'] },
   { href: '/accounting',      label: 'Accounting',   icon: '📊', roles: ['owner', 'manager'] },
   { href: '/invoices',        label: 'Invoices',     icon: '🧾', roles: ['owner', 'manager', 'ops'] },
@@ -21,7 +21,7 @@ const NAV = [
   { href: '/passport-manage', label: 'Passport AI',  icon: '🤖', roles: ['owner', 'manager', 'cs', 'ops'] },
   { href: '/tl',              label: 'Portal TL',    icon: '👤', roles: ['owner', 'manager', 'cs', 'ops', 'tour_leader'] },
   { href: '/tl-master',       label: 'Master TL',    icon: '👥', roles: ['owner', 'manager'] },
-  { href: '/tasks',           label: 'To-Do List',   icon: '✅', roles: ['owner', 'manager', 'cs', 'ops'] },
+  { href: '/tasks',           label: 'To-Do List',   icon: '✅', roles: ['owner', 'manager', 'cs', 'ops', 'tour_leader'] },
   { href: '/chat',            label: 'Chat Tim',     icon: '💬', roles: ['owner', 'manager', 'cs', 'ops', 'tour_leader'] },
 ];
 
@@ -42,21 +42,19 @@ export default function Sidebar() {
     });
   }, []);
 
-  // Filter NAV berdasarkan role
   const visibleNav = NAV.filter((item) => {
     if (!item.roles) return true;
     if (!role) return false;
     return item.roles.includes(role);
   });
 
-  // TL: hanya tampilin Portal TL + Chat (terbatas)
+  // TL: hanya Portal TL + Chat + To-Do
   const finalNav = role === 'tour_leader'
-    ? NAV.filter((item) => ['/tl', '/chat'].includes(item.href))
+    ? NAV.filter((item) => ['/tl', '/chat', '/tasks'].includes(item.href))
     : visibleNav;
 
   return (
     <aside className="hidden md:flex md:flex-col md:w-60 md:fixed md:inset-y-0 md:bg-white md:border-r md:border-slate-200">
-      {/* Brand */}
       <div className="flex items-center gap-3 px-5 h-16 border-b border-slate-200">
         <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 text-white flex items-center justify-center text-lg font-bold">
           ✈
@@ -67,7 +65,6 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Role badge */}
       {role && role !== 'pending' && (
         <div className="px-5 py-2 border-b border-slate-100">
           <p className="text-[10px] text-slate-500 uppercase tracking-wider">Role</p>
@@ -77,7 +74,6 @@ export default function Sidebar() {
         </div>
       )}
 
-      {/* Nav */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {loading ? (
           <div className="px-3 py-2 text-xs text-slate-400">Loading menu...</div>
@@ -113,7 +109,6 @@ export default function Sidebar() {
         )}
       </nav>
 
-      {/* Footer */}
       <div className="px-5 py-3 border-t border-slate-200 text-[11px] text-slate-400 flex items-center justify-between">
         <span className="flex items-center gap-1.5">
           <span className="text-green-500">●</span> v2.0
