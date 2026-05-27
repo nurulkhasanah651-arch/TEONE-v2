@@ -1,6 +1,5 @@
-// Round 139: Server page untuk edit passport peserta existing
+// Round 141 HOTFIX: Passport edit page — pakai 2 query terpisah
 // Path: app/(app)/trips/[id]/passport-edit/[passengerId]/page.jsx
-// Fetch existing customer data → pass ke client form
 
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
@@ -23,9 +22,10 @@ export default async function EditPassportPage({ params }) {
 
   const supabase = getServiceClient() || createClient();
 
+  // QUERY 1: ambil trip_passenger (tanpa nested customers)
   const { data: pax } = await supabase
     .from('trip_passengers')
-    .select('*, customers(*)')
+    .select('*')
     .eq('id', passengerId)
     .maybeSingle();
 
@@ -33,7 +33,17 @@ export default async function EditPassportPage({ params }) {
     redirect(`/trips/${tripId}`);
   }
 
-  const c = pax?.customers || {};
+  // QUERY 2: ambil customer separately
+  let c = {};
+  if (pax.customer_id) {
+    const { data: customer } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('id', pax.customer_id)
+      .maybeSingle();
+    c = customer || {};
+  }
+
   const initialData = {
     first_name: c.first_name || '',
     last_name: c.surname || '',
