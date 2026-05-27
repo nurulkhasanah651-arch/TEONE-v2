@@ -1,6 +1,6 @@
 'use client';
 
-// Round 132: Trip Docs — UPLOAD LANGSUNG (no link). Internal only upload, TL download.
+// Round 132 HOTFIX: Trip Docs — tambah tombol "+ Tambah Dokumen Lagi" + defensive notes
 // Path: components/tl/TripDocsSection.jsx
 
 import { useState, useTransition } from 'react';
@@ -43,6 +43,8 @@ export default function TripDocsSection({
   const [pending, startTransition] = useTransition();
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
+  const [lastSaved, setLastSaved] = useState(null);
+  const [savedCount, setSavedCount] = useState(0);
 
   const [category, setCategory] = useState(CATEGORIES[0].value);
   const [customCategory, setCustomCategory] = useState('');
@@ -53,7 +55,10 @@ export default function TripDocsSection({
   function resetForm() {
     setCategory(CATEGORIES[0].value);
     setCustomCategory('');
-    setTitle(''); setFileUrl(''); setNotes('');
+    setTitle('');
+    setFileUrl('');
+    setNotes('');
+    setError('');
   }
 
   function handleAdd() {
@@ -65,19 +70,31 @@ export default function TripDocsSection({
       return;
     }
 
+    const savedTitle = title.trim();
+    const savedCat = category === 'other' ? `custom:${customCategory.trim()}` : category;
+
     startTransition(async () => {
       const r = await addTripDocument({
         tripId,
-        category: category === 'other' ? `custom:${customCategory.trim()}` : category,
-        title: title.trim(),
+        category: savedCat,
+        title: savedTitle,
         fileUrl,
         notes: notes.trim(),
         userEmail,
       });
       if (r?.error) { setError(r.error); return; }
+      setLastSaved({ title: savedTitle, category: savedCat });
+      setSavedCount((c) => c + 1);
+      // Auto-reset form untuk siap input dokumen baru
       resetForm();
-      setShowForm(false);
     });
+  }
+
+  function handleDone() {
+    setShowForm(false);
+    setLastSaved(null);
+    setSavedCount(0);
+    resetForm();
   }
 
   function handleDelete(docId, title) {
@@ -88,7 +105,6 @@ export default function TripDocsSection({
     });
   }
 
-  // Group by category
   const docsByCategory = {};
   for (const d of docs) {
     const cat = d.category || 'other';
@@ -110,6 +126,11 @@ export default function TripDocsSection({
           <h2 className="font-bold text-blue-800 flex items-center gap-2">
             <span>📂</span> Dokumen Trip
             <span className="text-xs font-semibold text-slate-600">({docs.length})</span>
+            {savedCount > 0 && (
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-green-100 text-green-700">
+                +{savedCount} baru saja
+              </span>
+            )}
           </h2>
           {isTL && (
             <p className="text-[10px] text-blue-700 mt-0.5">📥 TL: Klik link untuk download. Upload by Internal only.</p>
@@ -127,7 +148,29 @@ export default function TripDocsSection({
 
       {showForm && canUpload && (
         <div className="p-5 bg-blue-50/40 border-b border-blue-100 space-y-3">
-          <h3 className="text-sm font-bold text-blue-800">Tambah Dokumen Baru</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-blue-800">
+              Tambah Dokumen Baru
+              {savedCount > 0 && <span className="ml-2 text-xs font-normal text-slate-600">({savedCount} sudah tersimpan)</span>}
+            </h3>
+            <button
+              onClick={handleDone}
+              className="text-xs px-3 py-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold"
+            >
+              ✓ Selesai
+            </button>
+          </div>
+
+          {lastSaved && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <p className="text-sm font-bold text-green-800">✓ Tersimpan: {lastSaved.title}</p>
+                <p className="text-xs text-green-700">{getCatLabel(lastSaved.category)}</p>
+              </div>
+              <p className="text-[11px] text-green-700 italic">Form sudah di-reset, siap input dokumen berikutnya ↓</p>
+            </div>
+          )}
+
           <p className="text-xs text-slate-600 bg-blue-50 border border-blue-200 rounded p-2">
             💡 Upload file langsung dari device. Support foto (JPG/PNG), PDF, Excel (XLSX/XLS), Word (DOCX), CSV. Max 20 MB.
           </p>
@@ -156,7 +199,6 @@ export default function TripDocsSection({
               />
             </Field>
             <div className="md:col-span-2">
-              {/* ROUND 132: DIRECT UPLOAD instead of URL */}
               <div className="p-3 bg-blue-50 border-2 border-blue-300 rounded-lg">
                 <FileUploadInput
                   tripId={tripId}
@@ -185,14 +227,14 @@ export default function TripDocsSection({
               disabled={pending}
               className="flex-1 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg disabled:opacity-50"
             >
-              {pending ? 'Menyimpan...' : '📤 Simpan Dokumen'}
+              {pending ? 'Menyimpan...' : (savedCount > 0 ? '➕ Tambah Dokumen Berikutnya' : '📤 Simpan Dokumen')}
             </button>
             <button
-              onClick={() => { setShowForm(false); resetForm(); setError(''); }}
+              onClick={handleDone}
               disabled={pending}
               className="px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50"
             >
-              Batal
+              ✓ Selesai
             </button>
           </div>
         </div>
