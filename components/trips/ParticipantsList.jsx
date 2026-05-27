@@ -1,15 +1,26 @@
 'use client';
 
-// Round 136: Master Trip ParticipantForm + Passport AI Auto-Fill
-// Upload foto passport → AI extract → semua field auto-keisi (incl. passport_no, birthday, dll)
+// Round 136 HOTFIX: ParticipantsList — DYNAMIC IMPORT PassportAI biar gak crash kalau missing
 // Path: components/trips/ParticipantsList.jsx
 
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { addParticipant, updateParticipant, removeParticipant } from '@/lib/actions/participants';
 import { fmtRupiah, fmtDate, calcAge, passportStatus } from '@/lib/utils/format';
 import TransferPassengerButton from './TransferPassengerButton';
 import RefundPassengerButton from './RefundPassengerButton';
-import PassportUploadAI from '@/components/cs/PassportUploadAI';
+
+// Dynamic import — gak crash kalau file belum ada
+const PassportUploadAI = dynamic(
+  () => import('@/components/cs/PassportUploadAI').catch(() => ({
+    default: () => (
+      <div className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+        ⚠ PassportUploadAI component belum di-upload. Cek file <code>components/cs/PassportUploadAI.jsx</code> dan <code>lib/actions/passport.js</code> sudah ada di GitHub.
+      </div>
+    ),
+  })),
+  { ssr: false, loading: () => <div className="p-3 text-xs text-slate-500">Loading passport tool...</div> }
+);
 
 const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Family'];
 
@@ -98,7 +109,7 @@ export default function ParticipantsList({ tripId, participants = [], allTrips =
       ) : (
         <div className="divide-y divide-slate-100">
           {participants.map((p, idx) => {
-            const c = p.customers || {};
+            const c = p?.customers || {};
             const first = c.first_name || '';
             const last = c.surname || '';
             const fullName = `${first} ${last}`.trim() || c.name || `Peserta #${idx + 1}`;
@@ -120,7 +131,7 @@ export default function ParticipantsList({ tripId, participants = [], allTrips =
                       gender: c.gender,
                       phone: c.phone || c.whatsapp,
                       email: c.email,
-                      passport_no: c.passport_no,
+                      passport_no: c.passport_no || c.passport_number,
                       passport_issued_at: c.passport_issued_at,
                       passport_issued_date: c.passport_issued_date,
                       passport_expiry: c.passport_expiry,
@@ -215,9 +226,7 @@ export default function ParticipantsList({ tripId, participants = [], allTrips =
   );
 }
 
-// ROUND 136: ParticipantForm — controlled state + Passport AI
 function ParticipantForm({ tripId, initial = {}, onSubmit, onCancel, pending, submitLabel = 'Simpan' }) {
-  // Controlled state untuk semua field yg bisa auto-fill dari AI
   const [data, setData] = useState({
     first_name: initial.first_name || '',
     last_name: initial.last_name || '',
@@ -240,11 +249,10 @@ function ParticipantForm({ tripId, initial = {}, onSubmit, onCancel, pending, su
     setData((d) => ({ ...d, [key]: val }));
   }
 
-  // AI extracted handler — map ke field names master trip
   function handleAIExtracted(updates) {
+    if (!updates || typeof updates !== 'object') return;
     setData((d) => {
       const next = { ...d };
-      // Map AI extract → master trip field names
       if (updates.passport_given_names && !next.first_name) next.first_name = updates.passport_given_names;
       if (updates.passport_surname && !next.last_name) next.last_name = updates.passport_surname;
       if (updates.passport_number) next.passport_no = updates.passport_number;
@@ -264,7 +272,6 @@ function ParticipantForm({ tripId, initial = {}, onSubmit, onCancel, pending, su
 
   return (
     <form action={onSubmit} className="space-y-4">
-      {/* Hidden inputs untuk semua field (karena state controlled di React) */}
       <input type="hidden" name="first_name" value={data.first_name} />
       <input type="hidden" name="last_name" value={data.last_name} />
       <input type="hidden" name="city" value={data.city} />
@@ -281,8 +288,7 @@ function ParticipantForm({ tripId, initial = {}, onSubmit, onCancel, pending, su
       <input type="hidden" name="room_type" value={data.room_type} />
       <input type="hidden" name="price_paid" value={data.price_paid} />
 
-      {/* PASSPORT AI SECTION — top priority */}
-      <FormSection title="🛂 Upload Passport — AI Auto-Fill">
+      <FormSection title="🛂 Upload Passport — AI Auto-Fill (opsional)">
         <PassportUploadAI
           tripId={tripId || 'master-trip'}
           paxIndex={0}
@@ -299,25 +305,21 @@ function ParticipantForm({ tripId, initial = {}, onSubmit, onCancel, pending, su
             sex: data.gender === 'L' ? 'M' : data.gender === 'P' ? 'F' : '',
           }}
           onChange={(key, val) => {
-            // Map sub-component field names back to master trip field names
-            const reverseMap = {
+            const map = {
               passport_number: 'passport_no',
               passport_surname: 'last_name',
               passport_given_names: 'first_name',
               dob: 'birthday',
               place_of_birth: 'city',
-              sex: (v) => v === 'M' ? 'L' : v === 'F' ? 'P' : '',
             };
-            const mapped = reverseMap[key];
-            if (typeof mapped === 'function') upd('gender', mapped(val));
-            else if (mapped) upd(mapped, val);
+            if (key === 'sex') upd('gender', val === 'M' ? 'L' : val === 'F' ? 'P' : '');
+            else if (map[key]) upd(map[key], val);
             else upd(key, val);
           }}
           onExtracted={handleAIExtracted}
         />
       </FormSection>
 
-      {/* Personal info */}
       <FormSection title="Data Pribadi">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Nama Depan" required>
@@ -351,7 +353,6 @@ function ParticipantForm({ tripId, initial = {}, onSubmit, onCancel, pending, su
         </div>
       </FormSection>
 
-      {/* Passport details */}
       <FormSection title="Data Passport (manual / dari AI)">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="No Passport">
@@ -373,7 +374,6 @@ function ParticipantForm({ tripId, initial = {}, onSubmit, onCancel, pending, su
         </div>
       </FormSection>
 
-      {/* Room & Price */}
       <FormSection title="Booking">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Tipe Kamar">
