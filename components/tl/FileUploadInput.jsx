@@ -1,15 +1,13 @@
 'use client';
 
-// Round 132: Reusable file upload component (direct upload to Supabase Storage)
+// Round 132 HOTFIX: Fix click upload (label + input ter-link)
 // Path: components/tl/FileUploadInput.jsx
-// Support: Image, PDF, Excel (XLSX/XLS), Word (DOCX/DOC), CSV, TXT
 
 import { useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 const BUCKET = 'tl-uploads';
 
-// Comprehensive accept string untuk semua format yang di-support bucket
 const ACCEPT_ALL = 'image/*,application/pdf,.pdf,.xlsx,.xls,.xlsm,.docx,.doc,.csv,.txt,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/csv,text/plain';
 
 export default function FileUploadInput({
@@ -72,6 +70,11 @@ export default function FileUploadInput({
     if (isExcel(url)) return 'bg-green-50 border-green-200 text-green-700';
     if (isWord(url)) return 'bg-blue-50 border-blue-200 text-blue-700';
     return 'bg-slate-50 border-slate-200 text-slate-700';
+  }
+
+  function triggerFilePicker() {
+    if (disabled || uploading) return;
+    inputRef.current?.click();
   }
 
   async function handleFileChange(e) {
@@ -144,6 +147,16 @@ export default function FileUploadInput({
         </p>
       )}
 
+      {/* HIDDEN INPUT — must be inside render but separate from clickable area */}
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        onChange={handleFileChange}
+        disabled={disabled || uploading}
+        style={{ display: 'none' }}
+      />
+
       {value ? (
         <div className="border-2 border-green-200 bg-green-50 rounded-lg p-3 space-y-2">
           {isImage(value) ? (
@@ -174,7 +187,7 @@ export default function FileUploadInput({
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => inputRef.current?.click()}
+                onClick={triggerFilePicker}
                 disabled={disabled || uploading}
                 className="text-xs px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-700 font-semibold disabled:opacity-50"
               >
@@ -192,11 +205,16 @@ export default function FileUploadInput({
           </div>
         </div>
       ) : (
-        <label className={`block border-2 border-dashed rounded-lg p-4 cursor-pointer transition-colors ${
-          disabled ? 'border-slate-200 bg-slate-50 opacity-50 cursor-not-allowed' :
-          uploading ? 'border-blue-300 bg-blue-50' :
-          'border-slate-300 hover:border-blue-400 hover:bg-blue-50'
-        }`}>
+        <button
+          type="button"
+          onClick={triggerFilePicker}
+          disabled={disabled || uploading}
+          className={`w-full block border-2 border-dashed rounded-lg p-4 cursor-pointer transition-colors text-left ${
+            disabled ? 'border-slate-200 bg-slate-50 opacity-50 cursor-not-allowed' :
+            uploading ? 'border-blue-300 bg-blue-50' :
+            'border-slate-300 hover:border-blue-400 hover:bg-blue-50'
+          }`}
+        >
           {uploading ? (
             <div className="text-center">
               <p className="text-2xl mb-1">⏳</p>
@@ -214,17 +232,8 @@ export default function FileUploadInput({
               </p>
             </div>
           )}
-        </label>
+        </button>
       )}
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept={accept}
-        onChange={handleFileChange}
-        disabled={disabled || uploading}
-        className="hidden"
-      />
 
       {error && (
         <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">
