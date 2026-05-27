@@ -1,10 +1,12 @@
 'use client';
 
-// Round 131: Final Report — add Google Review link, hilangkan totalPettyCash
+// Round 132: Final Report — Google Review UPLOAD LANGSUNG (screenshot/file)
+// Documentation Trip TETAP LINK (Google Drive folder foto/video)
 // Path: components/tl/FinalReportForm.jsx
 
 import { useState, useTransition } from 'react';
 import { saveFinalReport, reviewReportByOps } from '@/lib/actions/tlreport';
+import FileUploadInput from './FileUploadInput';
 
 function fmtDate(s) {
   if (!s) return '—';
@@ -20,9 +22,12 @@ export default function FinalReportForm({
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
 
+  // documentation_link tetap LINK (folder Google Drive berisi banyak foto/video)
   const [documentationLink, setDocumentationLink] = useState(report?.documentation_link || '');
-  const [reviewUploadLink, setReviewUploadLink] = useState(report?.review_upload_link || '');
-  const [googleReviewLink, setGoogleReviewLink] = useState(report?.google_review_link || '');
+  // review_upload_link → ganti jadi FILE UPLOAD (screenshot review internal)
+  const [reviewUploadFile, setReviewUploadFile] = useState(report?.review_upload_link || '');
+  // google_review_link → ganti jadi FILE UPLOAD (screenshot Google Review)
+  const [googleReviewFile, setGoogleReviewFile] = useState(report?.google_review_link || '');
   const [overallRating, setOverallRating] = useState(report?.overall_rating || 5);
   const [highlights, setHighlights] = useState(report?.highlights || '');
   const [issuesEncountered, setIssuesEncountered] = useState(report?.issues_encountered || '');
@@ -32,7 +37,7 @@ export default function FinalReportForm({
   function handleSave(submit = false) {
     setError(''); setMsg('');
     if (submit) {
-      if (!documentationLink && !reviewUploadLink && !googleReviewLink) {
+      if (!documentationLink && !reviewUploadFile && !googleReviewFile) {
         if (!confirm('Belum ada link dokumentasi/review/Google Review. Tetap submit?')) return;
       }
     }
@@ -40,8 +45,8 @@ export default function FinalReportForm({
       const r = await saveFinalReport({
         tripId,
         documentationLink: documentationLink.trim(),
-        reviewUploadLink: reviewUploadLink.trim(),
-        googleReviewLink: googleReviewLink.trim(),
+        reviewUploadLink: reviewUploadFile,
+        googleReviewLink: googleReviewFile,
         overallRating,
         highlights: highlights.trim(),
         issuesEncountered: issuesEncountered.trim(),
@@ -115,40 +120,50 @@ export default function FinalReportForm({
               </div>
             </Field>
 
-            <Field label="📸 Link Dokumentasi (foto/video Google Drive)">
-              <input
-                type="url"
-                value={documentationLink}
-                onChange={(e) => setDocumentationLink(e.target.value)}
-                placeholder="https://drive.google.com/drive/folders/..."
-                className={inputCls}
-              />
-            </Field>
-
-            <Field label="📝 Link Upload Review/Testimonial Internal (Google Form/Drive)">
-              <input
-                type="url"
-                value={reviewUploadLink}
-                onChange={(e) => setReviewUploadLink(e.target.value)}
-                placeholder="https://forms.google.com/... atau https://drive.google.com/..."
-                className={inputCls}
-              />
-            </Field>
-
-            {/* ROUND 131: Google Review section */}
-            <div className="p-4 bg-yellow-50 border-2 border-yellow-300 border-dashed rounded-lg">
-              <Field label="⭐ Link Google Review / Google Business Listing">
+            {/* DOKUMENTASI TRIP — TETAP LINK (folder Google Drive berisi foto/video banyak) */}
+            <div className="p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
+              <Field label="📸 Link Dokumentasi Trip (folder Google Drive foto/video)">
                 <input
                   type="url"
-                  value={googleReviewLink}
-                  onChange={(e) => setGoogleReviewLink(e.target.value)}
-                  placeholder="https://g.page/r/... atau link review Google Maps perusahaan"
+                  value={documentationLink}
+                  onChange={(e) => setDocumentationLink(e.target.value)}
+                  placeholder="https://drive.google.com/drive/folders/..."
                   className={`${inputCls} bg-white`}
                 />
               </Field>
+              <p className="text-[11px] text-purple-700 mt-2">
+                💡 Folder Google Drive berisi banyak foto/video trip. Set "Anyone with link can view".
+              </p>
+            </div>
+
+            {/* REVIEW INTERNAL — UPLOAD LANGSUNG */}
+            <div className="p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
+              <FileUploadInput
+                tripId={tripId}
+                subfolder="review-internal"
+                value={reviewUploadFile}
+                onChange={setReviewUploadFile}
+                label="📝 Upload Review/Testimonial Internal (foto/PDF/Excel)"
+                maxSizeMB={20}
+              />
+              <p className="text-[11px] text-blue-700 mt-2">
+                💡 Screenshot Google Form responses, kompilasi testimonial peserta, atau file PDF/Excel feedback.
+              </p>
+            </div>
+
+            {/* GOOGLE REVIEW — UPLOAD LANGSUNG */}
+            <div className="p-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
+              <FileUploadInput
+                tripId={tripId}
+                subfolder="google-review"
+                value={googleReviewFile}
+                onChange={setGoogleReviewFile}
+                label="⭐ Upload Bukti Google Review (screenshot/foto)"
+                maxSizeMB={20}
+              />
               <p className="text-[11px] text-yellow-800 mt-2">
-                💡 Share link ini ke peserta untuk dapat Google Review.
-                <br />Cara dapat link: Google Business Profile → "Get more reviews" → copy short URL (g.page/r/...)
+                💡 Screenshot review Google Maps yang dikasih peserta, atau foto/PDF bukti review.
+                <br />Boleh upload beberapa kali (file terakhir yang tersimpan).
               </p>
             </div>
 
@@ -208,28 +223,28 @@ export default function FinalReportForm({
             </div>
 
             {report?.documentation_link && (
-              <div>
-                <p className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">📸 Dokumentasi</p>
-                <a href={report.documentation_link} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline break-all">
+              <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                <p className="text-xs font-bold text-purple-800 uppercase tracking-wider mb-1">📸 Dokumentasi Trip</p>
+                <a href={report.documentation_link} target="_blank" rel="noreferrer" className="text-sm text-purple-700 hover:underline break-all font-semibold">
                   {report.documentation_link}
                 </a>
               </div>
             )}
 
             {report?.review_upload_link && (
-              <div>
-                <p className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">📝 Link Review Internal</p>
-                <a href={report.review_upload_link} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline break-all">
-                  {report.review_upload_link}
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-1">📝 Review/Testimonial Internal</p>
+                <a href={report.review_upload_link} target="_blank" rel="noreferrer" className="text-sm text-blue-700 hover:underline break-all font-semibold">
+                  📎 Lihat file
                 </a>
               </div>
             )}
 
             {report?.google_review_link && (
               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-xs font-bold text-yellow-800 uppercase tracking-wider mb-1">⭐ Google Review Link</p>
+                <p className="text-xs font-bold text-yellow-800 uppercase tracking-wider mb-1">⭐ Bukti Google Review</p>
                 <a href={report.google_review_link} target="_blank" rel="noreferrer" className="text-sm text-yellow-700 hover:underline break-all font-semibold">
-                  {report.google_review_link}
+                  📎 Lihat bukti
                 </a>
               </div>
             )}
