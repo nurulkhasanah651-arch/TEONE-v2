@@ -1,6 +1,4 @@
-// TL trip detail — Round 130 LENGKAP:
-// R129: Petty Cash + Reimbursement + Trip Docs
-// R130: Pre-Departure Checklist + TL Expense (auto-route) + Final Report + Vendor Reviews
+// TL trip detail — Round 131: TripDocsSection canUpload=isInternal only
 // Path: app/(app)/tl/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -107,7 +105,7 @@ export default async function TLTripDetailPage({ params }) {
         <InfoCard label="✅ Status" value={`${okCount}/${tripChecklistData.length}`} />
       </div>
 
-      {/* PRE-DEPARTURE CHECKLIST (R130) */}
+      {/* PRE-DEPARTURE CHECKLIST */}
       <PreDepartureChecklist
         tripId={tripId}
         checklist={checklist || {}}
@@ -115,7 +113,7 @@ export default async function TLTripDetailPage({ params }) {
         userEmail={userEmail}
       />
 
-      {/* PETTY CASH (R129) */}
+      {/* PETTY CASH (internal only edit) */}
       <PettyCashEditor
         tripId={tripId}
         current={pettyCash}
@@ -123,7 +121,7 @@ export default async function TLTripDetailPage({ params }) {
         userEmail={userEmail}
       />
 
-      {/* TL EXPENSE FORM (R130 — auto route ke petty / reimbursement) */}
+      {/* TL EXPENSE FORM */}
       {(isTL || isInternal) && (
         <TLExpenseForm
           tripId={tripId}
@@ -134,7 +132,7 @@ export default async function TLTripDetailPage({ params }) {
         />
       )}
 
-      {/* REIMBURSEMENT (R129) */}
+      {/* REIMBURSEMENT */}
       <ReimbursementPanel
         tripId={tripId}
         requests={reimbursements}
@@ -145,15 +143,16 @@ export default async function TLTripDetailPage({ params }) {
         userRole={role}
       />
 
-      {/* TRIP DOCS (R129) */}
+      {/* TRIP DOCS — ROUND 131: canUpload INTERNAL ONLY, TL view+download saja */}
       <TripDocsSection
         tripId={tripId}
         docs={docs}
-        canEdit={isInternal || isTL}
+        canUpload={isInternal}
+        isTL={isTL}
         userEmail={userEmail}
       />
 
-      {/* FINAL REPORT (R130) — tampil setelah trip berlangsung atau ada draft */}
+      {/* FINAL REPORT */}
       {(tripCompleted || finalReport || isTL || isInternal) && (
         <FinalReportForm
           tripId={tripId}
@@ -164,7 +163,7 @@ export default async function TLTripDetailPage({ params }) {
         />
       )}
 
-      {/* VENDOR REVIEWS (R130) */}
+      {/* VENDOR REVIEWS */}
       <VendorReviewSection
         tripId={tripId}
         reviews={vendorReviews}
@@ -172,7 +171,7 @@ export default async function TLTripDetailPage({ params }) {
         userEmail={userEmail}
       />
 
-      {/* Passengers list (read-only) */}
+      {/* Passengers list */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 bg-slate-50">
           <h2 className="font-bold text-brand-700">👥 Daftar Peserta ({passengers.length})</h2>
