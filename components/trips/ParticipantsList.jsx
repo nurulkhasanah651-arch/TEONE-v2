@@ -1,34 +1,34 @@
 'use client';
 
-// REVERT: ParticipantsList tanpa Passport AI (versi stabil R114/115)
+// Round 137: ParticipantsList STABLE (versi R114/115) + tombol "Tambah via Passport AI"
+// Form existing "+ Tambah Peserta" GAK DIUBAH — passport AI ada di modal terpisah
 // Path: components/trips/ParticipantsList.jsx
-// Pakai ini sementara sampai bug master trip + dashboard diketahui
 
 import { useState } from 'react';
 import { addParticipant, updateParticipant, removeParticipant } from '@/lib/actions/participants';
 import { fmtRupiah, fmtDate, calcAge, passportStatus } from '@/lib/utils/format';
 import TransferPassengerButton from './TransferPassengerButton';
 import RefundPassengerButton from './RefundPassengerButton';
+import PassportAIAddModal from './PassportAIAddModal';
 
 const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Family'];
 
 export default function ParticipantsList({ tripId, participants = [], allTrips = [] }) {
   const [showForm, setShowForm] = useState(false);
+  const [showPassportModal, setShowPassportModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
 
   async function handleAdd(formData) {
-    setPending(true);
-    setError('');
+    setPending(true); setError('');
     const result = await addParticipant(tripId, formData);
     if (result?.error) { setError(result.error); setPending(false); }
     else { setShowForm(false); setPending(false); }
   }
 
   async function handleUpdate(passengerId, customerId, formData) {
-    setPending(true);
-    setError('');
+    setPending(true); setError('');
     const result = await updateParticipant(tripId, passengerId, customerId, formData);
     if (result?.error) { setError(result.error); setPending(false); }
     else { setEditingId(null); setPending(false); }
@@ -43,114 +43,136 @@ export default function ParticipantsList({ tripId, participants = [], allTrips =
   }
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-      <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-        <div>
-          <h2 className="font-bold text-brand-700">👥 Daftar Peserta</h2>
-          <p className="text-xs text-slate-500 mt-0.5">{participants.length} peserta terdaftar</p>
+    <>
+      <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h2 className="font-bold text-brand-700">👥 Daftar Peserta</h2>
+            <p className="text-xs text-slate-500 mt-0.5">{participants.length} peserta terdaftar</p>
+          </div>
+          {!showForm && !editingId && (
+            <div className="flex gap-2 flex-wrap">
+              {/* ROUND 137: tombol baru */}
+              <button
+                onClick={() => setShowPassportModal(true)}
+                className="px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-xs font-bold rounded-lg"
+              >
+                🛂 Tambah via Passport AI
+              </button>
+              <button
+                onClick={() => setShowForm(true)}
+                className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-lg"
+              >
+                + Tambah Peserta
+              </button>
+            </div>
+          )}
         </div>
-        {!showForm && !editingId && (
-          <button onClick={() => setShowForm(true)} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-lg">
-            <span>+</span> Tambah Peserta
-          </button>
+
+        {error && (
+          <div className="mx-5 mt-3 p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-medium whitespace-pre-wrap">
+            ⚠ {error}
+          </div>
+        )}
+
+        {showForm && (
+          <div className="p-5 bg-blue-50/30 border-b border-blue-100">
+            <h3 className="font-bold text-brand-700 mb-3">Tambah Peserta Baru (manual)</h3>
+            <ParticipantForm onSubmit={handleAdd} onCancel={() => { setShowForm(false); setError(''); }} pending={pending} submitLabel="Tambah Peserta" />
+          </div>
+        )}
+
+        {participants.length === 0 ? (
+          <div className="p-8 text-center text-slate-500">
+            <p className="text-3xl mb-2">👥</p>
+            <p className="text-sm">Belum ada peserta untuk trip ini.</p>
+            <p className="mt-1 text-sm text-slate-500">Klik "Tambah Peserta" atau "Tambah via Passport AI" untuk mulai.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {participants.map((p, idx) => {
+              const c = p?.customers || {};
+              const first = c.first_name || '';
+              const last = c.surname || '';
+              const fullName = `${first} ${last}`.trim() || c.name || `Peserta #${idx + 1}`;
+              const age = calcAge(c.birthday);
+              const ppStatus = passportStatus(c.passport_expiry);
+              const isEditing = editingId === p.id;
+
+              if (isEditing) {
+                return (
+                  <div key={p.id} className="p-5 bg-amber-50/30">
+                    <h3 className="font-bold text-brand-700 mb-3">✎ Edit Peserta: {fullName}</h3>
+                    <ParticipantForm
+                      initial={{
+                        first_name: c.first_name || first, last_name: c.surname || last,
+                        city: c.city, birthday: c.birthday, gender: c.gender,
+                        phone: c.phone || c.whatsapp, email: c.email,
+                        passport_no: c.passport_no, passport_issued_at: c.passport_issued_at,
+                        passport_issued_date: c.passport_issued_date, passport_expiry: c.passport_expiry,
+                        room_type: p.room_type, price_paid: p.price_paid,
+                      }}
+                      onSubmit={(fd) => handleUpdate(p.id, p.customer_id, fd)}
+                      onCancel={() => { setEditingId(null); setError(''); }}
+                      pending={pending} submitLabel="Update Peserta"
+                    />
+                  </div>
+                );
+              }
+
+              return (
+                <div key={p.id} className="px-5 py-3 hover:bg-slate-50">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="text-xs font-mono text-slate-400">#{idx + 1}</span>
+                        <p className="font-bold text-brand-700">{fullName}</p>
+                        {p.room_type && <span className="text-[11px] px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold">{p.room_type}</span>}
+                        {age != null && <span className="text-[11px] text-slate-500">{age}th</span>}
+                        {c.gender && <span className="text-[11px] text-slate-500">{c.gender === 'L' ? '♂' : '♀'}</span>}
+                      </div>
+                      <p className="text-xs text-slate-600">
+                        {c.phone && <span className="mr-3">📞 {c.phone}</span>}
+                        {c.email && <span className="mr-3">✉ {c.email}</span>}
+                      </p>
+                      {(c.passport_no || c.passport_expiry) && (
+                        <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                          {c.passport_no && <span>📕 {c.passport_no}</span>}
+                          {c.passport_issued_at && <span>Issued: {c.passport_issued_at}{c.passport_issued_date ? ` (${fmtDate(c.passport_issued_date)})` : ''}</span>}
+                          {c.passport_expiry && <span>Exp: {fmtDate(c.passport_expiry)}</span>}
+                          {ppStatus && (
+                            <span className={`px-1.5 py-0.5 rounded font-semibold text-[10px] ${
+                              ppStatus.color === 'red' ? 'bg-red-100 text-red-800' :
+                              ppStatus.color === 'amber' ? 'bg-amber-100 text-amber-800' :
+                              'bg-green-100 text-green-800'
+                            }`}>{ppStatus.label}</span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {p.price_paid > 0 && <span className="text-xs font-bold text-green-700">{fmtRupiah(p.price_paid)}</span>}
+                      <button onClick={() => setEditingId(p.id)} disabled={pending} className="text-xs px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold disabled:opacity-50">✎ Edit</button>
+                      <TransferPassengerButton passengerId={p.id} passengerName={fullName} currentTripId={tripId} allTrips={allTrips} />
+                      <RefundPassengerButton passengerId={p.id} passengerName={fullName} tripId={tripId} />
+                      <button onClick={() => handleRemove(p.id, fullName)} disabled={pending} className="text-xs px-2 py-1 rounded bg-red-100 hover:bg-red-200 text-red-700 font-bold disabled:opacity-50">🗑 Hapus</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
-      {error && (
-        <div className="mx-5 mt-3 p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-medium whitespace-pre-wrap">
-          ⚠ {error}
-        </div>
+      {/* ROUND 137: render modal kalau di-trigger */}
+      {showPassportModal && (
+        <PassportAIAddModal
+          tripId={tripId}
+          onClose={() => setShowPassportModal(false)}
+        />
       )}
-
-      {showForm && (
-        <div className="p-5 bg-blue-50/30 border-b border-blue-100">
-          <h3 className="font-bold text-brand-700 mb-3">Tambah Peserta Baru</h3>
-          <ParticipantForm onSubmit={handleAdd} onCancel={() => { setShowForm(false); setError(''); }} pending={pending} submitLabel="Tambah Peserta" />
-        </div>
-      )}
-
-      {participants.length === 0 ? (
-        <div className="p-8 text-center text-slate-500">
-          <p className="text-3xl mb-2">👥</p>
-          <p className="text-sm">Belum ada peserta untuk trip ini.</p>
-          <p className="mt-1 text-sm text-slate-500">Klik "Tambah Peserta" untuk mulai.</p>
-        </div>
-      ) : (
-        <div className="divide-y divide-slate-100">
-          {participants.map((p, idx) => {
-            const c = p?.customers || {};
-            const first = c.first_name || '';
-            const last = c.surname || '';
-            const fullName = `${first} ${last}`.trim() || c.name || `Peserta #${idx + 1}`;
-            const age = calcAge(c.birthday);
-            const ppStatus = passportStatus(c.passport_expiry);
-            const isEditing = editingId === p.id;
-
-            if (isEditing) {
-              return (
-                <div key={p.id} className="p-5 bg-amber-50/30">
-                  <h3 className="font-bold text-brand-700 mb-3">✎ Edit Peserta: {fullName}</h3>
-                  <ParticipantForm
-                    initial={{
-                      first_name: c.first_name || first, last_name: c.surname || last,
-                      city: c.city, birthday: c.birthday, gender: c.gender,
-                      phone: c.phone || c.whatsapp, email: c.email,
-                      passport_no: c.passport_no, passport_issued_at: c.passport_issued_at,
-                      passport_issued_date: c.passport_issued_date, passport_expiry: c.passport_expiry,
-                      room_type: p.room_type, price_paid: p.price_paid,
-                    }}
-                    onSubmit={(fd) => handleUpdate(p.id, p.customer_id, fd)}
-                    onCancel={() => { setEditingId(null); setError(''); }}
-                    pending={pending} submitLabel="Update Peserta"
-                  />
-                </div>
-              );
-            }
-
-            return (
-              <div key={p.id} className="px-5 py-3 hover:bg-slate-50">
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-xs font-mono text-slate-400">#{idx + 1}</span>
-                      <p className="font-bold text-brand-700">{fullName}</p>
-                      {p.room_type && <span className="text-[11px] px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold">{p.room_type}</span>}
-                      {age != null && <span className="text-[11px] text-slate-500">{age}th</span>}
-                      {c.gender && <span className="text-[11px] text-slate-500">{c.gender === 'L' ? '♂' : '♀'}</span>}
-                    </div>
-                    <p className="text-xs text-slate-600">
-                      {c.phone && <span className="mr-3">📞 {c.phone}</span>}
-                      {c.email && <span className="mr-3">✉ {c.email}</span>}
-                    </p>
-                    {(c.passport_no || c.passport_expiry) && (
-                      <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
-                        {c.passport_no && <span>📕 {c.passport_no}</span>}
-                        {c.passport_issued_at && <span>Issued: {c.passport_issued_at}{c.passport_issued_date ? ` (${fmtDate(c.passport_issued_date)})` : ''}</span>}
-                        {c.passport_expiry && <span>Exp: {fmtDate(c.passport_expiry)}</span>}
-                        {ppStatus && (
-                          <span className={`px-1.5 py-0.5 rounded font-semibold text-[10px] ${
-                            ppStatus.color === 'red' ? 'bg-red-100 text-red-800' :
-                            ppStatus.color === 'amber' ? 'bg-amber-100 text-amber-800' :
-                            'bg-green-100 text-green-800'
-                          }`}>{ppStatus.label}</span>
-                        )}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {p.price_paid > 0 && <span className="text-xs font-bold text-green-700">{fmtRupiah(p.price_paid)}</span>}
-                    <button onClick={() => setEditingId(p.id)} disabled={pending} className="text-xs px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold disabled:opacity-50">✎ Edit</button>
-                    <TransferPassengerButton passengerId={p.id} passengerName={fullName} currentTripId={tripId} allTrips={allTrips} />
-                    <RefundPassengerButton passengerId={p.id} passengerName={fullName} tripId={tripId} />
-                    <button onClick={() => handleRemove(p.id, fullName)} disabled={pending} className="text-xs px-2 py-1 rounded bg-red-100 hover:bg-red-200 text-red-700 font-bold disabled:opacity-50">🗑 Hapus</button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
+    </>
   );
 }
 
