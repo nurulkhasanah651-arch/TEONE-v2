@@ -1,10 +1,11 @@
 'use client';
 
-// Round 131: TL Expense Form — UPLOAD BUKTI prominent + auto-routing
+// Round 132: TL Expense Form — UPLOAD BUKTI LANGSUNG (no link)
 // Path: components/tl/TLExpenseForm.jsx
 
 import { useState, useTransition } from 'react';
 import { addTLExpense } from '@/lib/actions/tlexpense';
+import FileUploadInput from './FileUploadInput';
 
 const CATEGORIES = ['Transport', 'Meal', 'Accommodation', 'Tips', 'Communication', 'Emergency', 'Souvenir', 'Other'];
 
@@ -61,14 +62,14 @@ export default function TLExpenseForm({
     setError(''); setResult(null);
     if (!description.trim()) { setError('Deskripsi wajib'); return; }
     if (expenseAmt <= 0) { setError('Nominal wajib > 0'); return; }
-    if (!receiptUrl.trim()) {
-      if (!confirm('Belum ada bukti expense. Tetap submit?\n\n(Disarankan upload bukti untuk validasi)')) return;
+    if (!receiptUrl) {
+      if (!confirm('Belum upload bukti expense. Tetap submit?\n\n(Sangat disarankan upload bukti untuk validasi)')) return;
     }
 
     startTransition(async () => {
       const r = await addTLExpense({
         tripId, category, description: description.trim(),
-        amount: expenseAmt, receiptUrl: receiptUrl.trim(), spentAt,
+        amount: expenseAmt, receiptUrl, spentAt,
         notes: notes.trim(), userEmail, userName, userRole,
       });
       if (r?.error) { setError(r.error); return; }
@@ -154,28 +155,19 @@ export default function TLExpenseForm({
             </Field>
           </div>
 
-          {/* PROMINENT UPLOAD BUKTI SECTION */}
-          <div className="p-4 bg-blue-50 border-2 border-blue-300 border-dashed rounded-lg">
-            <p className="text-sm font-bold text-blue-800 mb-2">📎 Upload Bukti Expense (Sangat Disarankan)</p>
-            <p className="text-xs text-blue-700 mb-2">
-              📌 Cara upload bukti:
-              <br />1. Foto/scan struk/invoice
-              <br />2. Upload ke <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="underline font-bold">Google Drive</a> atau <a href="https://www.dropbox.com" target="_blank" rel="noreferrer" className="underline font-bold">Dropbox</a>
-              <br />3. Set sharing: "Anyone with the link can view"
-              <br />4. Copy link → paste di bawah
-            </p>
-            <input
-              type="url"
+          {/* ROUND 132: DIRECT UPLOAD bukti */}
+          <div className="p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
+            <FileUploadInput
+              tripId={tripId}
+              subfolder="expense"
               value={receiptUrl}
-              onChange={(e) => setReceiptUrl(e.target.value)}
-              placeholder="https://drive.google.com/file/d/... atau link bukti lain"
-              className={`${inputCls} bg-white`}
+              onChange={setReceiptUrl}
+              label="📎 Upload Bukti Expense (foto/PDF/Excel)"
+              maxSizeMB={20}
             />
-            {receiptUrl && (
-              <a href={receiptUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">
-                ✓ Cek link bukti
-              </a>
-            )}
+            <p className="text-[11px] text-blue-700 mt-2">
+              💡 Foto struk, screenshot transfer, atau scan invoice langsung dari device. Bisa JPG, PNG, PDF, Excel.
+            </p>
           </div>
 
           <Field label="Catatan tambahan">
