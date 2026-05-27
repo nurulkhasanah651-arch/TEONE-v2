@@ -1,14 +1,10 @@
 'use client';
 
-// Round 130: Final Report after trip (TL submit + Ops review)
+// Round 131: Final Report — add Google Review link, hilangkan totalPettyCash
 // Path: components/tl/FinalReportForm.jsx
 
 import { useState, useTransition } from 'react';
 import { saveFinalReport, reviewReportByOps } from '@/lib/actions/tlreport';
-
-function fmtRupiah(n) { return 'Rp ' + (Number(n) || 0).toLocaleString('id-ID'); }
-function parseNum(s) { return Number(String(s || '').replace(/[^0-9]/g, '')) || 0; }
-function formatNum(n) { return n ? Number(n).toLocaleString('id-ID') : ''; }
 
 function fmtDate(s) {
   if (!s) return '—';
@@ -17,11 +13,7 @@ function fmtDate(s) {
 }
 
 export default function FinalReportForm({
-  tripId,
-  report,
-  canEdit = true,    // true untuk TL
-  canReview = false, // true untuk Ops/Manager
-  userEmail = '',
+  tripId, report, canEdit = true, canReview = false, userEmail = '',
 }) {
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(!report?.submitted);
@@ -30,20 +22,18 @@ export default function FinalReportForm({
 
   const [documentationLink, setDocumentationLink] = useState(report?.documentation_link || '');
   const [reviewUploadLink, setReviewUploadLink] = useState(report?.review_upload_link || '');
+  const [googleReviewLink, setGoogleReviewLink] = useState(report?.google_review_link || '');
   const [overallRating, setOverallRating] = useState(report?.overall_rating || 5);
   const [highlights, setHighlights] = useState(report?.highlights || '');
   const [issuesEncountered, setIssuesEncountered] = useState(report?.issues_encountered || '');
   const [suggestions, setSuggestions] = useState(report?.suggestions || '');
-  const [totalPettyCashSpent, setTotalPettyCashSpent] = useState(
-    report?.total_petty_cash_spent ? formatNum(report.total_petty_cash_spent) : ''
-  );
   const [opsNotes, setOpsNotes] = useState(report?.ops_notes || '');
 
   function handleSave(submit = false) {
     setError(''); setMsg('');
     if (submit) {
-      if (!documentationLink && !reviewUploadLink) {
-        if (!confirm('Belum ada link dokumentasi/review. Tetap submit?')) return;
+      if (!documentationLink && !reviewUploadLink && !googleReviewLink) {
+        if (!confirm('Belum ada link dokumentasi/review/Google Review. Tetap submit?')) return;
       }
     }
     startTransition(async () => {
@@ -51,11 +41,11 @@ export default function FinalReportForm({
         tripId,
         documentationLink: documentationLink.trim(),
         reviewUploadLink: reviewUploadLink.trim(),
+        googleReviewLink: googleReviewLink.trim(),
         overallRating,
         highlights: highlights.trim(),
         issuesEncountered: issuesEncountered.trim(),
         suggestions: suggestions.trim(),
-        totalPettyCashSpent: parseNum(totalPettyCashSpent),
         submitted: submit,
         userEmail,
       });
@@ -109,7 +99,6 @@ export default function FinalReportForm({
       <div className="p-5 space-y-4">
         {editing ? (
           <>
-            {/* Rating */}
             <Field label="⭐ Overall Trip Rating">
               <div className="flex items-center gap-2">
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -126,7 +115,6 @@ export default function FinalReportForm({
               </div>
             </Field>
 
-            {/* Doc links */}
             <Field label="📸 Link Dokumentasi (foto/video Google Drive)">
               <input
                 type="url"
@@ -137,7 +125,7 @@ export default function FinalReportForm({
               />
             </Field>
 
-            <Field label="📝 Link Upload Review/Testimonial Peserta">
+            <Field label="📝 Link Upload Review/Testimonial Internal (Google Form/Drive)">
               <input
                 type="url"
                 value={reviewUploadLink}
@@ -147,19 +135,22 @@ export default function FinalReportForm({
               />
             </Field>
 
-            {/* Petty cash actual */}
-            <Field label="💵 Total Petty Cash Actually Spent (final)">
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">Rp</span>
+            {/* ROUND 131: Google Review section */}
+            <div className="p-4 bg-yellow-50 border-2 border-yellow-300 border-dashed rounded-lg">
+              <Field label="⭐ Link Google Review / Google Business Listing">
                 <input
-                  type="text"
-                  value={totalPettyCashSpent}
-                  onChange={(e) => setTotalPettyCashSpent(formatNum(parseNum(e.target.value)))}
-                  className={`${inputCls} pl-10 font-mono`}
-                  placeholder="0"
+                  type="url"
+                  value={googleReviewLink}
+                  onChange={(e) => setGoogleReviewLink(e.target.value)}
+                  placeholder="https://g.page/r/... atau link review Google Maps perusahaan"
+                  className={`${inputCls} bg-white`}
                 />
-              </div>
-            </Field>
+              </Field>
+              <p className="text-[11px] text-yellow-800 mt-2">
+                💡 Share link ini ke peserta untuk dapat Google Review.
+                <br />Cara dapat link: Google Business Profile → "Get more reviews" → copy short URL (g.page/r/...)
+              </p>
+            </div>
 
             <Field label="✨ Highlights / Hal Positif">
               <textarea
@@ -209,7 +200,6 @@ export default function FinalReportForm({
             </div>
           </>
         ) : (
-          // View mode
           <>
             <div className="flex items-center gap-3">
               <p className="text-xs font-bold text-slate-600 uppercase">Rating:</p>
@@ -228,17 +218,19 @@ export default function FinalReportForm({
 
             {report?.review_upload_link && (
               <div>
-                <p className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">📝 Link Review/Testimonial</p>
+                <p className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">📝 Link Review Internal</p>
                 <a href={report.review_upload_link} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline break-all">
                   {report.review_upload_link}
                 </a>
               </div>
             )}
 
-            {report?.total_petty_cash_spent != null && (
-              <div>
-                <p className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">💵 Total Petty Cash Spent</p>
-                <p className="text-lg font-bold text-purple-700">{fmtRupiah(report.total_petty_cash_spent)}</p>
+            {report?.google_review_link && (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-xs font-bold text-yellow-800 uppercase tracking-wider mb-1">⭐ Google Review Link</p>
+                <a href={report.google_review_link} target="_blank" rel="noreferrer" className="text-sm text-yellow-700 hover:underline break-all font-semibold">
+                  {report.google_review_link}
+                </a>
               </div>
             )}
 
@@ -246,7 +238,6 @@ export default function FinalReportForm({
             {report?.issues_encountered && <ViewBlock title="⚠ Issues" content={report.issues_encountered} color="amber" />}
             {report?.suggestions && <ViewBlock title="💡 Saran" content={report.suggestions} color="blue" />}
 
-            {/* Ops review section */}
             {canReview && report?.submitted && (
               <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
                 <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">🧑‍💼 Ops Review</p>
