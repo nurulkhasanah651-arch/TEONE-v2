@@ -1,11 +1,11 @@
 'use client';
 
-// Round 131: Trip Docs — UPLOAD INTERNAL ONLY, TL bisa DOWNLOAD aja
-// Plus custom category text (kalau "Other" dipilih)
+// Round 132: Trip Docs — UPLOAD LANGSUNG (no link). Internal only upload, TL download.
 // Path: components/tl/TripDocsSection.jsx
 
 import { useState, useTransition } from 'react';
 import { addTripDocument, deleteTripDocument } from '@/lib/actions/tlmanage';
+import FileUploadInput from './FileUploadInput';
 
 const CATEGORIES = [
   { value: 'voucher', label: '🎫 Voucher Hotel/Tour' },
@@ -36,8 +36,8 @@ function fmtSize(b) {
 
 export default function TripDocsSection({
   tripId, docs = [],
-  canUpload = false,  // Round 131: TRUE hanya untuk internal (manager/ops/owner/cs)
-  isTL = false,       // Round 131: TL view-only (download)
+  canUpload = false,
+  isTL = false,
   userEmail = '',
 }) {
   const [pending, startTransition] = useTransition();
@@ -59,7 +59,7 @@ export default function TripDocsSection({
   function handleAdd() {
     setError('');
     if (!title.trim()) { setError('Judul wajib'); return; }
-    if (!fileUrl.trim()) { setError('Link file wajib'); return; }
+    if (!fileUrl) { setError('File wajib upload'); return; }
     if (category === 'other' && !customCategory.trim()) {
       setError('Untuk "Lainnya/Custom", isi nama kategori-nya');
       return;
@@ -70,7 +70,7 @@ export default function TripDocsSection({
         tripId,
         category: category === 'other' ? `custom:${customCategory.trim()}` : category,
         title: title.trim(),
-        fileUrl: fileUrl.trim(),
+        fileUrl,
         notes: notes.trim(),
         userEmail,
       });
@@ -128,8 +128,8 @@ export default function TripDocsSection({
       {showForm && canUpload && (
         <div className="p-5 bg-blue-50/40 border-b border-blue-100 space-y-3">
           <h3 className="text-sm font-bold text-blue-800">Tambah Dokumen Baru</h3>
-          <p className="text-xs text-slate-600 bg-amber-50 border border-amber-200 rounded p-2">
-            💡 Upload file ke Google Drive/Dropbox → set "Anyone with the link can view" → paste link ke field.
+          <p className="text-xs text-slate-600 bg-blue-50 border border-blue-200 rounded p-2">
+            💡 Upload file langsung dari device. Support foto (JPG/PNG), PDF, Excel (XLSX/XLS), Word (DOCX), CSV. Max 20 MB.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Field label="Kategori" required>
@@ -155,15 +155,20 @@ export default function TripDocsSection({
                 className={inputCls}
               />
             </Field>
-            <Field label="Link File (Google Drive/Dropbox)" required className="md:col-span-2">
-              <input
-                type="url"
-                value={fileUrl}
-                onChange={(e) => setFileUrl(e.target.value)}
-                placeholder="https://drive.google.com/file/d/..."
-                className={inputCls}
-              />
-            </Field>
+            <div className="md:col-span-2">
+              {/* ROUND 132: DIRECT UPLOAD instead of URL */}
+              <div className="p-3 bg-blue-50 border-2 border-blue-300 rounded-lg">
+                <FileUploadInput
+                  tripId={tripId}
+                  subfolder="docs"
+                  value={fileUrl}
+                  onChange={setFileUrl}
+                  label="📎 Upload File Dokumen"
+                  maxSizeMB={20}
+                  required
+                />
+              </div>
+            </div>
             <Field label="Catatan" className="md:col-span-2">
               <input
                 value={notes}
@@ -173,14 +178,14 @@ export default function TripDocsSection({
               />
             </Field>
           </div>
-          {error && <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">{error}</div>}
+          {error && <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">⚠ {error}</div>}
           <div className="flex gap-2">
             <button
               onClick={handleAdd}
               disabled={pending}
               className="flex-1 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg disabled:opacity-50"
             >
-              {pending ? 'Menyimpan...' : '📤 Upload'}
+              {pending ? 'Menyimpan...' : '📤 Simpan Dokumen'}
             </button>
             <button
               onClick={() => { setShowForm(false); resetForm(); setError(''); }}
