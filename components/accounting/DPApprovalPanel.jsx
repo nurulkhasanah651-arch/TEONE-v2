@@ -1,9 +1,8 @@
 'use client';
 
-// Round 102d: DPApprovalPanel — group by family + batch approve + 1 WA ke kepala
-// - DP request dengan family_group_id sama → group dalam 1 card
-// - "Approve Family" tombol → batch approve semua DP di family + single WA ke kepala
-// - DP request individu (tanpa family) → tampil card terpisah seperti biasa
+// Round 133: DPApprovalPanel — show 📎 Lihat Bukti Transfer link untuk Finance
+// Bukti yang di-upload CS muncul di card buat verifikasi sebelum approve
+// Path: components/accounting/DPApprovalPanel.jsx
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -25,34 +24,56 @@ const STATUS_COLOR = {
   rejected: 'bg-red-100 text-red-800 border-red-300',
 };
 
+function isImage(url) {
+  if (!url) return false;
+  return /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(url);
+}
+
+function ProofLink({ url, compact = false }) {
+  if (!url) {
+    return (
+      <span className={`inline-flex items-center gap-1 ${compact ? 'text-[10px]' : 'text-xs'} text-amber-700 font-semibold`}>
+        ⚠ Tanpa bukti
+      </span>
+    );
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      className={`inline-flex items-center gap-1 ${compact ? 'text-[10px]' : 'text-xs'} px-2 py-0.5 rounded bg-green-100 text-green-800 hover:bg-green-200 font-bold`}
+    >
+      📎 Lihat Bukti Transfer ↗
+    </a>
+  );
+}
+
 export default function DPApprovalPanel({
   requests = [],
-  passengers = [],         // Round 102d: untuk lookup family_group_id
-  familyGroups = [],       // Round 102d: untuk lookup nama family + head
+  passengers = [],
+  familyGroups = [],
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [filter, setFilter] = useState('pending');
   const [rejectingId, setRejectingId] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [previewProof, setPreviewProof] = useState(null);
 
-  // Build lookup maps
   const paxMap = Object.fromEntries(passengers.map((p) => [p.id, p]));
   const famMap = Object.fromEntries(familyGroups.map((f) => [f.id, f]));
 
-  // Filter requests
   const filtered = filter === 'all' ? requests : requests.filter((r) => r.status === filter);
 
-  // Group by family — utk request pending, kalau peserta dalam family valid → group
-  const familyGroupedRequests = {};  // family_id → [requests]
-  const individualRequests = [];      // requests yang gak ada family
+  const familyGroupedRequests = {};
+  const individualRequests = [];
 
   for (const r of filtered) {
     const pax = paxMap[r.passenger_id];
     const familyId = pax?.family_group_id;
     const family = familyId ? famMap[familyId] : null;
     if (family && r.status === 'pending') {
-      // Group hanya untuk pending (approved/rejected tampil individu untuk history clarity)
       if (!familyGroupedRequests[familyId]) familyGroupedRequests[familyId] = [];
       familyGroupedRequests[familyId].push(r);
     } else {
@@ -60,20 +81,29 @@ export default function DPApprovalPanel({
     }
   }
 
-  // Stats
   const pendingCount = requests.filter((r) => r.status === 'pending').length;
   const approvedCount = requests.filter((r) => r.status === 'approved').length;
   const rejectedCount = requests.filter((r) => r.status === 'rejected').length;
+  const pendingWithProof = requests.filter((r) => r.status === 'pending' && r.dp_proof_url).length;
+  const pendingWithoutProof = pendingCount - pendingWithProof;
   const totalPendingAmount = requests
     .filter((r) => r.status === 'pending')
     .reduce((s, r) => s + Number(r.amount || 0), 0);
 
   function handleApproveIndividual(req) {
-    if (!confirm(
-      `APPROVE DP ${fmtRupiah(req.amount)} untuk ${req.customer_name}?\n\n` +
-      `→ Matrix DP auto-centang ✓\n` +
-      `→ WA konfirmasi auto-kirim ke ${req.customer_phone || 'peserta'}`
-    )) return;
+    if (!req.dp_proof_url) {
+      if (!confirm(
+        `⚠ Belum ada bukti transfer untuk ${req.customer_name}.\n` +
+        `Tetap approve DP ${fmtRupiah(req.amount)}?`
+      )) return;
+    } else {
+      if (!confirm(
+        `APPROVE DP ${fmtRupiah(req.amount)} untuk ${req.customer_name}?\n\n` +
+        `📎 Bukti sudah di-upload — pastikan sudah dicek\n\n` +
+        `→ Matrix DP auto-centang ✓\n` +
+        `→ WA konfirmasi auto-kirim ke ${req.customer_phone || 'peserta'}`
+      )) return;
+    }
 
     startTransition(async () => {
       const r = await approveDPRequest(req.id);
@@ -91,10 +121,17 @@ export default function DPApprovalPanel({
     const totalAmt = reqs.reduce((s, r) => s + Number(r.amount || 0), 0);
     const headPax = passengers.find((p) => p.id === family?.head_passenger_id);
     const headPhone = headPax?.customers?.phone || family?.head_phone || null;
+    const withoutProof = reqs.filter((r) => !r.dp_proof_url).length;
+
+    let warnMsg = '';
+    if (withoutProof > 0) {
+      warnMsg = `\n⚠ ${withoutProof} dari ${reqs.length} DP belum ada bukti transfer.\n`;
+    }
 
     if (!confirm(
-      `APPROVE ${reqs.length} DP untuk family "${family?.name}"?\n\n` +
-      `Total: ${fmtRupiah(totalAmt)}\n\n` +
+      `APPROVE ${reqs.length} DP untuk family "${family?.name}"?\n` +
+      warnMsg +
+      `\nTotal: ${fmtRupiah(totalAmt)}\n\n` +
       `→ Matrix DP semua ${reqs.length} anggota auto-centang ✓\n` +
       `→ 1 WA dikirim ke KEPALA (${headPhone || 'no HP belum diisi'}) dengan breakdown per anggota`
     )) return;
@@ -146,16 +183,26 @@ export default function DPApprovalPanel({
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="font-bold text-brand-700 flex items-center gap-2">
+          <h2 className="font-bold text-brand-700 flex items-center gap-2 flex-wrap">
             💵 DP Approval Queue
             {pendingCount > 0 && (
               <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-500 text-white font-bold animate-pulse">
                 {pendingCount} pending
               </span>
             )}
+            {pendingWithProof > 0 && (
+              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-green-100 text-green-800 font-bold">
+                📎 {pendingWithProof} ada bukti
+              </span>
+            )}
+            {pendingWithoutProof > 0 && (
+              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">
+                ⚠ {pendingWithoutProof} tanpa bukti
+              </span>
+            )}
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            CS submit DP → Finance approve → matrix centang + WA auto-kirim
+            CS submit DP + bukti transfer → Finance verifikasi & approve → matrix centang + WA auto-kirim
             {totalPendingAmount > 0 && (
               <span className="ml-2 text-amber-700 font-semibold">
                 · Total pending: {fmtRupiah(totalPendingAmount)}
@@ -193,13 +240,14 @@ export default function DPApprovalPanel({
         </div>
       ) : (
         <div className="divide-y divide-slate-100">
-          {/* FAMILY GROUPS (only pending) */}
+          {/* FAMILY GROUPS */}
           {Object.entries(familyGroupedRequests).map(([familyId, reqs]) => {
             const family = famMap[familyId];
             const totalAmt = reqs.reduce((s, r) => s + Number(r.amount || 0), 0);
             const headPax = passengers.find((p) => p.id === family?.head_passenger_id);
             const headPhone = headPax?.customers?.phone;
             const headName = headPax?.customers?.name || family?.name || '(unknown)';
+            const allProofs = reqs.filter((r) => r.dp_proof_url);
 
             return (
               <div key={`fam-${familyId}`} className="px-5 py-3 bg-indigo-50/30 border-l-4 border-indigo-400">
@@ -222,17 +270,17 @@ export default function DPApprovalPanel({
                       Trip: <b>{reqs[0].trip_name || reqs[0].trip_id}</b>{reqs[0].trip_kode ? ` (${reqs[0].trip_kode})` : ''}
                     </p>
 
-                    {/* Breakdown per peserta */}
                     <div className="mt-2 space-y-1 bg-white border border-indigo-200 rounded p-2">
                       {reqs.map((r) => {
                         const isHead = String(r.passenger_id) === String(family?.head_passenger_id);
                         return (
-                          <div key={r.id} className="flex items-center justify-between gap-2 text-xs">
+                          <div key={r.id} className="flex items-center justify-between gap-2 text-xs flex-wrap">
                             <span className="flex items-center gap-1 flex-wrap">
                               <span>{isHead ? '👑' : '👤'}</span>
                               <span className="font-medium text-slate-800">{r.customer_name || `#${r.passenger_id}`}</span>
                               <span className="text-slate-500">📅 {fmtDate(r.payment_date)}</span>
                               <span className="text-slate-500 capitalize">· {r.payment_method}</span>
+                              <ProofLink url={r.dp_proof_url} compact />
                             </span>
                             <span className="font-bold text-green-700">{fmtRupiah(r.amount)}</span>
                           </div>
@@ -246,6 +294,7 @@ export default function DPApprovalPanel({
 
                     <p className="text-[10px] text-slate-500 mt-1">
                       Submit by: <b>{reqs[0].requested_by || '—'}</b> · {fmtDate(reqs[0].created_at)}
+                      {allProofs.length > 0 && <span className="text-green-700 font-bold"> · 📎 {allProofs.length}/{reqs.length} ada bukti</span>}
                     </p>
                   </div>
 
@@ -267,7 +316,7 @@ export default function DPApprovalPanel({
             );
           })}
 
-          {/* INDIVIDUAL REQUESTS (non-family + approved/rejected) */}
+          {/* INDIVIDUAL REQUESTS */}
           {individualRequests.map((req) => {
             const isReject = rejectingId === req.id;
             return (
@@ -280,6 +329,7 @@ export default function DPApprovalPanel({
                       </span>
                       <p className="font-bold text-brand-700">{req.customer_name || `Peserta #${req.passenger_id}`}</p>
                       {req.customer_phone && <span className="text-xs text-slate-600">📞 {req.customer_phone}</span>}
+                      <ProofLink url={req.dp_proof_url} />
                     </div>
                     <div className="mt-1 flex items-center gap-3 flex-wrap text-xs">
                       <span className="text-slate-600">Trip: <b>{req.trip_name || req.trip_id}</b>{req.trip_kode ? ` (${req.trip_kode})` : ''}</span>
@@ -287,6 +337,29 @@ export default function DPApprovalPanel({
                       <span className="text-slate-500">📅 {fmtDate(req.payment_date)}</span>
                       <span className="text-slate-500 capitalize">· {req.payment_method || 'transfer'}</span>
                     </div>
+
+                    {/* Bukti preview inline kalau image */}
+                    {req.dp_proof_url && isImage(req.dp_proof_url) && (
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewProof(previewProof === req.id ? null : req.id)}
+                          className="text-[10px] px-2 py-0.5 rounded bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold"
+                        >
+                          {previewProof === req.id ? '▲ Tutup preview' : '▼ Preview bukti'}
+                        </button>
+                        {previewProof === req.id && (
+                          <div className="mt-2 inline-block p-2 bg-slate-50 border border-slate-200 rounded">
+                            <img
+                              src={req.dp_proof_url}
+                              alt="Bukti transfer"
+                              className="max-h-64 max-w-full rounded border border-slate-300"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {req.notes && (
                       <p className="mt-1 text-xs text-slate-600 italic">📝 {req.notes}</p>
                     )}
