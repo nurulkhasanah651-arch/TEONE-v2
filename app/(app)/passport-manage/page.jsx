@@ -1,6 +1,5 @@
-// Round 141: Global Passport Management landing page
+// Round 141 HOTFIX: Global passport-manage page — pakai 2 query terpisah
 // Path: app/(app)/passport-manage/page.jsx
-// List semua trip aktif → user pilih trip → masuk ke /trips/[id]/passport-manage
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
@@ -43,7 +42,6 @@ export default async function PassportManageGlobalPage() {
 
   const allTrips = trips || [];
 
-  // Filter: trip aktif (open selling, ready, atau departure di masa depan / belum lama lewat)
   const activeTrips = allTrips.filter((t) => {
     const days = daysUntil(t.departure);
     const isCompleted = t.status === 'completed' || t.status === 'cancelled';
@@ -51,24 +49,37 @@ export default async function PassportManageGlobalPage() {
     return !isCompleted && !tooOld;
   });
 
-  // Get passport stats per trip
+  // QUERY 1: trip_passengers utk semua active trips (tanpa nested)
   const tripIds = activeTrips.map((t) => t.id);
-  let paxByTrip = {};
+  let allPax = [];
+  let allCustomers = [];
   if (tripIds.length > 0) {
     const { data: pax } = await supabase
       .from('trip_passengers')
-      .select('trip_id, customer_id, customers(passport_no, passport_photo_url, passport_expiry)')
+      .select('id, trip_id, customer_id')
       .in('trip_id', tripIds);
-    for (const p of pax || []) {
-      if (!paxByTrip[p.trip_id]) paxByTrip[p.trip_id] = [];
-      paxByTrip[p.trip_id].push(p);
+    allPax = pax || [];
+
+    // QUERY 2: customers separately
+    const customerIds = allPax.map((p) => p.customer_id).filter(Boolean);
+    if (customerIds.length > 0) {
+      const { data: cust } = await supabase
+        .from('customers')
+        .select('id, passport_no, passport_photo_url, passport_expiry')
+        .in('id', customerIds);
+      allCustomers = cust || [];
     }
   }
 
+  const customerMap = Object.fromEntries(allCustomers.map((c) => [c.id, c]));
+
   function getTripStats(tripId) {
-    const list = paxByTrip[tripId] || [];
-    const total = list.length;
-    const withPassport = list.filter((p) => p?.customers?.passport_no || p?.customers?.passport_photo_url).length;
+    const tripPax = allPax.filter((p) => p.trip_id === tripId);
+    const total = tripPax.length;
+    const withPassport = tripPax.filter((p) => {
+      const c = customerMap[p.customer_id];
+      return !!(c?.passport_no || c?.passport_photo_url);
+    }).length;
     const withoutPassport = total - withPassport;
     return { total, withPassport, withoutPassport };
   }
@@ -84,7 +95,6 @@ export default async function PassportManageGlobalPage() {
         </p>
       </div>
 
-      {/* Info card */}
       <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl">
         <p className="text-sm font-bold text-purple-800 mb-1">🛂 Cara kerja:</p>
         <ol className="text-xs text-purple-700 space-y-0.5 list-decimal list-inside">
@@ -95,7 +105,6 @@ export default async function PassportManageGlobalPage() {
         </ol>
       </div>
 
-      {/* Trip list */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
           <div>
@@ -151,7 +160,6 @@ export default async function PassportManageGlobalPage() {
                         📅 {fmtDate(trip.departure)} · 🪑 {trip.sold || 0}/{trip.quota || 0} peserta
                       </p>
 
-                      {/* Passport stats bar */}
                       <div className="flex items-center gap-2 flex-wrap">
                         <div className="flex-1 max-w-md">
                           <div className="flex items-center justify-between text-[10px] text-slate-500 mb-0.5">
@@ -185,10 +193,6 @@ export default async function PassportManageGlobalPage() {
             })}
           </div>
         )}
-      </div>
-
-      <div className="text-xs text-slate-500 text-center pt-2">
-        💡 Bookmark: <code className="bg-slate-100 px-1 py-0.5 rounded">teone.dev/passport-manage</code>
       </div>
     </div>
   );
