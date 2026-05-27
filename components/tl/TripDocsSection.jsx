@@ -1,6 +1,7 @@
 'use client';
 
-// Round 129: Trip docs section — upload + list + delete
+// Round 131: Trip Docs — UPLOAD INTERNAL ONLY, TL bisa DOWNLOAD aja
+// Plus custom category text (kalau "Other" dipilih)
 // Path: components/tl/TripDocsSection.jsx
 
 import { useState, useTransition } from 'react';
@@ -14,7 +15,10 @@ const CATEGORIES = [
   { value: 'roomlist', label: '🛏 Roomlist' },
   { value: 'insurance', label: '🛡 Asuransi' },
   { value: 'visa', label: '🛂 Dokumen Visa' },
-  { value: 'other', label: '📂 Lainnya' },
+  { value: 'briefing', label: '📚 Materi Briefing' },
+  { value: 'itinerary', label: '🗓 Itinerary' },
+  { value: 'emergency_contact', label: '☎ Emergency Contact' },
+  { value: 'other', label: '📂 Lainnya / Custom' },
 ];
 
 function fmtDate(s) {
@@ -30,32 +34,41 @@ function fmtSize(b) {
   return (b / 1048576).toFixed(1) + ' MB';
 }
 
-export default function TripDocsSection({ tripId, docs = [], canEdit = true, userEmail = '' }) {
+export default function TripDocsSection({
+  tripId, docs = [],
+  canUpload = false,  // Round 131: TRUE hanya untuk internal (manager/ops/owner/cs)
+  isTL = false,       // Round 131: TL view-only (download)
+  userEmail = '',
+}) {
   const [pending, startTransition] = useTransition();
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
 
   const [category, setCategory] = useState(CATEGORIES[0].value);
+  const [customCategory, setCustomCategory] = useState('');
   const [title, setTitle] = useState('');
   const [fileUrl, setFileUrl] = useState('');
   const [notes, setNotes] = useState('');
 
   function resetForm() {
     setCategory(CATEGORIES[0].value);
-    setTitle('');
-    setFileUrl('');
-    setNotes('');
+    setCustomCategory('');
+    setTitle(''); setFileUrl(''); setNotes('');
   }
 
   function handleAdd() {
     setError('');
     if (!title.trim()) { setError('Judul wajib'); return; }
     if (!fileUrl.trim()) { setError('Link file wajib'); return; }
+    if (category === 'other' && !customCategory.trim()) {
+      setError('Untuk "Lainnya/Custom", isi nama kategori-nya');
+      return;
+    }
 
     startTransition(async () => {
       const r = await addTripDocument({
         tripId,
-        category,
+        category: category === 'other' ? `custom:${customCategory.trim()}` : category,
         title: title.trim(),
         fileUrl: fileUrl.trim(),
         notes: notes.trim(),
@@ -83,14 +96,26 @@ export default function TripDocsSection({ tripId, docs = [], canEdit = true, use
     docsByCategory[cat].push(d);
   }
 
+  function getCatLabel(catKey) {
+    if (catKey && catKey.startsWith('custom:')) {
+      return `📂 ${catKey.replace('custom:', '')}`;
+    }
+    return CATEGORIES.find((c) => c.value === catKey)?.label || catKey;
+  }
+
   return (
     <div className="bg-white rounded-xl border-2 border-blue-200 shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b bg-blue-50 border-blue-200 flex items-center justify-between flex-wrap gap-2">
-        <h2 className="font-bold text-blue-800 flex items-center gap-2">
-          <span>📂</span> Dokumen Trip
-          <span className="text-xs font-semibold text-slate-600">({docs.length})</span>
-        </h2>
-        {canEdit && !showForm && (
+        <div>
+          <h2 className="font-bold text-blue-800 flex items-center gap-2">
+            <span>📂</span> Dokumen Trip
+            <span className="text-xs font-semibold text-slate-600">({docs.length})</span>
+          </h2>
+          {isTL && (
+            <p className="text-[10px] text-blue-700 mt-0.5">📥 TL: Klik link untuk download. Upload by Internal only.</p>
+          )}
+        </div>
+        {canUpload && !showForm && (
           <button
             onClick={() => setShowForm(true)}
             className="px-3 py-1.5 rounded bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold"
@@ -100,11 +125,11 @@ export default function TripDocsSection({ tripId, docs = [], canEdit = true, use
         )}
       </div>
 
-      {showForm && (
+      {showForm && canUpload && (
         <div className="p-5 bg-blue-50/40 border-b border-blue-100 space-y-3">
           <h3 className="text-sm font-bold text-blue-800">Tambah Dokumen Baru</h3>
           <p className="text-xs text-slate-600 bg-amber-50 border border-amber-200 rounded p-2">
-            💡 Upload file ke Google Drive / Dropbox dulu → set "Anyone with the link can view" → copy link ke field di bawah.
+            💡 Upload file ke Google Drive/Dropbox → set "Anyone with the link can view" → paste link ke field.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Field label="Kategori" required>
@@ -112,7 +137,17 @@ export default function TripDocsSection({ tripId, docs = [], canEdit = true, use
                 {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </Field>
-            <Field label="Judul Dokumen" required>
+            {category === 'other' && (
+              <Field label="Nama Kategori Custom" required>
+                <input
+                  value={customCategory}
+                  onChange={(e) => setCustomCategory(e.target.value)}
+                  placeholder="Contoh: SOP, Cleaning Schedule, dll"
+                  className={inputCls}
+                />
+              </Field>
+            )}
+            <Field label="Judul Dokumen" required className={category === 'other' ? '' : 'md:col-span-1'}>
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -162,49 +197,47 @@ export default function TripDocsSection({ tripId, docs = [], canEdit = true, use
         <div className="p-8 text-center text-slate-500">
           <p className="text-3xl mb-2">📂</p>
           <p className="text-sm">Belum ada dokumen untuk trip ini.</p>
-          {canEdit && <p className="text-xs text-slate-400 mt-1">Klik "+ Upload Dokumen" untuk mulai.</p>}
+          {canUpload && <p className="text-xs text-slate-400 mt-1">Klik "+ Upload Dokumen" untuk mulai.</p>}
+          {isTL && <p className="text-xs text-slate-400 mt-1">Tim Internal akan upload dokumen di sini.</p>}
         </div>
       ) : (
         <div className="divide-y divide-slate-100">
-          {Object.entries(docsByCategory).map(([cat, list]) => {
-            const catLabel = CATEGORIES.find((c) => c.value === cat)?.label || cat;
-            return (
-              <div key={cat} className="p-4">
-                <p className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">{catLabel}</p>
-                <div className="space-y-1.5">
-                  {list.map((d) => (
-                    <div key={d.id} className="flex items-center justify-between gap-3 p-2 rounded bg-slate-50 hover:bg-slate-100 group">
-                      <div className="flex-1 min-w-0">
-                        <a
-                          href={d.file_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-sm font-semibold text-blue-700 hover:underline truncate block"
-                        >
-                          📄 {d.title}
-                        </a>
-                        {d.notes && <p className="text-xs text-slate-500 mt-0.5">{d.notes}</p>}
-                        <p className="text-[10px] text-slate-400 mt-0.5">
-                          {d.uploaded_by && `Upload by ${d.uploaded_by}`}
-                          {d.created_at && ` · ${fmtDate(d.created_at)}`}
-                          {d.file_size_bytes && ` · ${fmtSize(d.file_size_bytes)}`}
-                        </p>
-                      </div>
-                      {canEdit && (
-                        <button
-                          onClick={() => handleDelete(d.id, d.title)}
-                          disabled={pending}
-                          className="opacity-0 group-hover:opacity-100 text-xs px-2 py-1 rounded bg-red-100 hover:bg-red-200 text-red-700 font-bold disabled:opacity-50 transition-opacity"
-                        >
-                          🗑
-                        </button>
-                      )}
+          {Object.entries(docsByCategory).map(([cat, list]) => (
+            <div key={cat} className="p-4">
+              <p className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">{getCatLabel(cat)}</p>
+              <div className="space-y-1.5">
+                {list.map((d) => (
+                  <div key={d.id} className="flex items-center justify-between gap-3 p-2 rounded bg-slate-50 hover:bg-slate-100 group">
+                    <div className="flex-1 min-w-0">
+                      <a
+                        href={d.file_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm font-semibold text-blue-700 hover:underline truncate block"
+                      >
+                        📄 {d.title} <span className="text-[10px] text-blue-500">↗ Open/Download</span>
+                      </a>
+                      {d.notes && <p className="text-xs text-slate-500 mt-0.5">{d.notes}</p>}
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {d.uploaded_by && `Upload by ${d.uploaded_by}`}
+                        {d.created_at && ` · ${fmtDate(d.created_at)}`}
+                        {d.file_size_bytes && ` · ${fmtSize(d.file_size_bytes)}`}
+                      </p>
                     </div>
-                  ))}
-                </div>
+                    {canUpload && (
+                      <button
+                        onClick={() => handleDelete(d.id, d.title)}
+                        disabled={pending}
+                        className="opacity-0 group-hover:opacity-100 text-xs px-2 py-1 rounded bg-red-100 hover:bg-red-200 text-red-700 font-bold disabled:opacity-50 transition-opacity"
+                      >
+                        🗑
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
     </div>
