@@ -1,11 +1,12 @@
 'use client';
 
-// CS Daily form NEW — Round 102b: tambah DP nominal + Family Name per peserta row
-// - DP > 0: auto create dp_payment_request (status pending) → /invoices tab
-// - Family Name diisi: group peserta dengan family_name sama → auto-create family group
+// Round 133: CS Daily form NEW — tambah Upload Bukti Transfer DP per peserta
+// Bukti masuk ke /invoices DP Approval Panel buat finance lihat sebelum approve
+// Path: app/(app)/cs/new/CSForm.jsx (atau di mana CSForm new berada)
 
 import { useState } from 'react';
 import { createCSUpdate } from '@/lib/actions/cs';
+import FileUploadInput from '@/components/tl/FileUploadInput';
 
 const ROOM_TYPES = [
   'Single', 'Twin', 'Double', 'Triple', 'Quad', 'Family',
@@ -53,7 +54,8 @@ export default function CSForm({ trips }) {
     setParticipants((arr) => [...arr, {
       first_name: '', last_name: '', phone: '', email: '',
       source: 'whatsapp', room_type: '', price_paid: '',
-      dp_amount: '', dp_date: new Date().toISOString().slice(0, 10), dp_method: 'transfer',
+      dp_amount: '', dp_date: new Date().toISOString().slice(0, 10),
+      dp_method: 'transfer', dp_proof_url: '',
       family_name: '',
     }]);
   }
@@ -67,8 +69,10 @@ export default function CSForm({ trips }) {
   const filledParticipants = participants.filter((p) => (p.first_name?.trim() || p.last_name?.trim()));
   const participantsJson = JSON.stringify(filledParticipants);
   const totalDPInputed = filledParticipants.reduce((s, p) => s + (parseInt(p.dp_amount) || 0), 0);
+  const dpWithProof = filledParticipants.filter((p) => parseInt(p.dp_amount) > 0 && p.dp_proof_url).length;
+  const dpWithoutProof = filledParticipants.filter((p) => parseInt(p.dp_amount) > 0 && !p.dp_proof_url).length;
 
-  // Detect families from family_name
+  // Detect families
   const familyGroupsPreview = {};
   filledParticipants.forEach((p, idx) => {
     const fn = (p.family_name || '').trim();
@@ -149,10 +153,10 @@ export default function CSForm({ trips }) {
 
       <Section title="Detail Peserta Baru + DP + Family (Opsional)">
         <p className="text-[11px] text-slate-500 -mt-2 mb-3">
-          💡 <b>DP</b>: nominal yang sudah dibayar → masuk Invoice tab untuk Finance approve →
+          💡 <b>DP</b>: nominal + <b>bukti transfer</b> → masuk Invoice tab buat Finance approve →
           matrix DP auto-centang + WA receipt.<br />
           💡 <b>Family Name</b>: isi nama family yang sama untuk peserta yang satu keluarga
-          (peserta pertama dengan nama family yang sama jadi <b>kepala</b>).
+          (peserta pertama jadi <b>kepala</b>).
         </p>
 
         {participants.length === 0 ? (
@@ -165,6 +169,7 @@ export default function CSForm({ trips }) {
               const fnTrim = (p.family_name || '').trim();
               const familyMembers = fnTrim ? familyGroupsPreview[fnTrim] || [] : [];
               const isFirstOfFamily = familyMembers.length > 0 && familyMembers[0].idx === i;
+              const dpAmt = parseInt(p.dp_amount) || 0;
 
               return (
                 <div key={i} className={`border rounded-lg p-3 bg-white ${
@@ -274,9 +279,28 @@ export default function CSForm({ trips }) {
                         </select>
                       </label>
                     </div>
-                    {parseInt(p.dp_amount) > 0 && (
+
+                    {/* ROUND 133: UPLOAD BUKTI TRANSFER DP */}
+                    {dpAmt > 0 && (
+                      <div className="mt-2 p-2 bg-white border-2 border-blue-300 rounded">
+                        <FileUploadInput
+                          tripId={tripId || 'dp-cs'}
+                          subfolder={`dp-bukti/${(p.first_name || 'pax').trim().replace(/\s+/g, '_')}`}
+                          value={p.dp_proof_url}
+                          onChange={(url) => updParticipant(i, 'dp_proof_url', url)}
+                          label="📎 Upload Bukti Transfer DP"
+                          maxSizeMB={20}
+                        />
+                        <p className="text-[10px] text-blue-700 mt-1">
+                          💡 Foto/screenshot bukti transfer — Finance akan cek di /invoices sebelum approve
+                        </p>
+                      </div>
+                    )}
+
+                    {dpAmt > 0 && (
                       <p className="mt-1 text-[10px] text-blue-700">
                         ✓ DP Rp {Number(p.dp_amount).toLocaleString('id-ID')} → /invoices tab (pending Finance approval)
+                        {p.dp_proof_url ? ' · 📎 Bukti sudah di-upload' : ' · ⚠ belum upload bukti'}
                       </p>
                     )}
                   </div>
@@ -298,7 +322,8 @@ export default function CSForm({ trips }) {
                   💵 Total DP: Rp {totalDPInputed.toLocaleString('id-ID')}
                 </p>
                 <p className="text-[10px] text-blue-700 mt-0.5">
-                  Submit → muncul di /invoices untuk Finance approve
+                  📎 {dpWithProof} ada bukti
+                  {dpWithoutProof > 0 && <span className="text-amber-700 font-bold"> · ⚠ {dpWithoutProof} belum upload bukti</span>}
                 </p>
               </div>
             )}
