@@ -1,14 +1,15 @@
 'use client';
 
-// Participants list for a trip — add / edit / delete inline
-// Round 114 + 115: integrated Transfer + Refund buttons per row
-// Includes auto-computed age + passport validity status
+// Round 136: Master Trip ParticipantForm + Passport AI Auto-Fill
+// Upload foto passport → AI extract → semua field auto-keisi (incl. passport_no, birthday, dll)
+// Path: components/trips/ParticipantsList.jsx
 
 import { useState } from 'react';
 import { addParticipant, updateParticipant, removeParticipant } from '@/lib/actions/participants';
 import { fmtRupiah, fmtDate, calcAge, passportStatus } from '@/lib/utils/format';
 import TransferPassengerButton from './TransferPassengerButton';
 import RefundPassengerButton from './RefundPassengerButton';
+import PassportUploadAI from '@/components/cs/PassportUploadAI';
 
 const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Family'];
 
@@ -48,195 +49,161 @@ export default function ParticipantsList({ tripId, participants = [], allTrips =
     if (!confirm(`Hapus ${name} dari trip ini?`)) return;
     setPending(true);
     const result = await removeParticipant(tripId, passengerId);
-    if (result?.error) alert(result.error);
+    if (result?.error) setError(result.error);
     setPending(false);
   }
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-      <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+      <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
         <div>
-          <h2 className="font-bold text-brand-700">Daftar Peserta</h2>
+          <h2 className="font-bold text-brand-700">👥 Daftar Peserta</h2>
           <p className="text-xs text-slate-500 mt-0.5">{participants.length} peserta terdaftar</p>
         </div>
-        {!showForm && (
+        {!showForm && !editingId && (
           <button
-            onClick={() => { setShowForm(true); setEditingId(null); setError(''); }}
-            className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5"
+            onClick={() => setShowForm(true)}
+            className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-lg"
           >
             <span>+</span> Tambah Peserta
           </button>
         )}
       </div>
 
-      {/* Add form */}
-      {showForm && (
-        <div className="p-5 bg-brand-50/50 border-b border-slate-200">
-          <h3 className="font-bold text-brand-700 mb-3">Tambah Peserta Baru</h3>
-          <ParticipantForm
-            onSubmit={handleAdd}
-            onCancel={() => setShowForm(false)}
-            pending={pending}
-            submitLabel="Tambah Peserta"
-          />
-          {error && <ErrorBox>{error}</ErrorBox>}
+      {error && (
+        <div className="mx-5 mt-3 p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-medium whitespace-pre-wrap">
+          ⚠ {error}
         </div>
       )}
 
-      {/* List */}
-      {participants.length === 0 && !showForm ? (
-        <div className="p-12 text-center">
-          <p className="text-4xl mb-3">👥</p>
-          <p className="text-lg font-bold text-slate-700">Belum ada peserta</p>
+      {showForm && (
+        <div className="p-5 bg-blue-50/30 border-b border-blue-100">
+          <h3 className="font-bold text-brand-700 mb-3">Tambah Peserta Baru</h3>
+          <ParticipantForm
+            tripId={tripId}
+            onSubmit={handleAdd}
+            onCancel={() => { setShowForm(false); setError(''); }}
+            pending={pending}
+            submitLabel="Tambah Peserta"
+          />
+        </div>
+      )}
+
+      {participants.length === 0 ? (
+        <div className="p-8 text-center text-slate-500">
+          <p className="text-3xl mb-2">👥</p>
+          <p className="text-sm">Belum ada peserta untuk trip ini.</p>
           <p className="mt-1 text-sm text-slate-500">Klik "Tambah Peserta" untuk mulai.</p>
         </div>
       ) : (
         <div className="divide-y divide-slate-100">
           {participants.map((p, idx) => {
             const c = p.customers || {};
-            const isEditing = editingId === p.id;
-            const [first, ...rest] = (c.name || '').split(' ');
-            const last = rest.join(' ');
+            const first = c.first_name || '';
+            const last = c.surname || '';
+            const fullName = `${first} ${last}`.trim() || c.name || `Peserta #${idx + 1}`;
             const age = calcAge(c.birthday);
             const ppStatus = passportStatus(c.passport_expiry);
-
-            // Round 114/115: combined passenger object with customer data for buttons
-            const passengerWithDetails = {
-              ...p,
-              name: c.name || p.name || '—',
-              phone: c.phone || p.phone,
-            };
-
-            // Visual indicator for transferred / refunded passengers
-            const isTransferred = p.transfer_status === 'transferred';
-            const isRefunded = p.refund_status === 'refunded' || p.refund_status === 'partial_refund';
-            const rowBg = isTransferred ? 'bg-amber-50/40 opacity-75' : isRefunded ? 'bg-red-50/30 opacity-80' : 'hover:bg-slate-50';
+            const isEditing = editingId === p.id;
 
             if (isEditing) {
               return (
-                <div key={p.id} className="p-5 bg-amber-50/50">
-                  <h3 className="font-bold text-brand-700 mb-3">Edit Peserta #{idx + 1}</h3>
+                <div key={p.id} className="p-5 bg-amber-50/30">
+                  <h3 className="font-bold text-brand-700 mb-3">✎ Edit Peserta: {fullName}</h3>
                   <ParticipantForm
+                    tripId={tripId}
                     initial={{
                       first_name: c.first_name || first,
                       last_name: c.surname || last,
-                      phone: c.phone,
-                      email: c.email,
-                      birthday: c.birthday,
                       city: c.city,
+                      birthday: c.birthday,
                       gender: c.gender,
+                      phone: c.phone || c.whatsapp,
+                      email: c.email,
                       passport_no: c.passport_no,
                       passport_issued_at: c.passport_issued_at,
                       passport_issued_date: c.passport_issued_date,
                       passport_expiry: c.passport_expiry,
+                      passport_photo_url: c.passport_photo_url,
+                      nationality: c.nationality,
                       room_type: p.room_type,
                       price_paid: p.price_paid,
                     }}
                     onSubmit={(fd) => handleUpdate(p.id, p.customer_id, fd)}
-                    onCancel={() => setEditingId(null)}
+                    onCancel={() => { setEditingId(null); setError(''); }}
                     pending={pending}
-                    submitLabel="Update"
+                    submitLabel="Update Peserta"
                   />
-                  {error && <ErrorBox>{error}</ErrorBox>}
                 </div>
               );
             }
 
             return (
-              <div key={p.id} className={`px-5 py-3 transition-colors ${rowBg}`}>
+              <div key={p.id} className="px-5 py-3 hover:bg-slate-50">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="flex-1 min-w-0">
-                    {/* Name + chips */}
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="text-xs font-mono text-slate-400">#{idx + 1}</span>
-                      <p className="font-bold text-brand-700">{c.name || '—'}</p>
-                      {age != null && <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">{age} thn</span>}
-                      {c.gender && <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">{c.gender}</span>}
+                      <p className="font-bold text-brand-700">{fullName}</p>
                       {p.room_type && <span className="text-[11px] px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold">{p.room_type}</span>}
-                      {p.status && <span className="text-[11px] px-2 py-0.5 rounded bg-green-50 text-green-700 font-semibold">{p.status}</span>}
-                      {isTransferred && (
-                        <span className="text-[11px] px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">📤 Pindah Trip</span>
-                      )}
-                      {isRefunded && (
-                        <span className="text-[11px] px-2 py-0.5 rounded bg-red-100 text-red-800 font-bold">
-                          💸 {p.refund_status === 'refunded' ? 'Refunded' : 'Partial Refund'}
-                        </span>
-                      )}
+                      {age != null && <span className="text-[11px] text-slate-500">{age}th</span>}
+                      {c.gender && <span className="text-[11px] text-slate-500">{c.gender === 'L' ? '♂' : '♀'}</span>}
                     </div>
-
-                    {/* Contact + birth */}
-                    <div className="mt-1 text-xs text-slate-600 flex flex-wrap gap-x-3 gap-y-1">
-                      {c.phone && <span>📞 {c.phone}</span>}
-                      {c.email && <span>✉ {c.email}</span>}
-                      {(c.city || c.birthday) && (
-                        <span>🎂 {c.city || '—'}{c.birthday ? `, ${fmtDate(c.birthday)}` : ''}</span>
-                      )}
-                    </div>
-
-                    {/* Passport */}
+                    <p className="text-xs text-slate-600">
+                      {c.phone && <span className="mr-3">📞 {c.phone}</span>}
+                      {c.email && <span className="mr-3">✉ {c.email}</span>}
+                    </p>
                     {(c.passport_no || c.passport_expiry) && (
-                      <div className="mt-1 text-xs text-slate-600 flex flex-wrap gap-x-3 gap-y-1 items-center">
+                      <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
                         {c.passport_no && <span>📕 {c.passport_no}</span>}
                         {c.passport_issued_at && <span>Issued: {c.passport_issued_at}{c.passport_issued_date ? ` (${fmtDate(c.passport_issued_date)})` : ''}</span>}
                         {c.passport_expiry && (
                           <span>Exp: {fmtDate(c.passport_expiry)}</span>
                         )}
                         {ppStatus && (
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
-                            ppStatus.color === 'red'   ? 'bg-red-100 text-red-700' :
-                            ppStatus.color === 'amber' ? 'bg-amber-100 text-amber-700' :
-                                                          'bg-green-100 text-green-700'
-                          }`}>
-                            {ppStatus.label}
-                          </span>
+                          <span className={`px-1.5 py-0.5 rounded font-semibold text-[10px] ${
+                            ppStatus.color === 'red' ? 'bg-red-100 text-red-800' :
+                            ppStatus.color === 'amber' ? 'bg-amber-100 text-amber-800' :
+                            'bg-green-100 text-green-800'
+                          }`}>{ppStatus.label}</span>
                         )}
-                      </div>
-                    )}
-
-                    {/* Price */}
-                    {p.price_paid > 0 && (
-                      <p className="mt-1 text-xs font-semibold text-green-700">{fmtRupiah(p.price_paid)}</p>
-                    )}
-
-                    {/* Refund details (kalau sudah refunded) */}
-                    {isRefunded && p.refund_amount > 0 && (
-                      <p className="mt-1 text-xs text-red-700">
-                        Refund: {fmtRupiah(p.refund_amount)}
-                        {p.refund_reason && ` · ${p.refund_reason}`}
+                        {c.passport_photo_url && (
+                          <a href={c.passport_photo_url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 hover:underline font-semibold">
+                            📎 Foto
+                          </a>
+                        )}
                       </p>
                     )}
                   </div>
-
-                  {/* Action buttons */}
-                  <div className="flex gap-1.5 flex-wrap items-center">
-                    {/* Hide edit/delete kalau udah transferred/refunded — gak relevan lagi */}
-                    {!isTransferred && !isRefunded && (
-                      <>
-                        <button
-                          onClick={() => { setEditingId(p.id); setShowForm(false); setError(''); }}
-                          disabled={pending}
-                          className="text-xs px-2.5 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200 font-semibold transition-colors"
-                        >
-                          ✎ Edit
-                        </button>
-                        <TransferPassengerButton passenger={passengerWithDetails} allTrips={allTrips} />
-                        <RefundPassengerButton passenger={passengerWithDetails} />
-                        <button
-                          onClick={() => handleRemove(p.id, c.name)}
-                          disabled={pending}
-                          className="text-xs px-2.5 py-1 rounded bg-red-50 text-red-700 hover:bg-red-100 font-semibold transition-colors"
-                        >
-                          🗑 Hapus
-                        </button>
-                      </>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {p.price_paid > 0 && (
+                      <span className="text-xs font-bold text-green-700">{fmtRupiah(p.price_paid)}</span>
                     )}
-                    {/* Kalau transferred/refunded, tetap show button (akan auto jadi badge dari komponen-nya) */}
-                    {isTransferred && (
-                      <TransferPassengerButton passenger={passengerWithDetails} allTrips={allTrips} />
-                    )}
-                    {isRefunded && (
-                      <RefundPassengerButton passenger={passengerWithDetails} />
-                    )}
+                    <button
+                      onClick={() => setEditingId(p.id)}
+                      disabled={pending}
+                      className="text-xs px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold disabled:opacity-50"
+                    >
+                      ✎ Edit
+                    </button>
+                    <TransferPassengerButton
+                      passengerId={p.id}
+                      passengerName={fullName}
+                      currentTripId={tripId}
+                      allTrips={allTrips}
+                    />
+                    <RefundPassengerButton
+                      passengerId={p.id}
+                      passengerName={fullName}
+                      tripId={tripId}
+                    />
+                    <button
+                      onClick={() => handleRemove(p.id, fullName)}
+                      disabled={pending}
+                      className="text-xs px-2 py-1 rounded bg-red-100 hover:bg-red-200 text-red-700 font-bold disabled:opacity-50"
+                    >
+                      🗑 Hapus
+                    </button>
                   </div>
                 </div>
               </div>
@@ -248,63 +215,160 @@ export default function ParticipantsList({ tripId, participants = [], allTrips =
   );
 }
 
-function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabel = 'Simpan' }) {
-  const [birthday, setBirthday] = useState(initial.birthday || '');
-  const [expiry, setExpiry] = useState(initial.passport_expiry || '');
-  const age = calcAge(birthday);
-  const ppStatus = passportStatus(expiry);
+// ROUND 136: ParticipantForm — controlled state + Passport AI
+function ParticipantForm({ tripId, initial = {}, onSubmit, onCancel, pending, submitLabel = 'Simpan' }) {
+  // Controlled state untuk semua field yg bisa auto-fill dari AI
+  const [data, setData] = useState({
+    first_name: initial.first_name || '',
+    last_name: initial.last_name || '',
+    city: initial.city || '',
+    birthday: initial.birthday || '',
+    gender: initial.gender || '',
+    phone: initial.phone || '',
+    email: initial.email || '',
+    passport_no: initial.passport_no || '',
+    passport_issued_at: initial.passport_issued_at || '',
+    passport_issued_date: initial.passport_issued_date || '',
+    passport_expiry: initial.passport_expiry || '',
+    passport_photo_url: initial.passport_photo_url || '',
+    nationality: initial.nationality || '',
+    room_type: initial.room_type || '',
+    price_paid: initial.price_paid || '',
+  });
+
+  function upd(key, val) {
+    setData((d) => ({ ...d, [key]: val }));
+  }
+
+  // AI extracted handler — map ke field names master trip
+  function handleAIExtracted(updates) {
+    setData((d) => {
+      const next = { ...d };
+      // Map AI extract → master trip field names
+      if (updates.passport_given_names && !next.first_name) next.first_name = updates.passport_given_names;
+      if (updates.passport_surname && !next.last_name) next.last_name = updates.passport_surname;
+      if (updates.passport_number) next.passport_no = updates.passport_number;
+      if (updates.dob) next.birthday = updates.dob;
+      if (updates.passport_expiry) next.passport_expiry = updates.passport_expiry;
+      if (updates.passport_issue_date) next.passport_issued_date = updates.passport_issue_date;
+      if (updates.passport_issued_at) next.passport_issued_at = updates.passport_issued_at;
+      if (updates.place_of_birth) next.city = updates.place_of_birth;
+      if (updates.nationality) next.nationality = updates.nationality;
+      if (updates.sex) next.gender = updates.sex === 'M' ? 'L' : updates.sex === 'F' ? 'P' : '';
+      return next;
+    });
+  }
+
+  const age = calcAge(data.birthday);
+  const ppStatus = passportStatus(data.passport_expiry);
 
   return (
     <form action={onSubmit} className="space-y-4">
+      {/* Hidden inputs untuk semua field (karena state controlled di React) */}
+      <input type="hidden" name="first_name" value={data.first_name} />
+      <input type="hidden" name="last_name" value={data.last_name} />
+      <input type="hidden" name="city" value={data.city} />
+      <input type="hidden" name="birthday" value={data.birthday} />
+      <input type="hidden" name="gender" value={data.gender} />
+      <input type="hidden" name="phone" value={data.phone} />
+      <input type="hidden" name="email" value={data.email} />
+      <input type="hidden" name="passport_no" value={data.passport_no} />
+      <input type="hidden" name="passport_issued_at" value={data.passport_issued_at} />
+      <input type="hidden" name="passport_issued_date" value={data.passport_issued_date} />
+      <input type="hidden" name="passport_expiry" value={data.passport_expiry} />
+      <input type="hidden" name="passport_photo_url" value={data.passport_photo_url} />
+      <input type="hidden" name="nationality" value={data.nationality} />
+      <input type="hidden" name="room_type" value={data.room_type} />
+      <input type="hidden" name="price_paid" value={data.price_paid} />
+
+      {/* PASSPORT AI SECTION — top priority */}
+      <FormSection title="🛂 Upload Passport — AI Auto-Fill">
+        <PassportUploadAI
+          tripId={tripId || 'master-trip'}
+          paxIndex={0}
+          passportData={{
+            passport_photo_url: data.passport_photo_url,
+            passport_number: data.passport_no,
+            passport_surname: data.last_name,
+            passport_given_names: data.first_name,
+            nationality: data.nationality,
+            dob: data.birthday,
+            passport_expiry: data.passport_expiry,
+            passport_issued_at: data.passport_issued_at,
+            place_of_birth: data.city,
+            sex: data.gender === 'L' ? 'M' : data.gender === 'P' ? 'F' : '',
+          }}
+          onChange={(key, val) => {
+            // Map sub-component field names back to master trip field names
+            const reverseMap = {
+              passport_number: 'passport_no',
+              passport_surname: 'last_name',
+              passport_given_names: 'first_name',
+              dob: 'birthday',
+              place_of_birth: 'city',
+              sex: (v) => v === 'M' ? 'L' : v === 'F' ? 'P' : '',
+            };
+            const mapped = reverseMap[key];
+            if (typeof mapped === 'function') upd('gender', mapped(val));
+            else if (mapped) upd(mapped, val);
+            else upd(key, val);
+          }}
+          onExtracted={handleAIExtracted}
+        />
+      </FormSection>
+
       {/* Personal info */}
       <FormSection title="Data Pribadi">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Nama Depan" required>
-            <input name="first_name" defaultValue={initial.first_name || ''} required className={inputCls} />
+            <input value={data.first_name} onChange={(e) => upd('first_name', e.target.value)} required className={inputCls} />
           </Field>
           <Field label="Nama Belakang">
-            <input name="last_name" defaultValue={initial.last_name || ''} className={inputCls} />
+            <input value={data.last_name} onChange={(e) => upd('last_name', e.target.value)} className={inputCls} />
           </Field>
           <Field label="Tempat Lahir">
-            <input name="city" defaultValue={initial.city || ''} className={inputCls} placeholder="Jakarta, Surabaya, dll" />
+            <input value={data.city} onChange={(e) => upd('city', e.target.value)} className={inputCls} placeholder="Jakarta, Surabaya, dll" />
           </Field>
           <Field label="Tanggal Lahir" hint={age != null ? `Umur: ${age} tahun` : ''}>
-            <input type="date" name="birthday" value={birthday} onChange={(e) => setBirthday(e.target.value)} className={inputCls} />
+            <input type="date" value={data.birthday} onChange={(e) => upd('birthday', e.target.value)} className={inputCls} />
           </Field>
           <Field label="Gender">
-            <select name="gender" defaultValue={initial.gender || ''} className={inputCls}>
+            <select value={data.gender} onChange={(e) => upd('gender', e.target.value)} className={inputCls}>
               <option value="">— Pilih —</option>
               <option value="L">Laki-laki</option>
               <option value="P">Perempuan</option>
             </select>
           </Field>
           <Field label="No HP / WA">
-            <input name="phone" defaultValue={initial.phone || ''} className={inputCls} placeholder="08xx..." />
+            <input value={data.phone} onChange={(e) => upd('phone', e.target.value)} className={inputCls} placeholder="08xx..." />
           </Field>
           <Field label="Email" className="md:col-span-2">
-            <input type="email" name="email" defaultValue={initial.email || ''} className={inputCls} placeholder="user@email.com" />
+            <input type="email" value={data.email} onChange={(e) => upd('email', e.target.value)} className={inputCls} placeholder="user@email.com" />
+          </Field>
+          <Field label="Nationality" className="md:col-span-2">
+            <input value={data.nationality} onChange={(e) => upd('nationality', e.target.value)} className={inputCls} placeholder="INDONESIA" />
           </Field>
         </div>
       </FormSection>
 
-      {/* Passport */}
-      <FormSection title="Data Passport">
+      {/* Passport details */}
+      <FormSection title="Data Passport (manual / dari AI)">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="No Passport">
-            <input name="passport_no" defaultValue={initial.passport_no || ''} className={inputCls} placeholder="A1234567" />
+            <input value={data.passport_no} onChange={(e) => upd('passport_no', e.target.value)} className={inputCls} placeholder="A1234567" />
           </Field>
           <Field label="Diterbitkan di">
-            <input name="passport_issued_at" defaultValue={initial.passport_issued_at || ''} className={inputCls} placeholder="Jakarta, Imigrasi Kelas I, dll" />
+            <input value={data.passport_issued_at} onChange={(e) => upd('passport_issued_at', e.target.value)} className={inputCls} placeholder="Jakarta, Imigrasi Kelas I, dll" />
           </Field>
           <Field label="Tanggal Issue">
-            <input type="date" name="passport_issued_date" defaultValue={initial.passport_issued_date || ''} className={inputCls} />
+            <input type="date" value={data.passport_issued_date} onChange={(e) => upd('passport_issued_date', e.target.value)} className={inputCls} />
           </Field>
           <Field
             label="Tanggal Expiry"
             hint={ppStatus ? `Status: ${ppStatus.label}` : ''}
             hintColor={ppStatus?.color}
           >
-            <input type="date" name="passport_expiry" value={expiry} onChange={(e) => setExpiry(e.target.value)} className={inputCls} />
+            <input type="date" value={data.passport_expiry} onChange={(e) => upd('passport_expiry', e.target.value)} className={inputCls} />
           </Field>
         </div>
       </FormSection>
@@ -313,13 +377,13 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
       <FormSection title="Booking">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Tipe Kamar">
-            <select name="room_type" defaultValue={initial.room_type || ''} className={inputCls}>
+            <select value={data.room_type} onChange={(e) => upd('room_type', e.target.value)} className={inputCls}>
               <option value="">— Pilih —</option>
               {ROOM_TYPES.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </Field>
           <Field label="Harga Bayar (IDR)">
-            <input type="number" name="price_paid" defaultValue={initial.price_paid || ''} min="0" className={inputCls} placeholder="50000000" />
+            <input type="number" value={data.price_paid} onChange={(e) => upd('price_paid', e.target.value)} min="0" className={inputCls} placeholder="50000000" />
           </Field>
         </div>
       </FormSection>
@@ -371,12 +435,4 @@ function Field({ label, required, hint, hintColor, className = '', children }) {
   );
 }
 
-function ErrorBox({ children }) {
-  return (
-    <div className="mt-3 p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-medium">
-      {children}
-    </div>
-  );
-}
-
-const inputCls = 'w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none bg-white';
+const inputCls = 'w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none bg-white';
