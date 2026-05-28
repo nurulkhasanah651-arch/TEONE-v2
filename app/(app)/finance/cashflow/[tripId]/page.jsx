@@ -1,5 +1,6 @@
-// Cashflow per trip — Round 127: pass paxCount ke FinanceItemForm untuk auto-fill qty
-// + Round 126: Cash In include payment refunded (exclude is_transferred=true)
+// Round 155: Proyeksi Income per Group + DOWNLOAD BUTTONS (PDF/Excel/CSV)
+// (sudah include R127 hpp qty autofill + R126 active/inactive filter)
+// Path: app/(app)/finance/cashflow/[tripId]/page.jsx
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -7,6 +8,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah } from '@/lib/utils/format';
 import FinanceItemForm from '@/components/finance/FinanceItemForm';
 import FinanceItemRow from '@/components/finance/FinanceItemRow';
+import DownloadButtons from '@/components/common/DownloadButtons';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,15 +74,76 @@ export default async function CashflowDetailPage({ params }) {
   const incomeByCategory = groupByCategory(incomeItems);
   const hppByCategory = groupByCategory(hppItems);
 
+  // R155: format helper
+  const fmtMoney = (v) => `Rp ${Number(v || 0).toLocaleString('id-ID')}`;
+
+  // R155: prep rows untuk download
+  const fullReportRows = [
+    ...incomeItems.map((i) => ({
+      tipe: 'INCOME',
+      category: i.category || '-',
+      component: i.component,
+      vendor: i.vendor_name || '-',
+      qty: i.qty || 1,
+      unit_price: i.basic_fare || 0,
+      total: i.total_amount || 0,
+      status: i.payment_status || '-',
+    })),
+    ...hppItems.map((i) => ({
+      tipe: 'HPP',
+      category: i.category || '-',
+      component: i.component,
+      vendor: i.vendor_name || '-',
+      qty: i.qty || 1,
+      unit_price: i.basic_fare || 0,
+      total: i.total_amount || 0,
+      status: i.payment_status || '-',
+    })),
+  ];
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div>
-        <Link href="/finance/cashflow" className="text-sm text-brand-600 font-medium hover:underline">← Proyeksi Income per Group</Link>
-        <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.kode_trip || `#${trip.id}`} — {trip.name}</h1>
-        <p className="mt-1 text-slate-600">
-          Cash In peserta + Manual Income + HPP.
-          <span className="ml-2 text-xs font-semibold text-brand-600">📊 {paxCount} pax aktif</span>
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <Link href="/finance/cashflow" className="text-sm text-brand-600 font-medium hover:underline">← Proyeksi Income per Group</Link>
+          <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.kode_trip || `#${trip.id}`} — {trip.name}</h1>
+          <p className="mt-1 text-slate-600">
+            Cash In peserta + Manual Income + HPP.
+            <span className="ml-2 text-xs font-semibold text-brand-600">📊 {paxCount} pax aktif</span>
+          </p>
+        </div>
+        {/* R155: Download FULL PROYEKSI INCOME */}
+        <DownloadButtons
+          filename={`proyeksi-income-${trip.kode_trip || trip.id}`}
+          title={`Proyeksi Income — ${trip.kode_trip || ''} ${trip.name}`}
+          subtitle={`${paxCount} pax aktif · ${actualPaymentCount} payment`}
+          extraInfo={[
+            { label: 'Total Income (Auto+Manual)', value: fmtMoney(totalIncome) },
+            { label: 'Cash In Peserta (Auto)', value: fmtMoney(autoCashIn) },
+            { label: 'Manual Income', value: fmtMoney(manualIncome) },
+            { label: 'Total HPP', value: fmtMoney(totalHPP) },
+            { label: 'Profit', value: fmtMoney(profit) },
+            { label: 'Margin', value: margin == null ? '-' : `${margin}%` },
+          ]}
+          columns={[
+            { key: 'tipe', label: 'Tipe' },
+            { key: 'category', label: 'Kategori' },
+            { key: 'component', label: 'Komponen' },
+            { key: 'vendor', label: 'Vendor' },
+            { key: 'qty', label: 'Qty', align: 'right' },
+            { key: 'unit_price', label: 'Harga Satuan', align: 'right', format: fmtMoney },
+            { key: 'total', label: 'Total', align: 'right', format: fmtMoney },
+            { key: 'status', label: 'Status' },
+          ]}
+          rows={fullReportRows}
+          summary={[
+            { label: 'TOTAL INCOME (manual+auto)', value: fmtMoney(totalIncome) },
+            { label: 'TOTAL HPP', value: fmtMoney(totalHPP) },
+            { label: 'PROFIT', value: fmtMoney(profit) },
+            { label: 'MARGIN', value: margin == null ? '-' : `${margin}%` },
+          ]}
+          buttonSize="md"
+        />
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -123,6 +186,9 @@ export default async function CashflowDetailPage({ params }) {
         tripId={tripId}
         type="income"
         paxCount={paxCount}
+        tripKode={trip.kode_trip || trip.id}
+        tripName={trip.name}
+        fmtMoney={fmtMoney}
       />
 
       {/* HPP — pass paxCount untuk auto-fill qty */}
@@ -136,15 +202,29 @@ export default async function CashflowDetailPage({ params }) {
         tripId={tripId}
         type="hpp"
         paxCount={paxCount}
+        tripKode={trip.kode_trip || trip.id}
+        tripName={trip.name}
+        fmtMoney={fmtMoney}
       />
     </div>
   );
 }
 
-function FinanceSection({ title, emoji, color, items, itemsByCategory, total, tripId, type, paxCount }) {
+function FinanceSection({ title, emoji, color, items, itemsByCategory, total, tripId, type, paxCount, tripKode, tripName, fmtMoney }) {
   const headerBg = color === 'green' ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200';
   const titleColor = color === 'green' ? 'text-green-800' : 'text-amber-800';
   const totalColor = color === 'green' ? 'text-green-700' : 'text-amber-700';
+
+  // R155: prep rows for this section
+  const sectionRows = items.map((i) => ({
+    category: i.category || '-',
+    component: i.component,
+    vendor: i.vendor_name || '-',
+    qty: i.qty || 1,
+    unit_price: i.basic_fare || 0,
+    total: i.total_amount || 0,
+    status: i.payment_status || '-',
+  }));
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
@@ -153,7 +233,27 @@ function FinanceSection({ title, emoji, color, items, itemsByCategory, total, tr
           <h2 className={`font-bold ${titleColor} flex items-center gap-2`}>
             <span>{emoji}</span> {title}
           </h2>
-          <p className={`text-lg font-bold ${totalColor}`}>{fmtRupiah(total)}</p>
+          <div className="flex items-center gap-2">
+            <p className={`text-lg font-bold ${totalColor}`}>{fmtRupiah(total)}</p>
+            {/* R155: Download per section */}
+            {items.length > 0 && (
+              <DownloadButtons
+                filename={`${type}-${tripKode}`}
+                title={`${title} — ${tripName}`}
+                columns={[
+                  { key: 'category', label: 'Kategori' },
+                  { key: 'component', label: 'Komponen' },
+                  { key: 'vendor', label: 'Vendor' },
+                  { key: 'qty', label: 'Qty', align: 'right' },
+                  { key: 'unit_price', label: 'Harga Satuan', align: 'right', format: fmtMoney },
+                  { key: 'total', label: 'Total', align: 'right', format: fmtMoney },
+                  { key: 'status', label: 'Status' },
+                ]}
+                rows={sectionRows}
+                summary={[{ label: 'TOTAL', value: fmtMoney(total) }]}
+              />
+            )}
+          </div>
         </div>
       </div>
 
