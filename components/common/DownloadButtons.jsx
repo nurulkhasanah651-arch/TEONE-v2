@@ -1,23 +1,77 @@
 'use client';
 
-// Round 154: Universal Download Buttons component
-// Generate PDF, Excel, CSV dari data apapun
+// Round 157 HOTFIX: Universal Download Buttons
+// FIX: format jadi STRING TYPE (bukan function) supaya bisa di-pass dari Server Component
 // Path: components/common/DownloadButtons.jsx
 //
 // Usage:
 //   <DownloadButtons
-//     filename="invoice-peserta-eropa-sept"
-//     title="Invoice Peserta — Eropa Sept 2026"
-//     subtitle="Generated 28 Mei 2026"
+//     filename="invoice-peserta"
+//     title="Invoice Peserta"
 //     columns={[
-//       { key: 'nama', label: 'Nama Peserta' },
-//       { key: 'amount', label: 'Tagihan', format: (v) => `Rp ${Number(v).toLocaleString('id-ID')}`, align: 'right' },
+//       { key: 'nama', label: 'Nama' },
+//       { key: 'amount', label: 'Tagihan', format: 'rupiah', align: 'right' },
+//       { key: 'date', label: 'Tanggal', format: 'date' },
 //     ]}
 //     rows={data}
-//     summary={[{ label: 'TOTAL', value: 'Rp 250.000.000' }]}  // opsional
 //   />
 
 import { useState } from 'react';
+
+// ============ FORMAT HELPERS (inside client component, safe to use as functions) ============
+function fmtRupiah(v) {
+  if (v == null || v === '') return '';
+  const n = Number(v);
+  if (isNaN(n)) return String(v);
+  return `Rp ${n.toLocaleString('id-ID')}`;
+}
+
+function fmtNumber(v) {
+  if (v == null || v === '') return '';
+  const n = Number(v);
+  if (isNaN(n)) return String(v);
+  return n.toLocaleString('id-ID');
+}
+
+function fmtDate(v) {
+  if (!v) return '';
+  try {
+    const d = new Date(v);
+    if (isNaN(d)) return String(v);
+    return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch { return String(v); }
+}
+
+function fmtDateTime(v) {
+  if (!v) return '';
+  try {
+    const d = new Date(v);
+    if (isNaN(d)) return String(v);
+    return d.toLocaleString('id-ID');
+  } catch { return String(v); }
+}
+
+function fmtPercent(v) {
+  if (v == null || v === '') return '';
+  const n = Number(v);
+  if (isNaN(n)) return String(v);
+  return `${n.toFixed(1)}%`;
+}
+
+// ============ MAIN FORMATTER ============
+function applyFormat(value, formatType) {
+  if (value == null) return '';
+  if (!formatType) return String(value);
+
+  switch (formatType) {
+    case 'rupiah':   return fmtRupiah(value);
+    case 'number':   return fmtNumber(value);
+    case 'date':     return fmtDate(value);
+    case 'datetime': return fmtDateTime(value);
+    case 'percent':  return fmtPercent(value);
+    default:         return String(value);
+  }
+}
 
 export default function DownloadButtons({
   filename = 'export',
@@ -26,21 +80,17 @@ export default function DownloadButtons({
   columns = [],
   rows = [],
   summary = [],
-  buttonSize = 'sm', // 'sm' | 'md'
+  buttonSize = 'sm',
   hidePDF = false,
   hideExcel = false,
   hideCSV = false,
-  pdfOrientation = 'landscape', // 'portrait' | 'landscape'
-  extraInfo = [], // array of { label, value } untuk di-print di header
+  pdfOrientation = 'landscape',
+  extraInfo = [],
 }) {
-  const [loading, setLoading] = useState(null); // 'pdf' | 'excel' | 'csv' | null
+  const [loading, setLoading] = useState(null);
 
   function safeFormat(value, col) {
-    if (value == null) return '';
-    if (col.format) {
-      try { return col.format(value); } catch { return String(value); }
-    }
-    return String(value);
+    return applyFormat(value, col.format);
   }
 
   async function downloadExcel() {
@@ -48,27 +98,25 @@ export default function DownloadButtons({
     try {
       const XLSX = await import('xlsx');
 
-      // Build header rows: title + subtitle + extraInfo
       const aoa = [];
       aoa.push([title]);
       if (subtitle) aoa.push([subtitle]);
       extraInfo.forEach((info) => aoa.push([info.label, info.value]));
-      aoa.push([]); // blank row
+      aoa.push([]);
 
-      // Columns header
       aoa.push(columns.map((c) => c.label));
 
-      // Data rows
       rows.forEach((row) => {
         aoa.push(columns.map((col) => {
           const v = row[col.key];
-          // for excel, keep numbers as numbers when format is for currency
-          if (col.numeric && typeof v === 'number') return v;
+          // Keep raw number for excel cells (so it's filterable/formulaic)
+          if ((col.format === 'rupiah' || col.format === 'number' || col.format === 'percent') && typeof v === 'number') {
+            return v;
+          }
           return safeFormat(v, col);
         }));
       });
 
-      // Summary
       if (summary.length > 0) {
         aoa.push([]);
         summary.forEach((s) => aoa.push([s.label, s.value]));
@@ -76,7 +124,6 @@ export default function DownloadButtons({
 
       const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-      // Auto-width columns
       const colWidths = columns.map((col) => {
         const maxLen = Math.max(
           col.label.length,
@@ -104,9 +151,7 @@ export default function DownloadButtons({
       const jsPDF = jsPDFModule.default || jsPDFModule.jsPDF;
 
       const doc = new jsPDF({ orientation: pdfOrientation, unit: 'mm', format: 'a4' });
-      const pageWidth = doc.internal.pageSize.getWidth();
 
-      // Header
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
       doc.text(title, 14, 15);
@@ -120,7 +165,6 @@ export default function DownloadButtons({
         y += 6;
       }
 
-      // Extra info (key-value)
       if (extraInfo.length > 0) {
         doc.setFontSize(9);
         doc.setTextColor(60);
@@ -131,7 +175,6 @@ export default function DownloadButtons({
       }
       y += 2;
 
-      // Table
       doc.autoTable({
         head: [columns.map((c) => c.label)],
         body: rows.map((row) => columns.map((col) => safeFormat(row[col.key], col))),
@@ -147,7 +190,6 @@ export default function DownloadButtons({
         margin: { left: 14, right: 14 },
       });
 
-      // Summary footer
       if (summary.length > 0) {
         const finalY = doc.lastAutoTable.finalY + 8;
         doc.setFontSize(10);
@@ -158,7 +200,6 @@ export default function DownloadButtons({
         });
       }
 
-      // Footer with timestamp
       const totalPages = doc.internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
@@ -196,7 +237,6 @@ export default function DownloadButtons({
         summary.forEach((s) => lines.push([s.label, s.value].map(csvEscape).join(',')));
       }
 
-      // BOM untuk excel buka CSV dengan benar di Windows
       const csv = '﻿' + lines.join('\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
       const url = URL.createObjectURL(blob);
