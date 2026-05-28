@@ -1,5 +1,6 @@
-// Payment Checklist per trip — template form + matrix
-// Round 123: Filter peserta yang transferred/refunded (gak relevan lagi di trip ini)
+// Round 155: Payment Checklist per trip + DOWNLOAD BUTTONS (Invoice Peserta)
+// (sudah include R123 filter transferred/refunded)
+// Path: app/(app)/finance/payments/[tripId]/page.jsx
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -7,6 +8,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah } from '@/lib/utils/format';
 import PaymentTemplateForm from '@/components/finance/PaymentTemplateForm';
 import PaymentMatrix from '@/components/finance/PaymentMatrix';
+import DownloadButtons from '@/components/common/DownloadButtons';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,11 +16,9 @@ export default async function TripPaymentsPage({ params }) {
   const { tripId } = await params;
   const supabase = createClient();
 
-  // Fetch trip
   const { data: trip } = await supabase.from('trips').select('*').eq('id', tripId).maybeSingle();
   if (!trip) notFound();
 
-  // ROUND 123: Fetch ONLY active passengers (exclude transferred + refunded)
   const { data: tp } = await supabase
     .from('trip_passengers')
     .select('*')
@@ -27,29 +27,25 @@ export default async function TripPaymentsPage({ params }) {
 
   const allPassengers = tp || [];
 
-  // Filter: exclude transferred + refunded
   const passengers = allPassengers.filter((p) => {
     const isTransferred = p.transfer_status === 'transferred';
     const isRefunded = p.refund_status === 'refunded' || p.refund_status === 'partial_refund';
     return !isTransferred && !isRefunded;
   });
 
-  // Count untuk info
   const transferredCount = allPassengers.filter((p) => p.transfer_status === 'transferred').length;
   const refundedCount = allPassengers.filter((p) => p.refund_status === 'refunded' || p.refund_status === 'partial_refund').length;
 
   const passengerIds = passengers.map((p) => p.id);
   const customerIds = passengers.map((p) => p.customer_id).filter(Boolean);
 
-  // Customers
   let customerMap = {};
   if (customerIds.length > 0) {
-    const { data: cust } = await supabase.from('customers').select('id, name, phone').in('id', customerIds);
+    const { data: cust } = await supabase.from('customers').select('id, name, phone, email').in('id', customerIds);
     customerMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
   }
   const passengersWithCustomers = passengers.map((p) => ({ ...p, customers: customerMap[p.customer_id] || null }));
 
-  // ROUND 123: Payments — filter is_transferred (defensive)
   let paymentsByPassenger = {};
   if (passengerIds.length > 0) {
     let payments = [];
@@ -71,26 +67,100 @@ export default async function TripPaymentsPage({ params }) {
     }
   }
 
+  // R155: PNR / Flight Inventory data untuk download PNR deposit
+  const { data: pnrRes } = await supabase.from('flight_inventory').select('*').eq('trip_id', tripId);
+  const pnrs = pnrRes || [];
+
   const template = (trip.payment_template && typeof trip.payment_template === 'object') ? trip.payment_template : {};
   const totalExpected = passengers.reduce((s, p) => s + (p.price_paid || 0), 0);
   const totalPaid = Object.values(paymentsByPassenger).flat().reduce((s, p) => s + (p.amount || 0), 0);
   const progress = totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : 0;
   const templateTotal = Object.values(template).reduce((s, v) => s + (+v || 0), 0);
 
+  // R155: format helper
+  const fmtMoney = (v) => `Rp ${Number(v || 0).toLocaleString('id-ID')}`;
+
+  // R155: prep invoice peserta rows
+  const invoiceRows = passengersWithCustomers.map((p) => {
+    const pays = paymentsByPassenger[p.id] || [];
+    const totalBayar = pays.reduce((s, x) => s + (x.amount || 0), 0);
+    const sisa = (p.price_paid || 0) - totalBayar;
+    return {
+      nama: p.customers?.name || `Pax #${p.id}`,
+      phone: p.customers?.phone || '-',
+      email: p.customers?.email || '-',
+      room_type: p.room_type || '-',
+      harga: p.price_paid || 0,
+      total_bayar: totalBayar,
+      sisa: sisa,
+      status: sisa <= 0 ? 'LUNAS' : totalBayar > 0 ? 'CICILAN' : 'BELUM BAYAR',
+      jumlah_cicilan: pays.length,
+    };
+  });
+
+  // R155: prep PNR deposit rows
+  const pnrRows = pnrs.map((p) => ({
+    pnr: p.pnr || '-',
+    vendor: p.vendor || '-',
+    route: p.route || '-',
+    deposit_total: p.deposit_total || 0,
+    payoff_amount: p.payoff_amount || 0,
+    total_paid: (p.deposit_total || 0) + (p.payoff_amount || 0),
+    deposit_due: p.deposit_due || '-',
+    payoff_due: p.payoff_due || '-',
+    status: p.status || '-',
+  }));
+
+  const totalPnrDeposit = pnrRows.reduce((s, p) => s + p.total_paid, 0);
+
   return (
     <div className="max-w-7xl mx-auto space-y-5">
-      <div>
-        <Link href="/finance/payments" className="text-sm text-brand-600 font-medium hover:underline">← Payment Checklist</Link>
-        <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.kode_trip || `#${trip.id}`} — {trip.name}</h1>
-        <p className="mt-1 text-slate-600">Set template payment group → checklist tiap peserta.</p>
-        {(transferredCount > 0 || refundedCount > 0) && (
-          <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs text-amber-800">
-            <span>ⓘ</span>
-            {transferredCount > 0 && <span><b>{transferredCount}</b> peserta pindah trip (di-hide)</span>}
-            {transferredCount > 0 && refundedCount > 0 && <span>·</span>}
-            {refundedCount > 0 && <span><b>{refundedCount}</b> peserta refunded (di-hide)</span>}
-          </div>
-        )}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <Link href="/finance/payments" className="text-sm text-brand-600 font-medium hover:underline">← Payment Checklist</Link>
+          <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.kode_trip || `#${trip.id}`} — {trip.name}</h1>
+          <p className="mt-1 text-slate-600">Set template payment group → checklist tiap peserta.</p>
+          {(transferredCount > 0 || refundedCount > 0) && (
+            <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs text-amber-800">
+              <span>ⓘ</span>
+              {transferredCount > 0 && <span><b>{transferredCount}</b> peserta pindah trip (di-hide)</span>}
+              {transferredCount > 0 && refundedCount > 0 && <span>·</span>}
+              {refundedCount > 0 && <span><b>{refundedCount}</b> peserta refunded (di-hide)</span>}
+            </div>
+          )}
+        </div>
+        {/* R155: Download FULL INVOICE PESERTA */}
+        <div className="flex flex-col gap-2 items-end">
+          <DownloadButtons
+            filename={`invoice-peserta-${trip.kode_trip || trip.id}`}
+            title={`Invoice Peserta — ${trip.kode_trip || ''} ${trip.name}`}
+            subtitle={`${passengers.length} pax aktif · Progress ${progress}%`}
+            extraInfo={[
+              { label: 'Total Tagihan', value: fmtMoney(totalExpected) },
+              { label: 'Total Dibayar', value: fmtMoney(totalPaid) },
+              { label: 'Total Sisa', value: fmtMoney(totalExpected - totalPaid) },
+            ]}
+            columns={[
+              { key: 'nama', label: 'Nama Peserta' },
+              { key: 'phone', label: 'No HP' },
+              { key: 'email', label: 'Email' },
+              { key: 'room_type', label: 'Tipe Kamar' },
+              { key: 'harga', label: 'Total Tagihan', align: 'right', format: fmtMoney },
+              { key: 'total_bayar', label: 'Sudah Bayar', align: 'right', format: fmtMoney },
+              { key: 'sisa', label: 'Sisa', align: 'right', format: fmtMoney },
+              { key: 'jumlah_cicilan', label: 'Cicilan', align: 'right' },
+              { key: 'status', label: 'Status' },
+            ]}
+            rows={invoiceRows}
+            summary={[
+              { label: 'TOTAL TAGIHAN', value: fmtMoney(totalExpected) },
+              { label: 'TOTAL DIBAYAR', value: fmtMoney(totalPaid) },
+              { label: 'TOTAL SISA', value: fmtMoney(totalExpected - totalPaid) },
+            ]}
+            buttonSize="md"
+          />
+          <p className="text-[10px] text-slate-500">📋 Invoice Peserta</p>
+        </div>
       </div>
 
       {/* Stats */}
@@ -109,6 +179,68 @@ export default async function TripPaymentsPage({ params }) {
         paymentsByPassenger={paymentsByPassenger}
         template={template}
       />
+
+      {/* R155: PNR DEPOSIT SECTION (kalau ada PNR) */}
+      {pnrs.length > 0 && (
+        <div className="bg-white rounded-xl border-2 border-purple-200 shadow-card overflow-hidden">
+          <div className="px-5 py-3 border-b bg-purple-50 border-purple-200 flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h2 className="font-bold text-purple-800 flex items-center gap-2">
+                <span>✈</span> PNR Deposit & Payoff
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">{pnrs.length} PNR · Total deposit dibayar: {fmtRupiah(totalPnrDeposit)}</p>
+            </div>
+            <DownloadButtons
+              filename={`pnr-deposit-${trip.kode_trip || trip.id}`}
+              title={`PNR Deposit — ${trip.name}`}
+              subtitle={`${pnrs.length} PNR · Total: ${fmtMoney(totalPnrDeposit)}`}
+              columns={[
+                { key: 'pnr', label: 'PNR / Booking Ref' },
+                { key: 'vendor', label: 'Vendor / Airline' },
+                { key: 'route', label: 'Route' },
+                { key: 'deposit_total', label: 'Deposit', align: 'right', format: fmtMoney },
+                { key: 'payoff_amount', label: 'Payoff', align: 'right', format: fmtMoney },
+                { key: 'total_paid', label: 'Total Paid', align: 'right', format: fmtMoney },
+                { key: 'deposit_due', label: 'Due Deposit' },
+                { key: 'payoff_due', label: 'Due Payoff' },
+                { key: 'status', label: 'Status' },
+              ]}
+              rows={pnrRows}
+              summary={[{ label: 'TOTAL PNR PAID', value: fmtMoney(totalPnrDeposit) }]}
+            />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-[11px] font-bold text-slate-600 uppercase">
+                <tr>
+                  <th className="px-3 py-2 text-left">PNR</th>
+                  <th className="px-3 py-2 text-left">Vendor</th>
+                  <th className="px-3 py-2 text-left">Route</th>
+                  <th className="px-3 py-2 text-right">Deposit</th>
+                  <th className="px-3 py-2 text-right">Payoff</th>
+                  <th className="px-3 py-2 text-right">Total Paid</th>
+                  <th className="px-3 py-2 text-left">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {pnrs.map((p) => (
+                  <tr key={p.id} className="hover:bg-slate-50">
+                    <td className="px-3 py-2 font-bold text-purple-700">{p.pnr || `#${p.id}`}</td>
+                    <td className="px-3 py-2 text-xs">{p.vendor || '-'}</td>
+                    <td className="px-3 py-2 text-xs">{p.route || '-'}</td>
+                    <td className="px-3 py-2 text-right text-xs">{fmtRupiah(p.deposit_total || 0)}</td>
+                    <td className="px-3 py-2 text-right text-xs">{fmtRupiah(p.payoff_amount || 0)}</td>
+                    <td className="px-3 py-2 text-right font-bold text-amber-700">{fmtRupiah((p.deposit_total || 0) + (p.payoff_amount || 0))}</td>
+                    <td className="px-3 py-2 text-xs">
+                      <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-bold">{p.status || '-'}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
