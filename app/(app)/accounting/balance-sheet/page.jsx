@@ -1,9 +1,11 @@
-// Balance Sheet — Assets vs Liabilities + Net Equity
+// Round 159: Balance Sheet + DOWNLOAD (Assets vs Liabilities)
+// Path: app/(app)/accounting/balance-sheet/page.jsx
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah } from '@/lib/utils/format';
 import { aggregateAccountBalances, computePiutang, computeHutang, computePnrDeposits } from '@/lib/utils/accounting-aggregator';
+import DownloadButtons from '@/components/common/DownloadButtons';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +28,6 @@ export default async function BalanceSheetPage() {
   const hutang = computeHutang(finItemsRes.data || []);
   const pnrDeposits = computePnrDeposits(pnrRes.data || []);
 
-  // ASSETS breakdown
   const assets = [
     { label: 'Bank & Kas', value: totalBankCash, group: 'Aset Lancar' },
     { label: 'Piutang Peserta', value: piutang, group: 'Aset Lancar' },
@@ -34,7 +35,6 @@ export default async function BalanceSheetPage() {
   ];
   const totalAssets = assets.reduce((s, a) => s + a.value, 0);
 
-  // LIABILITIES breakdown
   const liabilities = [
     { label: 'Hutang Vendor (HPP belum lunas)', value: hutang, group: 'Kewajiban Lancar' },
   ];
@@ -42,12 +42,59 @@ export default async function BalanceSheetPage() {
 
   const netEquity = totalAssets - totalLiabilities;
 
+  const fmtMoney = (v) => `Rp ${Number(v || 0).toLocaleString('id-ID')}`;
+
+  // R159: prep download rows
+  const balanceSheetRows = [
+    ...accounts.map((a) => ({
+      side: 'ASSETS',
+      group: 'Aset Lancar - Bank & Kas',
+      item: a.name,
+      amount: balances[a.id]?.balance || 0,
+    })),
+    { side: 'ASSETS', group: 'Aset Lancar - Bank & Kas', item: 'Subtotal Bank & Kas', amount: totalBankCash },
+    { side: 'ASSETS', group: 'Aset Lancar - Piutang', item: 'Piutang Peserta', amount: piutang },
+    { side: 'ASSETS', group: 'Aset Tetap - Deposit', item: 'Deposit PNR (parked at vendor)', amount: pnrDeposits },
+    { side: 'ASSETS', group: 'TOTAL', item: 'TOTAL ASSETS', amount: totalAssets },
+    { side: 'LIABILITIES', group: 'Kewajiban Lancar', item: 'Hutang Vendor (HPP belum lunas)', amount: hutang },
+    { side: 'LIABILITIES', group: 'TOTAL', item: 'TOTAL LIABILITIES', amount: totalLiabilities },
+    { side: 'EQUITY', group: 'Net Equity', item: 'Assets − Liabilities', amount: netEquity },
+  ];
+
+  const today = new Date().toISOString().slice(0, 10);
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div>
-        <Link href="/accounting" className="text-sm text-brand-600 font-medium hover:underline">← Accounting</Link>
-        <h1 className="mt-2 text-3xl font-bold text-brand-700">Balance Sheet</h1>
-        <p className="mt-1 text-slate-600">Posisi keuangan per saat ini — Aset vs Kewajiban.</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <Link href="/accounting" className="text-sm text-brand-600 font-medium hover:underline">← Accounting</Link>
+          <h1 className="mt-2 text-3xl font-bold text-brand-700">Balance Sheet</h1>
+          <p className="mt-1 text-slate-600">Posisi keuangan per saat ini — Aset vs Kewajiban.</p>
+        </div>
+        {/* R159: Download Balance Sheet */}
+        <DownloadButtons
+          filename={`balance-sheet-${today}`}
+          title="Balance Sheet"
+          subtitle={`Per ${new Date().toLocaleDateString('id-ID')}`}
+          extraInfo={[
+            { label: 'Total Assets', value: fmtMoney(totalAssets) },
+            { label: 'Total Liabilities', value: fmtMoney(totalLiabilities) },
+            { label: 'Net Equity', value: fmtMoney(netEquity) },
+          ]}
+          columns={[
+            { key: 'side', label: 'Side' },
+            { key: 'group', label: 'Group' },
+            { key: 'item', label: 'Item' },
+            { key: 'amount', label: 'Amount', align: 'right', format: 'rupiah' },
+          ]}
+          rows={balanceSheetRows}
+          summary={[
+            { label: 'TOTAL ASSETS', value: fmtMoney(totalAssets) },
+            { label: 'TOTAL LIABILITIES', value: fmtMoney(totalLiabilities) },
+            { label: 'NET EQUITY', value: fmtMoney(netEquity) },
+          ]}
+          buttonSize="md"
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -57,7 +104,6 @@ export default async function BalanceSheetPage() {
             <h2 className="font-bold text-blue-800">Assets (Aset)</h2>
           </div>
           <div className="divide-y divide-slate-100">
-            {/* Bank breakdown */}
             <div className="p-4">
               <p className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Aset Lancar — Bank & Kas</p>
               {accounts.length === 0 ? (
@@ -76,7 +122,6 @@ export default async function BalanceSheetPage() {
               </div>
             </div>
 
-            {/* Receivables */}
             <div className="p-4">
               <p className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Aset Lancar — Piutang</p>
               <div className="flex justify-between py-1 text-sm">
@@ -86,7 +131,6 @@ export default async function BalanceSheetPage() {
               <p className="text-[11px] text-slate-400 italic mt-1">Total yang masih harus dibayar peserta.</p>
             </div>
 
-            {/* PNR deposits */}
             <div className="p-4">
               <p className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Aset Tetap — Deposit</p>
               <div className="flex justify-between py-1 text-sm">
@@ -96,7 +140,6 @@ export default async function BalanceSheetPage() {
               <p className="text-[11px] text-slate-400 italic mt-1">Total DP + pelunasan ke vendor maskapai.</p>
             </div>
 
-            {/* Total Assets */}
             <div className="p-4 bg-blue-50">
               <div className="flex justify-between text-lg font-bold">
                 <span className="text-blue-800">TOTAL ASSETS</span>
