@@ -1,9 +1,11 @@
-// PNR Inventory list — flight_inventory rows
+// Round 157 HOTFIX: PNR Inventory list + DOWNLOAD BUTTONS
+// Path: app/(app)/finance/pnr/page.jsx
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { fmtRupiah } from '@/lib/utils/format';
+import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import PnrRow from '@/components/finance/PnrRow';
+import DownloadButtons from '@/components/common/DownloadButtons';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,10 +27,35 @@ export default async function PnrListPage() {
     );
   }
 
+  // Fetch trips untuk join nama trip
+  const { data: trips } = await supabase.from('trips').select('id, kode_trip, name');
+  const tripMap = Object.fromEntries((trips || []).map((t) => [t.id, t]));
+
   const totalDeposit = (pnrs || []).reduce((s, p) => s + (p.deposit_total || 0), 0);
   const totalPayoff = (pnrs || []).reduce((s, p) => s + (p.payoff_amount || 0), 0);
   const unlinked = (pnrs || []).filter((p) => !p.trip_id).length;
   const linked = (pnrs || []).filter((p) => p.trip_id).length;
+
+  // R156: prep rows untuk download
+  const fmtMoney = (v) => `Rp ${Number(v || 0).toLocaleString('id-ID')}`;
+  const downloadRows = (pnrs || []).map((p) => {
+    const trip = tripMap[p.trip_id];
+    return {
+      pnr: p.pnr || `#${p.id}`,
+      vendor: p.vendor || '-',
+      airline: p.airline || '-',
+      route: p.route || '-',
+      departure_date: p.departure_date || '-',
+      trip: trip ? `${trip.kode_trip || ''} ${trip.name}`.trim() : '(unlinked)',
+      pax_count: p.pax_count || 0,
+      deposit: p.deposit_total || 0,
+      payoff: p.payoff_amount || 0,
+      total_paid: (p.deposit_total || 0) + (p.payoff_amount || 0),
+      deposit_due: p.deposit_due || '-',
+      payoff_due: p.payoff_due || '-',
+      status: p.status || '-',
+    };
+  });
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -38,12 +65,47 @@ export default async function PnrListPage() {
           <h1 className="mt-2 text-3xl font-bold text-brand-700">PNR Inventory</h1>
           <p className="mt-1 text-slate-600">Deposit maskapai, harga tiket, vendor, deadline pelunasan.</p>
         </div>
-        <Link
-          href="/finance/pnr/new"
-          className="px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-card transition-colors flex items-center gap-2"
-        >
-          <span>+</span> Tambah PNR
-        </Link>
+        <div className="flex flex-col items-end gap-2">
+          {/* R156: Download PNR Inventory */}
+          <DownloadButtons
+            filename={`pnr-inventory-${new Date().toISOString().slice(0,10)}`}
+            title="PNR Inventory — Flight Bookings"
+            subtitle={`${(pnrs || []).length} PNR · ${linked} linked · ${unlinked} unlinked`}
+            extraInfo={[
+              { label: 'Total Deposit', value: fmtMoney(totalDeposit) },
+              { label: 'Total Pelunasan', value: fmtMoney(totalPayoff) },
+              { label: 'Total Paid', value: fmtMoney(totalDeposit + totalPayoff) },
+            ]}
+            columns={[
+              { key: 'pnr', label: 'PNR' },
+              { key: 'vendor', label: 'Vendor' },
+              { key: 'airline', label: 'Airline' },
+              { key: 'route', label: 'Route' },
+              { key: 'departure_date', label: 'Departure' },
+              { key: 'trip', label: 'Linked Trip' },
+              { key: 'pax_count', label: 'Pax', align: 'right' },
+              { key: 'deposit', label: 'Deposit', align: 'right', format: 'rupiah' },
+              { key: 'payoff', label: 'Payoff', align: 'right', format: 'rupiah' },
+              { key: 'total_paid', label: 'Total Paid', align: 'right', format: 'rupiah' },
+              { key: 'deposit_due', label: 'Due Deposit' },
+              { key: 'payoff_due', label: 'Due Payoff' },
+              { key: 'status', label: 'Status' },
+            ]}
+            rows={downloadRows}
+            summary={[
+              { label: 'TOTAL DEPOSIT', value: fmtMoney(totalDeposit) },
+              { label: 'TOTAL PAYOFF', value: fmtMoney(totalPayoff) },
+              { label: 'GRAND TOTAL PAID', value: fmtMoney(totalDeposit + totalPayoff) },
+            ]}
+            buttonSize="md"
+          />
+          <Link
+            href="/finance/pnr/new"
+            className="px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-card transition-colors flex items-center gap-2"
+          >
+            <span>+</span> Tambah PNR
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
