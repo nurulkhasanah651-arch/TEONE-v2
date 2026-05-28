@@ -1,4 +1,4 @@
-// Round 155: Accounting per group + DOWNLOAD BUTTONS (PDF/Excel/CSV)
+// Round 157 HOTFIX: Accounting per group + DOWNLOAD BUTTONS (PDF/Excel/CSV)
 // (Sudah include R124 admin fee + R126 active/inactive filter)
 // Path: app/(app)/accounting/groups/[tripId]/page.jsx
 
@@ -193,9 +193,9 @@ export default async function GroupCashflowDetailPage({ params }) {
           ]}
           columns={[
             { key: 'metric', label: 'Metrik' },
-            { key: 'proyeksi', label: 'Proyeksi', align: 'right', format: fmtMoney },
-            { key: 'real', label: 'Real', align: 'right', format: fmtMoney },
-            { key: 'selisih', label: 'Selisih', align: 'right', format: fmtMoney },
+            { key: 'proyeksi', label: 'Proyeksi', align: 'right', format: 'rupiah' },
+            { key: 'real', label: 'Real', align: 'right', format: 'rupiah' },
+            { key: 'selisih', label: 'Selisih', align: 'right', format: 'rupiah' },
           ]}
           rows={proyVsRealRows}
           buttonSize="md"
@@ -226,9 +226,9 @@ export default async function GroupCashflowDetailPage({ params }) {
                 columns={[
                   { key: 'passenger', label: 'Peserta' },
                   { key: 'reason', label: 'Alasan' },
-                  { key: 'total_paid', label: 'Total Bayar', align: 'right', format: fmtMoney },
-                  { key: 'refund_amount', label: 'Refund', align: 'right', format: fmtMoney },
-                  { key: 'admin_fee', label: 'Admin Fee (Hangus)', align: 'right', format: fmtMoney },
+                  { key: 'total_paid', label: 'Total Bayar', align: 'right', format: 'rupiah' },
+                  { key: 'refund_amount', label: 'Refund', align: 'right', format: 'rupiah' },
+                  { key: 'admin_fee', label: 'Admin Fee (Hangus)', align: 'right', format: 'rupiah' },
                 ]}
                 rows={refundDetailRows}
                 summary={[
@@ -315,7 +315,7 @@ export default async function GroupCashflowDetailPage({ params }) {
                 { key: 'type', label: 'Tipe' },
                 { key: 'name', label: 'Dari / Keterangan' },
                 { key: 'note', label: 'Note' },
-                { key: 'amount', label: 'Nominal', align: 'right', format: fmtMoney },
+                { key: 'amount', label: 'Nominal', align: 'right', format: 'rupiah' },
               ]}
               rows={cashInRows}
               summary={[{ label: 'TOTAL CASH IN', value: fmtMoney(totalRealIn) }]}
@@ -385,7 +385,7 @@ export default async function GroupCashflowDetailPage({ params }) {
                 { key: 'type', label: 'Tipe' },
                 { key: 'name', label: 'Komponen' },
                 { key: 'note', label: 'Vendor / Note' },
-                { key: 'amount', label: 'Nominal', align: 'right', format: fmtMoney },
+                { key: 'amount', label: 'Nominal', align: 'right', format: 'rupiah' },
               ]}
               rows={cashOutRows}
               summary={[{ label: 'TOTAL CASH OUT', value: fmtMoney(totalRealOut) }]}
@@ -462,9 +462,9 @@ export default async function GroupCashflowDetailPage({ params }) {
             title={`Proyeksi vs Real — ${trip.name}`}
             columns={[
               { key: 'metric', label: 'Metrik' },
-              { key: 'proyeksi', label: 'Proyeksi', align: 'right', format: fmtMoney },
-              { key: 'real', label: 'Real', align: 'right', format: fmtMoney },
-              { key: 'selisih', label: 'Selisih', align: 'right', format: fmtMoney },
+              { key: 'proyeksi', label: 'Proyeksi', align: 'right', format: 'rupiah' },
+              { key: 'real', label: 'Real', align: 'right', format: 'rupiah' },
+              { key: 'selisih', label: 'Selisih', align: 'right', format: 'rupiah' },
             ]}
             rows={proyVsRealRows}
           />
