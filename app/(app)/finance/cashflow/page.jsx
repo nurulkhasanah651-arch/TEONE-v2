@@ -1,10 +1,12 @@
-// Cashflow LIST page — Round 126: Income include payment dari peserta refunded juga
-// Hanya exclude payment yg is_transferred=true (sudah pindah ke trip lain)
+// Round 157 HOTFIX: Cashflow LIST page (Proyeksi Income per Group) + DOWNLOAD BUTTONS
+// (sudah include R126 — include payment refunded peserta)
+// Path: app/(app)/finance/cashflow/page.jsx
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import { statusCfg } from '@/lib/utils/trip-status';
+import DownloadButtons from '@/components/common/DownloadButtons';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +23,6 @@ export default async function CashflowListPage() {
   const items = itemsRes.data || [];
   const allPassengers = passengersRes.data || [];
 
-  // ROUND 126: Map ALL passengers per trip (untuk hitung auto income TOTAL, include refunded)
   const allPaxByTrip = {};
   const activePaxByTrip = {};
   for (const p of allPassengers) {
@@ -36,7 +37,6 @@ export default async function CashflowListPage() {
     }
   }
 
-  // Fetch all payments yg is_transferred=false, group per trip
   const allPaxIds = Object.values(allPaxByTrip).flat();
   const autoIncomeByTrip = {};
   if (allPaxIds.length > 0) {
@@ -47,7 +47,6 @@ export default async function CashflowListPage() {
         .in('passenger_id', allPaxIds);
       const validPays = (pays || []).filter((p) => p.is_transferred !== true);
 
-      // Map passenger_id → trip_id
       const paxToTrip = {};
       for (const tid in allPaxByTrip) {
         for (const pid of allPaxByTrip[tid]) {
@@ -99,12 +98,63 @@ export default async function CashflowListPage() {
     profit: acc.profit + t.profit,
   }), { income: 0, autoIncome: 0, manualIncome: 0, hpp: 0, profit: 0 });
 
+  // R156: prep rows untuk download
+  const fmtMoney = (v) => `Rp ${Number(v || 0).toLocaleString('id-ID')}`;
+  const downloadRows = sorted.map((t) => ({
+    kode: t.kode_trip || `#${t.id}`,
+    name: t.name,
+    status: t.status,
+    departure: t.departure || '-',
+    pax_active: t.paxActive,
+    pax_total: t.paxTotal,
+    auto_income: t.autoIncome,
+    manual_income: t.manualIncome,
+    total_income: t.income,
+    hpp: t.hpp,
+    profit: t.profit,
+    margin: t.income > 0 ? `${Math.round((t.profit / t.income) * 100)}%` : '-',
+  }));
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <div>
-        <Link href="/finance" className="text-sm text-brand-600 font-medium hover:underline">← Finance</Link>
-        <h1 className="mt-2 text-3xl font-bold text-brand-700">Proyeksi Income per Group</h1>
-        <p className="mt-1 text-slate-600">Auto Cash In (semua payment is_transferred=false) + Manual Income + HPP.</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <Link href="/finance" className="text-sm text-brand-600 font-medium hover:underline">← Finance</Link>
+          <h1 className="mt-2 text-3xl font-bold text-brand-700">Proyeksi Income per Group</h1>
+          <p className="mt-1 text-slate-600">Auto Cash In (semua payment is_transferred=false) + Manual Income + HPP.</p>
+        </div>
+        {/* R156: Download Proyeksi Income SEMUA TRIP */}
+        <DownloadButtons
+          filename={`proyeksi-income-semua-trip-${new Date().toISOString().slice(0,10)}`}
+          title="Proyeksi Income per Group — Semua Trip"
+          subtitle={`${sorted.length} trip · Generated ${new Date().toLocaleDateString('id-ID')}`}
+          extraInfo={[
+            { label: 'Total Income (semua trip)', value: fmtMoney(grand.income) },
+            { label: 'Total HPP (semua trip)', value: fmtMoney(grand.hpp) },
+            { label: 'Total Profit', value: fmtMoney(grand.profit) },
+          ]}
+          columns={[
+            { key: 'kode', label: 'Kode Trip' },
+            { key: 'name', label: 'Trip' },
+            { key: 'status', label: 'Status' },
+            { key: 'departure', label: 'Departure' },
+            { key: 'pax_active', label: 'Pax Active', align: 'right' },
+            { key: 'pax_total', label: 'Pax Total', align: 'right' },
+            { key: 'auto_income', label: 'Auto Income', align: 'right', format: 'rupiah' },
+            { key: 'manual_income', label: 'Manual Income', align: 'right', format: 'rupiah' },
+            { key: 'total_income', label: 'Total Income', align: 'right', format: 'rupiah' },
+            { key: 'hpp', label: 'HPP', align: 'right', format: 'rupiah' },
+            { key: 'profit', label: 'Profit', align: 'right', format: 'rupiah' },
+            { key: 'margin', label: 'Margin', align: 'right' },
+          ]}
+          rows={downloadRows}
+          summary={[
+            { label: 'GRAND TOTAL INCOME', value: fmtMoney(grand.income) },
+            { label: 'GRAND TOTAL HPP', value: fmtMoney(grand.hpp) },
+            { label: 'GRAND TOTAL PROFIT', value: fmtMoney(grand.profit) },
+          ]}
+          buttonSize="md"
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
