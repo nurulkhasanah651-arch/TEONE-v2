@@ -1,9 +1,11 @@
-// Monthly financial reports — Income Statement (P&L), Cash Flow, Per-Account Activity
+// Round 159: Laporan Bulanan + DOWNLOAD (Income Statement, Cash Flow, Per-Account)
+// Path: app/(app)/accounting/reports/page.jsx
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah } from '@/lib/utils/format';
 import { buildMonthlyReport } from '@/lib/utils/monthly-report';
+import DownloadButtons from '@/components/common/DownloadButtons';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,7 +44,6 @@ export default async function MonthlyReportsPage({ searchParams }) {
   const report = buildMonthlyReport({ month, payments, hppLunas, accEntries, accounts });
   const prevReport = buildMonthlyReport({ month: prevMonth, payments, hppLunas, accEntries, accounts });
 
-  // 6-month chart data
   const chartData = [];
   for (let i = 5; i >= 0; i--) {
     const m = shiftMonth(currentMonth, -i);
@@ -50,6 +51,50 @@ export default async function MonthlyReportsPage({ searchParams }) {
     chartData.push({ month: m, label: fmtMonth(m), revenue: r.totalRevenue, profit: r.netProfit });
   }
   const chartMax = Math.max(...chartData.map((c) => Math.max(c.revenue, Math.abs(c.profit))), 1);
+
+  // R159: prep rows untuk download
+  const incomeStatementRows = [
+    { kategori: 'REVENUE', item: 'Pendapatan Trip (Payment Peserta)', amount: report.tripRevenue, note: '' },
+    { kategori: 'REVENUE', item: 'Pendapatan Lain (Komisi, Bunga, dll)', amount: report.otherIncome, note: '' },
+    { kategori: 'REVENUE', item: 'TOTAL REVENUE', amount: report.totalRevenue, note: 'Subtotal' },
+    ...Object.entries(report.cogsByCategory).map(([cat, amt]) => ({
+      kategori: 'COGS', item: cat, amount: amt, note: '',
+    })),
+    { kategori: 'COGS', item: 'TOTAL COGS', amount: report.cogs, note: 'Subtotal' },
+    { kategori: 'PROFIT', item: 'GROSS PROFIT', amount: report.grossProfit, note: `${report.grossMargin.toFixed(1)}% margin` },
+    ...Object.entries(report.opexByCategory).map(([cat, amt]) => ({
+      kategori: 'OPEX', item: cat, amount: amt, note: '',
+    })),
+    { kategori: 'OPEX', item: 'TOTAL OPEX', amount: report.opex, note: 'Subtotal' },
+    { kategori: 'PROFIT', item: 'OPERATING PROFIT', amount: report.operatingProfit, note: `${report.operatingMargin.toFixed(1)}% margin` },
+    { kategori: 'NON-OP', item: 'Pinjaman / Investasi Masuk', amount: report.financingIn, note: '' },
+    { kategori: 'NON-OP', item: 'Pengeluaran Lain', amount: -report.otherOut, note: '' },
+    { kategori: 'NET', item: 'NET PROFIT', amount: report.netProfit, note: `${report.netMargin.toFixed(1)}% net margin` },
+  ];
+
+  const cashFlowRows = [
+    { tipe: 'CASH IN', item: 'Payment Peserta', amount: report.tripRevenue },
+    { tipe: 'CASH IN', item: 'Other Income (Komisi, dll)', amount: report.otherIncome },
+    { tipe: 'CASH IN', item: 'Financing (Pinjaman/Investasi)', amount: report.financingIn },
+    { tipe: 'CASH IN', item: 'TOTAL CASH IN', amount: report.totalCashIn },
+    { tipe: 'CASH OUT', item: 'HPP (Vendor lunas)', amount: report.cogs },
+    { tipe: 'CASH OUT', item: 'OPEX (Gaji, Sewa, dll)', amount: report.opex },
+    { tipe: 'CASH OUT', item: 'Other Outflows', amount: report.otherOut },
+    { tipe: 'CASH OUT', item: 'TOTAL CASH OUT', amount: report.totalCashOut },
+    { tipe: 'NET', item: 'NET CASH FLOW', amount: report.netCashFlow },
+  ];
+
+  const accountActivityRows = accounts.map((a) => {
+    const f = report.accountFlow[a.id] || { in: 0, out: 0, net: 0, count: 0 };
+    return {
+      account: a.name,
+      type: a.type || '-',
+      cash_in: f.in || 0,
+      cash_out: f.out || 0,
+      net: f.net || 0,
+      txn_count: f.count || 0,
+    };
+  });
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -59,27 +104,63 @@ export default async function MonthlyReportsPage({ searchParams }) {
           <h1 className="mt-2 text-3xl font-bold text-brand-700">Laporan Keuangan Bulanan</h1>
           <p className="mt-1 text-slate-600">Income Statement, Cash Flow, Per-Account Activity untuk <strong>{fmtMonth(month)}</strong></p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link href={`/accounting/reports?month=${shiftMonth(month, -1)}`} className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg">← Sebelumnya</Link>
-          <span className="px-4 py-2 bg-brand-500 text-white text-sm font-bold rounded-lg">{fmtMonth(month)}</span>
-          <Link href={`/accounting/reports?month=${shiftMonth(month, 1)}`} className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg">Berikutnya →</Link>
-          {month !== currentMonth && (
-            <Link href={`/accounting/reports`} className="px-3 py-2 bg-brand-50 hover:bg-brand-100 text-brand-700 text-sm font-semibold rounded-lg">Hari Ini</Link>
-          )}
+        <div className="flex flex-col items-end gap-2">
+          {/* R159: DOWNLOAD LAPORAN BULANAN LENGKAP */}
+          <DownloadButtons
+            filename={`laporan-bulanan-${month}`}
+            title={`Laporan Keuangan Bulanan — ${fmtMonth(month)}`}
+            subtitle="Income Statement (Laba Rugi)"
+            extraInfo={[
+              { label: 'Periode', value: fmtMonth(month) },
+              { label: 'Total Revenue', value: `Rp ${report.totalRevenue.toLocaleString('id-ID')}` },
+              { label: 'Total COGS', value: `Rp ${report.cogs.toLocaleString('id-ID')}` },
+              { label: 'Gross Profit', value: `Rp ${report.grossProfit.toLocaleString('id-ID')} (${report.grossMargin.toFixed(1)}%)` },
+              { label: 'Total OPEX', value: `Rp ${report.opex.toLocaleString('id-ID')}` },
+              { label: 'Net Profit', value: `Rp ${report.netProfit.toLocaleString('id-ID')} (${report.netMargin.toFixed(1)}%)` },
+            ]}
+            columns={[
+              { key: 'kategori', label: 'Kategori' },
+              { key: 'item', label: 'Item' },
+              { key: 'amount', label: 'Amount', align: 'right', format: 'rupiah' },
+              { key: 'note', label: 'Note' },
+            ]}
+            rows={incomeStatementRows}
+            buttonSize="md"
+          />
+          <div className="flex items-center gap-2">
+            <Link href={`/accounting/reports?month=${shiftMonth(month, -1)}`} className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg">← Sebelumnya</Link>
+            <span className="px-4 py-2 bg-brand-500 text-white text-sm font-bold rounded-lg">{fmtMonth(month)}</span>
+            <Link href={`/accounting/reports?month=${shiftMonth(month, 1)}`} className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg">Berikutnya →</Link>
+            {month !== currentMonth && (
+              <Link href={`/accounting/reports`} className="px-3 py-2 bg-brand-50 hover:bg-brand-100 text-brand-700 text-sm font-semibold rounded-lg">Hari Ini</Link>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Top Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Revenue" value={fmtRupiah(report.totalRevenue)} prev={prevReport.totalRevenue} color="text-green-700" bg="bg-green-50" />
-        <StatCard label="COGS (HPP)" value={fmtRupiah(report.cogs)} prev={prevReport.cogs} color="text-amber-700" bg="bg-amber-50" inverted />
-        <StatCard label="Gross Profit" value={fmtRupiah(report.grossProfit)} prev={prevReport.grossProfit} color="text-blue-700" bg="bg-blue-50" subtext={`${report.grossMargin.toFixed(1)}% margin`} />
-        <StatCard label="Net Profit" value={fmtRupiah(report.netProfit)} prev={prevReport.netProfit} color={report.netProfit >= 0 ? 'text-purple-700' : 'text-red-700'} bg={report.netProfit >= 0 ? 'bg-purple-50' : 'bg-red-50'} subtext={`${report.netMargin.toFixed(1)}% margin`} />
+        <StatCard label="Revenue" value={fmtRupiah(report.totalRevenue)} prev={prevReport.totalRevenue} color="text-green-700" bg="bg-green-50" rawValue={report.totalRevenue} />
+        <StatCard label="COGS (HPP)" value={fmtRupiah(report.cogs)} prev={prevReport.cogs} color="text-amber-700" bg="bg-amber-50" inverted rawValue={report.cogs} />
+        <StatCard label="Gross Profit" value={fmtRupiah(report.grossProfit)} prev={prevReport.grossProfit} color="text-blue-700" bg="bg-blue-50" subtext={`${report.grossMargin.toFixed(1)}% margin`} rawValue={report.grossProfit} />
+        <StatCard label="Net Profit" value={fmtRupiah(report.netProfit)} prev={prevReport.netProfit} color={report.netProfit >= 0 ? 'text-purple-700' : 'text-red-700'} bg={report.netProfit >= 0 ? 'bg-purple-50' : 'bg-red-50'} subtext={`${report.netMargin.toFixed(1)}% margin`} rawValue={report.netProfit} />
       </div>
 
       {/* 6-month trend */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
-        <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">Trend 6 Bulan Terakhir</h3>
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider">Trend 6 Bulan Terakhir</h3>
+          <DownloadButtons
+            filename={`trend-6-bulan-${currentMonth}`}
+            title="Trend 6 Bulan Terakhir"
+            columns={[
+              { key: 'label', label: 'Bulan' },
+              { key: 'revenue', label: 'Revenue', align: 'right', format: 'rupiah' },
+              { key: 'profit', label: 'Profit', align: 'right', format: 'rupiah' },
+            ]}
+            rows={chartData}
+          />
+        </div>
         <div className="grid grid-cols-6 gap-2">
           {chartData.map((c) => {
             const revH = (c.revenue / chartMax) * 100;
@@ -97,20 +178,27 @@ export default async function MonthlyReportsPage({ searchParams }) {
             );
           })}
         </div>
-        <div className="flex items-center justify-center gap-4 mt-2 text-[11px] text-slate-500">
-          <span><span className="inline-block w-2 h-2 bg-green-400 mr-1 rounded" />Revenue</span>
-          <span><span className="inline-block w-2 h-2 bg-blue-500 mr-1 rounded" />Profit (positif)</span>
-          <span><span className="inline-block w-2 h-2 bg-red-500 mr-1 rounded" />Loss</span>
-        </div>
       </div>
 
-      {/* Income Statement & Cash Flow side-by-side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* P&L */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-200 bg-blue-50">
-            <h2 className="font-bold text-blue-800">📊 Income Statement (Laba Rugi)</h2>
-            <p className="text-xs text-blue-600">{fmtMonth(month)}</p>
+          <div className="px-5 py-3 border-b border-slate-200 bg-blue-50 flex items-center justify-between">
+            <div>
+              <h2 className="font-bold text-blue-800">📊 Income Statement (Laba Rugi)</h2>
+              <p className="text-xs text-blue-600">{fmtMonth(month)}</p>
+            </div>
+            <DownloadButtons
+              filename={`income-statement-${month}`}
+              title={`Income Statement — ${fmtMonth(month)}`}
+              columns={[
+                { key: 'kategori', label: 'Kategori' },
+                { key: 'item', label: 'Item' },
+                { key: 'amount', label: 'Amount', align: 'right', format: 'rupiah' },
+                { key: 'note', label: 'Note' },
+              ]}
+              rows={incomeStatementRows}
+            />
           </div>
           <div className="p-5 space-y-3 text-sm">
             <SectionTitle>Revenue</SectionTitle>
@@ -159,9 +247,21 @@ export default async function MonthlyReportsPage({ searchParams }) {
 
         {/* Cash Flow */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-200 bg-green-50">
-            <h2 className="font-bold text-green-800">💰 Cash Flow Statement</h2>
-            <p className="text-xs text-green-600">{fmtMonth(month)}</p>
+          <div className="px-5 py-3 border-b border-slate-200 bg-green-50 flex items-center justify-between">
+            <div>
+              <h2 className="font-bold text-green-800">💰 Cash Flow Statement</h2>
+              <p className="text-xs text-green-600">{fmtMonth(month)}</p>
+            </div>
+            <DownloadButtons
+              filename={`cash-flow-${month}`}
+              title={`Cash Flow Statement — ${fmtMonth(month)}`}
+              columns={[
+                { key: 'tipe', label: 'Tipe' },
+                { key: 'item', label: 'Item' },
+                { key: 'amount', label: 'Amount', align: 'right', format: 'rupiah' },
+              ]}
+              rows={cashFlowRows}
+            />
           </div>
           <div className="p-5 space-y-3 text-sm">
             <SectionTitle>Cash IN</SectionTitle>
@@ -207,6 +307,23 @@ export default async function MonthlyReportsPage({ searchParams }) {
                 );
               })
             )}
+            {accountActivityRows.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-slate-200 flex justify-end">
+                <DownloadButtons
+                  filename={`account-activity-${month}`}
+                  title={`Aktivitas per Akun — ${fmtMonth(month)}`}
+                  columns={[
+                    { key: 'account', label: 'Akun' },
+                    { key: 'type', label: 'Tipe' },
+                    { key: 'cash_in', label: 'Cash In', align: 'right', format: 'rupiah' },
+                    { key: 'cash_out', label: 'Cash Out', align: 'right', format: 'rupiah' },
+                    { key: 'net', label: 'Net', align: 'right', format: 'rupiah' },
+                    { key: 'txn_count', label: 'Transaksi', align: 'right' },
+                  ]}
+                  rows={accountActivityRows}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -251,20 +368,17 @@ function SubTotal({ label, value, color }) {
   );
 }
 
-function StatCard({ label, value, prev, color, bg, subtext, inverted }) {
-  const change = prev != null ? value : null;
-  const numValue = typeof value === 'string' ? 0 : value;
-  // Compute change %
+function StatCard({ label, value, prev, color, bg, subtext, inverted, rawValue }) {
   let pct = null;
   if (typeof prev === 'number' && prev !== 0) {
-    pct = ((numValue - prev) / Math.abs(prev)) * 100;
+    pct = ((rawValue - prev) / Math.abs(prev)) * 100;
   }
   const isGood = inverted ? pct !== null && pct < 0 : pct !== null && pct > 0;
 
   return (
     <div className={`rounded-xl border border-slate-200 shadow-card p-4 ${bg}`}>
       <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">{label}</p>
-      <p className={`mt-1 text-lg font-bold ${color}`}>{typeof value === 'number' ? value.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }) : value}</p>
+      <p className={`mt-1 text-lg font-bold ${color}`}>{value}</p>
       {subtext && <p className="text-[10px] text-slate-500 mt-0.5">{subtext}</p>}
       {pct !== null && (
         <p className={`text-[10px] mt-0.5 font-semibold ${isGood ? 'text-green-600' : pct === 0 ? 'text-slate-400' : 'text-red-600'}`}>
