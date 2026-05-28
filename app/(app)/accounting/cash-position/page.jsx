@@ -1,9 +1,11 @@
-// Posisi Kas — Klasifikasi uang peserta (titipan + mengendap) vs uang perusahaan
+// Round 159: Posisi Kas + DOWNLOAD (uang peserta vs perusahaan, per trip breakdown)
+// Path: app/(app)/accounting/cash-position/page.jsx
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah } from '@/lib/utils/format';
 import { aggregateAccountBalances, computeTripCashBreakdown } from '@/lib/utils/accounting-aggregator';
+import DownloadButtons from '@/components/common/DownloadButtons';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,22 +35,75 @@ export default async function CashPositionPage() {
   });
 
   const t = breakdown.totals;
-  // Total "uang peserta" yang ada di kas = titipan_locked + cicilan_mengendap
   const uangPesertaInBank = t.titipan_locked + t.cicilan_mengendap;
-  // Uang perusahaan = Bank - uang peserta in bank
   const uangPerusahaan = totalBank - uangPesertaInBank;
 
-  // Filter trips that have activity
   const activeTrips = breakdown.perTrip.filter((p) => p.cicilanIn > 0 || p.hppTotal > 0).sort((a, b) =>
     (b.trip.departure || '').localeCompare(a.trip.departure || '')
   );
 
+  // R159: prep summary rows untuk download
+  const summaryRows = [
+    { kategori: 'Bank/Kas', item: 'Total Saldo Bank/Kas', amount: totalBank },
+    { kategori: 'Uang Peserta', item: 'Titipan Earmark Vendor', amount: t.titipan_locked },
+    { kategori: 'Uang Peserta', item: 'Cicilan Mengendap (HPP belum di-set)', amount: t.cicilan_mengendap },
+    { kategori: 'Uang Peserta', item: 'TOTAL Uang Peserta', amount: uangPesertaInBank },
+    { kategori: 'Uang Perusahaan', item: 'Margin Locked (sudah pasti)', amount: t.margin_locked },
+    { kategori: 'Uang Perusahaan', item: 'Capital/Lainnya', amount: uangPerusahaan - t.margin_locked },
+    { kategori: 'Uang Perusahaan', item: 'TOTAL Uang Perusahaan', amount: uangPerusahaan },
+    { kategori: 'Hutang', item: 'Hutang Vendor (HPP belum lunas)', amount: t.hppOwed },
+  ];
+
+  // R159: prep per-trip rows untuk download
+  const perTripRows = activeTrips.map((p) => ({
+    kode: p.trip.kode_trip || `#${p.trip.id}`,
+    name: p.trip.name,
+    departure: p.trip.departure || '-',
+    status: p.trip.status || '-',
+    cicilan_in: p.cicilanIn,
+    hpp_paid: p.hppPaid,
+    hpp_owed: p.hppOwed,
+    titipan: p.titipan_locked,
+    mengendap: p.cicilan_mengendap,
+    margin_locked: p.margin_locked,
+    projection_set: p.hasProjection ? 'YA' : 'BELUM',
+  }));
+
+  const fmtMoney = (v) => `Rp ${Number(v || 0).toLocaleString('id-ID')}`;
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div>
-        <Link href="/accounting" className="text-sm text-brand-600 font-medium hover:underline">← Accounting</Link>
-        <h1 className="mt-2 text-3xl font-bold text-brand-700">Posisi Kas — Uang Peserta vs Uang Perusahaan</h1>
-        <p className="mt-1 text-slate-600">Pisahkan mana cash yang earmark untuk vendor (titipan) vs yang sudah pasti milik perusahaan.</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <Link href="/accounting" className="text-sm text-brand-600 font-medium hover:underline">← Accounting</Link>
+          <h1 className="mt-2 text-3xl font-bold text-brand-700">Posisi Kas — Uang Peserta vs Uang Perusahaan</h1>
+          <p className="mt-1 text-slate-600">Pisahkan mana cash yang earmark untuk vendor (titipan) vs yang sudah pasti milik perusahaan.</p>
+        </div>
+        {/* R159: Download FULL POSISI KAS */}
+        <DownloadButtons
+          filename={`posisi-kas-${new Date().toISOString().slice(0, 10)}`}
+          title="Posisi Kas — Snapshot"
+          subtitle={`Per ${new Date().toLocaleDateString('id-ID')}`}
+          extraInfo={[
+            { label: 'Total Saldo Bank/Kas', value: fmtMoney(totalBank) },
+            { label: 'Uang Peserta (Titipan)', value: fmtMoney(uangPesertaInBank) },
+            { label: 'Uang Perusahaan', value: fmtMoney(uangPerusahaan) },
+            { label: 'Hutang Vendor', value: fmtMoney(t.hppOwed) },
+          ]}
+          columns={[
+            { key: 'kategori', label: 'Kategori' },
+            { key: 'item', label: 'Item' },
+            { key: 'amount', label: 'Amount', align: 'right', format: 'rupiah' },
+          ]}
+          rows={summaryRows}
+          summary={[
+            { label: 'TOTAL BANK/KAS', value: fmtMoney(totalBank) },
+            { label: 'TITIPAN PESERTA', value: fmtMoney(uangPesertaInBank) },
+            { label: 'UANG PERUSAHAAN', value: fmtMoney(uangPerusahaan) },
+            { label: 'HUTANG VENDOR', value: fmtMoney(t.hppOwed) },
+          ]}
+          buttonSize="md"
+        />
       </div>
 
       {/* MAIN BREAKDOWN — visual stacked */}
@@ -58,7 +113,6 @@ export default async function CashPositionPage() {
           <p className="text-3xl font-bold text-brand-700">{fmtRupiah(totalBank)}</p>
         </div>
 
-        {/* Stacked bar */}
         {totalBank > 0 && (
           <div className="h-8 rounded-lg overflow-hidden flex border border-slate-200 mb-2">
             {t.titipan_locked > 0 && (
@@ -94,7 +148,6 @@ export default async function CashPositionPage() {
 
       {/* 3 BIG CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {/* Uang Peserta Total */}
         <div className="rounded-xl shadow-card overflow-hidden bg-gradient-to-br from-amber-500 to-amber-700 text-white">
           <div className="p-5">
             <p className="text-xs font-bold uppercase tracking-wider opacity-80">🔒 UANG PESERTA (Titipan)</p>
@@ -106,14 +159,13 @@ export default async function CashPositionPage() {
                 <span className="font-semibold">{fmtRupiah(t.titipan_locked)}</span>
               </div>
               <div className="flex justify-between">
-                <span>⏳ Mengendap (HPP belum di-set)</span>
+                <span>⏳ Mengendap</span>
                 <span className="font-semibold">{fmtRupiah(t.cicilan_mengendap)}</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Uang Perusahaan */}
         <div className={`rounded-xl shadow-card overflow-hidden ${uangPerusahaan >= 0 ? 'bg-gradient-to-br from-green-500 to-emerald-700' : 'bg-gradient-to-br from-red-500 to-red-700'} text-white`}>
           <div className="p-5">
             <p className="text-xs font-bold uppercase tracking-wider opacity-80">💼 UANG PERUSAHAAN</p>
@@ -132,35 +184,48 @@ export default async function CashPositionPage() {
           </div>
         </div>
 
-        {/* Hutang Vendor */}
         <div className="rounded-xl shadow-card overflow-hidden bg-gradient-to-br from-red-500 to-red-700 text-white">
           <div className="p-5">
             <p className="text-xs font-bold uppercase tracking-wider opacity-80">💼 HUTANG VENDOR</p>
             <p className="mt-2 text-3xl font-bold">{fmtRupiah(t.hppOwed)}</p>
-            <p className="text-xs opacity-90 mt-2">HPP yang belum dibayar (akan keluar dari bank)</p>
-            <div className="mt-3 text-xs opacity-95">
-              {t.hppOwed > t.titipan_locked && (
-                <div className="p-2 bg-red-900/30 rounded">
-                  <p>⚠ Titipan ({fmtRupiah(t.titipan_locked)}) tidak cukup untuk bayar hutang ({fmtRupiah(t.hppOwed)})</p>
-                  <p className="mt-1">Selisih {fmtRupiah(t.hppOwed - t.titipan_locked)} harus dari uang perusahaan</p>
-                </div>
-              )}
-              {t.hppOwed <= t.titipan_locked && t.hppOwed > 0 && (
-                <p>✓ Titipan cukup untuk bayar hutang vendor</p>
-              )}
-              {t.hppOwed === 0 && (
-                <p>✓ Tidak ada hutang vendor</p>
-              )}
-            </div>
+            <p className="text-xs opacity-90 mt-2">HPP yang belum dibayar</p>
           </div>
         </div>
       </div>
 
       {/* PER TRIP BREAKDOWN */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-200">
-          <h2 className="font-bold text-brand-700">📋 Detail per Trip — Uang Peserta vs Margin Locked</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Trip tanpa HPP proyeksi → cicilan = mengendap (kuning). Klik trip untuk detail.</p>
+        <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h2 className="font-bold text-brand-700">📋 Detail per Trip — Uang Peserta vs Margin Locked</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Trip tanpa HPP proyeksi → cicilan = mengendap.</p>
+          </div>
+          {/* R159: Download per trip breakdown */}
+          <DownloadButtons
+            filename={`posisi-kas-per-trip-${new Date().toISOString().slice(0, 10)}`}
+            title="Posisi Kas — Detail per Trip"
+            subtitle={`${activeTrips.length} trip dengan activity`}
+            columns={[
+              { key: 'kode', label: 'Kode Trip' },
+              { key: 'name', label: 'Nama Trip' },
+              { key: 'departure', label: 'Departure', format: 'date' },
+              { key: 'status', label: 'Status' },
+              { key: 'cicilan_in', label: 'Cicilan Masuk', align: 'right', format: 'rupiah' },
+              { key: 'hpp_paid', label: 'HPP Lunas', align: 'right', format: 'rupiah' },
+              { key: 'hpp_owed', label: 'HPP Hutang', align: 'right', format: 'rupiah' },
+              { key: 'titipan', label: 'Titipan', align: 'right', format: 'rupiah' },
+              { key: 'mengendap', label: 'Mengendap', align: 'right', format: 'rupiah' },
+              { key: 'margin_locked', label: 'Margin Locked', align: 'right', format: 'rupiah' },
+              { key: 'projection_set', label: 'HPP Set?' },
+            ]}
+            rows={perTripRows}
+            summary={[
+              { label: 'TOTAL CICILAN', value: fmtMoney(t.cicilanIn) },
+              { label: 'TOTAL TITIPAN', value: fmtMoney(t.titipan_locked) },
+              { label: 'TOTAL MENGENDAP', value: fmtMoney(t.cicilan_mengendap) },
+              { label: 'TOTAL MARGIN LOCKED', value: fmtMoney(t.margin_locked) },
+            ]}
+          />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -186,7 +251,7 @@ export default async function CashPositionPage() {
                     </Link>
                     <p className="text-xs text-slate-500">{p.trip.name}</p>
                     {!p.hasProjection && p.cicilanIn > 0 && (
-                      <p className="text-[10px] text-yellow-700 font-semibold mt-0.5">⚠ HPP proyeksi belum di-set di Finance</p>
+                      <p className="text-[10px] text-yellow-700 font-semibold mt-0.5">⚠ HPP proyeksi belum di-set</p>
                     )}
                   </td>
                   <td className="px-3 py-2.5 text-right font-semibold text-green-700">{fmtRupiah(p.cicilanIn)}</td>
@@ -210,20 +275,6 @@ export default async function CashPositionPage() {
               </tr>
             </tfoot>
           </table>
-        </div>
-      </div>
-
-      {/* Explanation */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
-        <h3 className="font-bold text-blue-800 mb-2">💡 Cara Baca</h3>
-        <div className="text-sm text-blue-900 space-y-2">
-          <p><strong>Per trip:</strong></p>
-          <ul className="list-disc pl-5 space-y-1">
-            <li><strong>🔒 Titipan</strong>: Cicilan peserta yang sudah pasti akan dibayar ke vendor (HPP proyeksi belum lunas)</li>
-            <li><strong>⏳ Mengendap</strong>: Cicilan peserta yang BELUM bisa dialokasi karena HPP proyeksi belum di-set di Finance — uang masih "menggantung", BUKAN milik perusahaan, BUKAN titipan vendor (belum tau jadinya berapa)</li>
-            <li><strong>💼 Margin Locked</strong>: Cicilan peserta yang LEBIH dari HPP proyeksi — sudah pasti jadi profit perusahaan</li>
-          </ul>
-          <p className="mt-2"><strong>Cara nge-set HPP proyeksi:</strong> Buka <Link href="/finance/cashflow" className="text-brand-600 hover:underline font-semibold">Finance → Proyeksi Income per Group</Link>, klik trip, tambah item HPP. Begitu HPP di-set, "mengendap" akan otomatis jadi "titipan" atau "margin locked".</p>
         </div>
       </div>
     </div>
