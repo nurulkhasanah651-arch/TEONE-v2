@@ -1,10 +1,13 @@
-// Real Cashflow detail per trip — Round 124: filter transferred/refunded + admin fee refund visible
+// Round 155: Accounting per group + DOWNLOAD BUTTONS (PDF/Excel/CSV)
+// (Sudah include R124 admin fee + R126 active/inactive filter)
+// Path: app/(app)/accounting/groups/[tripId]/page.jsx
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import { statusCfg } from '@/lib/utils/trip-status';
+import DownloadButtons from '@/components/common/DownloadButtons';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +24,6 @@ export default async function GroupCashflowDetailPage({ params }) {
     supabase.from('flight_inventory').select('*').eq('trip_id', tripId),
     supabase.from('customers').select('id, name'),
     supabase.from('accounting_entries').select('*').eq('trip_id', tripId).order('date', { ascending: false }),
-    // ROUND 124: Fetch refunds approved untuk admin fee tracking
     supabase.from('refunds').select('*').eq('trip_id', tripId).eq('status', 'approved'),
   ]);
 
@@ -29,7 +31,6 @@ export default async function GroupCashflowDetailPage({ params }) {
   const customers = custRes.data || [];
   const custMap = Object.fromEntries(customers.map((c) => [c.id, c]));
 
-  // ROUND 124: Pisahkan active vs inactive (transferred/refunded)
   const activePassengers = allPassengers.filter((p) => {
     const isTransferred = p.transfer_status === 'transferred';
     const isRefunded = p.refund_status === 'refunded' || p.refund_status === 'partial_refund';
@@ -42,8 +43,6 @@ export default async function GroupCashflowDetailPage({ params }) {
   });
 
   const activePassengerIds = activePassengers.map((p) => p.id);
-
-  // Fetch payments untuk SEMUA peserta (untuk track history), tapi filter is_transferred
   const allPaxIds = allPassengers.map((p) => p.id);
   let payments = [];
   if (allPaxIds.length > 0) {
@@ -57,7 +56,6 @@ export default async function GroupCashflowDetailPage({ params }) {
     }
   }
 
-  // Cash in HANYA dari peserta active (yang udah transferred/refunded payment-nya sudah di-track terpisah)
   const paymentsActive = payments.filter((p) => activePassengerIds.includes(p.passenger_id));
   const paymentsInactive = payments.filter((p) => !activePassengerIds.includes(p.passenger_id));
 
@@ -69,15 +67,9 @@ export default async function GroupCashflowDetailPage({ params }) {
   // === CASH IN ===
   const totalPaymentsIn = paymentsActive.reduce((s, p) => s + (p.amount || 0), 0);
   const totalPaymentsInactive = paymentsInactive.reduce((s, p) => s + (p.amount || 0), 0);
-
-  // ROUND 124: Admin fee refund — dana hangus jadi cash in retained
   const totalRefundAdminFee = refunds.reduce((s, r) => s + Number(r.admin_fee || 0), 0);
   const totalRefundAmount = refunds.reduce((s, r) => s + Number(r.refund_amount || 0), 0);
-
   const manualIn = accEntries.filter((e) => e.type === 'in').reduce((s, e) => s + (e.amount || 0), 0);
-
-  // Cash in total = active payments + inactive payments (lama, sebelum refund) + manual
-  // (inactive payments sudah masuk dulu, tinggal kurang refund-nya nanti)
   const totalRealIn = totalPaymentsIn + totalPaymentsInactive + manualIn;
 
   // === CASH OUT ===
@@ -86,11 +78,9 @@ export default async function GroupCashflowDetailPage({ params }) {
   const hppRefundLunas = hppLunas.filter((i) => i.category === 'Refund');
   const totalHppRefundLunas = hppRefundLunas.reduce((s, i) => s + (i.total_amount || 0), 0);
   const totalHppOther = totalHppLunas - totalHppRefundLunas;
-
   const totalPnrPaid = pnrs.reduce((s, p) => s + (p.deposit_total || 0) + (p.payoff_amount || 0), 0);
   const manualOut = accEntries.filter((e) => e.type === 'out').reduce((s, e) => s + (e.amount || 0), 0);
   const totalRealOut = totalHppLunas + totalPnrPaid + manualOut;
-
   const realProfit = totalRealIn - totalRealOut;
 
   // === PROYEKSI ===
@@ -98,8 +88,8 @@ export default async function GroupCashflowDetailPage({ params }) {
   const proyHpp = finItems.filter((i) => i.item_type === 'hpp').reduce((s, i) => s + (i.total_amount || 0), 0);
   const proyProfit = proyIncome - proyHpp;
   const hppOwed = proyHpp - totalHppLunas;
-
   const netCash = totalRealIn - totalRealOut;
+
   let titipan = 0, marginLocked = 0, cicilanMengendap = 0;
   const hasProjection = proyHpp > 0;
   if (netCash > 0) {
@@ -119,22 +109,97 @@ export default async function GroupCashflowDetailPage({ params }) {
     paymentsByPassenger[p.passenger_id].push(p);
   }
 
+  // R155: prep data untuk download
+  const cashInRows = [
+    ...activePassengers.map((p) => {
+      const c = custMap[p.customer_id] || {};
+      const pays = paymentsByPassenger[p.id] || [];
+      const total = pays.reduce((s, x) => s + (x.amount || 0), 0);
+      return { type: 'Payment Aktif', name: c.name || `#${p.id}`, note: '', amount: total };
+    }).filter((r) => r.amount > 0),
+    ...inactivePassengers.map((p) => {
+      const c = custMap[p.customer_id] || {};
+      const pays = paymentsByPassenger[p.id] || [];
+      const total = pays.reduce((s, x) => s + (x.amount || 0), 0);
+      const label = p.transfer_status === 'transferred' ? 'Pindah'
+        : p.refund_status === 'refunded' ? 'Refund'
+        : p.refund_status === 'partial_refund' ? 'Partial Refund' : '';
+      return { type: 'Payment Transferred/Refunded', name: c.name || `#${p.id}`, note: label, amount: total };
+    }).filter((r) => r.amount > 0),
+    ...accEntries.filter((e) => e.type === 'in').map((e) => ({
+      type: 'Manual Cash In', name: e.description || '-', note: e.category || '', amount: e.amount || 0,
+    })),
+  ];
+
+  const cashOutRows = [
+    ...hppRefundLunas.map((i) => ({
+      type: 'Refund Peserta', name: i.component, note: i.vendor_name || '', amount: i.total_amount || 0,
+    })),
+    ...hppLunas.filter((i) => i.category !== 'Refund').map((i) => ({
+      type: 'HPP Lunas', name: i.component, note: i.vendor_name || '', amount: i.total_amount || 0,
+    })),
+    ...pnrs.map((p) => ({
+      type: 'PNR Deposit', name: p.pnr || `PNR ${p.id}`, note: p.vendor || '',
+      amount: (p.deposit_total || 0) + (p.payoff_amount || 0),
+    })),
+    ...accEntries.filter((e) => e.type === 'out').map((e) => ({
+      type: 'Manual Cash Out', name: e.description || '-', note: e.category || '', amount: e.amount || 0,
+    })),
+  ];
+
+  const proyVsRealRows = [
+    { metric: 'Income', proyeksi: proyIncome, real: totalRealIn, selisih: totalRealIn - proyIncome },
+    { metric: 'HPP / Cost', proyeksi: proyHpp, real: totalRealOut, selisih: totalRealOut - proyHpp },
+    { metric: 'Profit', proyeksi: proyProfit, real: realProfit, selisih: realProfit - proyProfit },
+  ];
+
+  const refundDetailRows = refunds.map((r) => ({
+    passenger: r.passenger_name || '-',
+    reason: r.reason,
+    total_paid: r.total_paid,
+    refund_amount: r.refund_amount,
+    admin_fee: r.admin_fee,
+  }));
+
   const s = statusCfg(trip.status);
+  const fmtMoney = (v) => `Rp ${Number(v || 0).toLocaleString('id-ID')}`;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div>
-        <Link href="/accounting/groups" className="text-sm text-brand-600 font-medium hover:underline">← Real Cashflow per Group</Link>
-        <div className="mt-2 flex items-center gap-2 flex-wrap">
-          <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${s.bg} ${s.text}`}>{trip.kode_trip || `#${trip.id}`}</span>
-          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${s.bg} ${s.text} border ${s.border}`}>{s.label}</span>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <Link href="/accounting/groups" className="text-sm text-brand-600 font-medium hover:underline">← Real Cashflow per Group</Link>
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${s.bg} ${s.text}`}>{trip.kode_trip || `#${trip.id}`}</span>
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${s.bg} ${s.text} border ${s.border}`}>{s.label}</span>
+          </div>
+          <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.name}</h1>
+          <p className="mt-1 text-slate-600">
+            Real cashflow detail · {activePassengers.length} peserta aktif
+            {inactivePassengers.length > 0 && <span className="text-amber-600"> · {inactivePassengers.length} transferred/refunded</span>}
+            · Berangkat {fmtDate(trip.departure)}
+          </p>
         </div>
-        <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.name}</h1>
-        <p className="mt-1 text-slate-600">
-          Real cashflow detail · {activePassengers.length} peserta aktif
-          {inactivePassengers.length > 0 && <span className="text-amber-600"> · {inactivePassengers.length} transferred/refunded</span>}
-          · Berangkat {fmtDate(trip.departure)}
-        </p>
+        {/* R155: Download FULL REPORT */}
+        <DownloadButtons
+          filename={`accounting-${trip.kode_trip || trip.id}`}
+          title={`Real Cashflow — ${trip.kode_trip || ''} ${trip.name}`}
+          subtitle={`Departure: ${fmtDate(trip.departure)} · ${activePassengers.length} pax aktif`}
+          extraInfo={[
+            { label: 'Total Cash In', value: fmtMoney(totalRealIn) },
+            { label: 'Total Cash Out', value: fmtMoney(totalRealOut) },
+            { label: 'Net Real Profit', value: fmtMoney(realProfit) },
+            { label: 'Proyeksi Profit', value: fmtMoney(proyProfit) },
+          ]}
+          columns={[
+            { key: 'metric', label: 'Metrik' },
+            { key: 'proyeksi', label: 'Proyeksi', align: 'right', format: fmtMoney },
+            { key: 'real', label: 'Real', align: 'right', format: fmtMoney },
+            { key: 'selisih', label: 'Selisih', align: 'right', format: fmtMoney },
+          ]}
+          rows={proyVsRealRows}
+          buttonSize="md"
+        />
       </div>
 
       {/* Top summary */}
@@ -145,14 +210,33 @@ export default async function GroupCashflowDetailPage({ params }) {
         <StatCard label="Proyeksi Profit" value={fmtRupiah(proyProfit)} color="text-purple-700" bg="bg-purple-50" />
       </div>
 
-      {/* ROUND 124: REFUND TRACKING SECTION */}
+      {/* REFUND TRACKING */}
       {refunds.length > 0 && (
         <div className="bg-white rounded-xl border-2 border-red-200 shadow-card overflow-hidden">
           <div className="px-5 py-3 border-b bg-red-50 border-red-200 flex items-center justify-between flex-wrap gap-2">
             <h2 className="font-bold text-red-800 flex items-center gap-2">
               <span>💸</span> Refund Tracking
             </h2>
-            <p className="text-xs text-slate-600">{refunds.length} refund approved</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-slate-600">{refunds.length} refund approved</p>
+              {/* R155: Download refund detail */}
+              <DownloadButtons
+                filename={`refunds-${trip.kode_trip || trip.id}`}
+                title={`Refund Detail — ${trip.name}`}
+                columns={[
+                  { key: 'passenger', label: 'Peserta' },
+                  { key: 'reason', label: 'Alasan' },
+                  { key: 'total_paid', label: 'Total Bayar', align: 'right', format: fmtMoney },
+                  { key: 'refund_amount', label: 'Refund', align: 'right', format: fmtMoney },
+                  { key: 'admin_fee', label: 'Admin Fee (Hangus)', align: 'right', format: fmtMoney },
+                ]}
+                rows={refundDetailRows}
+                summary={[
+                  { label: 'TOTAL REFUND OUT', value: fmtMoney(totalRefundAmount) },
+                  { label: 'TOTAL ADMIN FEE (HANGUS)', value: fmtMoney(totalRefundAdminFee) },
+                ]}
+              />
+            </div>
           </div>
           <div className="p-5">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
@@ -220,8 +304,22 @@ export default async function GroupCashflowDetailPage({ params }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* CASH IN */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-200 bg-green-50">
-            <h2 className="font-bold text-green-800 flex items-center gap-2">⬆ Real Cash In <span className="text-sm ml-auto">{fmtRupiah(totalRealIn)}</span></h2>
+          <div className="px-5 py-3 border-b border-slate-200 bg-green-50 flex items-center justify-between flex-wrap gap-2">
+            <h2 className="font-bold text-green-800 flex items-center gap-2">⬆ Real Cash In <span className="text-sm">{fmtRupiah(totalRealIn)}</span></h2>
+            {/* R155: Download Cash In */}
+            <DownloadButtons
+              filename={`cashin-${trip.kode_trip || trip.id}`}
+              title={`Cash In — ${trip.name}`}
+              subtitle={`Total: ${fmtMoney(totalRealIn)}`}
+              columns={[
+                { key: 'type', label: 'Tipe' },
+                { key: 'name', label: 'Dari / Keterangan' },
+                { key: 'note', label: 'Note' },
+                { key: 'amount', label: 'Nominal', align: 'right', format: fmtMoney },
+              ]}
+              rows={cashInRows}
+              summary={[{ label: 'TOTAL CASH IN', value: fmtMoney(totalRealIn) }]}
+            />
           </div>
           <div className="p-5 space-y-3">
             <SubSection title={`Payment Peserta Aktif (${activePassengers.length})`} total={totalPaymentsIn} color="text-green-700">
@@ -276,8 +374,22 @@ export default async function GroupCashflowDetailPage({ params }) {
 
         {/* CASH OUT */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-200 bg-amber-50">
-            <h2 className="font-bold text-amber-800 flex items-center gap-2">⬇ Real Cash Out <span className="text-sm ml-auto">{fmtRupiah(totalRealOut)}</span></h2>
+          <div className="px-5 py-3 border-b border-slate-200 bg-amber-50 flex items-center justify-between flex-wrap gap-2">
+            <h2 className="font-bold text-amber-800 flex items-center gap-2">⬇ Real Cash Out <span className="text-sm">{fmtRupiah(totalRealOut)}</span></h2>
+            {/* R155: Download Cash Out */}
+            <DownloadButtons
+              filename={`cashout-${trip.kode_trip || trip.id}`}
+              title={`Cash Out — ${trip.name}`}
+              subtitle={`Total: ${fmtMoney(totalRealOut)}`}
+              columns={[
+                { key: 'type', label: 'Tipe' },
+                { key: 'name', label: 'Komponen' },
+                { key: 'note', label: 'Vendor / Note' },
+                { key: 'amount', label: 'Nominal', align: 'right', format: fmtMoney },
+              ]}
+              rows={cashOutRows}
+              summary={[{ label: 'TOTAL CASH OUT', value: fmtMoney(totalRealOut) }]}
+            />
           </div>
           <div className="p-5 space-y-3">
             {totalHppRefundLunas > 0 && (
@@ -342,7 +454,21 @@ export default async function GroupCashflowDetailPage({ params }) {
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
-        <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">📊 Proyeksi vs Real</h3>
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider">📊 Proyeksi vs Real</h3>
+          {/* R155: Download Proyeksi vs Real */}
+          <DownloadButtons
+            filename={`proyeksi-vs-real-${trip.kode_trip || trip.id}`}
+            title={`Proyeksi vs Real — ${trip.name}`}
+            columns={[
+              { key: 'metric', label: 'Metrik' },
+              { key: 'proyeksi', label: 'Proyeksi', align: 'right', format: fmtMoney },
+              { key: 'real', label: 'Real', align: 'right', format: fmtMoney },
+              { key: 'selisih', label: 'Selisih', align: 'right', format: fmtMoney },
+            ]}
+            rows={proyVsRealRows}
+          />
+        </div>
         <table className="w-full text-sm">
           <thead className="border-b border-slate-200">
             <tr className="text-xs text-slate-600 uppercase">
