@@ -1,4 +1,4 @@
-// Round 155: Payment Checklist per trip + DOWNLOAD BUTTONS (Invoice Peserta)
+// Round 157 HOTFIX: Payment Checklist per trip + DOWNLOAD BUTTONS (Invoice Peserta)
 // (sudah include R123 filter transferred/refunded)
 // Path: app/(app)/finance/payments/[tripId]/page.jsx
 
@@ -145,9 +145,9 @@ export default async function TripPaymentsPage({ params }) {
               { key: 'phone', label: 'No HP' },
               { key: 'email', label: 'Email' },
               { key: 'room_type', label: 'Tipe Kamar' },
-              { key: 'harga', label: 'Total Tagihan', align: 'right', format: fmtMoney },
-              { key: 'total_bayar', label: 'Sudah Bayar', align: 'right', format: fmtMoney },
-              { key: 'sisa', label: 'Sisa', align: 'right', format: fmtMoney },
+              { key: 'harga', label: 'Total Tagihan', align: 'right', format: 'rupiah' },
+              { key: 'total_bayar', label: 'Sudah Bayar', align: 'right', format: 'rupiah' },
+              { key: 'sisa', label: 'Sisa', align: 'right', format: 'rupiah' },
               { key: 'jumlah_cicilan', label: 'Cicilan', align: 'right' },
               { key: 'status', label: 'Status' },
             ]}
@@ -198,9 +198,9 @@ export default async function TripPaymentsPage({ params }) {
                 { key: 'pnr', label: 'PNR / Booking Ref' },
                 { key: 'vendor', label: 'Vendor / Airline' },
                 { key: 'route', label: 'Route' },
-                { key: 'deposit_total', label: 'Deposit', align: 'right', format: fmtMoney },
-                { key: 'payoff_amount', label: 'Payoff', align: 'right', format: fmtMoney },
-                { key: 'total_paid', label: 'Total Paid', align: 'right', format: fmtMoney },
+                { key: 'deposit_total', label: 'Deposit', align: 'right', format: 'rupiah' },
+                { key: 'payoff_amount', label: 'Payoff', align: 'right', format: 'rupiah' },
+                { key: 'total_paid', label: 'Total Paid', align: 'right', format: 'rupiah' },
                 { key: 'deposit_due', label: 'Due Deposit' },
                 { key: 'payoff_due', label: 'Due Payoff' },
                 { key: 'status', label: 'Status' },
