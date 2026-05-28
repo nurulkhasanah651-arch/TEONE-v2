@@ -1,4 +1,4 @@
-// Round 155: Proyeksi Income per Group + DOWNLOAD BUTTONS (PDF/Excel/CSV)
+// Round 157 HOTFIX: Proyeksi Income per Group + DOWNLOAD BUTTONS (PDF/Excel/CSV)
 // (sudah include R127 hpp qty autofill + R126 active/inactive filter)
 // Path: app/(app)/finance/cashflow/[tripId]/page.jsx
 
@@ -131,8 +131,8 @@ export default async function CashflowDetailPage({ params }) {
             { key: 'component', label: 'Komponen' },
             { key: 'vendor', label: 'Vendor' },
             { key: 'qty', label: 'Qty', align: 'right' },
-            { key: 'unit_price', label: 'Harga Satuan', align: 'right', format: fmtMoney },
-            { key: 'total', label: 'Total', align: 'right', format: fmtMoney },
+            { key: 'unit_price', label: 'Harga Satuan', align: 'right', format: 'rupiah' },
+            { key: 'total', label: 'Total', align: 'right', format: 'rupiah' },
             { key: 'status', label: 'Status' },
           ]}
           rows={fullReportRows}
@@ -245,8 +245,8 @@ function FinanceSection({ title, emoji, color, items, itemsByCategory, total, tr
                   { key: 'component', label: 'Komponen' },
                   { key: 'vendor', label: 'Vendor' },
                   { key: 'qty', label: 'Qty', align: 'right' },
-                  { key: 'unit_price', label: 'Harga Satuan', align: 'right', format: fmtMoney },
-                  { key: 'total', label: 'Total', align: 'right', format: fmtMoney },
+                  { key: 'unit_price', label: 'Harga Satuan', align: 'right', format: 'rupiah' },
+                  { key: 'total', label: 'Total', align: 'right', format: 'rupiah' },
                   { key: 'status', label: 'Status' },
                 ]}
                 rows={sectionRows}
