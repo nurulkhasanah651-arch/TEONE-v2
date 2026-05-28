@@ -1,5 +1,5 @@
-// Round 151: Ads Manager — tambah kolom "Avg Days to Close" per channel (dari R150)
-// (sudah include R149 Channel ROI)
+// Round 152: Ads Manager — FULL (Channel ROI + Avg Days + Per-Trip Performance)
+// Supersedes R149, R151
 // Path: app/(app)/ads/page.jsx
 
 import Link from 'next/link';
@@ -14,11 +14,9 @@ async function safeQuery(promise, fallback = []) {
 }
 
 const CHANNELS = {
-  // PAID ADS
   meta:       { label: 'Meta (FB/IG) Ads', icon: '📱', color: 'bg-blue-50 border-blue-200 text-blue-800',     paid: true,  source: 'ads_meta' },
   google:     { label: 'Google Ads',       icon: '🔍', color: 'bg-red-50 border-red-200 text-red-800',         paid: true,  source: 'ads_google' },
   tiktok:     { label: 'TikTok Ads',       icon: '🎵', color: 'bg-pink-50 border-pink-200 text-pink-800',     paid: true,  source: 'ads_tiktok' },
-  // ORGANIC
   instagram:  { label: 'Instagram Organik',icon: '📸', color: 'bg-purple-50 border-purple-200 text-purple-800',paid: false, source: 'instagram' },
   whatsapp:   { label: 'WhatsApp Organik', icon: '💬', color: 'bg-green-50 border-green-200 text-green-800',  paid: false, source: 'whatsapp' },
   offline:    { label: 'Offline / Walk-in',icon: '🏪', color: 'bg-amber-50 border-amber-200 text-amber-800',  paid: false, source: 'offline' },
@@ -26,44 +24,64 @@ const CHANNELS = {
   mitra:      { label: 'Mitra Partnership',icon: '🤝', color: 'bg-teal-50 border-teal-200 text-teal-800',     paid: false, source: 'mitra' },
 };
 
+// channel key untuk closings di cs_daily_updates
+function csClosingFieldsByChannel(c) {
+  return {
+    meta:      c.from_ads_meta   || 0,
+    google:    c.from_ads_google || 0,
+    tiktok:    c.from_ads_tiktok || 0,
+    instagram: c.from_instagram  || 0,
+    whatsapp:  c.from_whatsapp   || 0,
+    offline:   c.from_offline    || 0,
+    alumni:    c.closing_alumni  || 0,
+    mitra:     c.closing_mitra   || 0,
+  };
+}
+
+function mapLeadSourceToChannel(source) {
+  if (!source) return null;
+  const s = String(source).toLowerCase();
+  if (s === 'ads_meta')   return 'meta';
+  if (s === 'ads_google') return 'google';
+  if (s === 'ads_tiktok') return 'tiktok';
+  if (s === 'instagram')  return 'instagram';
+  if (s === 'whatsapp')   return 'whatsapp';
+  if (s === 'offline')    return 'offline';
+  if (s === 'alumni')     return 'alumni';
+  if (s === 'mitra')      return 'mitra';
+  return null;
+}
+
 export default async function AdsManagerPage({ searchParams }) {
   const sp = await searchParams;
   const filterMonth = sp?.month || new Date().toISOString().slice(0, 7);
 
   const supabase = createClient();
-  const [adsEntries, csUpdates, trips, trip_passengers, payments] = await Promise.all([
+  const [adsEntries, csUpdates, trips, trip_passengers] = await Promise.all([
     safeQuery(supabase.from('ads_entries').select('*').order('date', { ascending: false })),
     safeQuery(supabase.from('cs_daily_updates').select('*')),
-    safeQuery(supabase.from('trips').select('id, kode_trip, name, status, publish_date, closed_at, departure, sold, quota, price, price_breakdown')),
-    // R151: include lead_source + days_to_close + closing_date
+    safeQuery(supabase.from('trips').select('id, kode_trip, name, status, publish_date, closed_at, departure, sold, quota, price')),
     safeQuery(supabase.from('trip_passengers').select('id, trip_id, customer_id, price_paid, lead_source, days_to_close, closing_date')),
-    safeQuery(supabase.from('participant_payments').select('passenger_id, amount, is_transferred')),
   ]);
 
   const adsThisMonth = adsEntries.filter((e) => (e.date || '').startsWith(filterMonth));
   const csThisMonth = csUpdates.filter((c) => (c.tanggal || '').startsWith(filterMonth));
-  // R151: filter peserta by closing_date di bulan ini juga
   const pxThisMonth = trip_passengers.filter((p) => (p.closing_date || '').startsWith(filterMonth));
 
-  // Init stats per channel
+  // ============ CHANNEL STATS (all channels, bulan ini) ============
   const stats = {};
   Object.keys(CHANNELS).forEach((k) => {
     stats[k] = { spend: 0, leads: 0, closings: 0, revenue: 0, days_arr: [] };
   });
 
-  // R151: aggregate days_to_close per channel dari trip_passengers
   for (const p of pxThisMonth) {
     if (p.days_to_close == null) continue;
-    const src = p.lead_source;
-    if (!src) continue;
-    // map lead_source ke channel key
-    const channelKey = mapLeadSourceToChannel(src);
+    const channelKey = mapLeadSourceToChannel(p.lead_source);
     if (channelKey && stats[channelKey]) {
       stats[channelKey].days_arr.push(p.days_to_close);
     }
   }
 
-  // Aggregate ADS spend + leads
   for (const e of adsThisMonth) {
     const p = stats[e.platform];
     if (p) {
@@ -72,23 +90,16 @@ export default async function AdsManagerPage({ searchParams }) {
     }
   }
 
-  // Aggregate closings dari cs_daily_updates
   for (const c of csThisMonth) {
-    stats.meta.closings      += c.from_ads_meta   || 0;
-    stats.google.closings    += c.from_ads_google || 0;
-    stats.tiktok.closings    += c.from_ads_tiktok || 0;
-    stats.instagram.closings += c.from_instagram  || 0;
-    stats.whatsapp.closings  += c.from_whatsapp   || 0;
-    stats.offline.closings   += c.from_offline    || 0;
-    stats.alumni.closings    += c.closing_alumni  || 0;
-    stats.mitra.closings     += c.closing_mitra   || 0;
-
+    const cf = csClosingFieldsByChannel(c);
+    for (const k of Object.keys(stats)) {
+      stats[k].closings += cf[k] || 0;
+    }
     if (c.leads_ads_meta)   stats.meta.leads   += c.leads_ads_meta;
     if (c.leads_ads_google) stats.google.leads += c.leads_ads_google;
     if (c.leads_ads_tiktok) stats.tiktok.leads += c.leads_ads_tiktok;
   }
 
-  // Revenue per channel
   const totalRevenueAllChannels = trip_passengers.reduce((s, p) => s + (Number(p.price_paid) || 0), 0);
   const avgTicket = trip_passengers.length > 0 ? totalRevenueAllChannels / trip_passengers.length : 0;
   Object.keys(stats).forEach((k) => {
@@ -105,13 +116,11 @@ export default async function AdsManagerPage({ searchParams }) {
   const convRate = totalLeads > 0 ? (totalClosings / totalLeads * 100) : 0;
   const roas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
 
-  // R151: avg days to close keseluruhan
   const allDays = Object.values(stats).flatMap((s) => s.days_arr);
   const avgDaysOverall = allDays.length > 0
     ? Math.round((allDays.reduce((a, b) => a + b, 0) / allDays.length) * 10) / 10
     : null;
 
-  // Calc metrics per channel
   const channelMetrics = Object.entries(stats).map(([key, st]) => {
     const cfg = CHANNELS[key];
     const cacP = st.closings > 0 ? st.spend / st.closings : 0;
@@ -132,18 +141,114 @@ export default async function AdsManagerPage({ searchParams }) {
   const worstPaid = channelMetrics
     .filter((c) => c.cfg.paid && c.spend > 0)
     .sort((a, b) => a.roas - b.roas)[0];
-
-  // R151: fastest & slowest converting channels
   const channelsWithDays = channelMetrics.filter((c) => c.avgDays != null);
   const fastestChannel = [...channelsWithDays].sort((a, b) => a.avgDays - b.avgDays)[0];
   const slowestChannel = [...channelsWithDays].sort((a, b) => b.avgDays - a.avgDays)[0];
 
+  // ============ R152: PER-TRIP STATS ============
+  // Hanya trips yang aktif/closed-recently, atau yang ada activity
+  const tripMap = new Map(trips.map((t) => [String(t.id), t]));
+
+  const tripStats = {};  // tripId -> {spend, closings, revenue, leads, days_arr, byChannel}
+  function ensureTrip(tripId) {
+    const idStr = String(tripId);
+    if (!tripStats[idStr]) {
+      tripStats[idStr] = {
+        trip: tripMap.get(idStr) || null,
+        spend: 0, closings: 0, revenue: 0, leads: 0,
+        days_arr: [],
+        byChannel: {}, // channelKey -> {spend, closings, leads}
+      };
+      Object.keys(CHANNELS).forEach((k) => {
+        tripStats[idStr].byChannel[k] = { spend: 0, closings: 0, leads: 0 };
+      });
+    }
+    return tripStats[idStr];
+  }
+
+  // ads_entries → spend per trip (only entries with trip_id)
+  for (const e of adsThisMonth) {
+    if (!e.trip_id) continue;
+    const ts = ensureTrip(e.trip_id);
+    ts.spend += Number(e.spend) || 0;
+    ts.leads += e.leads || 0;
+    if (ts.byChannel[e.platform]) {
+      ts.byChannel[e.platform].spend += Number(e.spend) || 0;
+      ts.byChannel[e.platform].leads += e.leads || 0;
+    }
+  }
+
+  // cs_daily_updates → closings per channel per trip
+  for (const c of csThisMonth) {
+    if (!c.trip_id) continue;
+    const ts = ensureTrip(c.trip_id);
+    const cf = csClosingFieldsByChannel(c);
+    for (const k of Object.keys(CHANNELS)) {
+      const n = cf[k] || 0;
+      ts.closings += n;
+      ts.byChannel[k].closings += n;
+    }
+    if (c.leads_ads_meta)   { ts.leads += c.leads_ads_meta;   ts.byChannel.meta.leads   += c.leads_ads_meta; }
+    if (c.leads_ads_google) { ts.leads += c.leads_ads_google; ts.byChannel.google.leads += c.leads_ads_google; }
+    if (c.leads_ads_tiktok) { ts.leads += c.leads_ads_tiktok; ts.byChannel.tiktok.leads += c.leads_ads_tiktok; }
+  }
+
+  // trip_passengers → revenue + days per trip
+  for (const p of pxThisMonth) {
+    if (!p.trip_id) continue;
+    const ts = ensureTrip(p.trip_id);
+    ts.revenue += Number(p.price_paid) || 0;
+    if (p.days_to_close != null) ts.days_arr.push(p.days_to_close);
+  }
+
+  const tripMetrics = Object.entries(tripStats).map(([tripId, ts]) => {
+    const trip = ts.trip;
+    const cacT = ts.closings > 0 ? ts.spend / ts.closings : 0;
+    const roasT = ts.spend > 0 ? ts.revenue / ts.spend : (ts.closings > 0 ? Infinity : 0);
+    const avgDays = ts.days_arr.length > 0
+      ? Math.round((ts.days_arr.reduce((a, b) => a + b, 0) / ts.days_arr.length) * 10) / 10
+      : null;
+    // top channel for this trip = paling banyak closings
+    let topCh = null;
+    let maxC = 0;
+    for (const [k, v] of Object.entries(ts.byChannel)) {
+      if (v.closings > maxC) { maxC = v.closings; topCh = k; }
+    }
+    return {
+      tripId,
+      trip,
+      spend: ts.spend,
+      leads: ts.leads,
+      closings: ts.closings,
+      revenue: ts.revenue,
+      cac: cacT,
+      roas: roasT,
+      avgDays,
+      topChannel: topCh,
+      topChannelClosings: maxC,
+    };
+  }).filter((t) => t.trip != null) // skip kalau trip udah dihapus
+    .sort((a, b) => {
+      // sort by total activity (closings desc, then spend desc)
+      if (b.closings !== a.closings) return b.closings - a.closings;
+      return b.spend - a.spend;
+    });
+
+  // best & worst trip
+  const tripsWithSpend = tripMetrics.filter((t) => t.spend > 0);
+  const bestTrip = tripsWithSpend.length > 0
+    ? [...tripsWithSpend].sort((a, b) => b.roas - a.roas)[0]
+    : null;
+  const worstTrip = tripsWithSpend.length > 0
+    ? [...tripsWithSpend].sort((a, b) => a.roas - b.roas)[0]
+    : null;
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-brand-700">📢 Ads Manager — Channel ROI</h1>
+        <h1 className="text-3xl font-bold text-brand-700">📢 Ads Manager — Channel & Trip ROI</h1>
         <p className="mt-1 text-slate-600">
-          Performa lengkap semua channel · CAC · ROAS · Speed-to-Close · Rekomendasi optimasi budget
+          Performa per channel + per trip · CAC · ROAS · Speed-to-Close · Rekomendasi budget
         </p>
       </div>
 
@@ -155,7 +260,7 @@ export default async function AdsManagerPage({ searchParams }) {
         </form>
       </div>
 
-      {/* R151: TOP STATS — tambah Avg Days to Close */}
+      {/* TOP STATS */}
       <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
         <StatCard label="💰 Ad Spend" value={fmtRupiah(totalSpend)} sub={`${adsThisMonth.length} entry`} color="bg-amber-50 text-amber-700" />
         <StatCard label="🎯 Leads" value={totalLeads.toLocaleString('id-ID')} color="bg-blue-50 text-blue-700" />
@@ -171,41 +276,40 @@ export default async function AdsManagerPage({ searchParams }) {
         />
       </div>
 
-      {/* RECOMMENDATIONS */}
+      {/* CHANNEL RECOMMENDATIONS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {topChannel && topChannel.closings > 0 && (
           <div className="bg-green-50 border-2 border-green-300 rounded-xl p-4">
-            <p className="text-xs font-bold text-green-800 uppercase tracking-wider mb-1">🏆 Top Performer</p>
+            <p className="text-xs font-bold text-green-800 uppercase tracking-wider mb-1">🏆 Top Channel</p>
             <p className="text-lg font-bold text-green-900">{topChannel.cfg.icon} {topChannel.cfg.label}</p>
             <p className="text-sm text-green-700 mt-1">
               {topChannel.closings} closings ·
               {topChannel.cfg.paid
                 ? ` ROAS ${topChannel.roas.toFixed(1)}x · CAC ${fmtRupiah(topChannel.cac)}`
-                : ` Free traffic · ${fmtRupiah(topChannel.revenue)} revenue`}
-              {topChannel.avgDays != null && <> · ⏱ {topChannel.avgDays}d avg close</>}
+                : ` Free · ${fmtRupiah(topChannel.revenue)} rev`}
+              {topChannel.avgDays != null && <> · ⏱ {topChannel.avgDays}d</>}
             </p>
             <p className="text-xs text-green-700 italic mt-2">
-              💡 <strong>Recommendation:</strong> Scale up channel ini! {topChannel.cfg.paid ? 'Naikin budget 30-50% per bulan.' : 'Invest lebih banyak ke konten/community building.'}
+              💡 Scale up channel ini. {topChannel.cfg.paid ? 'Naikin budget 30-50%.' : 'Invest ke konten/community.'}
             </p>
           </div>
         )}
 
         {worstPaid && worstPaid.spend > 0 && worstPaid.roas < 2 && (
           <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4">
-            <p className="text-xs font-bold text-red-800 uppercase tracking-wider mb-1">⚠ Underperformer</p>
+            <p className="text-xs font-bold text-red-800 uppercase tracking-wider mb-1">⚠ Underperformer Channel</p>
             <p className="text-lg font-bold text-red-900">{worstPaid.cfg.icon} {worstPaid.cfg.label}</p>
             <p className="text-sm text-red-700 mt-1">
-              Spend {fmtRupiah(worstPaid.spend)} → cuma {worstPaid.closings} closing · ROAS {worstPaid.roas.toFixed(1)}x
-              {worstPaid.avgDays != null && <> · ⏱ {worstPaid.avgDays}d avg close</>}
+              Spend {fmtRupiah(worstPaid.spend)} → {worstPaid.closings} closing · ROAS {worstPaid.roas.toFixed(1)}x
             </p>
             <p className="text-xs text-red-700 italic mt-2">
-              💡 <strong>Recommendation:</strong> {worstPaid.roas < 1 ? 'Pause atau review creative/targeting. Money loss.' : 'Optimize creative/audience. Kalau bulan depan masih <2x, cut.'}
+              💡 {worstPaid.roas < 1 ? 'Pause atau review creative. Loss.' : 'Optimize. Kalau bulan depan masih <2x, cut.'}
             </p>
           </div>
         )}
       </div>
 
-      {/* R151: SPEED INSIGHTS */}
+      {/* SPEED INSIGHTS */}
       {(fastestChannel || slowestChannel) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {fastestChannel && (
@@ -213,11 +317,7 @@ export default async function AdsManagerPage({ searchParams }) {
               <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">⚡ Fastest Closing</p>
               <p className="text-lg font-bold text-emerald-900">{fastestChannel.cfg.icon} {fastestChannel.cfg.label}</p>
               <p className="text-sm text-emerald-700 mt-1">
-                Avg <strong>{fastestChannel.avgDays} hari</strong> dari chat ke closing
-                · {fastestChannel.tracked} peserta tracked
-              </p>
-              <p className="text-xs text-emerald-700 italic mt-2">
-                💡 Hot channel — peserta convert cepat. Ideal untuk push promo limited-time.
+                Avg <strong>{fastestChannel.avgDays} hari</strong> · {fastestChannel.tracked} peserta tracked
               </p>
             </div>
           )}
@@ -226,11 +326,7 @@ export default async function AdsManagerPage({ searchParams }) {
               <p className="text-xs font-bold text-orange-800 uppercase tracking-wider mb-1">🐢 Slowest Closing</p>
               <p className="text-lg font-bold text-orange-900">{slowestChannel.cfg.icon} {slowestChannel.cfg.label}</p>
               <p className="text-sm text-orange-700 mt-1">
-                Avg <strong>{slowestChannel.avgDays} hari</strong> dari chat ke closing
-                · {slowestChannel.tracked} peserta tracked
-              </p>
-              <p className="text-xs text-orange-700 italic mt-2">
-                💡 Butuh nurturing lebih lama. Siapin sequence follow-up otomatis (Day 3, 7, 14).
+                Avg <strong>{slowestChannel.avgDays} hari</strong> · butuh nurturing
               </p>
             </div>
           )}
@@ -240,7 +336,7 @@ export default async function AdsManagerPage({ searchParams }) {
       {/* CHANNEL PERFORMANCE TABLE */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 bg-slate-50">
-          <h2 className="font-bold text-brand-700">📊 Performa per Channel (sorted by performance)</h2>
+          <h2 className="font-bold text-brand-700">📊 Performa per Channel</h2>
           <p className="text-xs text-slate-500 mt-0.5">Bulan {filterMonth} · {Object.keys(CHANNELS).length} channels · ⏱ = Avg hari chat→closing</p>
         </div>
         <div className="overflow-x-auto">
@@ -256,7 +352,7 @@ export default async function AdsManagerPage({ searchParams }) {
                 <th className="px-3 py-2 text-right">CAC</th>
                 <th className="px-3 py-2 text-right">Revenue Est</th>
                 <th className="px-3 py-2 text-right">ROAS</th>
-                <th className="px-3 py-2 text-right">⏱ Avg Days</th>
+                <th className="px-3 py-2 text-right">⏱ Avg</th>
                 <th className="px-3 py-2 text-left">Verdict</th>
               </tr>
             </thead>
@@ -267,7 +363,6 @@ export default async function AdsManagerPage({ searchParams }) {
                   : (c.closings > 0 ? '🟢 Free win' : '⚪ Sleeping');
                 const verdictColor = verdict.startsWith('🟢') ? 'text-green-700' : verdict.startsWith('🟡') ? 'text-amber-700' : verdict.startsWith('🔴') ? 'text-red-700' : 'text-slate-500';
 
-                // R151: badge color for avg days
                 const daysBadge = c.avgDays == null
                   ? <span className="text-slate-400 text-xs">—</span>
                   : c.avgDays <= 3
@@ -299,10 +394,7 @@ export default async function AdsManagerPage({ searchParams }) {
                         ? (c.spend > 0 ? <span className={`font-bold ${c.roas >= 3 ? 'text-green-700' : c.roas >= 1 ? 'text-amber-700' : 'text-red-700'}`}>{c.roas.toFixed(1)}x</span> : '—')
                         : <span className="text-green-700 font-bold">∞</span>}
                     </td>
-                    <td className="px-3 py-2 text-right">
-                      <div>{daysBadge}</div>
-                      {c.tracked > 0 && <p className="text-[9px] text-slate-400 mt-0.5">{c.tracked} tracked</p>}
-                    </td>
+                    <td className="px-3 py-2 text-right">{daysBadge}</td>
                     <td className={`px-3 py-2 text-xs font-bold ${verdictColor}`}>{verdict}</td>
                   </tr>
                 );
@@ -327,6 +419,151 @@ export default async function AdsManagerPage({ searchParams }) {
         </div>
       </div>
 
+      {/* ============ R152: PER-TRIP RECOMMENDATIONS ============ */}
+      {(bestTrip || worstTrip) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {bestTrip && bestTrip.roas >= 2 && (
+            <div className="bg-green-50 border-2 border-green-300 rounded-xl p-4">
+              <p className="text-xs font-bold text-green-800 uppercase tracking-wider mb-1">🏆 Best Trip ROI</p>
+              <p className="text-lg font-bold text-green-900">
+                {bestTrip.trip.kode_trip || `#${bestTrip.trip.id}`} — {bestTrip.trip.name}
+              </p>
+              <p className="text-sm text-green-700 mt-1">
+                {bestTrip.closings} closing · Spend {fmtRupiah(bestTrip.spend)} · Revenue {fmtRupiah(bestTrip.revenue)} · <strong>ROAS {bestTrip.roas === Infinity ? '∞' : bestTrip.roas.toFixed(1) + 'x'}</strong>
+              </p>
+              <p className="text-xs text-green-700 italic mt-2">
+                💡 Trip ini paling profitable. Replicate creative & targeting untuk trip serupa.
+              </p>
+            </div>
+          )}
+          {worstTrip && worstTrip.roas < 1.5 && worstTrip.spend > 0 && (
+            <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4">
+              <p className="text-xs font-bold text-red-800 uppercase tracking-wider mb-1">⚠ Worst Trip ROI</p>
+              <p className="text-lg font-bold text-red-900">
+                {worstTrip.trip.kode_trip || `#${worstTrip.trip.id}`} — {worstTrip.trip.name}
+              </p>
+              <p className="text-sm text-red-700 mt-1">
+                {worstTrip.closings} closing · Spend {fmtRupiah(worstTrip.spend)} · ROAS {worstTrip.roas.toFixed(1)}x
+              </p>
+              <p className="text-xs text-red-700 italic mt-2">
+                💡 Cut budget atau ganti creative. Kalau quota masih jauh, push organik (alumni/IG).
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============ R152: PER-TRIP PERFORMANCE TABLE ============ */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-200 bg-gradient-to-r from-brand-50 to-blue-50">
+          <h2 className="font-bold text-brand-700">✈ Performa per Trip</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Tracking spend, closing, ROAS, dan speed-to-close per trip · Bulan {filterMonth}
+          </p>
+        </div>
+
+        {tripMetrics.length === 0 ? (
+          <div className="p-8 text-center text-slate-500">
+            <p className="text-sm">Belum ada activity trip di bulan ini.</p>
+            <p className="text-xs mt-1">Pastikan ads_entries pakai field <strong>trip_id</strong> supaya bisa ke-track per trip.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-[11px] font-bold text-slate-600 uppercase">
+                <tr>
+                  <th className="px-3 py-2 text-left">Trip</th>
+                  <th className="px-3 py-2 text-center">Status</th>
+                  <th className="px-3 py-2 text-right">Sold / Quota</th>
+                  <th className="px-3 py-2 text-right">Spend</th>
+                  <th className="px-3 py-2 text-right">Leads</th>
+                  <th className="px-3 py-2 text-right">Closings</th>
+                  <th className="px-3 py-2 text-right">Revenue</th>
+                  <th className="px-3 py-2 text-right">CAC</th>
+                  <th className="px-3 py-2 text-right">ROAS</th>
+                  <th className="px-3 py-2 text-right">⏱ Avg</th>
+                  <th className="px-3 py-2 text-left">Top Channel</th>
+                  <th className="px-3 py-2 text-left">Verdict</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {tripMetrics.map((t) => {
+                  const verdict = t.spend === 0
+                    ? (t.closings > 0 ? '🟢 Free' : '⚪ Idle')
+                    : t.roas >= 5 ? '🟢 Excellent'
+                    : t.roas >= 3 ? '🟢 Good'
+                    : t.roas >= 2 ? '🟡 OK'
+                    : t.roas >= 1 ? '🟡 Break-even'
+                    : '🔴 Loss';
+                  const verdictColor = verdict.startsWith('🟢') ? 'text-green-700'
+                    : verdict.startsWith('🟡') ? 'text-amber-700'
+                    : verdict.startsWith('🔴') ? 'text-red-700'
+                    : 'text-slate-500';
+                  const topChCfg = t.topChannel ? CHANNELS[t.topChannel] : null;
+                  const quotaPct = (t.trip.quota || 0) > 0 ? ((t.trip.sold || 0) / t.trip.quota * 100) : 0;
+                  const tripStatusColor =
+                    t.trip.status === 'closed' ? 'bg-slate-100 text-slate-700'
+                    : t.trip.status === 'open' ? 'bg-green-100 text-green-700'
+                    : t.trip.status === 'departed' ? 'bg-blue-100 text-blue-700'
+                    : 'bg-amber-100 text-amber-700';
+
+                  const daysBadge = t.avgDays == null
+                    ? <span className="text-slate-400 text-xs">—</span>
+                    : t.avgDays <= 3
+                      ? <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-bold">{t.avgDays}d ⚡</span>
+                      : t.avgDays <= 14
+                        ? <span className="inline-block px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 text-xs font-bold">{t.avgDays}d</span>
+                        : <span className="inline-block px-1.5 py-0.5 rounded bg-orange-100 text-orange-800 text-xs font-bold">{t.avgDays}d 🐢</span>;
+
+                  return (
+                    <tr key={t.tripId} className="hover:bg-slate-50">
+                      <td className="px-3 py-2">
+                        <Link href={`/trips/${t.tripId}`} className="font-bold text-brand-700 hover:underline text-sm">
+                          {t.trip.kode_trip || `#${t.tripId}`}
+                        </Link>
+                        <div className="text-[11px] text-slate-500 truncate max-w-[180px]">{t.trip.name}</div>
+                        {t.trip.departure && (
+                          <div className="text-[10px] text-slate-400">DEP: {fmtDate(t.trip.departure)}</div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${tripStatusColor}`}>
+                          {t.trip.status || '—'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right text-xs">
+                        <div className="font-bold">{t.trip.sold || 0}/{t.trip.quota || 0}</div>
+                        <div className="text-[10px] text-slate-400">{quotaPct.toFixed(0)}% filled</div>
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-xs">{t.spend > 0 ? fmtRupiah(t.spend) : <span className="text-slate-400">—</span>}</td>
+                      <td className="px-3 py-2 text-right font-mono">{t.leads || <span className="text-slate-400">—</span>}</td>
+                      <td className="px-3 py-2 text-right font-bold">{t.closings}</td>
+                      <td className="px-3 py-2 text-right font-mono text-xs text-green-700">{fmtRupiah(t.revenue)}</td>
+                      <td className="px-3 py-2 text-right font-mono text-xs">{t.closings > 0 && t.spend > 0 ? fmtRupiah(t.cac) : '—'}</td>
+                      <td className="px-3 py-2 text-right">
+                        {t.spend > 0
+                          ? <span className={`font-bold ${t.roas >= 3 ? 'text-green-700' : t.roas >= 1 ? 'text-amber-700' : 'text-red-700'}`}>{t.roas === Infinity ? '∞' : t.roas.toFixed(1) + 'x'}</span>
+                          : (t.closings > 0 ? <span className="text-green-700 font-bold">∞</span> : '—')}
+                      </td>
+                      <td className="px-3 py-2 text-right">{daysBadge}</td>
+                      <td className="px-3 py-2">
+                        {topChCfg ? (
+                          <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border ${topChCfg.color}`}>
+                            <span>{topChCfg.icon}</span>
+                            <span className="font-bold">{t.topChannelClosings}</span>
+                          </div>
+                        ) : <span className="text-slate-400 text-xs">—</span>}
+                      </td>
+                      <td className={`px-3 py-2 text-xs font-bold ${verdictColor}`}>{verdict}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* PAID vs ORGANIC COMPARISON */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <ComparisonCard
@@ -349,22 +586,28 @@ export default async function AdsManagerPage({ searchParams }) {
             <p>📊 <strong>Avg CAC keseluruhan:</strong> {fmtRupiah(cac)}. Avg ticket = {fmtRupiah(avgTicket)}. Margin per closing = <strong className="text-green-700">{fmtRupiah(avgTicket - cac)}</strong></p>
           )}
           {avgDaysOverall != null && (
-            <p>⏱ <strong>Speed to close:</strong> rata-rata {avgDaysOverall} hari dari chat pertama. {avgDaysOverall <= 7 ? 'Sangat cepat — funnel kalian sehat.' : avgDaysOverall <= 14 ? 'Normal — masih bisa di-optimize dengan follow-up otomatis.' : 'Lambat — perlu reminder/nurturing sequence yang lebih agresif.'}</p>
+            <p>⏱ <strong>Speed to close:</strong> rata-rata {avgDaysOverall} hari. {avgDaysOverall <= 7 ? 'Funnel sehat.' : avgDaysOverall <= 14 ? 'Normal, masih bisa optimize.' : 'Lambat — perlu nurturing sequence.'}</p>
+          )}
+          {bestTrip && bestTrip.roas >= 3 && (
+            <p>🏆 <strong>Trip terbaik:</strong> {bestTrip.trip.kode_trip || bestTrip.trip.name} ROAS {bestTrip.roas === Infinity ? '∞' : bestTrip.roas.toFixed(1) + 'x'}. Copy strategi promosi-nya ke trip lain.</p>
           )}
           {fastestChannel && slowestChannel && fastestChannel.key !== slowestChannel.key && (
-            <p>⚡ <strong>{fastestChannel.cfg.label}</strong> closing {fastestChannel.avgDays}d vs <strong>{slowestChannel.cfg.label}</strong> closing {slowestChannel.avgDays}d. Gap {(slowestChannel.avgDays - fastestChannel.avgDays).toFixed(1)} hari — copy strategi dari channel cepat ke yang lambat.</p>
+            <p>⚡ <strong>{fastestChannel.cfg.label}</strong> closing {fastestChannel.avgDays}d vs <strong>{slowestChannel.cfg.label}</strong> {slowestChannel.avgDays}d — gap {(slowestChannel.avgDays - fastestChannel.avgDays).toFixed(1)} hari.</p>
           )}
           {channelMetrics.filter((c) => !c.cfg.paid && c.closings > 0).length > 0 && (
-            <p>🌱 <strong>Free closing (organik):</strong> {channelMetrics.filter((c) => !c.cfg.paid).reduce((s, c) => s + c.closings, 0)} peserta tanpa biaya iklan = pure profit margin</p>
+            <p>🌱 <strong>Free closing:</strong> {channelMetrics.filter((c) => !c.cfg.paid).reduce((s, c) => s + c.closings, 0)} peserta organik = pure profit margin</p>
           )}
           {topChannel && topChannel.cfg.paid && topChannel.roas > 3 && (
-            <p>🚀 <strong>{topChannel.cfg.label}</strong> ROAS {topChannel.roas.toFixed(1)}x — Scale up next month, naikkan budget 30-50%</p>
+            <p>🚀 <strong>{topChannel.cfg.label}</strong> ROAS {topChannel.roas.toFixed(1)}x — Scale 30-50% next month.</p>
           )}
           {totalLeads > 0 && convRate < 5 && (
-            <p>⚠ <strong>Conv rate rendah ({convRate.toFixed(1)}%)</strong> — Review follow-up speed, atau landing page perlu di-improve</p>
+            <p>⚠ <strong>Conv rate rendah ({convRate.toFixed(1)}%)</strong> — Review follow-up speed/landing page.</p>
+          )}
+          {tripMetrics.length === 0 && (
+            <p className="text-slate-500 italic">✈ Belum ada trip-level data. Pastikan saat input Ads Entry, pilih trip_id supaya bisa di-track per trip.</p>
           )}
           {avgDaysOverall == null && (
-            <p className="text-slate-500 italic">⏱ Belum ada data "days to close" bulan ini. Mulai isi tanggal chat pertama di CS Daily input → metrik speed-to-close akan muncul otomatis.</p>
+            <p className="text-slate-500 italic">⏱ Belum ada "days to close" data. Mulai isi di CS Daily input → metrik speed akan muncul.</p>
           )}
         </div>
       </div>
@@ -373,21 +616,6 @@ export default async function AdsManagerPage({ searchParams }) {
       <AdsManager entries={adsEntries.slice(0, 50)} trips={trips} />
     </div>
   );
-}
-
-// R151: map lead_source dari peserta ke channel key
-function mapLeadSourceToChannel(source) {
-  if (!source) return null;
-  const s = String(source).toLowerCase();
-  if (s === 'ads_meta')   return 'meta';
-  if (s === 'ads_google') return 'google';
-  if (s === 'ads_tiktok') return 'tiktok';
-  if (s === 'instagram')  return 'instagram';
-  if (s === 'whatsapp')   return 'whatsapp';
-  if (s === 'offline')    return 'offline';
-  if (s === 'alumni')     return 'alumni';
-  if (s === 'mitra')      return 'mitra';
-  return null;
 }
 
 function StatCard({ label, value, sub, color = 'bg-slate-50 text-slate-700' }) {
@@ -405,7 +633,6 @@ function ComparisonCard({ title, channels, color }) {
   const totalSpend = channels.reduce((s, c) => s + c.spend, 0);
   const totalRevenue = channels.reduce((s, c) => s + c.revenue, 0);
   const roas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
-  // R151: avg days across these channels
   const allDays = channels.flatMap((c) => c.days_arr || []);
   const avgDays = allDays.length > 0
     ? Math.round((allDays.reduce((a, b) => a + b, 0) / allDays.length) * 10) / 10
