@@ -1,6 +1,6 @@
 'use client';
 
-// Round 148: Sidebar + Ads Manager
+// Round 160: Sidebar — tambah menu "Penawaran"
 // Path: components/layout/Sidebar.jsx
 
 import { useEffect, useState } from 'react';
@@ -12,6 +12,7 @@ const NAV = [
   { href: '/dashboard',       label: 'Dashboard',    icon: '◆',  roles: ['owner', 'manager', 'cs', 'ops'] },
   { href: '/trips',           label: 'Master Trip',  icon: '✈',  roles: ['owner', 'manager', 'cs', 'ops'] },
   { href: '/cs',              label: 'CS Daily',     icon: '☎',  roles: ['owner', 'manager', 'cs', 'ops'] },
+  { href: '/quotations',      label: 'Penawaran AI', icon: '💰', roles: ['owner', 'manager', 'cs', 'ops'] },
   { href: '/ads',             label: 'Ads Manager',  icon: '📢', roles: ['owner', 'manager', 'cs', 'ops'] },
   { href: '/finance',         label: 'Finance',      icon: '$',  roles: ['owner', 'manager', 'ops'] },
   { href: '/accounting',      label: 'Accounting',   icon: '📊', roles: ['owner', 'manager'] },
@@ -48,7 +49,6 @@ export default function Sidebar() {
     return item.roles.includes(role);
   });
 
-  // TL: hanya Portal TL + Chat + To-Do
   const finalNav = role === 'tour_leader'
     ? NAV.filter((item) => ['/tl', '/chat', '/tasks'].includes(item.href))
     : visibleNav;
