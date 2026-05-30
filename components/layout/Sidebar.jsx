@@ -1,6 +1,6 @@
 'use client';
 
-// Round 170: Sidebar — tambah menu HR (owner, manager only)
+// Round 173 SAFE: Sidebar — kembali ke versi stabil R164 + cuma tambah 1 entry HR
 // Path: components/layout/Sidebar.jsx
 
 import { useEffect, useState } from 'react';
@@ -16,13 +16,13 @@ const NAV = [
   { href: '/ads',             label: 'Ads Manager',  icon: '📢', roles: ['owner', 'manager', 'cs', 'ops'] },
   { href: '/finance',         label: 'Finance',      icon: '$',  roles: ['owner', 'manager', 'ops'] },
   { href: '/accounting',      label: 'Accounting',   icon: '📊', roles: ['owner', 'manager'] },
-  { href: '/hr',              label: 'HR / HDR',     icon: '👥', roles: ['owner', 'manager'] },
+  { href: '/hr',              label: 'HR',           icon: '🧑', roles: ['owner', 'manager'] },
   { href: '/invoices',        label: 'Invoices',     icon: '🧾', roles: ['owner', 'manager', 'ops'] },
   { href: '/refunds',         label: 'Refunds',      icon: '💸', roles: ['owner', 'manager', 'cs', 'ops'] },
   { href: '/visa',            label: 'Visa',         icon: '🛂', roles: ['owner', 'manager', 'cs', 'ops'] },
   { href: '/passport-manage', label: 'Passport AI',  icon: '🤖', roles: ['owner', 'manager', 'cs', 'ops'] },
   { href: '/tl',              label: 'Portal TL',    icon: '👤', roles: ['owner', 'manager', 'cs', 'ops', 'tour_leader'] },
-  { href: '/tl-master',       label: 'Master TL',    icon: '👨‍💼', roles: ['owner', 'manager'] },
+  { href: '/tl-master',       label: 'Master TL',    icon: '👥', roles: ['owner', 'manager'] },
   { href: '/tasks',           label: 'To-Do List',   icon: '✅', roles: ['owner', 'manager', 'cs', 'ops', 'tour_leader'] },
   { href: '/chat',            label: 'Chat Tim',     icon: '💬', roles: ['owner', 'manager', 'cs', 'ops', 'tour_leader'] },
 ];
