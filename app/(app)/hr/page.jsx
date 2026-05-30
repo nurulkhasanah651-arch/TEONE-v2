@@ -1,9 +1,9 @@
-// Round 170: HR Dashboard
+// Round 171: HR Dashboard — tambah SyncEmailsButton + link payroll
 // Path: app/(app)/hr/page.jsx
 
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
 import { getHRDashboardData } from '@/lib/actions/hr';
+import SyncEmailsButton from '@/components/hr/SyncEmailsButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,58 +36,32 @@ export default async function HRDashboardPage() {
 
       {/* Sub-menu cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <SectionCard
-          href="/hr/employees"
-          icon="👤"
-          title="Karyawan"
-          desc={`${stats.total_employees} terdaftar`}
-          color="from-blue-500 to-blue-700"
-        />
-        <SectionCard
-          href="/hr/payroll"
-          icon="💰"
-          title="Payroll"
-          desc="Gaji & slip pembayaran"
-          color="from-green-500 to-emerald-700"
-        />
-        <SectionCard
-          href="/hr/attendance"
-          icon="🕐"
-          title="Absensi"
-          desc="Clock in/out + cuti"
-          color="from-purple-500 to-purple-700"
-        />
-        <SectionCard
-          href="/hr/kpi"
-          icon="🎯"
-          title="KPI"
-          desc="Performance tracking"
-          color="from-amber-500 to-orange-700"
-        />
+        <SectionCard href="/hr/employees" icon="👤" title="Karyawan" desc={`${stats.total_employees} terdaftar`} color="from-blue-500 to-blue-700" available />
+        <SectionCard href="/hr/payroll" icon="💰" title="Payroll" desc="Gaji & slip pembayaran" color="from-green-500 to-emerald-700" available />
+        <SectionCard href="/hr/attendance" icon="🕐" title="Absensi" desc="Coming R172" color="from-purple-500 to-purple-700" />
+        <SectionCard href="/hr/kpi" icon="🎯" title="KPI" desc="Coming R173" color="from-amber-500 to-orange-700" />
       </div>
 
       {/* Quick actions */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
         <h2 className="text-sm font-bold text-brand-700 uppercase tracking-wider mb-3">⚡ Quick Actions</h2>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 mb-3">
           <Link href="/hr/employees/new" className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg">
             + Karyawan Baru
           </Link>
           <Link href="/hr/payroll/new" className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-lg">
-            + Generate Payroll Bulan Ini
-          </Link>
-          <Link href="/hr/attendance/today" className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-semibold rounded-lg">
-            🕐 Absensi Hari Ini
+            💰 Generate Payroll Bulan Ini
           </Link>
         </div>
-      </div>
 
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-        <p className="font-bold mb-1">⚠ HR Module — R170 Foundation</p>
-        <p className="text-xs">
-          Saat ini sudah ada: <b>Employees CRUD</b>. Coming soon: Payroll generator (R171), Attendance clock in/out (R172), KPI auto-track (R173).
-          Mulai dengan tambah karyawan dulu, baru next round bisa generate payroll & track absensi.
-        </p>
+        {/* R171: Sync emails */}
+        <div className="pt-3 border-t border-slate-200">
+          <p className="text-xs font-semibold text-slate-700 mb-2">🔗 Auto-Link Karyawan ke Akun TEONE</p>
+          <p className="text-[11px] text-slate-500 mb-2">
+            Cocokin email karyawan ke akun TEONE yang udah login. Setelah ter-link, karyawan bisa lihat slip gaji & KPI mereka sendiri.
+          </p>
+          <SyncEmailsButton />
+        </div>
       </div>
     </div>
   );
@@ -123,14 +97,22 @@ function BreakdownCard({ title, data }) {
   );
 }
 
-function SectionCard({ href, icon, title, desc, color }) {
+function SectionCard({ href, icon, title, desc, color, available = false }) {
+  const isComing = !available;
   return (
-    <Link href={href} className="block bg-white rounded-xl border border-slate-200 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all overflow-hidden">
+    <Link
+      href={isComing ? '#' : href}
+      onClick={(e) => isComing && e.preventDefault()}
+      className={`block bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden ${isComing ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-card-hover hover:-translate-y-0.5 transition-all'}`}
+    >
       <div className={`h-1.5 bg-gradient-to-r ${color}`} />
       <div className="p-4">
         <div className="text-3xl mb-2">{icon}</div>
         <p className="font-bold text-brand-700">{title}</p>
         <p className="text-xs text-slate-500 mt-0.5">{desc}</p>
+        {isComing && (
+          <p className="text-[10px] text-amber-600 font-semibold mt-1">🔜 Coming Soon</p>
+        )}
       </div>
     </Link>
   );
