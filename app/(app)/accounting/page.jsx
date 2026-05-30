@@ -1,6 +1,6 @@
-// Round 158: Accounting dashboard + DATE RANGE FILTER + DOWNLOAD per kategori
-// Filter: Hari ini / Minggu ini / Bulan ini / Tahun ini / Custom
-// Download: Cash In / Cash Out / Cashflow Combined — semua dengan filter aktif
+// Round 169: Accounting dashboard — Download Center DIHAPUS (sudah ada per-tab)
+// Filter periode tetap aktif (Hari/Minggu/Bulan/Tahun/Custom)
+// Transaksi list di bawah juga masih bisa di-download
 // Path: app/(app)/accounting/page.jsx
 
 import Link from 'next/link';
@@ -295,101 +295,6 @@ export default async function AccountingDashboard({ searchParams }) {
           color={realCompanyMoney >= 0 ? 'text-emerald-700' : 'text-red-700'}
           bg={realCompanyMoney >= 0 ? 'bg-emerald-50' : 'bg-red-50'}
         />
-      </div>
-
-      {/* === R158: DOWNLOAD CENTER === */}
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-xl shadow-card overflow-hidden">
-        <div className="px-5 py-3 border-b border-blue-200 bg-blue-100/50">
-          <h2 className="font-bold text-blue-800">📥 Download Center</h2>
-          <p className="text-xs text-slate-600 mt-0.5">
-            Periode aktif: <strong>{periodLabel}</strong>
-            {(from || to) && <span> · {from || '—'} s/d {to || '—'}</span>}
-            <span> · {inRangeEntries.length} transaksi</span>
-          </p>
-        </div>
-        <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* Cash In Download */}
-          <div className="bg-white rounded-lg border border-green-200 p-4">
-            <p className="text-xs font-bold text-green-700 uppercase tracking-wider">⬆ Cash In</p>
-            <p className="mt-1 text-2xl font-bold text-green-700">{fmtRupiah(periodCashIn)}</p>
-            <p className="text-[11px] text-slate-500 mt-0.5">{cashInEntries.length} transaksi</p>
-            <div className="mt-3">
-              <DownloadButtons
-                filename={`cash-in-${period}${from ? `-${from}` : ''}`}
-                title={`Cash In — ${periodLabel}`}
-                subtitle={subtitleDate}
-                extraInfo={[
-                  { label: 'Total Cash In', value: `Rp ${periodCashIn.toLocaleString('id-ID')}` },
-                  { label: 'Jumlah Transaksi', value: cashInEntries.length },
-                ]}
-                columns={detailColumns}
-                rows={cashInEntries}
-                summary={[
-                  { label: 'TOTAL CASH IN', value: `Rp ${periodCashIn.toLocaleString('id-ID')}` },
-                ]}
-              />
-            </div>
-          </div>
-
-          {/* Cash Out Download */}
-          <div className="bg-white rounded-lg border border-amber-200 p-4">
-            <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">⬇ Cash Out</p>
-            <p className="mt-1 text-2xl font-bold text-amber-700">{fmtRupiah(periodCashOut)}</p>
-            <p className="text-[11px] text-slate-500 mt-0.5">{cashOutEntries.length} transaksi</p>
-            <div className="mt-3">
-              <DownloadButtons
-                filename={`cash-out-${period}${from ? `-${from}` : ''}`}
-                title={`Cash Out — ${periodLabel}`}
-                subtitle={subtitleDate}
-                extraInfo={[
-                  { label: 'Total Cash Out', value: `Rp ${periodCashOut.toLocaleString('id-ID')}` },
-                  { label: 'Jumlah Transaksi', value: cashOutEntries.length },
-                ]}
-                columns={detailColumns}
-                rows={cashOutEntries}
-                summary={[
-                  { label: 'TOTAL CASH OUT', value: `Rp ${periodCashOut.toLocaleString('id-ID')}` },
-                ]}
-              />
-            </div>
-          </div>
-
-          {/* Cashflow Combined Download */}
-          <div className="bg-white rounded-lg border border-blue-200 p-4">
-            <p className="text-xs font-bold text-blue-700 uppercase tracking-wider">📊 Cashflow Combined</p>
-            <p className={`mt-1 text-2xl font-bold ${periodNet >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
-              {fmtRupiah(periodNet)}
-            </p>
-            <p className="text-[11px] text-slate-500 mt-0.5">{inRangeEntries.length} transaksi (in + out)</p>
-            <div className="mt-3">
-              <DownloadButtons
-                filename={`cashflow-${period}${from ? `-${from}` : ''}`}
-                title={`Cashflow Combined — ${periodLabel}`}
-                subtitle={subtitleDate}
-                extraInfo={[
-                  { label: 'Total Cash In', value: `Rp ${periodCashIn.toLocaleString('id-ID')}` },
-                  { label: 'Total Cash Out', value: `Rp ${periodCashOut.toLocaleString('id-ID')}` },
-                  { label: 'Net Cashflow', value: `Rp ${periodNet.toLocaleString('id-ID')}` },
-                ]}
-                columns={[
-                  { key: 'date', label: 'Tanggal', format: 'date' },
-                  { key: 'type', label: 'Type' },
-                  { key: 'source_label', label: 'Sumber' },
-                  { key: 'category', label: 'Kategori' },
-                  { key: 'description', label: 'Keterangan' },
-                  { key: 'trip_kode', label: 'Trip' },
-                  { key: 'amount', label: 'Nominal', align: 'right', format: 'rupiah' },
-                ]}
-                rows={cashflowCombined}
-                summary={[
-                  { label: 'TOTAL CASH IN', value: `Rp ${periodCashIn.toLocaleString('id-ID')}` },
-                  { label: 'TOTAL CASH OUT', value: `Rp ${periodCashOut.toLocaleString('id-ID')}` },
-                  { label: 'NET CASHFLOW', value: `Rp ${periodNet.toLocaleString('id-ID')}` },
-                ]}
-              />
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* SHORTCUT TO OTHER ACCOUNTING SECTIONS */}
