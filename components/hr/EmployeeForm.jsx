@@ -1,6 +1,6 @@
 'use client';
 
-// Round 170: EmployeeForm — form create/edit karyawan
+// Round 175: EmployeeForm — + tl_subtype dropdown (in-house vs freelance TL)
 // Path: components/hr/EmployeeForm.jsx
 
 import { useState, useTransition } from 'react';
@@ -22,6 +22,12 @@ const EMPLOYMENT_TYPES = [
   { value: 'freelance',   label: '💼 Freelance (per project/hour)' },
   { value: 'tour_leader', label: '✈ Tour Leader (per trip)' },
   { value: 'contract',    label: '📋 Contract' },
+];
+
+// R175: TL subtype
+const TL_SUBTYPES = [
+  { value: 'inhouse',   label: '🏠 In-house (karyawan tetap TEONE)' },
+  { value: 'freelance', label: '🌍 Freelance (TL lepas/partner)' },
 ];
 
 const ROLES = ['owner', 'manager', 'cs', 'ops', 'finance', 'tl', 'designer', 'social_media', 'admin', 'other'];
@@ -46,6 +52,7 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan' 
     marital_status: employee?.marital_status || '',
     emergency_contact: employee?.emergency_contact || '',
     employment_type: employee?.employment_type || 'fulltime',
+    tl_subtype: employee?.tl_subtype || 'inhouse',  // R175
     role: employee?.role || '',
     department: employee?.department || '',
     position: employee?.position || '',
@@ -81,6 +88,7 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan' 
   const showMonthly = ['fulltime', 'parttime', 'contract'].includes(form.employment_type);
   const showPerTrip = form.employment_type === 'tour_leader';
   const showHourly = form.employment_type === 'freelance';
+  const showTLSubtype = form.employment_type === 'tour_leader';  // R175
 
   return (
     <form action={handleSubmit} className="space-y-4">
@@ -155,6 +163,28 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan' 
             </select>
           </Field>
         </div>
+
+        {/* R175: TL Subtype dropdown — only show if employment_type='tour_leader' */}
+        {showTLSubtype && (
+          <div className="bg-pink-50 border border-pink-200 rounded-lg p-3">
+            <Field label="Jenis Tour Leader" required>
+              <select
+                name="tl_subtype"
+                value={form.tl_subtype}
+                onChange={(e) => upd('tl_subtype', e.target.value)}
+                required
+                className={inputCls}
+              >
+                {TL_SUBTYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </Field>
+            <p className="text-[11px] text-pink-700 mt-1">
+              💡 <b>In-house</b> = karyawan tetap TEONE yg jg jadi TL. <b>Freelance</b> = TL lepas/partner, gak dapat gaji bulanan.
+            </p>
+          </div>
+        )}
+        {!showTLSubtype && <input type="hidden" name="tl_subtype" value={form.tl_subtype} />}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Field label="Role">
             <select name="role" value={form.role} onChange={(e) => upd('role', e.target.value)} className={inputCls}>
@@ -205,10 +235,25 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan' 
         )}
         {showPerTrip && (
           <>
-            <p className="text-xs text-slate-500 italic">Tour Leader dibayar per-trip — fee otomatis × jumlah trip yg dikerjakan tiap bulan</p>
+            <p className="text-xs text-slate-500 italic">Tour Leader dibayar per-trip — fee × jumlah trip yg dikerjakan</p>
             <Field label="Fee per Trip (Rp)">
               <input type="text" inputMode="numeric" name="per_trip_fee" value={fmtIDR(form.per_trip_fee)} onChange={(e) => upd('per_trip_fee', parseNum(e.target.value))} className={inputCls} />
             </Field>
+            {form.tl_subtype === 'inhouse' && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-xs text-blue-700">
+                  💡 TL <b>In-house</b> boleh juga isi gaji pokok di bawah (kalau dapat gaji bulanan + fee per trip).
+                </p>
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Field label="Gaji Pokok (Rp/bulan, opsional)">
+                    <input type="text" inputMode="numeric" name="base_salary" value={fmtIDR(form.base_salary)} onChange={(e) => upd('base_salary', parseNum(e.target.value))} className={inputCls} />
+                  </Field>
+                  <Field label="Tunjangan Transport (opsional)">
+                    <input type="text" inputMode="numeric" name="transport_allowance" value={fmtIDR(form.transport_allowance)} onChange={(e) => upd('transport_allowance', parseNum(e.target.value))} className={inputCls} />
+                  </Field>
+                </div>
+              </div>
+            )}
           </>
         )}
         {showHourly && (
@@ -220,10 +265,17 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan' 
           </>
         )}
         {/* Hidden inputs untuk field yg gak visible (biar tetep terkirim) */}
-        {!showMonthly && (
+        {!showMonthly && !(showPerTrip && form.tl_subtype === 'inhouse') && (
           <>
             <input type="hidden" name="base_salary" value={form.base_salary} />
             <input type="hidden" name="transport_allowance" value={form.transport_allowance} />
+            <input type="hidden" name="meal_allowance" value={form.meal_allowance} />
+            <input type="hidden" name="bpjs_kesehatan_amount" value={form.bpjs_kesehatan_amount} />
+            <input type="hidden" name="bpjs_ketenagakerjaan_amount" value={form.bpjs_ketenagakerjaan_amount} />
+          </>
+        )}
+        {showPerTrip && form.tl_subtype === 'inhouse' && (
+          <>
             <input type="hidden" name="meal_allowance" value={form.meal_allowance} />
             <input type="hidden" name="bpjs_kesehatan_amount" value={form.bpjs_kesehatan_amount} />
             <input type="hidden" name="bpjs_ketenagakerjaan_amount" value={form.bpjs_ketenagakerjaan_amount} />
