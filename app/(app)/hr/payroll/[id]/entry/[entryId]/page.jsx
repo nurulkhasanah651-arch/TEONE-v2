@@ -1,17 +1,31 @@
-// Round 171: Payslip detail — edit per karyawan
+// Round 176: Payslip detail — + Download PDF + Send WA actions
 // Path: app/(app)/hr/payroll/[id]/entry/[entryId]/page.jsx
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { updatePayrollEntry, markEntryAsPaid } from '@/lib/actions/payroll';
+import { sendInternalPayslipToWA } from '@/lib/actions/payslip-extras';
 import PayslipForm from '@/components/hr/PayslipForm';
+import PayslipActionsBar from '@/components/hr/PayslipActionsBar';
 
 export const dynamic = 'force-dynamic';
 
-export default async function PayslipEditPage({ params }) {
-  const { id, entryId } = await params;
-  const supabase = createClient();
+function getServiceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createServiceClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+export default async function PayslipEditPage(props) {
+  const params = await Promise.resolve(props.params);
+  const { id, entryId } = params || {};
+
+  const supabase = getServiceClient() || createClient();
 
   const { data: entry } = await supabase
     .from('payroll_entries')
@@ -23,6 +37,7 @@ export default async function PayslipEditPage({ params }) {
   if (!entry) notFound();
 
   const action = updatePayrollEntry.bind(null, entryId);
+  const sendWAAction = sendInternalPayslipToWA.bind(null, entryId);
 
   return (
     <div className="max-w-3xl mx-auto space-y-4">
@@ -36,6 +51,9 @@ export default async function PayslipEditPage({ params }) {
           </span>
         </p>
       </div>
+
+      {/* R176: Download slip + Send WA */}
+      <PayslipActionsBar entry={entry} sendWAAction={sendWAAction} />
 
       <PayslipForm entry={entry} action={action} markPaidAction={markEntryAsPaid} />
     </div>
