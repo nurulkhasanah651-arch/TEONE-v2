@@ -86,11 +86,20 @@ export default async function TLPaymentsListPage(props) {
             Ops ajukan request dari Portal TL → HR approve → auto-booking di HPP/cashflow → mark paid masuk real cashflow.
           </p>
         </div>
-        {/* R177v4: Bulk sync semua paid/approved ke trip_finance_items */}
-        <BulkSyncAccountingButton bulkSyncAction={async () => {
-          'use server';
-          return await bulkSyncTLPaymentsToAccounting();
-        }} />
+        <div className="flex flex-col gap-2 items-end">
+          {/* R178: History page link */}
+          <Link
+            href="/hr/tl-payments/history"
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold rounded-lg shadow-card"
+          >
+            📜 History Per TL →
+          </Link>
+          {/* R177v4: Bulk sync */}
+          <BulkSyncAccountingButton bulkSyncAction={async () => {
+            'use server';
+            return await bulkSyncTLPaymentsToAccounting();
+          }} />
+        </div>
       </div>
 
       {error && (
