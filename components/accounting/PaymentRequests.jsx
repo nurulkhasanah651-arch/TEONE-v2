@@ -1,13 +1,31 @@
 'use client';
 
+// Round 180c: PaymentRequests — pakai payment_request_amount (deposit/pelunasan) bukan total_amount
+// Path: components/accounting/PaymentRequests.jsx
+
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { approvePaymentRequest, rejectPaymentRequest } from '@/lib/actions/accounting';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 
+// Helper untuk dapat nominal yg di-request (DP atau Pelunasan)
+function getRequestAmount(item) {
+  const reqAmt = Number(item.payment_request_amount || 0);
+  if (reqAmt > 0) return reqAmt;
+  // Fallback untuk legacy data tanpa payment_request_amount
+  return Number(item.total_amount || 0);
+}
+
+function getPhaseLabel(item) {
+  const phase = item.payment_phase || '';
+  if (phase === 'deposit') return '70% DP';
+  if (phase === 'pelunasan') return 'Pelunasan';
+  return phase || 'Payment';
+}
+
 export default function PaymentRequests({ requests = [], accounts = [], trips = [] }) {
   const [pending, startTransition] = useTransition();
-  const [approving, setApproving] = useState(null); // request item that is being approved (modal data)
+  const [approving, setApproving] = useState(null);
   const [rejecting, setRejecting] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const router = useRouter();
@@ -18,10 +36,7 @@ export default function PaymentRequests({ requests = [], accounts = [], trips = 
     if (!approving) return;
     startTransition(async () => {
       const result = await approvePaymentRequest(approving.id, formData);
-      if (result?.error) {
-        alert(result.error);
-        return;
-      }
+      if (result?.error) { alert(result.error); return; }
       setApproving(null);
       router.refresh();
     });
@@ -31,21 +46,18 @@ export default function PaymentRequests({ requests = [], accounts = [], trips = 
     if (!rejecting) return;
     startTransition(async () => {
       const result = await rejectPaymentRequest(rejecting.id, rejectReason);
-      if (result?.error) {
-        alert(result.error);
-        return;
-      }
+      if (result?.error) { alert(result.error); return; }
       setRejecting(null);
       setRejectReason('');
       router.refresh();
     });
   }
 
-  if (requests.length === 0) {
-    return null; // hide section kalau ga ada pending request
-  }
+  if (requests.length === 0) return null;
 
   const today = new Date().toISOString().slice(0, 10);
+  // R180c: total = sum dari payment_request_amount (bukan total_amount)
+  const sumRequested = requests.reduce((s, r) => s + getRequestAmount(r), 0);
 
   return (
     <>
@@ -55,11 +67,17 @@ export default function PaymentRequests({ requests = [], accounts = [], trips = 
             <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-500 text-white text-sm font-bold animate-pulse">{requests.length}</span>
             🔔 Pending Payment Requests dari Finance
           </h2>
-          <span className="text-xs text-amber-700">Total: {fmtRupiah(requests.reduce((s, r) => s + (r.total_amount || 0), 0))}</span>
+          <span className="text-xs text-amber-700">Total Diajukan: {fmtRupiah(sumRequested)}</span>
         </div>
         <div className="divide-y divide-amber-200">
           {requests.map((r) => {
             const trip = tripMap[r.trip_id];
+            const reqAmt = getRequestAmount(r);
+            const phaseLabel = getPhaseLabel(r);
+            const totalItem = Number(r.total_amount || 0);
+            const dpPaid = Number(r.dp_paid || 0);
+            const isPartial = reqAmt < totalItem;
+
             return (
               <div key={r.id} className="px-5 py-3 hover:bg-amber-50">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -69,6 +87,9 @@ export default function PaymentRequests({ requests = [], accounts = [], trips = 
                       <span className="text-xs px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold">{r.category}</span>
                       <p className="text-sm font-bold text-slate-800">{r.component}</p>
                       {r.vendor_name && <span className="text-xs text-slate-600">🏢 {r.vendor_name}</span>}
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${r.payment_phase === 'pelunasan' ? 'bg-blue-100 text-blue-700' : 'bg-amber-200 text-amber-800'}`}>
+                        📨 {phaseLabel}
+                      </span>
                     </div>
                     <p className="mt-1 text-xs text-slate-600">
                       Requested by <strong>{r.payment_requested_by || '—'}</strong> · {fmtDate(r.payment_requested_at)}
@@ -78,9 +99,21 @@ export default function PaymentRequests({ requests = [], accounts = [], trips = 
                         </>
                       )}
                     </p>
+                    {/* R180c: Konteks total vs request */}
+                    {isPartial && (
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        💡 Termin {phaseLabel}: <b className="text-amber-700">{fmtRupiah(reqAmt)}</b>
+                        {' '}dari total tagihan <b>{fmtRupiah(totalItem)}</b>
+                        {dpPaid > 0 && <> · Sudah dibayar: {fmtRupiah(dpPaid)}</>}
+                      </p>
+                    )}
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-xl font-bold text-amber-700">{fmtRupiah(r.total_amount)}</p>
+                    {/* R180c: tampilkan amount yg di-request, BUKAN total_amount */}
+                    <p className="text-xl font-bold text-amber-700">{fmtRupiah(reqAmt)}</p>
+                    {isPartial && (
+                      <p className="text-[10px] text-slate-500">Termin {phaseLabel}</p>
+                    )}
                     <div className="mt-2 flex gap-2 justify-end">
                       <button
                         onClick={() => setRejecting(r)}
@@ -94,7 +127,7 @@ export default function PaymentRequests({ requests = [], accounts = [], trips = 
                         disabled={pending}
                         className="px-3 py-1 text-xs font-semibold rounded bg-green-500 text-white hover:bg-green-600 disabled:opacity-50"
                       >
-                        ✓ Approve
+                        ✓ Approve {fmtRupiah(reqAmt)}
                       </button>
                     </div>
                   </div>
@@ -114,7 +147,14 @@ export default function PaymentRequests({ requests = [], accounts = [], trips = 
               <p className="text-xs text-slate-500">Item:</p>
               <p className="text-sm font-bold text-slate-800">{approving.component}</p>
               {approving.vendor_name && <p className="text-xs text-slate-600">🏢 {approving.vendor_name}</p>}
-              <p className="text-lg font-bold text-amber-700 mt-2">{fmtRupiah(approving.total_amount)}</p>
+              <p className="text-[10px] uppercase font-bold text-slate-500 mt-2">Termin {getPhaseLabel(approving)}</p>
+              <p className="text-2xl font-bold text-amber-700">{fmtRupiah(getRequestAmount(approving))}</p>
+              {getRequestAmount(approving) < Number(approving.total_amount || 0) && (
+                <p className="text-[11px] text-slate-500">
+                  dari total tagihan {fmtRupiah(approving.total_amount)}
+                  {Number(approving.dp_paid || 0) > 0 && <> · sudah dibayar {fmtRupiah(approving.dp_paid)}</>}
+                </p>
+              )}
             </div>
 
             <label className="block">
@@ -141,13 +181,16 @@ export default function PaymentRequests({ requests = [], accounts = [], trips = 
             </label>
 
             <p className="text-[11px] text-slate-500">
-              Saat approve: HPP item akan di-mark "lunas" di Finance, dan cash OUT akan masuk ke Accounting dengan tanggal transfer di atas.
+              Saat approve: nominal <b>{fmtRupiah(getRequestAmount(approving))}</b> akan ditambahkan ke dp_paid.
+              {getRequestAmount(approving) >= (Number(approving.total_amount || 0) - Number(approving.dp_paid || 0))
+                ? ' Status item jadi LUNAS.'
+                : ' Status item jadi DP (parsial). Tunggu request Pelunasan berikutnya.'}
             </p>
 
             <div className="flex gap-2 justify-end pt-2 border-t border-slate-100">
               <button type="button" onClick={() => setApproving(null)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded font-semibold">Batal</button>
               <button type="submit" disabled={pending} className="px-5 py-2 bg-green-500 text-white text-sm font-semibold rounded hover:bg-green-600 disabled:opacity-50">
-                {pending ? 'Memproses...' : '✓ Approve & Mark Lunas'}
+                {pending ? 'Memproses...' : `✓ Approve ${fmtRupiah(getRequestAmount(approving))}`}
               </button>
             </div>
           </form>
@@ -160,6 +203,7 @@ export default function PaymentRequests({ requests = [], accounts = [], trips = 
           <div className="bg-white rounded-xl shadow-card-hover max-w-md w-full p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-bold text-brand-700">✗ Reject Payment Request</h3>
             <p className="text-sm text-slate-600">Item: <strong>{rejecting.component}</strong></p>
+            <p className="text-sm text-slate-600">Termin: <strong>{getPhaseLabel(rejecting)} {fmtRupiah(getRequestAmount(rejecting))}</strong></p>
             <label className="block">
               <span className="text-xs font-bold text-slate-700 block mb-1">Alasan Reject</span>
               <textarea
