@@ -1,9 +1,6 @@
 'use client';
 
-// Round 184g: HPPDocumentBar — UI SUPER JELAS
-// - Big "Lihat" button selalu nampak kalau file ada
-// - Status badge visual (✓ / ⏳)
-// - Error/success message persistent + console.log buat debug
+// Round 184h: HPPDocumentBar — defensive handling untuk undefined response + file size check
 // Path: components/finance/HPPDocumentBar.jsx
 
 import { useState, useTransition, useRef, useEffect } from 'react';
@@ -17,11 +14,20 @@ import {
   deleteTransferProof,
 } from '@/lib/actions/hpp-documents';
 
+const MAX_FILE_SIZE_MB = 10;
+const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
+
 function fmtDateTime(d) {
   if (!d) return '';
   const dt = new Date(d);
   if (isNaN(dt)) return d;
   return dt.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function fmtFileSize(bytes) {
+  if (bytes < 1024) return bytes + 'B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
+  return (bytes / 1024 / 1024).toFixed(1) + 'MB';
 }
 
 export default function HPPDocumentBar({
@@ -37,22 +43,34 @@ export default function HPPDocumentBar({
   const proofRef = useRef(null);
   const [uploading, setUploading] = useState(null);
   const [localItem, setLocalItem] = useState(item);
+  // R184h: track selected file untuk preview size
+  const [invoiceSelected, setInvoiceSelected] = useState(null);
+  const [proofSelected, setProofSelected] = useState(null);
 
   useEffect(() => { setLocalItem(item); }, [item.id, item.invoice_url, item.transfer_proof_url]);
 
   function flash(text, isErr = false) {
     setMsg({ text, isErr, ts: Date.now() });
-    // Error sticky, success auto-dismiss
     if (!isErr) setTimeout(() => setMsg(null), 7000);
+  }
+
+  // R184h: validasi file SEBELUM upload — saving server roundtrip
+  function validateFile(file) {
+    if (!file) return 'File belum dipilih';
+    if (file.size > MAX_FILE_SIZE) {
+      return `File terlalu besar (${fmtFileSize(file.size)}). Max ${MAX_FILE_SIZE_MB}MB.\n💡 Compress dulu via tinypng.com (untuk gambar) atau ilovepdf.com (untuk PDF)`;
+    }
+    return null;
   }
 
   async function handleUploadInvoice(e) {
     e?.preventDefault?.();
     const file = invoiceRef.current?.files?.[0];
-    if (!file) { flash('⚠ Pilih file invoice dulu (klik "Choose File")', true); return; }
+    const valErr = validateFile(file);
+    if (valErr) { flash('⚠ ' + valErr, true); return; }
 
     setUploading('invoice');
-    flash(`⏳ Uploading ${file.name}...`);
+    flash(`⏳ Uploading ${file.name} (${fmtFileSize(file.size)})...`);
     console.log('[HPPDocumentBar] Uploading invoice:', file.name, file.size, 'bytes');
 
     const fd = new FormData();
@@ -62,31 +80,46 @@ export default function HPPDocumentBar({
       const r = await uploadHPPInvoice(item.id, fd);
       console.log('[HPPDocumentBar] Upload result:', r);
       setUploading(null);
-      if (r?.error) {
+
+      // R184h: defensive — kalau r undefined (server crash/413), kasih error jelas
+      if (!r) {
+        flash(`❌ Server tidak respond. Kemungkinan:\n• File terlalu besar (>${MAX_FILE_SIZE_MB}MB di server)\n• next.config.js belum di-update dengan bodySizeLimit\n• Network error`, true);
+        return;
+      }
+      if (r.error) {
         flash('❌ ' + r.error, true);
         return;
       }
+
       // Optimistic update
       if (r.item) setLocalItem(r.item);
       else if (r.invoice_url) setLocalItem((p) => ({ ...p, invoice_url: r.invoice_url, invoice_uploaded_at: r.uploaded_at }));
 
       flash(`✓ Invoice "${file.name}" ter-upload!`);
       if (invoiceRef.current) invoiceRef.current.value = '';
+      setInvoiceSelected(null);
       router.refresh();
     } catch (err) {
       console.error('[HPPDocumentBar] Upload error:', err);
       setUploading(null);
-      flash('❌ Error: ' + (err?.message || 'unknown'), true);
+      // R184h: detect 413 dari error message
+      const msg = err?.message || 'unknown';
+      if (/413|payload|body.*size|exceeds/i.test(msg)) {
+        flash(`❌ File terlalu besar untuk server. Update next.config.js: bodySizeLimit: '10mb'`, true);
+      } else {
+        flash('❌ Error: ' + msg, true);
+      }
     }
   }
 
   async function handleUploadProof(e) {
     e?.preventDefault?.();
     const file = proofRef.current?.files?.[0];
-    if (!file) { flash('⚠ Pilih file bukti dulu (klik "Choose File")', true); return; }
+    const valErr = validateFile(file);
+    if (valErr) { flash('⚠ ' + valErr, true); return; }
 
     setUploading('proof');
-    flash(`⏳ Uploading ${file.name}...`);
+    flash(`⏳ Uploading ${file.name} (${fmtFileSize(file.size)})...`);
     console.log('[HPPDocumentBar] Uploading proof:', file.name, file.size, 'bytes');
 
     const fd = new FormData();
@@ -96,34 +129,48 @@ export default function HPPDocumentBar({
       const r = await uploadTransferProof(item.id, fd);
       console.log('[HPPDocumentBar] Upload result:', r);
       setUploading(null);
-      if (r?.error) {
+
+      if (!r) {
+        flash(`❌ Server tidak respond. Kemungkinan:\n• File terlalu besar (>${MAX_FILE_SIZE_MB}MB di server)\n• next.config.js belum di-update dengan bodySizeLimit\n• Network error`, true);
+        return;
+      }
+      if (r.error) {
         flash('❌ ' + r.error, true);
         return;
       }
+
       if (r.item) setLocalItem(r.item);
       else if (r.transfer_proof_url) setLocalItem((p) => ({ ...p, transfer_proof_url: r.transfer_proof_url, transfer_proof_uploaded_at: r.uploaded_at }));
 
       flash(`✓ Bukti "${file.name}" ter-upload! Finance bisa download untuk vendor.`);
       if (proofRef.current) proofRef.current.value = '';
+      setProofSelected(null);
       router.refresh();
     } catch (err) {
       console.error('[HPPDocumentBar] Upload error:', err);
       setUploading(null);
-      flash('❌ Error: ' + (err?.message || 'unknown'), true);
+      const msg = err?.message || 'unknown';
+      if (/413|payload|body.*size|exceeds/i.test(msg)) {
+        flash(`❌ File terlalu besar untuk server. Update next.config.js: bodySizeLimit: '10mb'`, true);
+      } else {
+        flash('❌ Error: ' + msg, true);
+      }
     }
   }
 
   async function handleViewInvoice() {
     setMsg(null);
     const r = await getInvoiceSignedUrl(item.id);
-    if (r?.error) flash('❌ ' + r.error, true);
+    if (!r) { flash('❌ Server tidak respond', true); return; }
+    if (r.error) flash('❌ ' + r.error, true);
     else window.open(r.url, '_blank');
   }
 
   async function handleViewProof() {
     setMsg(null);
     const r = await getTransferProofSignedUrl(item.id);
-    if (r?.error) flash('❌ ' + r.error, true);
+    if (!r) { flash('❌ Server tidak respond', true); return; }
+    if (r.error) flash('❌ ' + r.error, true);
     else window.open(r.url, '_blank');
   }
 
@@ -174,9 +221,8 @@ export default function HPPDocumentBar({
           </span>
         </div>
 
-        {/* BIG VIEW BUTTON — kalau ada file */}
         {hasInvoice && (
-          <div className="space-y-1">
+          <div className="space-y-1 mb-2">
             <button
               type="button"
               onClick={handleViewInvoice}
@@ -199,14 +245,14 @@ export default function HPPDocumentBar({
           </div>
         )}
 
-        {/* UPLOAD FORM — kalau gak ada, atau buat replace */}
         {canUploadInvoice && (
-          <form onSubmit={handleUploadInvoice} className={hasInvoice ? 'mt-2 pt-2 border-t border-purple-100' : ''}>
+          <form onSubmit={handleUploadInvoice}>
             <div className="flex items-stretch gap-2">
               <input
                 ref={invoiceRef}
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png,.webp"
+                onChange={(e) => setInvoiceSelected(e.target.files?.[0] || null)}
                 className="flex-1 text-xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-purple-100 file:text-purple-700 file:font-semibold"
                 disabled={isUploadingInv}
               />
@@ -215,9 +261,16 @@ export default function HPPDocumentBar({
                 disabled={isUploadingInv}
                 className="px-4 py-1.5 rounded bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-bold whitespace-nowrap"
               >
-                {isUploadingInv ? '⏳ Uploading...' : (hasInvoice ? '🔁 Replace' : '⬆️ Upload Invoice')}
+                {isUploadingInv ? '⏳ Uploading...' : (hasInvoice ? '🔁 Replace' : '⬆️ Upload')}
               </button>
             </div>
+            {/* R184h: Preview file size */}
+            {invoiceSelected && (
+              <p className={`text-[10px] mt-1 ${invoiceSelected.size > MAX_FILE_SIZE ? 'text-red-600 font-bold' : 'text-slate-500'}`}>
+                {invoiceSelected.name} ({fmtFileSize(invoiceSelected.size)})
+                {invoiceSelected.size > MAX_FILE_SIZE && ` ⚠ TERLALU BESAR! Max ${MAX_FILE_SIZE_MB}MB`}
+              </p>
+            )}
           </form>
         )}
       </div>
@@ -236,7 +289,7 @@ export default function HPPDocumentBar({
         </div>
 
         {hasProof && (
-          <div className="space-y-1">
+          <div className="space-y-1 mb-2">
             <button
               type="button"
               onClick={handleViewProof}
@@ -261,12 +314,13 @@ export default function HPPDocumentBar({
         )}
 
         {canUploadProof && (
-          <form onSubmit={handleUploadProof} className={hasProof ? 'mt-2 pt-2 border-t border-green-100' : ''}>
+          <form onSubmit={handleUploadProof}>
             <div className="flex items-stretch gap-2">
               <input
                 ref={proofRef}
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png,.webp"
+                onChange={(e) => setProofSelected(e.target.files?.[0] || null)}
                 className="flex-1 text-xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-green-100 file:text-green-700 file:font-semibold"
                 disabled={isUploadingProof}
               />
@@ -275,26 +329,26 @@ export default function HPPDocumentBar({
                 disabled={isUploadingProof}
                 className="px-4 py-1.5 rounded bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-bold whitespace-nowrap"
               >
-                {isUploadingProof ? '⏳ Uploading...' : (hasProof ? '🔁 Replace' : '⬆️ Upload Bukti')}
+                {isUploadingProof ? '⏳ Uploading...' : (hasProof ? '🔁 Replace' : '⬆️ Upload')}
               </button>
             </div>
+            {proofSelected && (
+              <p className={`text-[10px] mt-1 ${proofSelected.size > MAX_FILE_SIZE ? 'text-red-600 font-bold' : 'text-slate-500'}`}>
+                {proofSelected.name} ({fmtFileSize(proofSelected.size)})
+                {proofSelected.size > MAX_FILE_SIZE && ` ⚠ TERLALU BESAR! Max ${MAX_FILE_SIZE_MB}MB`}
+              </p>
+            )}
           </form>
         )}
       </div>
 
-      {/* MESSAGE — visible & persistent untuk error */}
       {msg && (
-        <div className={`rounded-lg p-3 text-sm ${
+        <div className={`rounded-lg p-3 text-sm whitespace-pre-line ${
           msg.isErr
             ? 'bg-red-50 text-red-800 border-2 border-red-300 font-semibold'
             : 'bg-green-50 text-green-800 border border-green-200'
         }`}>
           {msg.text}
-          {msg.isErr && (
-            <p className="text-[11px] mt-1 text-red-600 font-normal">
-              💡 Cek Console browser (F12 → Console) untuk detail error
-            </p>
-          )}
         </div>
       )}
     </div>
