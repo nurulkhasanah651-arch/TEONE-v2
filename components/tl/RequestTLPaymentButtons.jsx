@@ -1,24 +1,14 @@
 'use client';
 
-// Round 177 v2: OPS-only — tombol untuk ajukan gaji TL (atas nama TL)
+// Round 177 v3: Ops-only — + input nominal fee langsung di form
 // Path: components/tl/RequestTLPaymentButtons.jsx
-//
-// USAGE:
-//   <RequestTLPaymentButtons
-//     tripId={tripId}
-//     tlName={trip.tl_name}
-//     existingRequests={requests}
-//     finalReportSubmitted={!!finalReport && finalReport.status !== 'draft'}
-//     requestAction={requestTLPayment}
-//   />
-//
-// PENTING: Component ini hanya untuk INTERNAL OPS — TL TIDAK boleh lihat.
-// Conditional render di parent: {isInternal && <RequestTLPaymentButtons .../>}
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
 function fmtIDR(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
+function fmtIDRNum(n) { return Number(n || 0).toLocaleString('id-ID'); }
+function parseIDR(s) { return s == null ? '' : String(s).replace(/[^0-9]/g, ''); }
 function fmtDate(d) {
   if (!d) return '-';
   const dt = new Date(d);
@@ -44,12 +34,14 @@ export default function RequestTLPaymentButtons({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [notes, setNotes] = useState('');
+  const [totalFee, setTotalFee] = useState('');     // R177v3: total fee trip (basis 70/30)
+  const [customAmount, setCustomAmount] = useState(''); // R177v3: nominal termin ini
   const [openType, setOpenType] = useState(null);
   const [msg, setMsg] = useState(null);
 
   function flash(m, isErr = false) {
     setMsg({ text: m, isErr });
-    setTimeout(() => setMsg(null), 6000);
+    setTimeout(() => setMsg(null), 7000);
   }
 
   const dp70 = existingRequests.find((r) => r.payment_type === 'dp_70');
@@ -58,22 +50,40 @@ export default function RequestTLPaymentButtons({
   function handleOpen(type) {
     setOpenType(type);
     setNotes('');
+    setTotalFee('');
+    setCustomAmount('');
     setMsg(null);
   }
 
+  // Auto-calc preview saat user isi totalFee
+  const totalFeeNum = Number(totalFee || 0);
+  const autoCalc = totalFeeNum > 0
+    ? (openType === 'dp_70' ? Math.round(totalFeeNum * 0.7) : totalFeeNum - Math.round(totalFeeNum * 0.7))
+    : 0;
+  const customAmtNum = Number(customAmount || 0);
+  const finalNominal = customAmtNum > 0 ? customAmtNum : autoCalc;
+
   function handleSubmit() {
     if (!openType) return;
+    if (!totalFee && !customAmount) {
+      flash('Isi minimal salah satu: "Total Fee Trip" atau "Nominal Termin"', true);
+      return;
+    }
     startTransition(async () => {
-      const r = await requestAction(tripId, openType, { notes });
+      const r = await requestAction(tripId, openType, {
+        notes,
+        customAmount: customAmount || null,
+        customTotalFee: totalFee || null,
+      });
       if (r?.error) {
         flash(r.error, true);
       } else {
         flash(r.message || '✓ Request terkirim ke HR');
-        if (r.warning) {
-          setTimeout(() => flash(r.warning, true), 4000);
-        }
+        if (r.warning) setTimeout(() => flash(r.warning, true), 4500);
         setOpenType(null);
         setNotes('');
+        setTotalFee('');
+        setCustomAmount('');
         router.refresh();
       }
     });
@@ -112,10 +122,58 @@ export default function RequestTLPaymentButtons({
       </div>
 
       {openType && (
-        <div className="bg-white rounded-xl border border-indigo-300 shadow-card p-4 space-y-3">
+        <div className="bg-white rounded-xl border-2 border-indigo-300 shadow-card p-4 space-y-3">
           <p className="text-sm font-bold text-indigo-700">
             📨 Ajukan Request — {openType === 'dp_70' ? '70% DP' : '30% Final'} untuk {tlName || 'TL'}
           </p>
+
+          {/* R177v3: NOMINAL INPUT */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <label className="block">
+              <span className="text-xs font-semibold text-slate-700">
+                Total Fee Trip (Rp) <span className="text-slate-400 font-normal">— basis 70/30 split</span>
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={fmtIDRNum(totalFee)}
+                onChange={(e) => setTotalFee(parseIDR(e.target.value))}
+                placeholder="contoh: 10.000.000"
+                className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono"
+              />
+              {totalFeeNum > 0 && (
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Auto-calc {openType === 'dp_70' ? '70%' : '30%'}: <b>{fmtIDR(autoCalc)}</b>
+                </p>
+              )}
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-semibold text-slate-700">
+                ATAU Nominal Termin (Rp) <span className="text-slate-400 font-normal">— override</span>
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={fmtIDRNum(customAmount)}
+                onChange={(e) => setCustomAmount(parseIDR(e.target.value))}
+                placeholder="kalau gak pakai 70/30 default"
+                className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono"
+              />
+              <p className="text-[10px] text-slate-500 mt-1 italic">
+                Isi nominal langsung kalau bukan 70/30 standar
+              </p>
+            </label>
+          </div>
+
+          {/* Preview */}
+          {finalNominal > 0 && (
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+              <p className="text-xs text-slate-600">Nominal yg akan diajukan:</p>
+              <p className="text-2xl font-bold text-indigo-700 font-mono">{fmtIDR(finalNominal)}</p>
+            </div>
+          )}
+
           <label className="block">
             <span className="text-xs font-semibold text-slate-700">Catatan untuk HR (opsional)</span>
             <textarea
@@ -126,13 +184,14 @@ export default function RequestTLPaymentButtons({
               className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
             />
           </label>
+
           <div className="flex items-center gap-2">
             <button
               onClick={handleSubmit}
-              disabled={pending}
+              disabled={pending || finalNominal <= 0}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-bold rounded-lg shadow-card"
             >
-              {pending ? '⏳ Mengajukan...' : '📨 Ajukan ke HR'}
+              {pending ? '⏳ Mengajukan...' : `📨 Ajukan ${finalNominal > 0 ? fmtIDR(finalNominal) : ''} ke HR`}
             </button>
             <button
               onClick={() => setOpenType(null)}
