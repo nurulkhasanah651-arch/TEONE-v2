@@ -1,29 +1,98 @@
 'use client';
 
-// ChatBox — Round 63: TL hide public chat tab
+// Round 183: ChatBox + Supabase Realtime — chat masuk tanpa refresh
+// Path: components/chat/ChatBox.jsx
 
 import { useState, useTransition, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { sendPublicMessage, sendPersonalMessage } from '@/lib/actions/team-collab';
 import { ROLE_BADGE_COLOR, ROLE_LABELS } from '@/lib/utils/roles';
+import { createClient } from '@/lib/supabase/client';
 
 export default function ChatBox({
   currentUserId,
   currentUserName,
   currentUserRole,
   members = [],
-  publicMessages = [],
+  publicMessages: initialPublic = [],
   dmWith,
-  personalMessages = []
+  personalMessages: initialPersonal = []
 }) {
   const isTL = currentUserRole === 'tour_leader';
-  // TL hanya bisa DM personal — default tab personal
   const [tab, setTab] = useState(isTL ? 'personal' : (dmWith ? 'personal' : 'public'));
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const publicEndRef = useRef(null);
   const personalEndRef = useRef(null);
+
+  // R183: local state untuk realtime updates
+  const [publicMessages, setPublicMessages] = useState(initialPublic);
+  const [personalMessages, setPersonalMessages] = useState(initialPersonal);
+  const [liveDot, setLiveDot] = useState(false); // pulse indicator saat ada message baru
+
+  // Sync ke initial saat prop berubah (mis. ganti DM target / navigate)
+  useEffect(() => { setPublicMessages(initialPublic); }, [initialPublic]);
+  useEffect(() => { setPersonalMessages(initialPersonal); }, [initialPersonal, dmWith]);
+
+  // R183: Supabase Realtime subscription
+  useEffect(() => {
+    if (!currentUserId) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`team_chats_${currentUserId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'team_chats' },
+        (payload) => {
+          const msg = payload.new;
+          if (!msg) return;
+
+          // PUBLIC message → tambah ke publicMessages kalau bukan TL
+          if (msg.type === 'public') {
+            if (!isTL) {
+              setPublicMessages((prev) => {
+                // De-dupe by id
+                if (prev.some((p) => p.id === msg.id)) return prev;
+                return [...prev, msg];
+              });
+              if (msg.sender_id !== currentUserId) {
+                setLiveDot(true);
+                setTimeout(() => setLiveDot(false), 2000);
+              }
+            }
+            return;
+          }
+
+          // PERSONAL message — relevan kalau (sender == me && recipient == dmWith) ATAU (sender == dmWith && recipient == me)
+          if (msg.type === 'personal') {
+            const isRelevant = dmWith && (
+              (msg.sender_id === currentUserId && msg.recipient_id === dmWith) ||
+              (msg.sender_id === dmWith && msg.recipient_id === currentUserId)
+            );
+            if (isRelevant) {
+              setPersonalMessages((prev) => {
+                if (prev.some((p) => p.id === msg.id)) return prev;
+                return [...prev, msg];
+              });
+              if (msg.sender_id !== currentUserId) {
+                setLiveDot(true);
+                setTimeout(() => setLiveDot(false), 2000);
+              }
+            }
+            // Kalau bukan untuk current chat tapi DM ke saya dari user lain → router refresh untuk update sidebar count
+            else if (msg.recipient_id === currentUserId) {
+              router.refresh();
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try { supabase.removeChannel(channel); } catch {}
+    };
+  }, [currentUserId, dmWith, isTL, router]);
 
   useEffect(() => {
     if (tab === 'public') publicEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -38,21 +107,66 @@ export default function ChatBox({
       alert('TL tidak boleh kirim chat umum. Pakai DM personal.');
       return;
     }
+    const content = formData.get('content')?.toString().trim();
+    if (!content) return;
+
+    // R183: Optimistic update — tampilkan langsung
+    const tempId = `temp_${Date.now()}`;
+    const optimisticMsg = {
+      id: tempId,
+      type: 'public',
+      sender_id: currentUserId,
+      sender_name: currentUserName,
+      sender_role: currentUserRole,
+      content,
+      created_at: new Date().toISOString(),
+      _optimistic: true,
+    };
+    setPublicMessages((prev) => [...prev, optimisticMsg]);
+    document.getElementById('public-msg-input').value = '';
+
     startTransition(async () => {
       const r = await sendPublicMessage(formData);
-      if (r?.error) { alert(r.error); return; }
-      document.getElementById('public-msg-input').value = '';
-      router.refresh();
+      if (r?.error) {
+        // Rollback
+        setPublicMessages((prev) => prev.filter((m) => m.id !== tempId));
+        alert(r.error);
+        return;
+      }
+      // Replace temp dengan real (akan datang via realtime atau router refresh)
+      // Hapus optimistic — biar realtime yg push (dedupe by id)
+      setPublicMessages((prev) => prev.filter((m) => m.id !== tempId));
     });
   }
 
   async function handleSendPersonal(formData) {
     if (!dmWith) { alert('Pilih penerima dulu'); return; }
+    const content = formData.get('content')?.toString().trim();
+    if (!content) return;
+
+    const tempId = `temp_${Date.now()}`;
+    const optimisticMsg = {
+      id: tempId,
+      type: 'personal',
+      sender_id: currentUserId,
+      sender_name: currentUserName,
+      sender_role: currentUserRole,
+      recipient_id: dmWith,
+      content,
+      created_at: new Date().toISOString(),
+      _optimistic: true,
+    };
+    setPersonalMessages((prev) => [...prev, optimisticMsg]);
+    document.getElementById('personal-msg-input').value = '';
+
     startTransition(async () => {
       const r = await sendPersonalMessage(dmWith, formData);
-      if (r?.error) { alert(r.error); return; }
-      document.getElementById('personal-msg-input').value = '';
-      router.refresh();
+      if (r?.error) {
+        setPersonalMessages((prev) => prev.filter((m) => m.id !== tempId));
+        alert(r.error);
+        return;
+      }
+      setPersonalMessages((prev) => prev.filter((m) => m.id !== tempId));
     });
   }
 
@@ -63,29 +177,37 @@ export default function ChatBox({
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-      {/* Tabs — TL hide public */}
+      {/* Tabs */}
       <div className="flex border-b border-slate-200 bg-slate-50">
         {!isTL && (
           <button
             onClick={() => setTab('public')}
-            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${
+            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-1 ${
               tab === 'public' ? 'border-brand-500 text-brand-700 bg-white' : 'border-transparent text-slate-500 hover:text-brand-600'
             }`}
           >
             📢 Chat Umum ({publicMessages.length})
+            {liveDot && tab !== 'public' && <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
           </button>
         )}
         <button
           onClick={() => setTab('personal')}
-          className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${
+          className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-1 ${
             tab === 'personal' ? 'border-brand-500 text-brand-700 bg-white' : 'border-transparent text-slate-500 hover:text-brand-600'
           }`}
         >
           💬 DM Personal
+          {liveDot && tab !== 'personal' && <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
         </button>
+
+        {/* R183: live indicator */}
+        <div className="ml-auto px-3 flex items-center text-[10px] text-green-600">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse mr-1" />
+          Live
+        </div>
       </div>
 
-      {/* PUBLIC TAB — only non-TL */}
+      {/* PUBLIC TAB */}
       {tab === 'public' && !isTL && (
         <>
           <div className="h-[500px] overflow-y-auto p-4 space-y-2 bg-slate-50/50">
@@ -203,7 +325,7 @@ function MessageBubble({ message, isMine }) {
 
   return (
     <div className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-      <div className={`max-w-[75%] ${isMine ? 'bg-brand-500 text-white' : 'bg-white border border-slate-200'} rounded-2xl px-3 py-2 shadow-sm`}>
+      <div className={`max-w-[75%] ${isMine ? 'bg-brand-500 text-white' : 'bg-white border border-slate-200'} rounded-2xl px-3 py-2 shadow-sm ${message._optimistic ? 'opacity-70' : ''}`}>
         {!isMine && (
           <div className="flex items-center gap-1 mb-1">
             <p className="text-[11px] font-bold text-brand-700">{message.sender_name}</p>
@@ -211,7 +333,10 @@ function MessageBubble({ message, isMine }) {
           </div>
         )}
         <p className={`text-sm whitespace-pre-wrap ${isMine ? 'text-white' : 'text-slate-800'}`}>{message.content}</p>
-        <p className={`text-[10px] mt-1 ${isMine ? 'text-white/70' : 'text-slate-400'} text-right`}>{date} · {time}</p>
+        <p className={`text-[10px] mt-1 ${isMine ? 'text-white/70' : 'text-slate-400'} text-right`}>
+          {date} · {time}
+          {message._optimistic && ' ✓'}
+        </p>
       </div>
     </div>
   );
