@@ -61,8 +61,20 @@ export default async function GroupCashflowDetailPage({ params }) {
 
   const finItems = finItemsRes.data || [];
   const pnrs = pnrRes.data || [];
-  const accEntries = accEntRes.data || [];
+  const accEntriesRaw = accEntRes.data || [];
   const refunds = refundsRes.data || [];
+
+  // R180: Pisahkan accounting_entries jadi manual murni vs linked (auto-created)
+  // linked entries udah ke-count di hppLunas / payments → jangan dihitung lagi
+  const accEntries = accEntriesRaw.filter((e) =>
+    !e.linked_finance_item_id &&
+    !e.linked_payment_id &&
+    e.source !== 'tl_payment'
+  );
+  // linkedAccEntries dipakai untuk bank balance (kalau perlu)
+  const linkedAccEntries = accEntriesRaw.filter((e) =>
+    e.linked_finance_item_id || e.linked_payment_id || e.source === 'tl_payment'
+  );
 
   // === CASH IN ===
   const totalPaymentsIn = paymentsActive.reduce((s, p) => s + (p.amount || 0), 0);
