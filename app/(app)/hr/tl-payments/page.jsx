@@ -1,9 +1,11 @@
-// Round 177: TL Payments list (HR view) — REQUEST QUEUE first
+// Round 177v4: TL Payments list (HR view) — + bulk sync to accounting button
 // Path: app/(app)/hr/tl-payments/page.jsx
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { bulkSyncTLPaymentsToAccounting } from '@/lib/actions/tl-payments';
+import BulkSyncAccountingButton from '@/components/hr/BulkSyncAccountingButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,12 +78,19 @@ export default async function TLPaymentsListPage(props) {
 
   return (
     <div className="max-w-7xl mx-auto space-y-5">
-      <div>
-        <Link href="/hr" className="text-sm text-brand-600 font-medium hover:underline">← HR</Link>
-        <h1 className="mt-1 text-3xl font-bold text-brand-700">✈ TL Payments</h1>
-        <p className="mt-1 text-slate-600">
-          TL ajukan request dari Portal TL → HR approve → auto-booking di HPP/cashflow → mark paid masuk real cashflow.
-        </p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <Link href="/hr" className="text-sm text-brand-600 font-medium hover:underline">← HR</Link>
+          <h1 className="mt-1 text-3xl font-bold text-brand-700">✈ TL Payments</h1>
+          <p className="mt-1 text-slate-600">
+            Ops ajukan request dari Portal TL → HR approve → auto-booking di HPP/cashflow → mark paid masuk real cashflow.
+          </p>
+        </div>
+        {/* R177v4: Bulk sync semua paid/approved ke trip_finance_items */}
+        <BulkSyncAccountingButton bulkSyncAction={async () => {
+          'use server';
+          return await bulkSyncTLPaymentsToAccounting();
+        }} />
       </div>
 
       {error && (
