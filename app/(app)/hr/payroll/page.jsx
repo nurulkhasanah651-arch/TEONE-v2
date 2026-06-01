@@ -1,10 +1,22 @@
-// Round 171: Payroll list page (semua periode)
+// Round 178: Payroll list — + bulk sync ke cash out accounting
 // Path: app/(app)/hr/payroll/page.jsx
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { bulkSyncPayrollToAccounting } from '@/lib/actions/payroll';
+import BulkSyncAccountingButton from '@/components/hr/BulkSyncAccountingButton';
 
 export const dynamic = 'force-dynamic';
+
+function getServiceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createServiceClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
 
 function fmtRupiah(v) { return 'Rp ' + Number(v || 0).toLocaleString('id-ID'); }
 
@@ -15,7 +27,7 @@ const STATUS_BADGE = {
 };
 
 export default async function PayrollListPage() {
-  const supabase = createClient();
+  const supabase = getServiceClient() || createClient();
   const { data: periods } = await supabase
     .from('payroll_periods')
     .select('*')
@@ -25,18 +37,43 @@ export default async function PayrollListPage() {
   const list = periods || [];
   const totalAllNet = list.reduce((s, p) => s + (p.total_net || 0), 0);
 
+  // R178: Count paid entries yang belum ter-sync ke accounting
+  let unsyncedCount = 0;
+  try {
+    const { count } = await supabase
+      .from('payroll_entries')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'paid')
+      .is('accounting_entry_id', null);
+    unsyncedCount = count || 0;
+  } catch {}
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <Link href="/hr" className="text-sm text-brand-600 font-medium hover:underline">← HR</Link>
           <h1 className="mt-1 text-3xl font-bold text-brand-700">💰 Payroll</h1>
-          <p className="mt-1 text-slate-600">Generate payroll per bulan · Auto-hitung gaji + tunjangan + per-trip TL + freelance</p>
+          <p className="mt-1 text-slate-600">Generate payroll per bulan · Auto-sync gaji paid ke cash out accounting</p>
         </div>
-        <Link href="/hr/payroll/new" className="px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-card">
-          + Generate Payroll Baru
-        </Link>
+        <div className="flex flex-col items-end gap-2">
+          <Link href="/hr/payroll/new" className="px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-card">
+            + Generate Payroll Baru
+          </Link>
+          {/* R178: Bulk sync paid payroll ke cash out */}
+          <BulkSyncAccountingButton bulkSyncAction={async () => {
+            'use server';
+            return await bulkSyncPayrollToAccounting();
+          }} />
+        </div>
       </div>
+
+      {unsyncedCount > 0 && (
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-3 text-sm text-amber-900">
+          ⚠ <b>{unsyncedCount}</b> payroll entries sudah <b>PAID</b> tapi belum tersync ke cash out accounting.
+          Klik tombol <b>🔄 Bulk Sync ke Accounting</b> di atas untuk backfill.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <StatCard label="Total Periode" value={list.length} color="text-brand-700" bg="bg-brand-50" />
