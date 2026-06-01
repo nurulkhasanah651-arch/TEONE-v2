@@ -1,5 +1,8 @@
 'use client';
 
+// Round 183: HeaderClient — pass currentUserId ke NotificationBell untuk realtime subscribe
+// Path: components/layout/HeaderClient.jsx
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -39,7 +42,12 @@ export default function HeaderClient({ user, role = null, notifications = [], un
       </div>
 
       <div className="flex items-center gap-2">
-        <NotificationBell notifications={notifications} unreadCount={unreadCount} />
+        {/* R183: pass currentUserId untuk realtime subscribe */}
+        <NotificationBell
+          notifications={notifications}
+          unreadCount={unreadCount}
+          currentUserId={user?.id}
+        />
 
         <div className="relative">
           <button onClick={() => setOpen(!open)} className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
