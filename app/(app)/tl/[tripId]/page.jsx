@@ -1,4 +1,4 @@
-// TL trip detail — Round 131: TripDocsSection canUpload=isInternal only
+// Round 177: TL trip detail — + Request Gaji 70%/30% card
 // Path: app/(app)/tl/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -14,6 +14,9 @@ import PreDepartureChecklist from '@/components/tl/PreDepartureChecklist';
 import TLExpenseForm from '@/components/tl/TLExpenseForm';
 import FinalReportForm from '@/components/tl/FinalReportForm';
 import VendorReviewSection from '@/components/tl/VendorReviewSection';
+// R177: TL payment request
+import RequestTLPaymentButtons from '@/components/tl/RequestTLPaymentButtons';
+import { requestTLPayment, getTLPaymentsForTrip } from '@/lib/actions/tl-payments';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,6 +71,11 @@ export default async function TLTripDetailPage({ params }) {
   try { const r = await serviceClient.from('tl_final_report').select('*').eq('trip_id', tripId).maybeSingle(); finalReport = r.data; } catch {}
   try { const r = await serviceClient.from('tl_vendor_reviews').select('*').eq('trip_id', tripId).order('created_at', { ascending: false }); vendorReviews = r.data || []; } catch {}
 
+  // R177: TL payment requests
+  let tlPaymentRequests = [];
+  try { tlPaymentRequests = await getTLPaymentsForTrip(tripId); } catch {}
+  const finalReportSubmitted = !!finalReport && finalReport.status !== 'draft';
+
   const s = statusCfg(trip.status);
   const days = daysUntil(trip.departure);
   const tripChecklistData = tripChecklist(trip);
@@ -104,6 +112,16 @@ export default async function TLTripDetailPage({ params }) {
         <InfoCard label="🪑 Seat" value={`${trip.sold || 0} / ${trip.quota || 0}`} />
         <InfoCard label="✅ Status" value={`${okCount}/${tripChecklistData.length}`} />
       </div>
+
+      {/* R177: REQUEST GAJI TL — TL & internal bisa lihat status */}
+      {(isTL || isInternal) && (
+        <RequestTLPaymentButtons
+          tripId={tripId}
+          existingRequests={tlPaymentRequests}
+          finalReportSubmitted={finalReportSubmitted}
+          requestAction={requestTLPayment}
+        />
+      )}
 
       {/* PRE-DEPARTURE CHECKLIST */}
       <PreDepartureChecklist
@@ -143,7 +161,7 @@ export default async function TLTripDetailPage({ params }) {
         userRole={role}
       />
 
-      {/* TRIP DOCS — ROUND 131: canUpload INTERNAL ONLY, TL view+download saja */}
+      {/* TRIP DOCS — INTERNAL upload, TL view+download */}
       <TripDocsSection
         tripId={tripId}
         docs={docs}
