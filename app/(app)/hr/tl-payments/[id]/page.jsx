@@ -1,4 +1,4 @@
-// Round 177: TL Payment detail (HR view) — + approve/reject bindings
+// Round 177v4: TL Payment detail (HR view) — + sync to accounting binding
 // Path: app/(app)/hr/tl-payments/[id]/page.jsx
 
 import Link from 'next/link';
@@ -18,6 +18,7 @@ import {
   deleteTLPaymentProof,
   getTLPaymentProofSignedUrl,
   sendTLPaymentSlipToWA,
+  syncTLPaymentToAccounting,
 } from '@/lib/actions/tl-payments';
 
 export const dynamic = 'force-dynamic';
@@ -53,11 +54,25 @@ export default async function TLPaymentDetailPage(props) {
     );
   }
 
+  // R177v4: Cek apakah ada linked trip_finance_items
+  let linkedFinanceItem = null;
+  if (payment.hpp_item_id) {
+    try {
+      const { data } = await supabase
+        .from('trip_finance_items')
+        .select('id, total_amount, payment_status, component')
+        .eq('id', payment.hpp_item_id)
+        .maybeSingle();
+      linkedFinanceItem = data;
+    } catch {}
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-4">
       <Link href="/hr/tl-payments" className="text-sm text-brand-600 font-medium hover:underline">← TL Payments</Link>
       <TLPaymentDetail
         payment={payment}
+        linkedFinanceItem={linkedFinanceItem}
         approveAction={approveTLPayment.bind(null, payment.id)}
         rejectAction={rejectTLPayment.bind(null, payment.id)}
         resetAction={resetTLPaymentToRequested.bind(null, payment.id)}
@@ -70,6 +85,7 @@ export default async function TLPaymentDetailPage(props) {
         deleteProofAction={deleteTLPaymentProof.bind(null, payment.id)}
         getProofUrlAction={getTLPaymentProofSignedUrl.bind(null, payment.id)}
         sendWAAction={sendTLPaymentSlipToWA.bind(null, payment.id)}
+        syncAccountingAction={syncTLPaymentToAccounting.bind(null, payment.id)}
       />
     </div>
   );
