@@ -11,13 +11,9 @@ import {
   cancelPaymentRequest,
   approvePayment,
 } from '@/lib/actions/finance';
-import {
-  uploadHPPInvoice,
-  deleteInvoice,
-  getInvoiceSignedUrl,
-  getTransferProofSignedUrl,
-  deleteTransferProof,
-} from '@/lib/actions/hpp-documents';
+import { uploadHPPInvoice } from '@/lib/actions/hpp-documents';
+// R184b: pakai standalone HPPDocumentBar component
+import HPPDocumentBar from './HPPDocumentBar';
 
 function fmtRupiah(n) {
   const v = Number(n) || 0;
@@ -165,39 +161,7 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
     });
   }
 
-  // R184: Lihat / Download Invoice
-  async function handleViewInvoice() {
-    setDocMsg('');
-    const r = await getInvoiceSignedUrl(i.id);
-    if (r?.error) setDocMsg(r.error);
-    else window.open(r.url, '_blank');
-  }
-
-  async function handleDeleteInvoice() {
-    if (!confirm('Hapus invoice?')) return;
-    startTransition(async () => {
-      const r = await deleteInvoice(i.id);
-      if (r?.error) setDocMsg(r.error);
-      else router.refresh();
-    });
-  }
-
-  // R184: Download Bukti Transfer (untuk kirim ke vendor)
-  async function handleDownloadTransferProof() {
-    setDocMsg('');
-    const r = await getTransferProofSignedUrl(i.id);
-    if (r?.error) setDocMsg(r.error);
-    else window.open(r.url, '_blank');
-  }
-
-  async function handleDeleteTransferProof() {
-    if (!confirm('Hapus bukti transfer?')) return;
-    startTransition(async () => {
-      const r = await deleteTransferProof(i.id);
-      if (r?.error) setDocMsg(r.error);
-      else router.refresh();
-    });
-  }
+  // R184b: handlers untuk doc moved ke HPPDocumentBar component
 
   function handleCancelRequest() {
     if (!confirm('Batalkan permintaan payment?')) return;
@@ -468,49 +432,10 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
         </div>
       )}
 
-      {/* R184: DOCUMENTS BAR — Invoice + Bukti Transfer */}
-      {i.item_type === 'hpp' && (i.invoice_url || i.transfer_proof_url) && (
-        <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2">
-          {i.invoice_url && (
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={handleViewInvoice}
-                disabled={pending}
-                className="text-[11px] px-2 py-1 rounded bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold flex items-center gap-1"
-              >
-                📎 Lihat Invoice
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteInvoice}
-                disabled={pending}
-                className="text-[10px] px-1.5 py-0.5 text-red-500 hover:bg-red-50 rounded"
-                title="Hapus invoice"
-              >✕</button>
-            </div>
-          )}
-          {i.transfer_proof_url && (
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={handleDownloadTransferProof}
-                disabled={pending}
-                className="text-[11px] px-2 py-1 rounded bg-green-50 hover:bg-green-100 text-green-700 font-semibold flex items-center gap-1"
-                title="Download bukti transfer untuk kirim ke vendor"
-              >
-                📥 Bukti Transfer
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteTransferProof}
-                disabled={pending}
-                className="text-[10px] px-1.5 py-0.5 text-red-500 hover:bg-red-50 rounded"
-                title="Hapus bukti"
-              >✕</button>
-            </div>
-          )}
-          {docMsg && <span className="text-[11px] text-red-600">{docMsg}</span>}
+      {/* R184b: DOCUMENT BAR — selalu nampak buat HPP item, Finance bisa upload invoice kapan saja */}
+      {i.item_type === 'hpp' && (
+        <div className="mt-2 pt-2 border-t border-slate-100">
+          <HPPDocumentBar item={i} canUploadInvoice={true} canUploadProof={false} compact={true} />
         </div>
       )}
     </div>
