@@ -1,8 +1,6 @@
 'use client';
 
-// Round 184c: Standalone document bar — + OPTIMISTIC UPDATE + DIAGNOSTIC
-// Saat upload sukses, langsung update local state (gak nunggu router.refresh)
-// Plus tombol diagnostic kalau upload gak nyangkut
+// Round 184d: HPPDocumentBar — + manual reload from DB + auto-sync via realtime
 // Path: components/finance/HPPDocumentBar.jsx
 
 import { useState, useTransition, useRef, useEffect } from 'react';
@@ -16,18 +14,12 @@ import {
   deleteTransferProof,
   inspectHPPItem,
 } from '@/lib/actions/hpp-documents';
-
-function fmtDateTime(d) {
-  if (!d) return '';
-  const dt = new Date(d);
-  if (isNaN(dt)) return d;
-  return dt.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
+import { createClient } from '@/lib/supabase/client';
 
 export default function HPPDocumentBar({
   item,
-  canUploadInvoice = true,    // Finance side
-  canUploadProof = false,     // Accounting side
+  canUploadInvoice = true,
+  canUploadProof = false,
   compact = false,
 }) {
   const router = useRouter();
@@ -35,14 +27,37 @@ export default function HPPDocumentBar({
   const [msg, setMsg] = useState(null);
   const invoiceRef = useRef(null);
   const proofRef = useRef(null);
-  const [uploading, setUploading] = useState(null); // 'invoice' | 'proof' | null
-  // R184c: local state untuk OPTIMISTIC update
+  const [uploading, setUploading] = useState(null);
   const [localItem, setLocalItem] = useState(item);
-  // R184c: diagnostic state
   const [diagnostic, setDiagnostic] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Sync localItem dgn prop kalau parent kasih update baru
-  useEffect(() => { setLocalItem(item); }, [item.invoice_url, item.transfer_proof_url, item.id]);
+  // Sync local kalau parent item berubah
+  useEffect(() => { setLocalItem(item); }, [item.id, item.invoice_url, item.transfer_proof_url]);
+
+  // R184d: Realtime subscribe — kalau item ini di-update di DB, auto-refresh state
+  useEffect(() => {
+    if (!item.id) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`hpp_doc_${item.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'trip_finance_items',
+          filter: `id=eq.${item.id}`,
+        },
+        (payload) => {
+          const updated = payload.new;
+          if (!updated) return;
+          setLocalItem((prev) => ({ ...prev, ...updated }));
+        }
+      )
+      .subscribe();
+    return () => { try { supabase.removeChannel(channel); } catch {} };
+  }, [item.id]);
 
   function flash(text, isErr = false) {
     setMsg({ text, isErr });
@@ -60,7 +75,6 @@ export default function HPPDocumentBar({
     setUploading(null);
     if (r?.error) flash(r.error, true);
     else {
-      // R184c: optimistic update local state DULU, baru router.refresh
       if (r.item) setLocalItem(r.item);
       else if (r.invoice_url) setLocalItem((p) => ({ ...p, invoice_url: r.invoice_url, invoice_uploaded_at: r.uploaded_at }));
       flash(`✓ Invoice ter-upload (${file.name})`);
@@ -80,10 +94,9 @@ export default function HPPDocumentBar({
     setUploading(null);
     if (r?.error) flash(r.error, true);
     else {
-      // R184c: optimistic update
       if (r.item) setLocalItem(r.item);
       else if (r.transfer_proof_url) setLocalItem((p) => ({ ...p, transfer_proof_url: r.transfer_proof_url, transfer_proof_uploaded_at: r.uploaded_at }));
-      flash(`✓ Bukti transfer ter-upload (${file.name}) — Finance bisa download untuk vendor`);
+      flash(`✓ Bukti transfer ter-upload (${file.name})`);
       if (proofRef.current) proofRef.current.value = '';
       router.refresh();
     }
@@ -129,7 +142,25 @@ export default function HPPDocumentBar({
     });
   }
 
-  // R184c: Diagnostic — cek raw DB state buat troubleshoot
+  // R184d: Manual reload — fetch state fresh dari DB
+  async function handleReload() {
+    setRefreshing(true);
+    const r = await inspectHPPItem(item.id);
+    setRefreshing(false);
+    if (r?.error) flash(r.error, true);
+    else {
+      // Update local state pake hasil fresh
+      setLocalItem((p) => ({
+        ...p,
+        invoice_url: r.invoice_url,
+        invoice_uploaded_at: r.invoice_uploaded_at,
+        transfer_proof_url: r.transfer_proof_url,
+        transfer_proof_uploaded_at: r.transfer_proof_uploaded_at,
+      }));
+      flash(`✓ Refreshed · Invoice: ${r.invoice_url ? '✓' : '—'} · Bukti: ${r.transfer_proof_url ? '✓' : '—'}`);
+    }
+  }
+
   async function handleDiagnostic() {
     setDiagnostic({ loading: true });
     const r = await inspectHPPItem(item.id);
@@ -154,7 +185,7 @@ export default function HPPDocumentBar({
                 type="button"
                 onClick={handleViewInvoice}
                 className="text-[11px] px-2 py-1 rounded bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold inline-flex items-center gap-1"
-                title={item.invoice_uploaded_at ? `Uploaded: ${fmtDateTime(item.invoice_uploaded_at)}` : 'Lihat invoice'}
+                title="Lihat invoice"
               >
                 📎 Lihat Invoice
               </button>
@@ -164,7 +195,6 @@ export default function HPPDocumentBar({
                   onClick={handleDeleteInvoice}
                   disabled={pending}
                   className="text-[10px] px-1.5 py-0.5 text-red-500 hover:bg-red-50 rounded"
-                  title="Hapus invoice"
                 >✕</button>
               )}
             </>
@@ -185,7 +215,7 @@ export default function HPPDocumentBar({
               </button>
             </form>
           ) : (
-            <span className="text-[10px] text-amber-600 italic">⚠ Belum ada invoice</span>
+            <span className="text-[10px] text-amber-600 italic">⚠ Belum ada invoice dari Finance</span>
           )}
         </div>
 
@@ -199,7 +229,7 @@ export default function HPPDocumentBar({
                 type="button"
                 onClick={handleViewProof}
                 className="text-[11px] px-2 py-1 rounded bg-green-50 hover:bg-green-100 text-green-700 font-semibold inline-flex items-center gap-1"
-                title={item.transfer_proof_uploaded_at ? `Uploaded: ${fmtDateTime(item.transfer_proof_uploaded_at)}` : 'Lihat bukti transfer'}
+                title="Download bukti transfer untuk kirim ke vendor"
               >
                 📥 Bukti Transfer
               </button>
@@ -209,7 +239,6 @@ export default function HPPDocumentBar({
                   onClick={handleDeleteProof}
                   disabled={pending}
                   className="text-[10px] px-1.5 py-0.5 text-red-500 hover:bg-red-50 rounded"
-                  title="Hapus bukti"
                 >✕</button>
               )}
             </>
@@ -233,6 +262,17 @@ export default function HPPDocumentBar({
             <span className="text-[10px] text-slate-400 italic">Bukti transfer belum di-upload Accounting</span>
           )}
         </div>
+
+        {/* R184d: Manual reload button */}
+        <button
+          type="button"
+          onClick={handleReload}
+          disabled={refreshing}
+          className="ml-auto text-[10px] px-1.5 py-0.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded"
+          title="Reload state dari database"
+        >
+          {refreshing ? '⏳' : '🔄'}
+        </button>
       </div>
 
       {msg && (
@@ -240,65 +280,35 @@ export default function HPPDocumentBar({
           <p>{msg.text}</p>
           {msg.isErr && (
             <button onClick={handleDiagnostic} className="mt-1 text-[10px] underline text-red-800">
-              🔍 Run Diagnostic
+              🔍 Run Diagnostic — cek apa SQL udah jalan
             </button>
           )}
         </div>
       )}
 
-      {/* R184c: Diagnostic panel */}
       {diagnostic && !diagnostic.loading && (
         <div className="text-[10px] bg-slate-50 border border-slate-300 rounded p-2 font-mono">
           <div className="flex items-center justify-between mb-1">
-            <p className="font-bold text-slate-700">🔍 DB State item #{item.id}</p>
+            <p className="font-bold text-slate-700">🔍 DB State #{item.id}</p>
             <button onClick={() => setDiagnostic(null)} className="text-slate-500 hover:text-slate-700">✕</button>
           </div>
           {diagnostic.error ? (
             <p className="text-red-700">⚠ {diagnostic.error}</p>
           ) : (
             <div className="space-y-0.5 text-slate-700">
-              <p><span className="font-bold">Component:</span> {diagnostic.component}</p>
-              <p><span className="font-bold">Total:</span> Rp {Number(diagnostic.total_amount || 0).toLocaleString('id-ID')}</p>
-              <p><span className="font-bold">Status:</span> {diagnostic.payment_status}</p>
+              <p><b>invoice_url:</b> <span className={diagnostic.invoice_url ? 'text-green-700' : 'text-red-700'}>{diagnostic.invoice_url || 'NULL'}</span></p>
+              <p><b>transfer_proof_url:</b> <span className={diagnostic.transfer_proof_url ? 'text-green-700' : 'text-red-700'}>{diagnostic.transfer_proof_url || 'NULL'}</span></p>
               <p className="pt-1 border-t border-slate-200 mt-1">
-                <span className="font-bold">invoice_url:</span>{' '}
-                <span className={diagnostic.invoice_url ? 'text-green-700' : 'text-red-700'}>
-                  {diagnostic.invoice_url || 'NULL'}
-                </span>
-              </p>
-              <p>
-                <span className="font-bold">transfer_proof_url:</span>{' '}
-                <span className={diagnostic.transfer_proof_url ? 'text-green-700' : 'text-red-700'}>
-                  {diagnostic.transfer_proof_url || 'NULL'}
-                </span>
-              </p>
-              <p className="pt-1 border-t border-slate-200 mt-1">
-                Schema invoice_url col: {diagnostic.has_invoice_url_column ? '✓' : '✗ (run SQL!)'}
-                {' · '}
-                transfer_proof_url col: {diagnostic.has_transfer_proof_url_column ? '✓' : '✗ (run SQL!)'}
-              </p>
-              <p>
-                Bucket "hpp-documents": {diagnostic.bucket_hpp_documents_exists ? '✓' : '✗ (run SQL!)'}
+                Column invoice_url: {diagnostic.has_invoice_url_column ? '✓' : '✗'} ·
+                transfer_proof_url: {diagnostic.has_transfer_proof_url_column ? '✓' : '✗'} ·
+                Bucket: {diagnostic.bucket_hpp_documents_exists ? '✓' : '✗'}
               </p>
               {(!diagnostic.has_invoice_url_column || !diagnostic.has_transfer_proof_url_column || !diagnostic.bucket_hpp_documents_exists) && (
-                <p className="mt-2 text-red-700 font-bold">
-                  ⚠ Run SQL_COPAS_RUN_ALL.txt di Supabase SQL Editor dulu!
-                </p>
+                <p className="mt-2 text-red-700 font-bold">⚠ SQL_COPAS_RUN_ALL.txt belum dijalankan!</p>
               )}
             </div>
           )}
         </div>
-      )}
-
-      {/* Diagnostic trigger (subtle) */}
-      {!diagnostic && !msg && (
-        <button
-          onClick={handleDiagnostic}
-          className="text-[9px] text-slate-400 hover:text-slate-700 hover:underline"
-          title="Cek state DB item ini (debug)"
-        >
-          🔍 debug
-        </button>
       )}
     </div>
   );
