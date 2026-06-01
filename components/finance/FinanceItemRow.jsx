@@ -47,14 +47,16 @@ function needsDepositPhase(item) {
   if (item.skip_deposit === true) return false;
   const planned = Number(item.deposit_planned) || 0;
   if (planned <= 0) return false;
-  // Kalau payment_phase explicitly 'pelunasan' (sudah lewat fase DP) → false
-  if (item.payment_phase === 'pelunasan') return false;
+  if (item.payment_phase === 'pelunasan' && Number(item.dp_paid || 0) > 0) return false;
   return true;
 }
 
+// R180b: deriveStatus pakai payment_status sebagai SOURCE OF TRUTH
+// (sebelumnya cuma cek dp_paid → kalau approve dari accounting gak set dp_paid, label salah)
 function deriveStatus(item) {
   const total = Number(item.total_amount) || 0;
   const dp = Number(item.dp_paid) || 0;
+  const status = String(item.payment_status || '').toLowerCase();
   const reqStatus = item.payment_request_status;
   const phase = item.payment_phase || 'deposit';
   const hasDepositPhase = needsDepositPhase(item);
@@ -66,18 +68,29 @@ function deriveStatus(item) {
   if (reqStatus === 'rejected') {
     return { code: 'rejected', label: '✕ Rejected', color: 'bg-red-100 text-red-800' };
   }
-  if (dp >= total && total > 0) {
+  // R180b: payment_status canonical
+  if (status === 'lunas' || (dp > 0 && dp >= total && total > 0)) {
     return { code: 'lunas', label: '✅ LUNAS', color: 'bg-blue-100 text-blue-800' };
   }
-  if (dp > 0) {
+  if (status.includes('dp') || status === 'partial' || dp > 0) {
     return { code: 'deposit_paid', label: '💵 Deposit Sudah Dibayar', color: 'bg-green-100 text-green-800' };
   }
-  // Belum dibayar — label beda berdasarkan flow
+  if (status === 'tidak perlu') {
+    return { code: 'not_needed', label: '— Tidak Perlu', color: 'bg-slate-100 text-slate-500' };
+  }
   return {
     code: 'pending',
     label: hasDepositPhase ? '❌ Deposit Belum Dibayar' : '❌ Belum Dibayar',
     color: 'bg-slate-100 text-slate-700',
   };
+}
+
+// R180b: hitung displayed "Dibayar" — kalau payment_status='lunas', force = total
+function getDisplayedPaid(item, total) {
+  const dp = Number(item.dp_paid) || 0;
+  const status = String(item.payment_status || '').toLowerCase();
+  if (status === 'lunas') return total;
+  return Math.min(dp, total);
 }
 
 export default function FinanceItemRow({ item, tripId, isFinance = false }) {
@@ -90,7 +103,8 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
   const [reqPhase, setReqPhase] = useState('deposit');
 
   const total = Number(i.total_amount) || 0;
-  const dp = Number(i.dp_paid) || 0;
+  // R180b: dipakai untuk display "Dibayar" — kalau status='lunas', force = total walau dp_paid=0
+  const dp = getDisplayedPaid(i, total);
   const sisa = Math.max(total - dp, 0);
   const deposit = Number(i.deposit_planned) || 0;
   const reqAmt = Number(i.payment_request_amount) || 0;
