@@ -85,10 +85,19 @@ export default async function GroupCashflowDetailPage({ params }) {
   const totalRealIn = totalPaymentsIn + totalPaymentsInactive + manualIn;
 
   // === CASH OUT ===
-  const hppLunas = finItems.filter((i) => i.item_type === 'hpp' && i.payment_status === 'lunas');
-  const totalHppLunas = hppLunas.reduce((s, i) => s + (i.total_amount || 0), 0);
-  const hppRefundLunas = hppLunas.filter((i) => i.category === 'Refund');
-  const totalHppRefundLunas = hppRefundLunas.reduce((s, i) => s + (i.total_amount || 0), 0);
+  // R182: include HPP partial DP juga (gak cuma 'lunas')
+  const hppLunas = finItems.filter((i) =>
+    i.item_type === 'hpp' &&
+    (i.payment_status === 'lunas' || Number(i.dp_paid || 0) > 0)
+  );
+  // R182: pakai dp_paid (actual cash keluar), fallback total_amount untuk legacy
+  const hppPaidAmount = (i) => {
+    const paid = Number(i.dp_paid) || 0;
+    return paid > 0 ? paid : Number(i.total_amount || 0);
+  };
+  const totalHppLunas = hppLunas.reduce((s, i) => s + hppPaidAmount(i), 0);
+  const hppRefundLunas = hppLunas.filter((i) => (i.category || '').toLowerCase().includes('refund'));
+  const totalHppRefundLunas = hppRefundLunas.reduce((s, i) => s + hppPaidAmount(i), 0);
   const totalHppOther = totalHppLunas - totalHppRefundLunas;
   const totalPnrPaid = pnrs.reduce((s, p) => s + (p.deposit_total || 0) + (p.payoff_amount || 0), 0);
   const manualOut = accEntries.filter((e) => e.type === 'out').reduce((s, e) => s + (e.amount || 0), 0);
@@ -143,12 +152,19 @@ export default async function GroupCashflowDetailPage({ params }) {
     })),
   ];
 
+  // R182: pakai hppPaidAmount + label status (Lunas / DP)
+  const hppLabel = (i) => {
+    const status = String(i.payment_status || '').toLowerCase();
+    if (status === 'lunas') return 'HPP Lunas';
+    if (status.includes('dp')) return 'HPP DP';
+    return 'HPP Partial';
+  };
   const cashOutRows = [
     ...hppRefundLunas.map((i) => ({
-      type: 'Refund Peserta', name: i.component, note: i.vendor_name || '', amount: i.total_amount || 0,
+      type: 'Refund Peserta', name: i.component, note: i.vendor_name || '', amount: hppPaidAmount(i),
     })),
-    ...hppLunas.filter((i) => i.category !== 'Refund').map((i) => ({
-      type: 'HPP Lunas', name: i.component, note: i.vendor_name || '', amount: i.total_amount || 0,
+    ...hppLunas.filter((i) => !(i.category || '').toLowerCase().includes('refund')).map((i) => ({
+      type: hppLabel(i), name: i.component, note: i.vendor_name || '', amount: hppPaidAmount(i),
     })),
     ...pnrs.map((p) => ({
       type: 'PNR Deposit', name: p.pnr || `PNR ${p.id}`, note: p.vendor || '',
@@ -409,22 +425,37 @@ export default async function GroupCashflowDetailPage({ params }) {
                 {hppRefundLunas.map((i) => (
                   <div key={i.id} className="flex justify-between text-sm py-1">
                     <span className="text-slate-700">{i.component}</span>
-                    <span className="font-semibold text-red-700">{fmtRupiah(i.total_amount)}</span>
+                    <span className="font-semibold text-red-700">{fmtRupiah(hppPaidAmount(i))}</span>
                   </div>
                 ))}
               </SubSection>
             )}
 
-            <SubSection title={`HPP Lunas Vendor (${hppLunas.length - hppRefundLunas.length})`} total={totalHppOther} color="text-amber-700">
-              {hppLunas.filter((i) => i.category !== 'Refund').length === 0 ? (
-                <p className="text-xs text-slate-400 italic">Belum ada HPP lunas (selain refund)</p>
+            <SubSection title={`HPP Cash Out Vendor (${hppLunas.length - hppRefundLunas.length})`} total={totalHppOther} color="text-amber-700">
+              {hppLunas.filter((i) => !(i.category || '').toLowerCase().includes('refund')).length === 0 ? (
+                <p className="text-xs text-slate-400 italic">Belum ada HPP yg dibayar</p>
               ) : (
-                hppLunas.filter((i) => i.category !== 'Refund').map((i) => (
-                  <div key={i.id} className="flex justify-between text-sm py-1">
-                    <span className="text-slate-700">{i.component}{i.vendor_name && <span className="text-xs text-slate-400 ml-1">· {i.vendor_name}</span>}</span>
-                    <span className="font-semibold text-amber-700">{fmtRupiah(i.total_amount)}</span>
-                  </div>
-                ))
+                hppLunas.filter((i) => !(i.category || '').toLowerCase().includes('refund')).map((i) => {
+                  const status = String(i.payment_status || '').toLowerCase();
+                  const isLunas = status === 'lunas';
+                  const total = Number(i.total_amount) || 0;
+                  const paid = Number(i.dp_paid) || 0;
+                  return (
+                    <div key={i.id} className="flex justify-between text-sm py-1">
+                      <span className="text-slate-700">
+                        {i.component}
+                        {i.vendor_name && <span className="text-xs text-slate-400 ml-1">· {i.vendor_name}</span>}
+                        <span className={`ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded ${isLunas ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {isLunas ? '✅ LUNAS' : '🟡 DP'}
+                        </span>
+                        {!isLunas && paid > 0 && (
+                          <span className="text-[10px] text-slate-500 ml-1">({fmtRupiah(paid)} dari {fmtRupiah(total)})</span>
+                        )}
+                      </span>
+                      <span className="font-semibold text-amber-700">{fmtRupiah(hppPaidAmount(i))}</span>
+                    </div>
+                  );
+                })
               )}
             </SubSection>
 
