@@ -1,13 +1,17 @@
-// Round 173 SAFE: next.config.js minimal — tanpa CSP yang mungkin block
+// Round 184h: next.config.js — tambah bodySizeLimit 10mb buat upload invoice/bukti
 // Path: next.config.js (root project)
-//
-// CATATAN: Versi ini cuma include security headers yang aman, tanpa CSP
-// (CSP bisa block script Next.js kalau gak set perfect)
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+
+  // R184h: increase body limit untuk server actions (default 1MB → 10MB)
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '10mb',
+    },
+  },
 
   async headers() {
     return [
