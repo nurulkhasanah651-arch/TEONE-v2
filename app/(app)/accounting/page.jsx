@@ -164,6 +164,12 @@ export default async function AccountingDashboard({ searchParams }) {
   }
   for (const m of accEntries) {
     if (!m.amount || m.amount <= 0) continue;
+    // R180: SKIP accounting_entries yg punya linked_finance_item_id atau linked_payment_id
+    // (mereka udah ke-count via hppLunas / participant_payments → kalau push lagi jadi double)
+    if (m.linked_finance_item_id) continue;
+    if (m.linked_payment_id) continue;
+    // Skip juga yg source='tl_payment' atau source='payroll' (R177/R178 — udah ke-count via trip_finance_items)
+    if (m.source === 'tl_payment') continue;
     allEntries.push({
       id: `man_${m.id}`,
       type: m.type,
