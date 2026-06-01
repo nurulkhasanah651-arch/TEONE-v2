@@ -79,7 +79,8 @@ export default async function AccountingDashboard({ searchParams }) {
     safeQuery(supabase.from('accounts').select('*').eq('active', true)),
     safeQuery(supabase.from('accounting_entries').select('*').order('date', { ascending: false })),
     safeQuery(supabase.from('participant_payments').select('*').order('paid_at', { ascending: false, nullsFirst: false })),
-    safeQuery(supabase.from('trip_finance_items').select('*').eq('item_type', 'hpp').eq('payment_status', 'lunas')),
+    // R182: fetch HPP items dengan dp_paid > 0 (termasuk DP partial) ATAU payment_status='lunas'
+    safeQuery(supabase.from('trip_finance_items').select('*').eq('item_type', 'hpp').or('payment_status.eq.lunas,dp_paid.gt.0')),
     safeQuery(supabase.from('trip_passengers').select('id, trip_id, customer_id, price_paid')),
     safeQuery(supabase.from('customers').select('id, name')),
     safeQuery(supabase.from('trip_finance_items').select('item_type, total_amount, payment_status')),
@@ -102,7 +103,11 @@ export default async function AccountingDashboard({ searchParams }) {
   let autoCashInAll = 0;
   for (const p of payments) autoCashInAll += Number(p.amount || 0);
   let autoCashOutAll = 0;
-  for (const it of hppLunas) autoCashOutAll += Number(it.total_amount || 0);
+  // R182: pakai dp_paid (cash actual yg keluar), fallback ke total_amount kalau dp_paid=0 (legacy lunas)
+  for (const it of hppLunas) {
+    const paid = Number(it.dp_paid) || 0;
+    autoCashOutAll += paid > 0 ? paid : Number(it.total_amount || 0);
+  }
   const totalBank = manualBankSum + (autoCashInAll - autoCashOutAll);
 
   const paidByPassenger = {};
@@ -147,40 +152,77 @@ export default async function AccountingDashboard({ searchParams }) {
       source_label: 'Peserta',
     });
   }
+  // R182: HPP entries (lunas + partial DP) — dengan fallback date supaya gak hilang
+  // Date prioritas: transfer_date > payoff_date > payment_approved_at > updated_at > today
+  const todayStr = new Date().toISOString().slice(0, 10);
   for (const it of hppLunas) {
-    if (!it.total_amount || it.total_amount <= 0) continue;
+    // R182: amount = dp_paid (actual cash keluar). Kalau dp_paid=0 (legacy lunas) fallback ke total_amount
+    const dpPaid = Number(it.dp_paid) || 0;
+    const amount = dpPaid > 0 ? dpPaid : Number(it.total_amount || 0);
+    if (amount <= 0) continue;
+
+    const dateRaw =
+      it.transfer_date ||
+      it.payoff_date ||
+      it.payment_approved_at ||
+      it.updated_at ||
+      todayStr;
+    const date = String(dateRaw).slice(0, 10);
+
+    const isRefund = (it.category || '').toLowerCase().includes('refund');
+    const status = String(it.payment_status || '').toLowerCase();
+    // Label berdasarkan status: DP partial vs Lunas
+    const statusLabel = status === 'lunas' ? '✅ Lunas' : (status.includes('dp') ? '🟡 DP' : '');
+
     allEntries.push({
       id: `hpp_${it.id}`,
       type: 'out',
-      amount: Number(it.total_amount) || 0,
-      date: ((it.transfer_date || it.payoff_date) || '').slice(0, 10),
+      amount,
+      date,
       category: it.category || 'HPP',
-      description: `${it.component}${it.vendor_name ? ` · ${it.vendor_name}` : ''}`,
+      description: `${it.component}${statusLabel ? ' · ' + statusLabel : ''}${it.vendor_name ? ' · ' + it.vendor_name : ''}`,
       trip_kode: tripMap[it.trip_id] ? (tripMap[it.trip_id].kode_trip || `#${it.trip_id}`) : '-',
       trip_name: tripMap[it.trip_id] ? tripMap[it.trip_id].name : '-',
       source: 'hpp',
-      source_label: 'Vendor',
+      source_label: isRefund ? 'Refund' : 'Vendor',
     });
   }
+
+  // R182: Build set of HPP item IDs yg udah ke-cover hppLunas
+  // → accounting_entries dengan linked_finance_item_id pointing ke item itu = duplicate
+  const hppItemIdsInLunas = new Set(hppLunas.map((it) => it.id));
+  // Build set of payment IDs yg udah ke-cover di payments loop
+  const paymentIdsCovered = new Set(payments.map((p) => p.id));
+
   for (const m of accEntries) {
     if (!m.amount || m.amount <= 0) continue;
-    // R180: SKIP accounting_entries yg punya linked_finance_item_id atau linked_payment_id
-    // (mereka udah ke-count via hppLunas / participant_payments → kalau push lagi jadi double)
-    if (m.linked_finance_item_id) continue;
-    if (m.linked_payment_id) continue;
-    // Skip juga yg source='tl_payment' atau source='payroll' (R177/R178 — udah ke-count via trip_finance_items)
+    // R182: Skip kalau linked ke item yg udah muncul via hppLunas (avoid double)
+    if (m.linked_finance_item_id && hppItemIdsInLunas.has(m.linked_finance_item_id)) continue;
+    // Skip kalau linked ke payment yg udah muncul via payments
+    if (m.linked_payment_id && paymentIdsCovered.has(m.linked_payment_id)) continue;
+    // Skip TL payment entries (udah ke-count via trip_finance_items lewat R177v4)
     if (m.source === 'tl_payment') continue;
+    // Skip payroll entries (udah ke-track terpisah, tapi untuk SAFETY tampilkan)
+    // (kalau gak mau tampil, comment out baris berikut)
+    // if (m.source === 'payroll') continue;
+
+    const dateRaw = m.date || m.created_at || todayStr;
+    const date = String(dateRaw).slice(0, 10);
+
+    // Kalau linked tapi gak ada match (orphan), tampilkan dengan label berbeda
+    const isOrphanLinked = m.linked_finance_item_id || m.linked_payment_id;
+
     allEntries.push({
       id: `man_${m.id}`,
       type: m.type,
       amount: Number(m.amount) || 0,
-      date: (m.date || '').slice(0, 10),
+      date,
       category: m.category || 'Manual',
       description: m.description || '-',
       trip_kode: m.trip_id && tripMap[m.trip_id] ? (tripMap[m.trip_id].kode_trip || `#${m.trip_id}`) : '-',
       trip_name: m.trip_id && tripMap[m.trip_id] ? tripMap[m.trip_id].name : '-',
-      source: 'manual',
-      source_label: 'Manual',
+      source: isOrphanLinked ? 'auto' : 'manual',
+      source_label: isOrphanLinked ? (m.linked_finance_item_id ? 'Auto Vendor' : 'Auto Peserta') : 'Manual',
     });
   }
 
