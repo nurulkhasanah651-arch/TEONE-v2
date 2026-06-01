@@ -19,6 +19,7 @@ import {
   getTLPaymentProofSignedUrl,
   sendTLPaymentSlipToWA,
   syncTLPaymentToAccounting,
+  relinkTLPaymentToCorrectTL,
 } from '@/lib/actions/tl-payments';
 
 export const dynamic = 'force-dynamic';
@@ -67,11 +68,25 @@ export default async function TLPaymentDetailPage(props) {
     } catch {}
   }
 
+  // R177v5: Fetch trip biar bisa cek mismatch TL
+  let tripInfo = null;
+  if (payment.trip_id) {
+    try {
+      const { data } = await supabase
+        .from('trips')
+        .select('id, kode_trip, name, tl_name, tl_id')
+        .eq('id', payment.trip_id)
+        .maybeSingle();
+      tripInfo = data;
+    } catch {}
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-4">
       <Link href="/hr/tl-payments" className="text-sm text-brand-600 font-medium hover:underline">← TL Payments</Link>
       <TLPaymentDetail
         payment={payment}
+        tripInfo={tripInfo}
         linkedFinanceItem={linkedFinanceItem}
         approveAction={approveTLPayment.bind(null, payment.id)}
         rejectAction={rejectTLPayment.bind(null, payment.id)}
@@ -86,6 +101,7 @@ export default async function TLPaymentDetailPage(props) {
         getProofUrlAction={getTLPaymentProofSignedUrl.bind(null, payment.id)}
         sendWAAction={sendTLPaymentSlipToWA.bind(null, payment.id)}
         syncAccountingAction={syncTLPaymentToAccounting.bind(null, payment.id)}
+        relinkTLAction={relinkTLPaymentToCorrectTL.bind(null, payment.id)}
       />
     </div>
   );
