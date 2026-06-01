@@ -1,7 +1,9 @@
 'use client';
 
-// Round 86: FinanceItemRow — 2-step button workflow (Request Deposit → Request Pelunasan)
-// + Deadline countdown + auto-fill amount based on phase
+// Round 179b: FinanceItemRow — tombol smart Deposit vs Pelunasan
+// - Kalau skip_deposit=true atau deposit_planned=0 → langsung "Request Pelunasan"
+// - Kalau ada deposit → "Request Deposit" dulu, baru "Request Pelunasan" after DP
+// Path: components/finance/FinanceItemRow.jsx
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -37,31 +39,45 @@ function daysUntil(dateStr) {
   const d = new Date(dateStr);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const diff = Math.floor((d - today) / (1000 * 60 * 60 * 24));
-  return diff;
+  return Math.floor((d - today) / (1000 * 60 * 60 * 24));
+}
+
+// R179b: hitung "needs deposit phase?" — true kalau item butuh DP dulu
+function needsDepositPhase(item) {
+  if (item.skip_deposit === true) return false;
+  const planned = Number(item.deposit_planned) || 0;
+  if (planned <= 0) return false;
+  // Kalau payment_phase explicitly 'pelunasan' (sudah lewat fase DP) → false
+  if (item.payment_phase === 'pelunasan') return false;
+  return true;
 }
 
 function deriveStatus(item) {
   const total = Number(item.total_amount) || 0;
   const dp = Number(item.dp_paid) || 0;
-  const deposit = Number(item.deposit_planned) || 0;
   const reqStatus = item.payment_request_status;
   const phase = item.payment_phase || 'deposit';
+  const hasDepositPhase = needsDepositPhase(item);
 
   if (reqStatus === 'requested') {
     const phaseLabel = phase === 'deposit' ? 'Deposit' : 'Pelunasan';
-    return { code: 'requested', label: `⏳ ${phaseLabel} Req`, color: 'bg-amber-100 text-amber-800' };
+    return { code: 'requested', label: `⏳ Request ${phaseLabel}`, color: 'bg-amber-100 text-amber-800' };
   }
   if (reqStatus === 'rejected') {
     return { code: 'rejected', label: '✕ Rejected', color: 'bg-red-100 text-red-800' };
   }
   if (dp >= total && total > 0) {
-    return { code: 'lunas', label: '💰 Lunas', color: 'bg-blue-100 text-blue-800' };
+    return { code: 'lunas', label: '✅ LUNAS', color: 'bg-blue-100 text-blue-800' };
   }
   if (dp > 0) {
     return { code: 'deposit_paid', label: '💵 Deposit Sudah Dibayar', color: 'bg-green-100 text-green-800' };
   }
-  return { code: 'pending', label: '❌ Deposit Belum Dibayar', color: 'bg-slate-100 text-slate-700' };
+  // Belum dibayar — label beda berdasarkan flow
+  return {
+    code: 'pending',
+    label: hasDepositPhase ? '❌ Deposit Belum Dibayar' : '❌ Belum Dibayar',
+    color: 'bg-slate-100 text-slate-700',
+  };
 }
 
 export default function FinanceItemRow({ item, tripId, isFinance = false }) {
@@ -71,7 +87,7 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
   const [showReqForm, setShowReqForm] = useState(false);
   const [reqAmount, setReqAmount] = useState('');
   const [reqNote, setReqNote] = useState('');
-  const [reqPhase, setReqPhase] = useState('deposit'); // 'deposit' atau 'pelunasan'
+  const [reqPhase, setReqPhase] = useState('deposit');
 
   const total = Number(i.total_amount) || 0;
   const dp = Number(i.dp_paid) || 0;
@@ -79,8 +95,11 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
   const deposit = Number(i.deposit_planned) || 0;
   const reqAmt = Number(i.payment_request_amount) || 0;
   const deadline = i.deadline_pelunasan;
+  const deadlineDp = i.deadline_deposit;
   const daysToDeadline = daysUntil(deadline);
+  const daysToDp = daysUntil(deadlineDp);
   const status = deriveStatus(i);
+  const hasDepositPhase = needsDepositPhase(i);
 
   function handleDelete() {
     if (!confirm(`Hapus item "${i.category} — ${i.component}"?`)) return;
@@ -128,12 +147,13 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
 
   function openRequestDeposit() {
     setReqPhase('deposit');
-    setReqAmount(String(deposit > 0 ? deposit : Math.round(total / 2))); // default deposit planned, fallback 50%
+    setReqAmount(String(deposit > 0 ? deposit : Math.round(total / 2)));
     setShowReqForm(true);
   }
 
   function openRequestPelunasan() {
     setReqPhase('pelunasan');
+    // Kalau skip_deposit / belum bayar apapun → request full sisa (= total)
     setReqAmount(String(sisa));
     setShowReqForm(true);
   }
@@ -150,6 +170,12 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${status.color}`}>
               {status.label}
             </span>
+            {/* R179b: badge skip_deposit kalau memang tanpa DP */}
+            {i.item_type === 'hpp' && !hasDepositPhase && status.code !== 'lunas' && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-700">
+                💨 Tanpa DP
+              </span>
+            )}
           </div>
 
           {i.item_type === 'hpp' ? (
@@ -169,8 +195,27 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
                 </div>
               </div>
 
-              {/* Deadline info */}
-              {deadline && (
+              {/* Deadline Deposit (kalau ada deposit phase) */}
+              {hasDepositPhase && deadlineDp && dp === 0 && (
+                <div className={`mt-2 px-2 py-1 rounded text-xs flex items-center gap-2 flex-wrap ${
+                  daysToDp < 0 ? 'bg-red-50 text-red-800' :
+                  daysToDp <= 3 ? 'bg-amber-50 text-amber-800' :
+                  'bg-slate-50 text-slate-700'
+                }`}>
+                  <span className="font-bold">📅 Deadline Deposit:</span>
+                  <span>{fmtDate(deadlineDp)}</span>
+                  {daysToDp != null && (
+                    <span className="font-bold">
+                      {daysToDp < 0 ? `⚠ Lewat ${Math.abs(daysToDp)} hari!` :
+                       daysToDp === 0 ? '⏰ HARI INI!' :
+                       `${daysToDp} hari lagi`}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Deadline Pelunasan */}
+              {deadline && sisa > 0 && (
                 <div className={`mt-2 px-2 py-1 rounded text-xs flex items-center gap-2 flex-wrap ${
                   daysToDeadline < 0 ? 'bg-red-50 text-red-800' :
                   daysToDeadline <= 7 ? 'bg-amber-50 text-amber-800' :
@@ -189,9 +234,10 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
                 </div>
               )}
 
-              {deposit > 0 && dp === 0 && (
+              {hasDepositPhase && deposit > 0 && dp === 0 && (
                 <p className="text-[10px] text-slate-500 mt-1">
                   Rencana Deposit: <span className="font-bold">{fmtRupiah(deposit)}</span>
+                  {' · '}Sisa Pelunasan: <span className="font-bold">{fmtRupiah(total - deposit)}</span>
                 </p>
               )}
             </>
@@ -211,10 +257,11 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
         </div>
 
         <div className="flex gap-1 flex-wrap">
-          {/* HPP actions */}
-          {i.item_type === 'hpp' && status.code !== 'requested' && (
+          {/* R179b: SMART BUTTON ROUTING */}
+          {i.item_type === 'hpp' && status.code !== 'requested' && status.code !== 'lunas' && (
             <>
-              {dp === 0 && (
+              {/* Kalau butuh DP phase & belum bayar apapun → Request Deposit */}
+              {hasDepositPhase && dp === 0 && (
                 <button
                   type="button"
                   onClick={openRequestDeposit}
@@ -224,7 +271,8 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
                   📨 Request Deposit
                 </button>
               )}
-              {dp > 0 && sisa > 0 && (
+              {/* Kalau skip_deposit/no_deposit & belum bayar → langsung Request Pelunasan */}
+              {!hasDepositPhase && dp === 0 && (
                 <button
                   type="button"
                   onClick={openRequestPelunasan}
@@ -232,6 +280,17 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
                   className="px-2 py-1 text-xs font-semibold rounded bg-blue-100 hover:bg-blue-200 text-blue-800"
                 >
                   📨 Request Pelunasan
+                </button>
+              )}
+              {/* Setelah DP dibayar & masih ada sisa → Request Pelunasan */}
+              {dp > 0 && sisa > 0 && (
+                <button
+                  type="button"
+                  onClick={openRequestPelunasan}
+                  disabled={pending}
+                  className="px-2 py-1 text-xs font-semibold rounded bg-blue-100 hover:bg-blue-200 text-blue-800"
+                >
+                  📨 Request Pelunasan ({fmtRupiah(sisa)})
                 </button>
               )}
             </>
@@ -275,7 +334,7 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
       {showReqForm && (
         <div className={`mt-3 p-3 border rounded space-y-2 ${reqPhase === 'pelunasan' ? 'bg-blue-50 border-blue-200' : 'bg-amber-50 border-amber-200'}`}>
           <p className={`text-xs font-bold uppercase tracking-wider ${reqPhase === 'pelunasan' ? 'text-blue-800' : 'text-amber-800'}`}>
-            Request {reqPhase === 'pelunasan' ? 'Pelunasan' : 'Deposit'} ke Finance/Owner
+            📨 Request {reqPhase === 'pelunasan' ? 'Pelunasan' : 'Deposit'} ke Finance/Owner
           </p>
           <label className="block">
             <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Jumlah (Rp)</span>
