@@ -1,12 +1,14 @@
-// Round 176: TL Payment detail (mark paid + slip PDF + send WA)
+// Round 177: TL Payment detail (HR view) — + approve/reject bindings
 // Path: app/(app)/hr/tl-payments/[id]/page.jsx
 
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import TLPaymentDetail from '@/components/hr/TLPaymentDetail';
 import {
+  approveTLPayment,
+  rejectTLPayment,
+  resetTLPaymentToRequested,
   markTLPaymentPaid,
   unmarkTLPaymentPaid,
   markFinalReportSubmitted,
@@ -56,6 +58,9 @@ export default async function TLPaymentDetailPage(props) {
       <Link href="/hr/tl-payments" className="text-sm text-brand-600 font-medium hover:underline">← TL Payments</Link>
       <TLPaymentDetail
         payment={payment}
+        approveAction={approveTLPayment.bind(null, payment.id)}
+        rejectAction={rejectTLPayment.bind(null, payment.id)}
+        resetAction={resetTLPaymentToRequested.bind(null, payment.id)}
         markPaidAction={markTLPaymentPaid.bind(null, payment.id)}
         unmarkPaidAction={unmarkTLPaymentPaid.bind(null, payment.id)}
         markFinalReportAction={markFinalReportSubmitted.bind(null, payment.id)}
