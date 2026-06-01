@@ -432,10 +432,10 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
         </div>
       )}
 
-      {/* R184b: DOCUMENT BAR — selalu nampak buat HPP item, Finance bisa upload invoice kapan saja */}
+      {/* R184f: DOCUMENT BAR — Finance & Accounting sama-sama bisa upload + lihat di sini */}
       {i.item_type === 'hpp' && (
         <div className="mt-2 pt-2 border-t border-slate-100">
-          <HPPDocumentBar item={i} canUploadInvoice={true} canUploadProof={false} compact={true} />
+          <HPPDocumentBar item={i} canUploadInvoice={true} canUploadProof={true} compact={true} />
         </div>
       )}
     </div>
