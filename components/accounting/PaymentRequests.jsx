@@ -1,11 +1,12 @@
 'use client';
 
-// Round 180c: PaymentRequests — pakai payment_request_amount (deposit/pelunasan) bukan total_amount
+// Round 184: PaymentRequests — + view Invoice + upload bukti transfer di approve modal
 // Path: components/accounting/PaymentRequests.jsx
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { approvePaymentRequest, rejectPaymentRequest } from '@/lib/actions/accounting';
+import { getInvoiceSignedUrl, uploadTransferProof } from '@/lib/actions/hpp-documents';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 
 // Helper untuk dapat nominal yg di-request (DP atau Pelunasan)
@@ -29,14 +30,35 @@ export default function PaymentRequests({ requests = [], accounts = [], trips = 
   const [rejecting, setRejecting] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const router = useRouter();
+  const proofFileRef = useRef(null); // R184: bukti transfer
 
   const tripMap = Object.fromEntries(trips.map((t) => [t.id, t]));
+
+  async function handleViewInvoice(itemId) {
+    const r = await getInvoiceSignedUrl(itemId);
+    if (r?.error) alert(r.error);
+    else window.open(r.url, '_blank');
+  }
 
   async function handleApprove(formData) {
     if (!approving) return;
     startTransition(async () => {
+      // R184: approve dulu
       const result = await approvePaymentRequest(approving.id, formData);
       if (result?.error) { alert(result.error); return; }
+
+      // R184: upload bukti transfer kalau ada file
+      const file = proofFileRef.current?.files?.[0];
+      if (file) {
+        const fd = new FormData();
+        fd.append('proof_file', file);
+        const upRes = await uploadTransferProof(approving.id, fd);
+        if (upRes?.error) {
+          alert('Approve sukses, tapi upload bukti transfer gagal: ' + upRes.error);
+        }
+        if (proofFileRef.current) proofFileRef.current.value = '';
+      }
+
       setApproving(null);
       router.refresh();
     });
@@ -106,6 +128,19 @@ export default function PaymentRequests({ requests = [], accounts = [], trips = 
                         {' '}dari total tagihan <b>{fmtRupiah(totalItem)}</b>
                         {dpPaid > 0 && <> · Sudah dibayar: {fmtRupiah(dpPaid)}</>}
                       </p>
+                    )}
+                    {/* R184: Invoice link */}
+                    {r.invoice_url && (
+                      <button
+                        type="button"
+                        onClick={() => handleViewInvoice(r.id)}
+                        className="mt-1 text-[11px] px-2 py-0.5 rounded bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold inline-flex items-center gap-1"
+                      >
+                        📎 Lihat Invoice
+                      </button>
+                    )}
+                    {!r.invoice_url && (
+                      <p className="mt-1 text-[10px] text-amber-600 italic">⚠ Belum ada invoice di-attach</p>
                     )}
                   </div>
                   <div className="text-right flex-shrink-0">
@@ -178,6 +213,29 @@ export default function PaymentRequests({ requests = [], accounts = [], trips = 
                 <option value="">— Pilih akun —</option>
                 {accounts.map((a) => <option key={a.id} value={a.id}>{a.name} ({a.type})</option>)}
               </select>
+            </label>
+
+            {/* R184: Upload bukti transfer */}
+            <label className="block">
+              <span className="text-xs font-bold text-slate-700 block mb-1">
+                📥 Upload Bukti Transfer {approving.transfer_proof_url ? '(replace)' : '(opsional)'}
+              </span>
+              <input
+                ref={proofFileRef}
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                className="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-green-50 file:text-green-700 file:font-semibold"
+              />
+              <span className="text-[10px] text-slate-400">Bukti akan didownload oleh Finance untuk dikirim ke vendor. PDF/JPG max 10MB.</span>
+              {approving.invoice_url && (
+                <button
+                  type="button"
+                  onClick={() => handleViewInvoice(approving.id)}
+                  className="mt-1 text-[10px] text-purple-600 hover:underline block"
+                >
+                  📎 Lihat Invoice yg di-attach Finance
+                </button>
+              )}
             </label>
 
             <p className="text-[11px] text-slate-500">
