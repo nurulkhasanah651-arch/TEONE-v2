@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import { statusCfg } from '@/lib/utils/trip-status';
 import DownloadButtons from '@/components/common/DownloadButtons';
+// R184d: HPPDocumentBar — Accounting bisa lihat invoice + upload bukti dari sini
+import HPPDocumentBar from '@/components/finance/HPPDocumentBar';
 
 export const dynamic = 'force-dynamic';
 
@@ -441,18 +443,29 @@ export default async function GroupCashflowDetailPage({ params }) {
                   const total = Number(i.total_amount) || 0;
                   const paid = Number(i.dp_paid) || 0;
                   return (
-                    <div key={i.id} className="flex justify-between text-sm py-1">
-                      <span className="text-slate-700">
-                        {i.component}
-                        {i.vendor_name && <span className="text-xs text-slate-400 ml-1">· {i.vendor_name}</span>}
-                        <span className={`ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded ${isLunas ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
-                          {isLunas ? '✅ LUNAS' : '🟡 DP'}
+                    <div key={i.id} className="py-2 border-b border-slate-100 last:border-0">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-700">
+                          {i.component}
+                          {i.vendor_name && <span className="text-xs text-slate-400 ml-1">· {i.vendor_name}</span>}
+                          <span className={`ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded ${isLunas ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {isLunas ? '✅ LUNAS' : '🟡 DP'}
+                          </span>
+                          {!isLunas && paid > 0 && (
+                            <span className="text-[10px] text-slate-500 ml-1">({fmtRupiah(paid)} dari {fmtRupiah(total)})</span>
+                          )}
                         </span>
-                        {!isLunas && paid > 0 && (
-                          <span className="text-[10px] text-slate-500 ml-1">({fmtRupiah(paid)} dari {fmtRupiah(total)})</span>
-                        )}
-                      </span>
-                      <span className="font-semibold text-amber-700">{fmtRupiah(hppPaidAmount(i))}</span>
+                        <span className="font-semibold text-amber-700">{fmtRupiah(hppPaidAmount(i))}</span>
+                      </div>
+                      {/* R184d: Document bar — Accounting bisa lihat invoice + upload bukti transfer */}
+                      <div className="mt-1.5">
+                        <HPPDocumentBar
+                          item={i}
+                          canUploadInvoice={false}
+                          canUploadProof={true}
+                          compact={true}
+                        />
+                      </div>
                     </div>
                   );
                 })
