@@ -1,11 +1,9 @@
 'use client';
 
-// Round 179b: FinanceItemRow — tombol smart Deposit vs Pelunasan
-// - Kalau skip_deposit=true atau deposit_planned=0 → langsung "Request Pelunasan"
-// - Kalau ada deposit → "Request Deposit" dulu, baru "Request Pelunasan" after DP
+// Round 184: FinanceItemRow — + invoice upload saat request + download bukti transfer
 // Path: components/finance/FinanceItemRow.jsx
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   deleteFinanceItem,
@@ -13,6 +11,13 @@ import {
   cancelPaymentRequest,
   approvePayment,
 } from '@/lib/actions/finance';
+import {
+  uploadHPPInvoice,
+  deleteInvoice,
+  getInvoiceSignedUrl,
+  getTransferProofSignedUrl,
+  deleteTransferProof,
+} from '@/lib/actions/hpp-documents';
 
 function fmtRupiah(n) {
   const v = Number(n) || 0;
@@ -101,6 +106,10 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
   const [reqAmount, setReqAmount] = useState('');
   const [reqNote, setReqNote] = useState('');
   const [reqPhase, setReqPhase] = useState('deposit');
+  // R184: invoice + transfer proof
+  const invoiceFileRef = useRef(null);
+  const [uploadingInvoice, setUploadingInvoice] = useState(false);
+  const [docMsg, setDocMsg] = useState('');
 
   const total = Number(i.total_amount) || 0;
   // R180b: dipakai untuk display "Dibayar" — kalau status='lunas', force = total walau dp_paid=0
@@ -124,19 +133,69 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
     });
   }
 
-  function handleRequestPayment() {
+  async function handleRequestPayment() {
     const amt = parseInt(reqAmount) || 0;
     if (amt <= 0) { alert('Jumlah harus > 0'); return; }
     if (amt > sisa) {
       if (!confirm(`Jumlah ${fmtRupiah(amt)} > sisa ${fmtRupiah(sisa)}. Lanjut?`)) return;
     }
     startTransition(async () => {
+      // R184: kirim request dulu
       const r = await requestPaymentToAccounting(i.id, tripId, reqNote, amt, reqPhase);
-      if (r?.error) alert(r.error);
+      if (r?.error) { alert(r.error); return; }
+
+      // R184: upload invoice kalau ada file
+      const file = invoiceFileRef.current?.files?.[0];
+      if (file) {
+        setUploadingInvoice(true);
+        const fd = new FormData();
+        fd.append('invoice_file', file);
+        const upRes = await uploadHPPInvoice(i.id, fd);
+        setUploadingInvoice(false);
+        if (upRes?.error) {
+          alert('Request terkirim, tapi upload invoice gagal: ' + upRes.error);
+        }
+        if (invoiceFileRef.current) invoiceFileRef.current.value = '';
+      }
+
       setShowReqForm(false);
       setReqAmount('');
       setReqNote('');
       router.refresh();
+    });
+  }
+
+  // R184: Lihat / Download Invoice
+  async function handleViewInvoice() {
+    setDocMsg('');
+    const r = await getInvoiceSignedUrl(i.id);
+    if (r?.error) setDocMsg(r.error);
+    else window.open(r.url, '_blank');
+  }
+
+  async function handleDeleteInvoice() {
+    if (!confirm('Hapus invoice?')) return;
+    startTransition(async () => {
+      const r = await deleteInvoice(i.id);
+      if (r?.error) setDocMsg(r.error);
+      else router.refresh();
+    });
+  }
+
+  // R184: Download Bukti Transfer (untuk kirim ke vendor)
+  async function handleDownloadTransferProof() {
+    setDocMsg('');
+    const r = await getTransferProofSignedUrl(i.id);
+    if (r?.error) setDocMsg(r.error);
+    else window.open(r.url, '_blank');
+  }
+
+  async function handleDeleteTransferProof() {
+    if (!confirm('Hapus bukti transfer?')) return;
+    startTransition(async () => {
+      const r = await deleteTransferProof(i.id);
+      if (r?.error) setDocMsg(r.error);
+      else router.refresh();
     });
   }
 
@@ -371,10 +430,28 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
               className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm bg-white"
             />
           </label>
+
+          {/* R184: Upload invoice — opsional kalau item belum ada invoice */}
+          <label className="block">
+            <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">
+              📎 Upload Invoice {i.invoice_url ? '(replace)' : '(opsional)'}
+            </span>
+            <input
+              ref={invoiceFileRef}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.webp"
+              className="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-slate-200 file:text-slate-700"
+            />
+            <span className="text-[10px] text-slate-400">Format PDF/JPG/PNG, max 10MB</span>
+            {i.invoice_url && (
+              <span className="text-[10px] text-green-600 ml-2">✓ Invoice sudah ada — upload baru akan replace</span>
+            )}
+          </label>
+
           <div className="flex gap-2 justify-end">
             <button
               type="button"
-              onClick={() => { setShowReqForm(false); setReqAmount(''); setReqNote(''); }}
+              onClick={() => { setShowReqForm(false); setReqAmount(''); setReqNote(''); if (invoiceFileRef.current) invoiceFileRef.current.value = ''; }}
               className="px-3 py-1 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
             >
               Batal
@@ -385,9 +462,55 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
               disabled={pending || !reqAmount}
               className={`px-3 py-1 text-xs font-semibold rounded text-white disabled:opacity-50 ${reqPhase === 'pelunasan' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-amber-500 hover:bg-amber-600'}`}
             >
-              📨 Kirim Request
+              {uploadingInvoice ? '⏳ Uploading...' : '📨 Kirim Request'}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* R184: DOCUMENTS BAR — Invoice + Bukti Transfer */}
+      {i.item_type === 'hpp' && (i.invoice_url || i.transfer_proof_url) && (
+        <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2">
+          {i.invoice_url && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleViewInvoice}
+                disabled={pending}
+                className="text-[11px] px-2 py-1 rounded bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold flex items-center gap-1"
+              >
+                📎 Lihat Invoice
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteInvoice}
+                disabled={pending}
+                className="text-[10px] px-1.5 py-0.5 text-red-500 hover:bg-red-50 rounded"
+                title="Hapus invoice"
+              >✕</button>
+            </div>
+          )}
+          {i.transfer_proof_url && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleDownloadTransferProof}
+                disabled={pending}
+                className="text-[11px] px-2 py-1 rounded bg-green-50 hover:bg-green-100 text-green-700 font-semibold flex items-center gap-1"
+                title="Download bukti transfer untuk kirim ke vendor"
+              >
+                📥 Bukti Transfer
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteTransferProof}
+                disabled={pending}
+                className="text-[10px] px-1.5 py-0.5 text-red-500 hover:bg-red-50 rounded"
+                title="Hapus bukti"
+              >✕</button>
+            </div>
+          )}
+          {docMsg && <span className="text-[11px] text-red-600">{docMsg}</span>}
         </div>
       )}
     </div>
