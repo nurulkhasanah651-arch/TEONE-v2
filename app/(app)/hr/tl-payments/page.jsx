@@ -120,15 +120,7 @@ export default async function TLPaymentsListPage(props) {
         <StatCard label="Rejected" value={stats.rejected} color="bg-red-50 text-red-700" />
       </div>
 
-      {/* Warning kalau TL belum di-set fee */}
-      {tlList && tlList.some((t) => !t.per_trip_fee) && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-900">
-          ⚠ TL belum di-set <b>Fee per Trip</b>:{' '}
-          {tlList.filter((t) => !t.per_trip_fee).map((t) => (
-            <Link key={t.id} href={`/hr/employees/${t.id}`} className="mx-1 underline font-semibold">{t.full_name}</Link>
-          ))}
-        </div>
-      )}
+      {/* R177v5: Warning fee per trip dihapus — nominal di-input langsung di form request Portal TL */}
 
       {/* Filters */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-3 flex flex-wrap items-center gap-2">
