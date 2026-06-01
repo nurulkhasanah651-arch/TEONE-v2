@@ -31,6 +31,7 @@ const STATUS = {
 
 export default function TLPaymentDetail({
   payment,
+  tripInfo,
   linkedFinanceItem,
   approveAction,
   rejectAction,
@@ -45,6 +46,7 @@ export default function TLPaymentDetail({
   getProofUrlAction,
   sendWAAction,
   syncAccountingAction,
+  relinkTLAction,
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -189,6 +191,17 @@ export default function TLPaymentDetail({
       const r = await syncAccountingAction();
       if (r?.error) flash(r.error, true);
       else { flash(r.message || '✓ Sync OK'); router.refresh(); }
+    });
+  }
+
+  // R177v5: Re-link ke TL yg benar (kalau payment lama nyangkut di TL salah)
+  async function handleRelinkTL() {
+    if (!relinkTLAction) return;
+    if (!confirm('Re-link payment ini ke TL yg sesuai dengan trip.tl_name?\n\nIni akan update tl_employee_id, tl_name, dan vendor_name di accounting.')) return;
+    startTransition(async () => {
+      const r = await relinkTLAction();
+      if (r?.error) flash(r.error, true);
+      else { flash(r.message || '✓ Re-linked'); router.refresh(); }
     });
   }
 
@@ -338,6 +351,31 @@ export default function TLPaymentDetail({
           </div>
         )}
       </div>
+
+      {/* R177v5: MISMATCH WARNING + RE-LINK BUTTON */}
+      {tripInfo && tripInfo.tl_name && payment.tl_name &&
+       tripInfo.tl_name.toLowerCase().trim() !== payment.tl_name.toLowerCase().trim() && (
+        <div className="bg-red-50 border-2 border-red-300 rounded-xl shadow-card p-4">
+          <p className="text-xs font-bold uppercase text-red-800">⚠ TL Mismatch Detected</p>
+          <p className="text-sm text-red-900 mt-2">
+            Di Master Trip <b>"{tripInfo.kode_trip}"</b> TL-nya: <b className="text-red-700">{tripInfo.tl_name}</b>
+            <br />
+            Tapi payment ini tercatat untuk: <b className="text-orange-700">{payment.tl_name}</b>
+          </p>
+          <p className="text-xs text-slate-700 mt-2">
+            Kemungkinan dari versi lama yg pakai partial match. Klik tombol di bawah untuk re-link ke TL yg benar.
+          </p>
+          {relinkTLAction && (
+            <button
+              onClick={handleRelinkTL}
+              disabled={pending}
+              className="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-bold rounded-lg shadow-card"
+            >
+              🔧 Re-link ke "{tripInfo.tl_name}"
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ACTIONS BAR */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4 flex flex-wrap items-center gap-2">
