@@ -1,5 +1,4 @@
-// Round 157 HOTFIX: Payment Checklist per trip + DOWNLOAD BUTTONS (Invoice Peserta)
-// (sudah include R123 filter transferred/refunded)
+// Round 185: Payment Checklist + Delivery Section
 // Path: app/(app)/finance/payments/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -9,6 +8,8 @@ import { fmtRupiah } from '@/lib/utils/format';
 import PaymentTemplateForm from '@/components/finance/PaymentTemplateForm';
 import PaymentMatrix from '@/components/finance/PaymentMatrix';
 import DownloadButtons from '@/components/common/DownloadButtons';
+// R185: Delivery perlengkapan
+import DeliverySection from '@/components/checklist/DeliverySection';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,7 +42,10 @@ export default async function TripPaymentsPage({ params }) {
 
   let customerMap = {};
   if (customerIds.length > 0) {
-    const { data: cust } = await supabase.from('customers').select('id, name, phone, email').in('id', customerIds);
+    const { data: cust } = await supabase
+      .from('customers')
+      .select('id, name, phone, email, whatsapp')
+      .in('id', customerIds);
     customerMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
   }
   const passengersWithCustomers = passengers.map((p) => ({ ...p, customers: customerMap[p.customer_id] || null }));
@@ -67,7 +71,7 @@ export default async function TripPaymentsPage({ params }) {
     }
   }
 
-  // R155: PNR / Flight Inventory data untuk download PNR deposit
+  // R155: PNR / Flight Inventory data
   const { data: pnrRes } = await supabase.from('flight_inventory').select('*').eq('trip_id', tripId);
   const pnrs = pnrRes || [];
 
@@ -77,10 +81,8 @@ export default async function TripPaymentsPage({ params }) {
   const progress = totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : 0;
   const templateTotal = Object.values(template).reduce((s, v) => s + (+v || 0), 0);
 
-  // R155: format helper
   const fmtMoney = (v) => `Rp ${Number(v || 0).toLocaleString('id-ID')}`;
 
-  // R155: prep invoice peserta rows
   const invoiceRows = passengersWithCustomers.map((p) => {
     const pays = paymentsByPassenger[p.id] || [];
     const totalBayar = pays.reduce((s, x) => s + (x.amount || 0), 0);
@@ -98,7 +100,6 @@ export default async function TripPaymentsPage({ params }) {
     };
   });
 
-  // R155: prep PNR deposit rows
   const pnrRows = pnrs.map((p) => ({
     pnr: p.pnr || '-',
     vendor: p.vendor || '-',
@@ -112,6 +113,10 @@ export default async function TripPaymentsPage({ params }) {
   }));
 
   const totalPnrDeposit = pnrRows.reduce((s, p) => s + p.total_paid, 0);
+
+  // R185: app URL untuk delivery section
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ||
+                 (process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : '');
 
   return (
     <div className="max-w-7xl mx-auto space-y-5">
@@ -129,7 +134,6 @@ export default async function TripPaymentsPage({ params }) {
             </div>
           )}
         </div>
-        {/* R155: Download FULL INVOICE PESERTA */}
         <div className="flex flex-col gap-2 items-end">
           <DownloadButtons
             filename={`invoice-peserta-${trip.kode_trip || trip.id}`}
@@ -180,7 +184,14 @@ export default async function TripPaymentsPage({ params }) {
         template={template}
       />
 
-      {/* R155: PNR DEPOSIT SECTION (kalau ada PNR) */}
+      {/* R185: DELIVERY PERLENGKAPAN */}
+      <DeliverySection
+        tripId={tripId}
+        passengers={passengersWithCustomers}
+        appUrl={appUrl}
+      />
+
+      {/* R155: PNR DEPOSIT SECTION */}
       {pnrs.length > 0 && (
         <div className="bg-white rounded-xl border-2 border-purple-200 shadow-card overflow-hidden">
           <div className="px-5 py-3 border-b bg-purple-50 border-purple-200 flex items-center justify-between flex-wrap gap-2">
