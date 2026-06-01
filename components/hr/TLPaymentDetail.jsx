@@ -31,6 +31,7 @@ const STATUS = {
 
 export default function TLPaymentDetail({
   payment,
+  linkedFinanceItem,
   approveAction,
   rejectAction,
   resetAction,
@@ -43,6 +44,7 @@ export default function TLPaymentDetail({
   deleteProofAction,
   getProofUrlAction,
   sendWAAction,
+  syncAccountingAction,
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -177,6 +179,16 @@ export default function TLPaymentDetail({
       const r = await sendWAAction();
       if (r?.error) flash(r.error, true);
       else { flash(`✓ Slip terkirim ke ${r.target} via ${r.sentVia}`); router.refresh(); }
+    });
+  }
+
+  // R177v4: Sync ke accounting (trip_finance_items)
+  async function handleSyncAccounting() {
+    if (!syncAccountingAction) return;
+    startTransition(async () => {
+      const r = await syncAccountingAction();
+      if (r?.error) flash(r.error, true);
+      else { flash(r.message || '✓ Sync OK'); router.refresh(); }
     });
   }
 
@@ -341,6 +353,57 @@ export default function TLPaymentDetail({
           <span className="text-[11px] text-slate-500">Terakhir: {fmtDateTime(payment.wa_sent_at)} → {payment.wa_sent_to}</span>
         )}
       </div>
+
+      {/* R177v4: ACCOUNTING INTEGRATION STATUS */}
+      {(isApproved || isPaid || isPending) && (
+        <div className={`rounded-xl border shadow-card p-4 ${
+          linkedFinanceItem
+            ? (linkedFinanceItem.payment_status === 'lunas' ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200')
+            : 'bg-orange-50 border-orange-300'
+        }`}>
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-xs font-bold uppercase text-slate-700">📊 Status di Accounting</p>
+              {linkedFinanceItem ? (
+                <>
+                  <p className="text-sm mt-2 text-slate-800">
+                    ✓ Tersinkron ke <b>trip_finance_items</b> #{linkedFinanceItem.id}
+                  </p>
+                  <p className="text-xs text-slate-600 mt-1">
+                    {linkedFinanceItem.component} · <b>{fmtIDR(linkedFinanceItem.total_amount)}</b>
+                  </p>
+                  <p className="text-xs mt-1">
+                    Payment Status di HPP: <span className={`font-bold ${
+                      linkedFinanceItem.payment_status === 'lunas' ? 'text-green-700' : 'text-blue-700'
+                    }`}>
+                      {linkedFinanceItem.payment_status === 'lunas'
+                        ? '✓ LUNAS (masuk real cashflow)'
+                        : '⏳ BELUM (masuk proyeksi cashflow)'}
+                    </span>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm mt-2 text-orange-900 font-semibold">
+                    ⚠ Belum tersinkron ke trip_finance_items
+                  </p>
+                  <p className="text-xs text-orange-700 mt-1">
+                    Approve / Mark Paid sebelumnya kemungkinan terjadi sebelum fix R177v4.
+                    Klik "Sync ke Accounting" untuk auto-create entry HPP.
+                  </p>
+                </>
+              )}
+            </div>
+            <button
+              onClick={handleSyncAccounting}
+              disabled={pending}
+              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-bold rounded-lg shadow-card"
+            >
+              🔄 Sync ke Accounting
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>}
       {success && <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">{success}</div>}
