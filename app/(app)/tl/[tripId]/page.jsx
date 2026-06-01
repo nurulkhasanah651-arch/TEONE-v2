@@ -1,4 +1,4 @@
-// Round 177: TL trip detail — + Request Gaji 70%/30% card
+// Round 177 v2: TL trip detail — Request Gaji TL HIDDEN dari TL, hanya Ops/Owner/Manager/CS yg bisa lihat
 // Path: app/(app)/tl/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -14,7 +14,7 @@ import PreDepartureChecklist from '@/components/tl/PreDepartureChecklist';
 import TLExpenseForm from '@/components/tl/TLExpenseForm';
 import FinalReportForm from '@/components/tl/FinalReportForm';
 import VendorReviewSection from '@/components/tl/VendorReviewSection';
-// R177: TL payment request
+// R177v2: TL payment request — OPS ONLY
 import RequestTLPaymentButtons from '@/components/tl/RequestTLPaymentButtons';
 import { requestTLPayment, getTLPaymentsForTrip } from '@/lib/actions/tl-payments';
 
@@ -36,7 +36,9 @@ export default async function TLTripDetailPage({ params }) {
 
   const { data: { user } } = await supabase.auth.getUser();
   const role = user?.user_metadata?.role || user?.app_metadata?.role || 'pending';
-  const isInternal = ['manager', 'owner', 'ops', 'cs'].includes(role);
+  const isInternal = ['manager', 'owner', 'ops', 'cs', 'finance', 'admin'].includes(role);
+  // R177v2: Cuma Ops/Manager/Finance (+ Owner) yg boleh ajukan gaji TL. CS gak boleh.
+  const canRequestTLPayment = ['ops', 'manager', 'finance', 'owner'].includes(role);
   const isTL = role === 'tour_leader';
   const userEmail = user?.email || '';
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
@@ -71,9 +73,11 @@ export default async function TLTripDetailPage({ params }) {
   try { const r = await serviceClient.from('tl_final_report').select('*').eq('trip_id', tripId).maybeSingle(); finalReport = r.data; } catch {}
   try { const r = await serviceClient.from('tl_vendor_reviews').select('*').eq('trip_id', tripId).order('created_at', { ascending: false }); vendorReviews = r.data || []; } catch {}
 
-  // R177: TL payment requests
+  // R177v2: Fetch TL payment requests cuma untuk yg boleh ajukan
   let tlPaymentRequests = [];
-  try { tlPaymentRequests = await getTLPaymentsForTrip(tripId); } catch {}
+  if (canRequestTLPayment) {
+    try { tlPaymentRequests = await getTLPaymentsForTrip(tripId); } catch {}
+  }
   const finalReportSubmitted = !!finalReport && finalReport.status !== 'draft';
 
   const s = statusCfg(trip.status);
@@ -113,10 +117,11 @@ export default async function TLTripDetailPage({ params }) {
         <InfoCard label="✅ Status" value={`${okCount}/${tripChecklistData.length}`} />
       </div>
 
-      {/* R177: REQUEST GAJI TL — TL & internal bisa lihat status */}
-      {(isTL || isInternal) && (
+      {/* R177v2: REQUEST GAJI TL — Ops/Manager/Finance/Owner ONLY. TL & CS gak nampak. */}
+      {canRequestTLPayment && (
         <RequestTLPaymentButtons
           tripId={tripId}
+          tlName={trip.tl_name}
           existingRequests={tlPaymentRequests}
           finalReportSubmitted={finalReportSubmitted}
           requestAction={requestTLPayment}
@@ -161,7 +166,7 @@ export default async function TLTripDetailPage({ params }) {
         userRole={role}
       />
 
-      {/* TRIP DOCS — INTERNAL upload, TL view+download */}
+      {/* TRIP DOCS */}
       <TripDocsSection
         tripId={tripId}
         docs={docs}
