@@ -1,18 +1,19 @@
 'use client';
 
-// Round 177: TL Portal — buttons untuk request gaji 70%/30%
+// Round 177 v2: OPS-only — tombol untuk ajukan gaji TL (atas nama TL)
 // Path: components/tl/RequestTLPaymentButtons.jsx
 //
-// USAGE di /tl/[tripId]/page.jsx (server component):
-//   import RequestTLPaymentButtons from '@/components/tl/RequestTLPaymentButtons';
-//   import { requestTLPayment, getTLPaymentsForTrip } from '@/lib/actions/tl-payments';
-//   const requests = await getTLPaymentsForTrip(tripId);
+// USAGE:
 //   <RequestTLPaymentButtons
 //     tripId={tripId}
+//     tlName={trip.tl_name}
 //     existingRequests={requests}
-//     finalReportSubmitted={someBoolean}
+//     finalReportSubmitted={!!finalReport && finalReport.status !== 'draft'}
 //     requestAction={requestTLPayment}
 //   />
+//
+// PENTING: Component ini hanya untuk INTERNAL OPS — TL TIDAK boleh lihat.
+// Conditional render di parent: {isInternal && <RequestTLPaymentButtons .../>}
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -26,15 +27,16 @@ function fmtDate(d) {
 }
 
 const STATUS_BADGE = {
-  requested: { label: '⏳ Diajukan', cls: 'bg-amber-100 text-amber-700' },
-  approved:  { label: '✓ Approved',   cls: 'bg-blue-100 text-blue-700' },
-  paid:      { label: '✅ DIBAYAR',   cls: 'bg-green-100 text-green-700' },
-  rejected:  { label: '✗ DITOLAK',    cls: 'bg-red-100 text-red-700' },
-  pending:   { label: '⏳ Pending',   cls: 'bg-slate-100 text-slate-700' },
+  requested: { label: '⏳ Diajukan',  cls: 'bg-amber-100 text-amber-700' },
+  approved:  { label: '✓ Approved',    cls: 'bg-blue-100 text-blue-700' },
+  paid:      { label: '✅ DIBAYAR',    cls: 'bg-green-100 text-green-700' },
+  rejected:  { label: '✗ DITOLAK',     cls: 'bg-red-100 text-red-700' },
+  pending:   { label: '⏳ Pending',    cls: 'bg-slate-100 text-slate-700' },
 };
 
 export default function RequestTLPaymentButtons({
   tripId,
+  tlName,
   existingRequests = [],
   finalReportSubmitted = false,
   requestAction,
@@ -42,7 +44,7 @@ export default function RequestTLPaymentButtons({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [notes, setNotes] = useState('');
-  const [openType, setOpenType] = useState(null); // 'dp_70' or 'final_30'
+  const [openType, setOpenType] = useState(null);
   const [msg, setMsg] = useState(null);
 
   function flash(m, isErr = false) {
@@ -67,6 +69,9 @@ export default function RequestTLPaymentButtons({
         flash(r.error, true);
       } else {
         flash(r.message || '✓ Request terkirim ke HR');
+        if (r.warning) {
+          setTimeout(() => flash(r.warning, true), 4000);
+        }
         setOpenType(null);
         setNotes('');
         router.refresh();
@@ -75,41 +80,41 @@ export default function RequestTLPaymentButtons({
   }
 
   return (
-    <div className="bg-gradient-to-br from-pink-50 to-purple-50 rounded-xl border border-pink-200 shadow-card p-5 space-y-3">
-      <div>
-        <p className="text-xs font-bold uppercase text-pink-700 tracking-wider">💰 Request Gaji TL</p>
-        <p className="mt-1 text-xs text-slate-600">
-          Pengajuan masuk ke HR untuk approval. Setelah disetujui, finance akan transfer ke rekening kamu.
-        </p>
+    <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl border border-indigo-200 shadow-card p-5 space-y-3">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-xs font-bold uppercase text-indigo-700 tracking-wider">💼 Ajukan Gaji TL (Ops Only)</p>
+          <p className="mt-1 text-xs text-slate-600">
+            Pengajuan akan masuk queue HR untuk approval.
+            {tlName && <> TL: <b className="text-indigo-700">{tlName}</b></>}
+          </p>
+        </div>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">INTERNAL OPS</span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* DP 70% */}
         <PaymentCard
           title="70% DP"
-          desc="Diajukan sebelum keberangkatan trip"
+          desc="Diajukan sebelum keberangkatan"
           existing={dp70}
           disabled={!!dp70 && dp70.status !== 'rejected'}
           onClick={() => handleOpen('dp_70')}
         />
-
-        {/* Final 30% */}
         <PaymentCard
           title="30% Final"
           desc={finalReportSubmitted
-            ? 'Diajukan setelah Final Report di-submit'
-            : '⚠ Submit Final Report dulu sebelum request'}
+            ? 'Diajukan setelah Final Report submitted'
+            : '⚠ Submit Final Report dulu'}
           existing={final30}
           disabled={(!!final30 && final30.status !== 'rejected') || !finalReportSubmitted}
           onClick={() => handleOpen('final_30')}
         />
       </div>
 
-      {/* Form modal-like card */}
       {openType && (
-        <div className="bg-white rounded-xl border border-pink-300 shadow-card p-4 space-y-3">
-          <p className="text-sm font-bold text-pink-700">
-            📨 Ajukan Request — {openType === 'dp_70' ? '70% DP' : '30% Final'}
+        <div className="bg-white rounded-xl border border-indigo-300 shadow-card p-4 space-y-3">
+          <p className="text-sm font-bold text-indigo-700">
+            📨 Ajukan Request — {openType === 'dp_70' ? '70% DP' : '30% Final'} untuk {tlName || 'TL'}
           </p>
           <label className="block">
             <span className="text-xs font-semibold text-slate-700">Catatan untuk HR (opsional)</span>
@@ -117,7 +122,7 @@ export default function RequestTLPaymentButtons({
               rows="2"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Misal: butuh cepat karena bayar visa..."
+              placeholder="Misal: trip H-7, fee perlu cair untuk visa..."
               className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
             />
           </label>
@@ -125,7 +130,7 @@ export default function RequestTLPaymentButtons({
             <button
               onClick={handleSubmit}
               disabled={pending}
-              className="px-4 py-2 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white text-sm font-bold rounded-lg shadow-card"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-bold rounded-lg shadow-card"
             >
               {pending ? '⏳ Mengajukan...' : '📨 Ajukan ke HR'}
             </button>
@@ -140,7 +145,6 @@ export default function RequestTLPaymentButtons({
         </div>
       )}
 
-      {/* Flash message */}
       {msg && (
         <div className={`rounded-lg p-3 text-sm ${msg.isErr ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-green-50 border border-green-200 text-green-800'}`}>
           {msg.text}
@@ -148,7 +152,7 @@ export default function RequestTLPaymentButtons({
       )}
 
       <p className="text-[10px] text-slate-500 italic">
-        💡 Setelah HR approve, kamu akan di-WA notifikasi pembayaran. Jangan lupa cek slip!
+        💡 Cuma <b>Ops · Manager · Finance · Owner</b> yg bisa ajukan. TL & CS gak punya akses ke menu ini.
       </p>
     </div>
   );
@@ -166,16 +170,22 @@ function PaymentCard({ title, desc, existing, disabled, onClick }) {
           {badge && <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${badge.cls}`}>{badge.label}</span>}
           <p className="text-xs font-mono text-slate-700">{fmtIDR(existing.amount)}</p>
           {existing.status === 'requested' && existing.requested_at && (
-            <p className="text-[10px] text-slate-500">Diajukan: {fmtDate(existing.requested_at)}</p>
+            <p className="text-[10px] text-slate-500">
+              Diajukan: {fmtDate(existing.requested_at)}
+              {existing.requested_by && <> oleh {existing.requested_by}</>}
+            </p>
           )}
           {existing.status === 'approved' && existing.approved_at && (
-            <p className="text-[10px] text-blue-600">Disetujui: {fmtDate(existing.approved_at)} · menunggu transfer</p>
+            <p className="text-[10px] text-blue-600">
+              Approved: {fmtDate(existing.approved_at)}
+              {existing.approved_by && <> · {existing.approved_by}</>}
+            </p>
           )}
           {existing.status === 'paid' && existing.paid_at && (
             <p className="text-[10px] text-green-600">Dibayar: {fmtDate(existing.paid_at)}</p>
           )}
           {existing.status === 'rejected' && existing.reject_reason && (
-            <p className="text-[10px] text-red-600">Ditolak: {existing.reject_reason}</p>
+            <p className="text-[10px] text-red-600">Reject: {existing.reject_reason}</p>
           )}
         </div>
       )}
@@ -186,7 +196,7 @@ function PaymentCard({ title, desc, existing, disabled, onClick }) {
         className={`mt-3 w-full px-3 py-2 text-xs font-bold rounded ${
           disabled
             ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-            : 'bg-pink-500 hover:bg-pink-600 text-white shadow-card'
+            : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-card'
         }`}
       >
         {existing
