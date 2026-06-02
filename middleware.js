@@ -1,62 +1,67 @@
-// Round 164: Middleware — allow /q/* public (untuk quotation public link)
-// Path: middleware.js (root project, sejajar dengan package.json)
+// Refresh Supabase session on every request (called from /middleware.js)
+// Round 186: Tambah /delivery/ ke public token routes (peserta non-login isi alamat)
+// + tetap whitelist /invoice/, /tl-assign/, /r/ (round 113)
 
-import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { NextResponse } from 'next/server';
 
-export async function middleware(request) {
-  const { pathname } = request.nextUrl;
-
-  // Public routes — gak perlu login
-  const publicRoutes = [
-    '/login',
-    '/auth/callback',
-    '/auth/role-picker',
-    '/invoice',     // public invoice page (R107)
-    '/q',           // R164: public quotation page /q/[token]
-    '/_next',
-    '/favicon.ico',
-    '/api/cron',
-  ];
-
-  const isPublic = publicRoutes.some((route) => pathname.startsWith(route));
-  if (isPublic) {
-    return NextResponse.next();
-  }
-
-  // Cek auth status pakai Supabase
-  const response = NextResponse.next();
+export async function updateSession(request) {
+  let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
-        get(name) { return request.cookies.get(name)?.value; },
-        set(name, value, options) {
-          response.cookies.set({ name, value, ...options });
+        getAll() {
+          return request.cookies.getAll();
         },
-        remove(name, options) {
-          response.cookies.set({ name, value: '', ...options });
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
         },
       },
     }
   );
 
+  // Touch user — keeps session fresh
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Belum login → redirect ke /login
-  if (!user) {
-    const loginUrl = new URL('/login', request.url);
-    return NextResponse.redirect(loginUrl);
+  const path = request.nextUrl.pathname;
+
+  // Pages yang BUTUH user logged-in (jangan redirect away walaupun di /auth/*)
+  const isLoggedInAuthPage = path === '/auth/role-picker';
+
+  // Pages yang public buat semua orang (no auth needed)
+  const isAuthPage = path === '/login' || path.startsWith('/auth');
+  const isPublicAsset = path.startsWith('/_next') || path.startsWith('/favicon');
+
+  // R186: tambah /delivery/ — peserta trip isi alamat tanpa login
+  const isPublicTokenRoute =
+    path.startsWith('/invoice/') ||
+    path.startsWith('/tl-assign/') ||
+    path.startsWith('/delivery/') ||
+    path.startsWith('/r/');
+
+  // Not logged in + trying to access protected route → /login
+  if (!user && !isAuthPage && !isPublicAsset && !isPublicTokenRoute && path !== '/') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    return NextResponse.redirect(url);
+  }
+
+  // Logged in + on /login page → /dashboard
+  // (PENTING: hanya /login, BUKAN semua /auth/* — role-picker harus accessible)
+  if (user && path === '/login') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/dashboard';
+    return NextResponse.redirect(url);
   }
 
   return response;
 }
-
-export const config = {
-  matcher: [
-    // Match all paths kecuali static files
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
-};
