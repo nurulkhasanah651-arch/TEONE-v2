@@ -1,6 +1,6 @@
 // Trip Detail page — shows all info + edit/delete buttons + participants
 // Round 114/115: fetch allTrips list untuk dropdown Transfer button
-// Server Component fetches the trip + participants
+// Round 189: + BackupSheetPanel (Google Sheets sync untuk backup)
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
 import ParticipantsList from '@/components/trips/ParticipantsList';
+// R189: Google Sheets backup panel
+import BackupSheetPanel from '@/components/trip/BackupSheetPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -106,6 +108,9 @@ export default async function TripDetailPage({ params }) {
           </Link>
         </div>
       </div>
+
+      {/* R189: GOOGLE SHEET BACKUP PANEL */}
+      <BackupSheetPanel tripId={trip.id} />
 
       {/* Key stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
