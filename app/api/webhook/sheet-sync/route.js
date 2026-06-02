@@ -1,4 +1,6 @@
-// R190c: Webhook endpoint pakai syncTripToSheetFromWebhook (skip auth check)
+// R190d: Webhook endpoint — AWAIT sync (bukan fire-and-forget)
+// Vercel serverless terminate function setelah response → fire-and-forget gak selesai
+// Fix: await sync sebelum return response. Bonus: skip debounce, return real result.
 // Path: app/api/webhook/sheet-sync/route.js
 
 import { NextResponse } from 'next/server';
@@ -6,7 +8,7 @@ import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { syncTripToSheetFromWebhook } from '@/lib/actions/sheet-sync';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 function getServiceSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -39,17 +41,15 @@ async function resolveTripId(supabase, table, record) {
   return null;
 }
 
-async function shouldSync(supabase, tripId) {
+// R190d: cek trip punya sheet_id (debounce di-remove)
+async function hasLinkedSheet(supabase, tripId) {
   try {
     const { data } = await supabase
       .from('trips')
-      .select('sheet_id, last_sheet_sync_at')
+      .select('sheet_id')
       .eq('id', tripId)
       .maybeSingle();
-    if (!data?.sheet_id) return false;
-    if (!data.last_sheet_sync_at) return true;
-    const ago = Date.now() - new Date(data.last_sheet_sync_at).getTime();
-    return ago > 3000;
+    return !!data?.sheet_id;
   } catch {
     return false;
   }
@@ -70,8 +70,11 @@ export async function POST(request) {
     const record = payload.record || payload.old_record || {};
     const table = payload.table || payload.type;
 
+    console.log('[autosync] payload received', { table, type: payload.type, recordKeys: Object.keys(record || {}) });
+
     const resolved = await resolveTripId(supabase, table, record);
     if (!resolved) {
+      console.log('[autosync] no trip_id resolved', { table });
       return NextResponse.json({ ok: false, reason: 'no trip_id resolved', table });
     }
 
@@ -79,27 +82,34 @@ export async function POST(request) {
     const uniqueTripIds = [...new Set(tripIds.filter(Boolean))];
 
     const results = [];
+    // R190d: AWAIT each sync — gak fire-and-forget
     for (const tripId of uniqueTripIds) {
-      const canSync = await shouldSync(supabase, tripId);
-      if (!canSync) {
-        results.push({ trip_id: tripId, skipped: true, reason: 'no sheet or debounced' });
+      const hasSheet = await hasLinkedSheet(supabase, tripId);
+      if (!hasSheet) {
+        console.log('[autosync] skip', tripId, 'no sheet linked');
+        results.push({ trip_id: tripId, skipped: true, reason: 'no sheet linked' });
         continue;
       }
-      // R190c: pakai syncTripToSheetFromWebhook (skip auth check)
-      syncTripToSheetFromWebhook(tripId)
-        .then((r) => {
-          if (r?.error) console.error('[autosync]', tripId, r.error);
-          else console.log('[autosync] OK', tripId, r?.counts);
-        })
-        .catch((e) => {
-          console.error('[autosync] exception', tripId, e?.message);
-        });
-      results.push({ trip_id: tripId, triggered: true });
+
+      console.log('[autosync] syncing', tripId);
+      try {
+        const r = await syncTripToSheetFromWebhook(tripId);
+        if (r?.error) {
+          console.error('[autosync] sync failed', tripId, r.error);
+          results.push({ trip_id: tripId, ok: false, error: r.error });
+        } else {
+          console.log('[autosync] sync OK', tripId, r?.counts);
+          results.push({ trip_id: tripId, ok: true, counts: r?.counts });
+        }
+      } catch (e) {
+        console.error('[autosync] exception', tripId, e?.message);
+        results.push({ trip_id: tripId, ok: false, error: e?.message || 'exception' });
+      }
     }
 
     return NextResponse.json({ ok: true, table, results });
   } catch (e) {
-    console.error('[autosync webhook]', e);
+    console.error('[autosync webhook] outer error', e);
     return NextResponse.json({ error: e?.message || 'Unknown error' }, { status: 500 });
   }
 }
@@ -110,5 +120,6 @@ export async function GET() {
     endpoint: '/api/webhook/sheet-sync',
     method: 'POST',
     secret_configured: !!process.env.SHEET_WEBHOOK_SECRET,
+    version: 'R190d',
   });
 }
