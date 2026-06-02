@@ -1,7 +1,7 @@
 'use client';
 
-// Round 139 + R192b: ParticipantsList + FAMILY BADGE per peserta
-// Tambah label family ("👑 Kepala Family Test" atau "👤 Anggota Family Test")
+// Round 192c: ParticipantsList SAFE — defensive null checks
+// R192b crash di /trips karena ada peserta undefined. R192c handle semua edge case.
 // Path: components/trips/ParticipantsList.jsx
 
 import { useState } from 'react';
@@ -13,15 +13,23 @@ import RefundPassengerButton from './RefundPassengerButton';
 
 const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Family'];
 
-export default function ParticipantsList({ tripId, participants = [], allTrips = [], familyGroups = [] }) {
+export default function ParticipantsList(props) {
+  // R192c: defensive destructure — semua prop punya default
+  const tripId = props?.tripId || '';
+  const participants = Array.isArray(props?.participants) ? props.participants.filter(Boolean) : [];
+  const allTrips = Array.isArray(props?.allTrips) ? props.allTrips.filter(Boolean) : [];
+  const familyGroups = Array.isArray(props?.familyGroups) ? props.familyGroups.filter(Boolean) : [];
+
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
 
-  // R192b: map family_group_id ke family group object
+  // R192c: family map yang safe
   const familyMap = {};
-  for (const fg of familyGroups) familyMap[fg.id] = fg;
+  for (const fg of familyGroups) {
+    if (fg && fg.id) familyMap[fg.id] = fg;
+  }
 
   async function handleAdd(formData) {
     setPending(true); setError('');
@@ -89,21 +97,30 @@ export default function ParticipantsList({ tripId, participants = [], allTrips =
       ) : (
         <div className="divide-y divide-slate-100">
           {participants.map((p, idx) => {
-            const c = p?.customers || {};
+            // R192c: skip kalau p invalid
+            if (!p || typeof p !== 'object') return null;
+
+            const c = (p && p.customers) || {};
             const first = c.first_name || '';
             const last = c.surname || '';
             const fullName = `${first} ${last}`.trim() || c.name || `Peserta #${idx + 1}`;
-            const age = calcAge(c.birthday);
-            const ppStatus = passportStatus(c.passport_expiry);
+            const age = c.birthday ? calcAge(c.birthday) : null;
+            const ppStatus = c.passport_expiry ? passportStatus(c.passport_expiry) : null;
             const isEditing = editingId === p.id;
 
-            // R192b: cari family info
-            const family = p.family_group_id ? familyMap[p.family_group_id] : null;
-            const isHead = !!p.is_family_head && !!family;
+            // R192c: family info — defensive
+            let family = null;
+            let isHead = false;
+            try {
+              if (p.family_group_id && familyMap[p.family_group_id]) {
+                family = familyMap[p.family_group_id];
+                isHead = !!p.is_family_head;
+              }
+            } catch {}
 
             if (isEditing) {
               return (
-                <div key={p.id} className="p-5 bg-amber-50/30">
+                <div key={p.id || idx} className="p-5 bg-amber-50/30">
                   <h3 className="font-bold text-brand-700 mb-3">✎ Edit Peserta: {fullName}</h3>
                   <ParticipantForm
                     initial={{
@@ -123,7 +140,7 @@ export default function ParticipantsList({ tripId, participants = [], allTrips =
             }
 
             return (
-              <div key={p.id} className={`px-5 py-3 hover:bg-slate-50 ${family ? 'border-l-4 border-l-indigo-300' : ''}`}>
+              <div key={p.id || idx} className={`px-5 py-3 hover:bg-slate-50 ${family ? 'border-l-4 border-l-indigo-300' : ''}`}>
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -132,7 +149,6 @@ export default function ParticipantsList({ tripId, participants = [], allTrips =
                       {p.room_type && <span className="text-[11px] px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold">{p.room_type}</span>}
                       {age != null && <span className="text-[11px] text-slate-500">{age}th</span>}
                       {c.gender && <span className="text-[11px] text-slate-500">{c.gender === 'L' ? '♂' : '♀'}</span>}
-                      {/* R192b: FAMILY BADGE */}
                       {family && (
                         <span className={`text-[11px] px-2 py-0.5 rounded font-bold flex items-center gap-1 ${
                           isHead ? 'bg-indigo-100 text-indigo-800 border border-indigo-300' : 'bg-indigo-50 text-indigo-700'
