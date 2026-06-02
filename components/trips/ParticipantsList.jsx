@@ -1,7 +1,8 @@
 'use client';
 
-// Round 192c: ParticipantsList SAFE — defensive null checks
-// R192b crash di /trips karena ada peserta undefined. R192c handle semua edge case.
+// R139 + R192d: ParticipantsList — FIX prop passing ke TransferPassengerButton + RefundPassengerButton
+// Sebelumnya pass passengerId/tripId separately, tapi button expect FULL passenger object → crash
+// Plus tetep nampilin family badge per peserta (R192b)
 // Path: components/trips/ParticipantsList.jsx
 
 import { useState } from 'react';
@@ -14,7 +15,6 @@ import RefundPassengerButton from './RefundPassengerButton';
 const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Family'];
 
 export default function ParticipantsList(props) {
-  // R192c: defensive destructure — semua prop punya default
   const tripId = props?.tripId || '';
   const participants = Array.isArray(props?.participants) ? props.participants.filter(Boolean) : [];
   const allTrips = Array.isArray(props?.allTrips) ? props.allTrips.filter(Boolean) : [];
@@ -25,7 +25,6 @@ export default function ParticipantsList(props) {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
 
-  // R192c: family map yang safe
   const familyMap = {};
   for (const fg of familyGroups) {
     if (fg && fg.id) familyMap[fg.id] = fg;
@@ -97,7 +96,6 @@ export default function ParticipantsList(props) {
       ) : (
         <div className="divide-y divide-slate-100">
           {participants.map((p, idx) => {
-            // R192c: skip kalau p invalid
             if (!p || typeof p !== 'object') return null;
 
             const c = (p && p.customers) || {};
@@ -108,7 +106,6 @@ export default function ParticipantsList(props) {
             const ppStatus = c.passport_expiry ? passportStatus(c.passport_expiry) : null;
             const isEditing = editingId === p.id;
 
-            // R192c: family info — defensive
             let family = null;
             let isHead = false;
             try {
@@ -191,8 +188,9 @@ export default function ParticipantsList(props) {
                       🛂 Passport
                     </Link>
                     <button onClick={() => setEditingId(p.id)} disabled={pending} className="text-xs px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold disabled:opacity-50">✎ Edit</button>
-                    <TransferPassengerButton passengerId={p.id} passengerName={fullName} currentTripId={tripId} allTrips={allTrips} />
-                    <RefundPassengerButton passengerId={p.id} passengerName={fullName} tripId={tripId} />
+                    {/* R192d: pass FULL passenger object (bukan separate props) — fix crash */}
+                    <TransferPassengerButton passenger={p} allTrips={allTrips} />
+                    <RefundPassengerButton passenger={p} />
                     <button onClick={() => handleRemove(p.id, fullName)} disabled={pending} className="text-xs px-2 py-1 rounded bg-red-100 hover:bg-red-200 text-red-700 font-bold disabled:opacity-50">🗑 Hapus</button>
                   </div>
                 </div>
