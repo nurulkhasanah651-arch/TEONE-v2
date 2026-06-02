@@ -1,7 +1,5 @@
-// Trip Detail page — shows all info + edit/delete buttons + participants
-// Round 114/115: fetch allTrips list untuk dropdown Transfer button
-// Round 189: + BackupSheetPanel (Google Sheets sync)
-// Round 192: + RESTORE FamilyGroupManager (kolom family ke-hilangan setelah R189)
+// Trip Detail page — R114/115/189/192/192b
+// R192b: Pass familyGroups ke ParticipantsList biar nampilin family badge
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -9,9 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
 import ParticipantsList from '@/components/trips/ParticipantsList';
-// R189: Google Sheets backup panel
 import BackupSheetPanel from '@/components/trip/BackupSheetPanel';
-// R192: Family group manager (R100)
 import FamilyGroupManager from '@/components/families/FamilyGroupManager';
 
 export const dynamic = 'force-dynamic';
@@ -30,7 +26,6 @@ export default async function TripDetailPage({ params }) {
   const checklist = tripChecklist(trip);
   const revenue = (trip.price || 0) * (trip.sold || 0);
 
-  // Round 114: Fetch list trip lain untuk dropdown Transfer
   let allTrips = [];
   try {
     const { data } = await supabase.from('trips')
@@ -42,7 +37,6 @@ export default async function TripDetailPage({ params }) {
     allTrips = [];
   }
 
-  // Fetch participants — 2-step query to bypass Postgrest embedded join issues
   let participants = [];
   let participantsDebug = '';
   {
@@ -73,7 +67,6 @@ export default async function TripDetailPage({ params }) {
     }
   }
 
-  // R192: Fetch family groups untuk trip ini
   let familyGroups = [];
   try {
     const { data: fg } = await supabase
@@ -86,7 +79,6 @@ export default async function TripDetailPage({ params }) {
     familyGroups = [];
   }
 
-  // Recent CS updates for this trip
   const { data: recentCS } = await supabase
     .from('cs_daily_updates')
     .select('*')
@@ -96,7 +88,6 @@ export default async function TripDetailPage({ params }) {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header */}
       <div>
         <Link href="/trips" className="text-sm text-brand-600 font-medium hover:underline">← Kembali</Link>
         <div className="mt-2 flex items-start justify-between gap-4 flex-wrap">
@@ -124,10 +115,8 @@ export default async function TripDetailPage({ params }) {
         </div>
       </div>
 
-      {/* R189: GOOGLE SHEET BACKUP PANEL */}
       <BackupSheetPanel tripId={trip.id} />
 
-      {/* Key stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Seat Terjual" value={`${trip.sold || 0} / ${trip.quota || 0}`} color="text-brand-700" />
         <StatCard label="Sisa Seat" value={trip.seat_left ?? 0} color="text-amber-700" />
@@ -135,7 +124,6 @@ export default async function TripDetailPage({ params }) {
         <StatCard label="Revenue" value={fmtRupiah(revenue)} color="text-green-700" small />
       </div>
 
-      {/* Operations Status */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider">Status Operasional</h3>
@@ -153,7 +141,6 @@ export default async function TripDetailPage({ params }) {
         </div>
       </div>
 
-      {/* Info grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <InfoCard title="Tanggal">
           <InfoRow label="Keberangkatan" value={fmtDate(trip.departure)} note={days > 0 ? `${days} hari lagi` : null} />
@@ -176,28 +163,26 @@ export default async function TripDetailPage({ params }) {
         )}
       </div>
 
-      {/* Debug info (temporary) */}
       {participantsDebug && (
         <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs font-mono text-yellow-800">
           🔍 Debug: {participantsDebug}
         </div>
       )}
 
-      {/* R192: FAMILY GROUP MANAGER — restored */}
       <FamilyGroupManager
         tripId={trip.id}
         passengers={participants || []}
         familyGroups={familyGroups || []}
       />
 
-      {/* Participants — Round 114/115: pass allTrips untuk dropdown Transfer */}
+      {/* R192b: pass familyGroups biar nampilin badge family per peserta */}
       <ParticipantsList
         tripId={trip.id}
         participants={participants || []}
         allTrips={allTrips || []}
+        familyGroups={familyGroups || []}
       />
 
-      {/* Recent CS updates */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
           <h2 className="font-bold text-brand-700">Update CS Terbaru</h2>
