@@ -1,21 +1,26 @@
 'use client';
 
-// Round 184h: HPPDocumentBar — defensive handling untuk undefined response + file size check
+// Round 188: HPPDocumentBar — DIRECT BROWSER UPLOAD ke Supabase Storage
+// Pattern sama dengan portal TL (R132): bypass server payload limit (Vercel 4.5MB),
+// langsung upload dari browser, max 20MB, support image+pdf+excel+word+csv+txt
+//
 // Path: components/finance/HPPDocumentBar.jsx
 
 import { useState, useTransition, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import {
-  uploadHPPInvoice,
-  uploadTransferProof,
+  saveInvoiceUrl,
+  saveTransferProofUrl,
   getInvoiceSignedUrl,
   getTransferProofSignedUrl,
   deleteInvoice,
   deleteTransferProof,
 } from '@/lib/actions/hpp-documents';
 
-const MAX_FILE_SIZE_MB = 10;
-const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
+const BUCKET = 'hpp-documents';
+const MAX_FILE_SIZE_MB = 20;
+const ACCEPT_ALL = 'image/*,application/pdf,.pdf,.xlsx,.xls,.xlsm,.docx,.doc,.csv,.txt,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/csv,text/plain';
 
 function fmtDateTime(d) {
   if (!d) return '';
@@ -30,6 +35,19 @@ function fmtFileSize(bytes) {
   return (bytes / 1024 / 1024).toFixed(1) + 'MB';
 }
 
+function sanitizeFilename(name) {
+  return String(name || 'file').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
+}
+
+function fileIcon(url) {
+  if (!url) return '📎';
+  if (/\.(jpg|jpeg|png|gif|webp)$/i.test(url)) return '🖼';
+  if (/\.pdf$/i.test(url)) return '📄';
+  if (/\.(xlsx|xls|xlsm|csv)$/i.test(url)) return '📊';
+  if (/\.(docx|doc)$/i.test(url)) return '📝';
+  return '📎';
+}
+
 export default function HPPDocumentBar({
   item,
   canUploadInvoice = true,
@@ -42,315 +60,289 @@ export default function HPPDocumentBar({
   const invoiceRef = useRef(null);
   const proofRef = useRef(null);
   const [uploading, setUploading] = useState(null);
+  const [progress, setProgress] = useState(0);
   const [localItem, setLocalItem] = useState(item);
-  // R184h: track selected file untuk preview size
-  const [invoiceSelected, setInvoiceSelected] = useState(null);
-  const [proofSelected, setProofSelected] = useState(null);
 
-  useEffect(() => { setLocalItem(item); }, [item.id, item.invoice_url, item.transfer_proof_url]);
+  useEffect(() => { setLocalItem(item); }, [item?.id, item?.invoice_url, item?.transfer_proof_url]);
 
-  function flash(text, isErr = false) {
-    setMsg({ text, isErr, ts: Date.now() });
-    if (!isErr) setTimeout(() => setMsg(null), 7000);
-  }
-
-  // R184h: validasi file SEBELUM upload — saving server roundtrip
-  function validateFile(file) {
-    if (!file) return 'File belum dipilih';
-    if (file.size > MAX_FILE_SIZE) {
-      return `File terlalu besar (${fmtFileSize(file.size)}). Max ${MAX_FILE_SIZE_MB}MB.\n💡 Compress dulu via tinypng.com (untuk gambar) atau ilovepdf.com (untuk PDF)`;
-    }
-    return null;
-  }
-
-  async function handleUploadInvoice(e) {
-    e?.preventDefault?.();
-    const file = invoiceRef.current?.files?.[0];
-    const valErr = validateFile(file);
-    if (valErr) { flash('⚠ ' + valErr, true); return; }
-
-    setUploading('invoice');
-    flash(`⏳ Uploading ${file.name} (${fmtFileSize(file.size)})...`);
-    console.log('[HPPDocumentBar] Uploading invoice:', file.name, file.size, 'bytes');
-
-    const fd = new FormData();
-    fd.append('invoice_file', file);
-
-    try {
-      const r = await uploadHPPInvoice(item.id, fd);
-      console.log('[HPPDocumentBar] Upload result:', r);
-      setUploading(null);
-
-      // R184h: defensive — kalau r undefined (server crash/413), kasih error jelas
-      if (!r) {
-        flash(`❌ Server tidak respond. Kemungkinan:\n• File terlalu besar (>${MAX_FILE_SIZE_MB}MB di server)\n• next.config.js belum di-update dengan bodySizeLimit\n• Network error`, true);
-        return;
-      }
-      if (r.error) {
-        flash('❌ ' + r.error, true);
-        return;
-      }
-
-      // Optimistic update
-      if (r.item) setLocalItem(r.item);
-      else if (r.invoice_url) setLocalItem((p) => ({ ...p, invoice_url: r.invoice_url, invoice_uploaded_at: r.uploaded_at }));
-
-      flash(`✓ Invoice "${file.name}" ter-upload!`);
-      if (invoiceRef.current) invoiceRef.current.value = '';
-      setInvoiceSelected(null);
-      router.refresh();
-    } catch (err) {
-      console.error('[HPPDocumentBar] Upload error:', err);
-      setUploading(null);
-      // R184h: detect 413 dari error message
-      const msg = err?.message || 'unknown';
-      if (/413|payload|body.*size|exceeds/i.test(msg)) {
-        flash(`❌ File terlalu besar untuk server. Update next.config.js: bodySizeLimit: '10mb'`, true);
-      } else {
-        flash('❌ Error: ' + msg, true);
-      }
-    }
-  }
-
-  async function handleUploadProof(e) {
-    e?.preventDefault?.();
-    const file = proofRef.current?.files?.[0];
-    const valErr = validateFile(file);
-    if (valErr) { flash('⚠ ' + valErr, true); return; }
-
-    setUploading('proof');
-    flash(`⏳ Uploading ${file.name} (${fmtFileSize(file.size)})...`);
-    console.log('[HPPDocumentBar] Uploading proof:', file.name, file.size, 'bytes');
-
-    const fd = new FormData();
-    fd.append('proof_file', file);
-
-    try {
-      const r = await uploadTransferProof(item.id, fd);
-      console.log('[HPPDocumentBar] Upload result:', r);
-      setUploading(null);
-
-      if (!r) {
-        flash(`❌ Server tidak respond. Kemungkinan:\n• File terlalu besar (>${MAX_FILE_SIZE_MB}MB di server)\n• next.config.js belum di-update dengan bodySizeLimit\n• Network error`, true);
-        return;
-      }
-      if (r.error) {
-        flash('❌ ' + r.error, true);
-        return;
-      }
-
-      if (r.item) setLocalItem(r.item);
-      else if (r.transfer_proof_url) setLocalItem((p) => ({ ...p, transfer_proof_url: r.transfer_proof_url, transfer_proof_uploaded_at: r.uploaded_at }));
-
-      flash(`✓ Bukti "${file.name}" ter-upload! Finance bisa download untuk vendor.`);
-      if (proofRef.current) proofRef.current.value = '';
-      setProofSelected(null);
-      router.refresh();
-    } catch (err) {
-      console.error('[HPPDocumentBar] Upload error:', err);
-      setUploading(null);
-      const msg = err?.message || 'unknown';
-      if (/413|payload|body.*size|exceeds/i.test(msg)) {
-        flash(`❌ File terlalu besar untuk server. Update next.config.js: bodySizeLimit: '10mb'`, true);
-      } else {
-        flash('❌ Error: ' + msg, true);
-      }
-    }
-  }
-
-  async function handleViewInvoice() {
-    setMsg(null);
-    const r = await getInvoiceSignedUrl(item.id);
-    if (!r) { flash('❌ Server tidak respond', true); return; }
-    if (r.error) flash('❌ ' + r.error, true);
-    else window.open(r.url, '_blank');
-  }
-
-  async function handleViewProof() {
-    setMsg(null);
-    const r = await getTransferProofSignedUrl(item.id);
-    if (!r) { flash('❌ Server tidak respond', true); return; }
-    if (r.error) flash('❌ ' + r.error, true);
-    else window.open(r.url, '_blank');
-  }
-
-  async function handleDeleteInvoice() {
-    if (!confirm('Hapus invoice?')) return;
-    startTransition(async () => {
-      const r = await deleteInvoice(item.id);
-      if (r?.error) flash('❌ ' + r.error, true);
-      else {
-        setLocalItem((p) => ({ ...p, invoice_url: null, invoice_uploaded_at: null }));
-        flash('✓ Invoice dihapus');
-        router.refresh();
-      }
-    });
-  }
-
-  async function handleDeleteProof() {
-    if (!confirm('Hapus bukti transfer?')) return;
-    startTransition(async () => {
-      const r = await deleteTransferProof(item.id);
-      if (r?.error) flash('❌ ' + r.error, true);
-      else {
-        setLocalItem((p) => ({ ...p, transfer_proof_url: null, transfer_proof_uploaded_at: null }));
-        flash('✓ Bukti dihapus');
-        router.refresh();
-      }
-    });
-  }
+  if (!localItem) return null;
 
   const hasInvoice = !!localItem.invoice_url;
   const hasProof = !!localItem.transfer_proof_url;
-  const isUploadingInv = uploading === 'invoice';
-  const isUploadingProof = uploading === 'proof';
 
+  function showMsg(text, type = 'success') {
+    setMsg({ text, type });
+    setTimeout(() => setMsg(null), 4500);
+  }
+
+  // ============ DIRECT UPLOAD HANDLER ============
+  async function handleDirectUpload(file, kind) {
+    // kind: 'invoice' or 'proof'
+    setMsg(null);
+    setProgress(0);
+
+    const sizeMB = file.size / 1048576;
+    if (sizeMB > MAX_FILE_SIZE_MB) {
+      showMsg(`File terlalu besar (${sizeMB.toFixed(1)} MB). Max ${MAX_FILE_SIZE_MB} MB.`, 'error');
+      return;
+    }
+
+    setUploading(kind);
+
+    try {
+      const supabase = createClient();
+      const safeName = sanitizeFilename(file.name);
+      const timestamp = Date.now();
+      const folder = kind === 'invoice' ? 'invoices' : 'transfer-proofs';
+      const key = `${folder}/item-${localItem.id}-${timestamp}-${safeName}`;
+
+      // Upload langsung ke Supabase Storage dari browser
+      const { data: uploadData, error: upErr } = await supabase.storage
+        .from(BUCKET)
+        .upload(key, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type || 'application/octet-stream',
+        });
+
+      if (upErr) {
+        if (/bucket|not.*found/i.test(upErr.message)) {
+          showMsg('⚠ Bucket "hpp-documents" belum dibuat di Supabase. Jalanin SQL setup dulu.', 'error');
+        } else if (/exceeded.*size|payload.*large|413/i.test(upErr.message)) {
+          showMsg(`File terlalu besar (${sizeMB.toFixed(1)} MB). Cek limit bucket di Supabase (set min 20MB).`, 'error');
+        } else if (/permission|policy|denied/i.test(upErr.message)) {
+          showMsg('⚠ Permission denied. Cek RLS policy bucket "hpp-documents".', 'error');
+        } else {
+          showMsg('Upload gagal: ' + upErr.message, 'error');
+        }
+        setUploading(null);
+        return;
+      }
+
+      setProgress(100);
+
+      // Setelah upload sukses, panggil server action buat simpan URL ke DB
+      startTransition(async () => {
+        const saveAction = kind === 'invoice' ? saveInvoiceUrl : saveTransferProofUrl;
+        const r = await saveAction(localItem.id, uploadData.path);
+
+        if (!r || r.error) {
+          showMsg(r?.error || 'Save URL gagal', 'error');
+          // Cleanup uploaded file kalau save gagal
+          try { await supabase.storage.from(BUCKET).remove([uploadData.path]); } catch {}
+        } else {
+          showMsg(`✓ ${kind === 'invoice' ? 'Invoice' : 'Bukti transfer'} terupload (${sizeMB.toFixed(1)} MB)`);
+          if (r.item) setLocalItem(r.item);
+          router.refresh();
+        }
+        setUploading(null);
+      });
+    } catch (e) {
+      showMsg('Upload error: ' + (e?.message || 'unknown'), 'error');
+      setUploading(null);
+    }
+  }
+
+  // ============ VIEW FILE (download via signed URL) ============
+  function handleView(kind) {
+    const fn = kind === 'invoice' ? getInvoiceSignedUrl : getTransferProofSignedUrl;
+    startTransition(async () => {
+      const r = await fn(localItem.id);
+      if (r?.url) {
+        window.open(r.url, '_blank', 'noopener,noreferrer');
+      } else {
+        showMsg(r?.error || 'Gagal generate link', 'error');
+      }
+    });
+  }
+
+  // ============ DELETE ============
+  function handleDelete(kind) {
+    if (!confirm(`Hapus ${kind === 'invoice' ? 'invoice' : 'bukti transfer'} ini?`)) return;
+    const fn = kind === 'invoice' ? deleteInvoice : deleteTransferProof;
+    startTransition(async () => {
+      const r = await fn(localItem.id);
+      if (r?.error) showMsg(r.error, 'error');
+      else {
+        showMsg('✓ File dihapus');
+        if (kind === 'invoice') {
+          setLocalItem({ ...localItem, invoice_url: null, invoice_uploaded_at: null });
+        } else {
+          setLocalItem({ ...localItem, transfer_proof_url: null, transfer_proof_uploaded_at: null });
+        }
+        router.refresh();
+      }
+    });
+  }
+
+  // ============ FILE INPUT HANDLERS ============
+  function onInvoiceSelect(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    handleDirectUpload(file, 'invoice');
+    if (invoiceRef.current) invoiceRef.current.value = '';
+  }
+  function onProofSelect(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    handleDirectUpload(file, 'proof');
+    if (proofRef.current) proofRef.current.value = '';
+  }
+
+  // ============ RENDER ============
   return (
-    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-3">
-
-      {/* ═══ INVOICE SECTION ═══ */}
-      <div className="bg-white border-2 border-purple-200 rounded-lg p-3">
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <p className="text-xs font-bold uppercase text-purple-700 tracking-wider">
-            📎 Invoice (dari Vendor)
-          </p>
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-            hasInvoice ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'
-          }`}>
-            {hasInvoice ? '✓ TERSEDIA' : '⏳ BELUM ADA'}
-          </span>
-        </div>
-
-        {hasInvoice && (
-          <div className="space-y-1 mb-2">
-            <button
-              type="button"
-              onClick={handleViewInvoice}
-              className="w-full px-4 py-2.5 rounded-lg bg-purple-500 hover:bg-purple-600 text-white text-sm font-bold inline-flex items-center justify-center gap-2 shadow"
-            >
-              📎 Lihat / Download Invoice
-            </button>
-            <p className="text-[10px] text-slate-500 text-center">
-              Uploaded {fmtDateTime(localItem.invoice_uploaded_at)}
-              {canUploadInvoice && (
-                <>
-                  {' · '}
-                  <button onClick={handleDeleteInvoice} disabled={pending}
-                    className="text-red-500 hover:underline">
-                    Hapus
-                  </button>
-                </>
-              )}
-            </p>
-          </div>
-        )}
-
-        {canUploadInvoice && (
-          <form onSubmit={handleUploadInvoice}>
-            <div className="flex items-stretch gap-2">
-              <input
-                ref={invoiceRef}
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.webp"
-                onChange={(e) => setInvoiceSelected(e.target.files?.[0] || null)}
-                className="flex-1 text-xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-purple-100 file:text-purple-700 file:font-semibold"
-                disabled={isUploadingInv}
-              />
-              <button
-                type="submit"
-                disabled={isUploadingInv}
-                className="px-4 py-1.5 rounded bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-bold whitespace-nowrap"
-              >
-                {isUploadingInv ? '⏳ Uploading...' : (hasInvoice ? '🔁 Replace' : '⬆️ Upload')}
-              </button>
-            </div>
-            {/* R184h: Preview file size */}
-            {invoiceSelected && (
-              <p className={`text-[10px] mt-1 ${invoiceSelected.size > MAX_FILE_SIZE ? 'text-red-600 font-bold' : 'text-slate-500'}`}>
-                {invoiceSelected.name} ({fmtFileSize(invoiceSelected.size)})
-                {invoiceSelected.size > MAX_FILE_SIZE && ` ⚠ TERLALU BESAR! Max ${MAX_FILE_SIZE_MB}MB`}
-              </p>
-            )}
-          </form>
-        )}
-      </div>
-
-      {/* ═══ BUKTI TRANSFER SECTION ═══ */}
-      <div className="bg-white border-2 border-green-200 rounded-lg p-3">
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <p className="text-xs font-bold uppercase text-green-700 tracking-wider">
-            📥 Bukti Transfer (dari Accounting)
-          </p>
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-            hasProof ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'
-          }`}>
-            {hasProof ? '✓ TERSEDIA' : '⏳ BELUM ADA'}
-          </span>
-        </div>
-
-        {hasProof && (
-          <div className="space-y-1 mb-2">
-            <button
-              type="button"
-              onClick={handleViewProof}
-              className="w-full px-4 py-2.5 rounded-lg bg-green-500 hover:bg-green-600 text-white text-sm font-bold inline-flex items-center justify-center gap-2 shadow"
-              title="Download bukti transfer untuk kirim ke vendor"
-            >
-              📥 Lihat / Download Bukti Transfer
-            </button>
-            <p className="text-[10px] text-slate-500 text-center">
-              Uploaded {fmtDateTime(localItem.transfer_proof_uploaded_at)}
-              {canUploadProof && (
-                <>
-                  {' · '}
-                  <button onClick={handleDeleteProof} disabled={pending}
-                    className="text-red-500 hover:underline">
-                    Hapus
-                  </button>
-                </>
-              )}
-            </p>
-          </div>
-        )}
-
-        {canUploadProof && (
-          <form onSubmit={handleUploadProof}>
-            <div className="flex items-stretch gap-2">
-              <input
-                ref={proofRef}
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.webp"
-                onChange={(e) => setProofSelected(e.target.files?.[0] || null)}
-                className="flex-1 text-xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-green-100 file:text-green-700 file:font-semibold"
-                disabled={isUploadingProof}
-              />
-              <button
-                type="submit"
-                disabled={isUploadingProof}
-                className="px-4 py-1.5 rounded bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-bold whitespace-nowrap"
-              >
-                {isUploadingProof ? '⏳ Uploading...' : (hasProof ? '🔁 Replace' : '⬆️ Upload')}
-              </button>
-            </div>
-            {proofSelected && (
-              <p className={`text-[10px] mt-1 ${proofSelected.size > MAX_FILE_SIZE ? 'text-red-600 font-bold' : 'text-slate-500'}`}>
-                {proofSelected.name} ({fmtFileSize(proofSelected.size)})
-                {proofSelected.size > MAX_FILE_SIZE && ` ⚠ TERLALU BESAR! Max ${MAX_FILE_SIZE_MB}MB`}
-              </p>
-            )}
-          </form>
-        )}
-      </div>
-
+    <div className="space-y-2 mt-2">
       {msg && (
-        <div className={`rounded-lg p-3 text-sm whitespace-pre-line ${
-          msg.isErr
-            ? 'bg-red-50 text-red-800 border-2 border-red-300 font-semibold'
-            : 'bg-green-50 text-green-800 border border-green-200'
+        <div className={`text-xs p-2 rounded border ${
+          msg.type === 'error'
+            ? 'bg-red-50 border-red-200 text-red-700'
+            : 'bg-emerald-50 border-emerald-200 text-emerald-700'
         }`}>
           {msg.text}
         </div>
       )}
+
+      {/* INVOICE BAR */}
+      <div className={`border rounded-lg p-2.5 ${hasInvoice ? 'bg-purple-50 border-purple-200' : 'bg-slate-50 border-slate-200'}`}>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-base">📎</span>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-purple-800">INVOICE (DARI VENDOR)</p>
+              {hasInvoice ? (
+                <p className="text-[10px] text-purple-600 truncate">
+                  {fileIcon(localItem.invoice_url)} {localItem.invoice_url.split('/').pop()}
+                  {localItem.invoice_uploaded_at && ` · ${fmtDateTime(localItem.invoice_uploaded_at)}`}
+                </p>
+              ) : (
+                <p className="text-[10px] text-slate-500 italic">BELUM ADA</p>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-1.5">
+            {hasInvoice && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleView('invoice')}
+                  disabled={pending}
+                  className="px-2 py-1 text-[11px] rounded bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50"
+                >
+                  ↗ Lihat
+                </button>
+                {canUploadInvoice && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete('invoice')}
+                    disabled={pending || uploading === 'invoice'}
+                    className="px-2 py-1 text-[11px] rounded bg-red-100 text-red-700 font-semibold hover:bg-red-200 disabled:opacity-50"
+                  >
+                    🗑
+                  </button>
+                )}
+              </>
+            )}
+            {canUploadInvoice && (
+              <button
+                type="button"
+                onClick={() => invoiceRef.current?.click()}
+                disabled={pending || uploading === 'invoice'}
+                className={`px-2 py-1 text-[11px] rounded font-semibold disabled:opacity-50 ${
+                  hasInvoice
+                    ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                    : 'bg-purple-600 text-white hover:bg-purple-700'
+                }`}
+              >
+                {uploading === 'invoice' ? `⏳ ${progress}%` : hasInvoice ? '🔄 Ganti' : '📤 Upload Invoice'}
+              </button>
+            )}
+          </div>
+        </div>
+        <input
+          ref={invoiceRef}
+          type="file"
+          accept={ACCEPT_ALL}
+          onChange={onInvoiceSelect}
+          disabled={pending || uploading === 'invoice'}
+          className="hidden"
+        />
+        {!hasInvoice && (
+          <p className="text-[9px] text-slate-400 mt-1">
+            🖼 Image · 📄 PDF · 📊 Excel · 📝 Word · 📋 CSV — max {MAX_FILE_SIZE_MB} MB
+          </p>
+        )}
+      </div>
+
+      {/* BUKTI TRANSFER BAR */}
+      <div className={`border rounded-lg p-2.5 ${hasProof ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-base">💸</span>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-emerald-800">BUKTI TRANSFER (DARI ACCOUNTING)</p>
+              {hasProof ? (
+                <p className="text-[10px] text-emerald-600 truncate">
+                  {fileIcon(localItem.transfer_proof_url)} {localItem.transfer_proof_url.split('/').pop()}
+                  {localItem.transfer_proof_uploaded_at && ` · ${fmtDateTime(localItem.transfer_proof_uploaded_at)}`}
+                </p>
+              ) : (
+                <p className="text-[10px] text-slate-500 italic">BELUM ADA</p>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-1.5">
+            {hasProof && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleView('proof')}
+                  disabled={pending}
+                  className="px-2 py-1 text-[11px] rounded bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50"
+                >
+                  ↗ Lihat
+                </button>
+                {canUploadProof && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete('proof')}
+                    disabled={pending || uploading === 'proof'}
+                    className="px-2 py-1 text-[11px] rounded bg-red-100 text-red-700 font-semibold hover:bg-red-200 disabled:opacity-50"
+                  >
+                    🗑
+                  </button>
+                )}
+              </>
+            )}
+            {canUploadProof && (
+              <button
+                type="button"
+                onClick={() => proofRef.current?.click()}
+                disabled={pending || uploading === 'proof'}
+                className={`px-2 py-1 text-[11px] rounded font-semibold disabled:opacity-50 ${
+                  hasProof
+                    ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                }`}
+              >
+                {uploading === 'proof' ? `⏳ ${progress}%` : hasProof ? '🔄 Ganti' : '📤 Upload Bukti'}
+              </button>
+            )}
+          </div>
+        </div>
+        <input
+          ref={proofRef}
+          type="file"
+          accept={ACCEPT_ALL}
+          onChange={onProofSelect}
+          disabled={pending || uploading === 'proof'}
+          className="hidden"
+        />
+        {!hasProof && (
+          <p className="text-[9px] text-slate-400 mt-1">
+            🖼 Image · 📄 PDF · 📊 Excel · 📝 Word · 📋 CSV — max {MAX_FILE_SIZE_MB} MB
+          </p>
+        )}
+      </div>
     </div>
   );
 }
