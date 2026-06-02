@@ -1,11 +1,10 @@
-// Round 157 HOTFIX: Payment Checklist LIST + DOWNLOAD BUTTONS
+// R157 + R194b: Payment Checklist LIST + filter bulanan + status + search
 // Path: app/(app)/finance/payments/page.jsx
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { fmtRupiah, fmtDate } from '@/lib/utils/format';
-import { statusCfg } from '@/lib/utils/trip-status';
 import DownloadButtons from '@/components/common/DownloadButtons';
+import PaymentChecklistTable from '@/components/finance/PaymentChecklistTable';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,7 +47,6 @@ export default async function PaymentsListPage() {
   const grandPax = sorted.reduce((s, t) => s + t.paxCount, 0);
   const grandLunas = sorted.reduce((s, t) => s + t.lunasCount, 0);
 
-  // R156: prep rows untuk download
   const fmtMoney = (v) => `Rp ${Number(v || 0).toLocaleString('id-ID')}`;
   const downloadRows = sorted.map((t) => ({
     kode: t.kode_trip || `#${t.id}`,
@@ -64,14 +62,13 @@ export default async function PaymentsListPage() {
   }));
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-5">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <Link href="/finance" className="text-sm text-brand-600 font-medium hover:underline">← Finance</Link>
           <h1 className="mt-2 text-3xl font-bold text-brand-700">Payment Checklist Peserta</h1>
-          <p className="mt-1 text-slate-600">Tracking DP, Payment 1/2/3, Pelunasan, Visa, Asuransi per peserta.</p>
+          <p className="mt-1 text-slate-600">Filter per bulan keberangkatan biar dashboard ga panjang.</p>
         </div>
-        {/* R156: Download Payment Status SEMUA TRIP */}
         <DownloadButtons
           filename={`payment-status-semua-trip-${new Date().toISOString().slice(0,10)}`}
           title="Payment Status — Semua Trip"
@@ -103,62 +100,8 @@ export default async function PaymentsListPage() {
         />
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-200">
-          <h2 className="font-bold text-brand-700">Trip & Status Pembayaran Group</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr className="text-left text-xs font-bold text-slate-600 uppercase tracking-wider">
-                <th className="px-4 py-2.5">Trip</th>
-                <th className="px-3 py-2.5">Status</th>
-                <th className="px-3 py-2.5 text-right">Peserta</th>
-                <th className="px-3 py-2.5 text-right">Expected</th>
-                <th className="px-3 py-2.5 text-right">Paid</th>
-                <th className="px-3 py-2.5 text-right">Lunas</th>
-                <th className="px-3 py-2.5"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {sorted.length === 0 ? (
-                <tr><td colSpan="7" className="px-4 py-8 text-center text-slate-500">Belum ada trip.</td></tr>
-              ) : sorted.map((t) => {
-                const s = statusCfg(t.status);
-                const progress = t.expected > 0 ? Math.round((t.paid / t.expected) * 100) : 0;
-                return (
-                  <tr key={t.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-2.5">
-                      <p className="font-bold text-brand-700">{t.kode_trip || `#${t.id}`}</p>
-                      <p className="text-xs text-slate-500">{t.name}</p>
-                      <p className="text-[10px] text-slate-400">{fmtDate(t.departure)}</p>
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${s.bg} ${s.text}`}>{s.label}</span>
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-slate-700 font-semibold">{t.paxCount}</td>
-                    <td className="px-3 py-2.5 text-right text-slate-700">{fmtRupiah(t.expected)}</td>
-                    <td className="px-3 py-2.5 text-right">
-                      <p className="font-bold text-green-700">{fmtRupiah(t.paid)}</p>
-                      <p className="text-[10px] text-slate-500">{progress}%</p>
-                    </td>
-                    <td className="px-3 py-2.5 text-right">
-                      <span className={`text-xs font-bold ${t.lunasCount === t.paxCount && t.paxCount > 0 ? 'text-green-700' : 'text-amber-700'}`}>
-                        {t.lunasCount} / {t.paxCount}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-right">
-                      <Link href={`/finance/payments/${t.id}`} className="text-xs font-semibold text-brand-600 hover:underline">
-                        Detail →
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* R194b: filter + table — client component */}
+      <PaymentChecklistTable trips={sorted} />
     </div>
   );
 }
