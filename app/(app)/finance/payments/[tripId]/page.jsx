@@ -1,4 +1,4 @@
-// Round 185: Payment Checklist + Delivery Section
+// Round 187: Payment Checklist + Delivery Section + WA Payment Notif
 // Path: app/(app)/finance/payments/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -10,6 +10,8 @@ import PaymentMatrix from '@/components/finance/PaymentMatrix';
 import DownloadButtons from '@/components/common/DownloadButtons';
 // R185: Delivery perlengkapan
 import DeliverySection from '@/components/checklist/DeliverySection';
+// R187: WA notif invoice + bukti payment ke peserta
+import WAPaymentSection from '@/components/finance/WAPaymentSection';
 
 export const dynamic = 'force-dynamic';
 
@@ -182,6 +184,13 @@ export default async function TripPaymentsPage({ params }) {
         passengers={passengersWithCustomers}
         paymentsByPassenger={paymentsByPassenger}
         template={template}
+      />
+
+      {/* R187: KIRIM NOTIF WA - INVOICE + BUKTI PAYMENT */}
+      <WAPaymentSection
+        tripId={tripId}
+        passengers={passengersWithCustomers}
+        paymentsByPassenger={paymentsByPassenger}
       />
 
       {/* R185: DELIVERY PERLENGKAPAN */}
