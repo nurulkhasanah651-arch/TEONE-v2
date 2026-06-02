@@ -1,6 +1,7 @@
 // Trip Detail page — shows all info + edit/delete buttons + participants
 // Round 114/115: fetch allTrips list untuk dropdown Transfer button
-// Round 189: + BackupSheetPanel (Google Sheets sync untuk backup)
+// Round 189: + BackupSheetPanel (Google Sheets sync)
+// Round 192: + RESTORE FamilyGroupManager (kolom family ke-hilangan setelah R189)
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -10,6 +11,8 @@ import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
 import ParticipantsList from '@/components/trips/ParticipantsList';
 // R189: Google Sheets backup panel
 import BackupSheetPanel from '@/components/trip/BackupSheetPanel';
+// R192: Family group manager (R100)
+import FamilyGroupManager from '@/components/families/FamilyGroupManager';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,7 +39,6 @@ export default async function TripDetailPage({ params }) {
       .order('departure', { ascending: false, nullsFirst: false });
     allTrips = data || [];
   } catch (e) {
-    // defensive — kalau gagal, dropdown jadi kosong tapi page tetap render
     allTrips = [];
   }
 
@@ -69,6 +71,19 @@ export default async function TripDetailPage({ params }) {
     } else {
       participantsDebug = `No trip_passengers for trip_id="${id}" (data: ${JSON.stringify(tp)})`;
     }
+  }
+
+  // R192: Fetch family groups untuk trip ini
+  let familyGroups = [];
+  try {
+    const { data: fg } = await supabase
+      .from('family_groups')
+      .select('*')
+      .eq('trip_id', id)
+      .order('created_at', { ascending: true });
+    familyGroups = fg || [];
+  } catch (e) {
+    familyGroups = [];
   }
 
   // Recent CS updates for this trip
@@ -167,6 +182,13 @@ export default async function TripDetailPage({ params }) {
           🔍 Debug: {participantsDebug}
         </div>
       )}
+
+      {/* R192: FAMILY GROUP MANAGER — restored */}
+      <FamilyGroupManager
+        tripId={trip.id}
+        passengers={participants || []}
+        familyGroups={familyGroups || []}
+      />
 
       {/* Participants — Round 114/115: pass allTrips untuk dropdown Transfer */}
       <ParticipantsList
