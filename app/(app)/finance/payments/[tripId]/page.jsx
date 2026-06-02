@@ -1,4 +1,6 @@
-// Round 187: Payment Checklist + Delivery Section + WA Payment Notif
+// Round 187: Payment Checklist — RESTORE props lengkap ke PaymentMatrix
+// supaya InvoicePanelForPassenger render dengan benar (invoice list + tombol WA inline)
+// + Delivery Section (R185)
 // Path: app/(app)/finance/payments/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -10,8 +12,6 @@ import PaymentMatrix from '@/components/finance/PaymentMatrix';
 import DownloadButtons from '@/components/common/DownloadButtons';
 // R185: Delivery perlengkapan
 import DeliverySection from '@/components/checklist/DeliverySection';
-// R187: WA notif invoice + bukti payment ke peserta
-import WAPaymentSection from '@/components/finance/WAPaymentSection';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,6 +72,33 @@ export default async function TripPaymentsPage({ params }) {
       paymentsByPassenger[p.passenger_id].push(p);
     }
   }
+
+  // R187: FETCH INVOICES per peserta — supaya InvoicePanel kebawa list invoice & tombol WA
+  let invoicesByPassenger = {};
+  if (passengerIds.length > 0) {
+    const { data: invs } = await supabase
+      .from('invoices')
+      .select('*')
+      .in('passenger_id', passengerIds)
+      .order('created_at', { ascending: false });
+    for (const inv of (invs || [])) {
+      if (!invoicesByPassenger[inv.passenger_id]) invoicesByPassenger[inv.passenger_id] = [];
+      invoicesByPassenger[inv.passenger_id].push(inv);
+    }
+  }
+
+  // R187: FETCH FAMILY GROUPS — supaya kepala family detection & invoice family jalan
+  let familyGroups = [];
+  try {
+    const { data: fgRes } = await supabase
+      .from('family_groups')
+      .select('*')
+      .eq('trip_id', tripId);
+    familyGroups = fgRes || [];
+  } catch { familyGroups = []; }
+
+  // R187: PRICE BREAKDOWN dari trip — supaya getPresetAmount jalan (visa, asuransi, room, dll)
+  const breakdown = (trip.price_breakdown && typeof trip.price_breakdown === 'object') ? trip.price_breakdown : {};
 
   // R155: PNR / Flight Inventory data
   const { data: pnrRes } = await supabase.from('flight_inventory').select('*').eq('trip_id', tripId);
@@ -179,18 +206,15 @@ export default async function TripPaymentsPage({ params }) {
 
       <PaymentTemplateForm tripId={tripId} template={template} />
 
+      {/* R187: Pass props lengkap supaya InvoicePanel jalan dengan benar */}
       <PaymentMatrix
         tripId={tripId}
         passengers={passengersWithCustomers}
         paymentsByPassenger={paymentsByPassenger}
         template={template}
-      />
-
-      {/* R187: KIRIM NOTIF WA - INVOICE + BUKTI PAYMENT */}
-      <WAPaymentSection
-        tripId={tripId}
-        passengers={passengersWithCustomers}
-        paymentsByPassenger={paymentsByPassenger}
+        breakdown={breakdown}
+        invoicesByPassenger={invoicesByPassenger}
+        familyGroups={familyGroups}
       />
 
       {/* R185: DELIVERY PERLENGKAPAN */}
