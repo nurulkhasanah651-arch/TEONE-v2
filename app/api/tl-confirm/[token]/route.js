@@ -1,5 +1,6 @@
 // app/api/tl-confirm/[token]/route.js
-// R198: Public endpoint untuk TL klik dari WA — approve / reject
+// R198 v2: Public endpoint untuk TL klik dari WA — approve / reject
+// FIX: await params (Next.js 15 sync API change)
 
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
@@ -61,19 +62,33 @@ function htmlPage(title, body, color = '#10B981') {
       color: #9ca3af;
       font-size: 13px;
     }
+    .debug {
+      margin-top: 16px;
+      padding: 8px;
+      background: #f9fafb;
+      border-radius: 6px;
+      font-size: 11px;
+      color: #6b7280;
+      font-family: monospace;
+      word-break: break-all;
+      text-align: left;
+    }
   </style>
 </head>
 <body>
   <div class="card">
     ${body}
-    <div class="footer">Khasanah Travel / Traveling Eropa</div>
+    <div class="footer">TEONE — Traveling Eropa</div>
   </div>
 </body>
 </html>`;
 }
 
-export async function GET(request, { params }) {
-  const { token } = params;
+export async function GET(request, context) {
+  // FIX Next.js 15: params adalah Promise, harus di-await
+  const params = await context.params;
+  const token = params?.token;
+
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action'); // 'approve' atau 'reject'
 
@@ -110,7 +125,7 @@ export async function GET(request, { params }) {
         'Server Error',
         `<div class="icon">⚠️</div>
          <h1>Sistem Bermasalah</h1>
-         <p>Mohon hubungi admin.</p>`,
+         <p>Service role gak ke-set. Hubungi admin.</p>`,
         '#EF4444'
       ),
       { status: 500, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
@@ -120,25 +135,40 @@ export async function GET(request, { params }) {
   // Cari trip dgn token ini
   const { data: trip, error: findErr } = await supabase
     .from('trips')
-    .select('id, name, start_date, end_date, tl_assignment_status, tl_assignment_token')
+    .select('id, name, kode_trip, departure, arrival, tl_assignment_status, tl_assignment_token')
     .eq('tl_assignment_token', token)
     .maybeSingle();
 
-  if (findErr || !trip) {
+  if (findErr) {
+    return new NextResponse(
+      htmlPage(
+        'DB Error',
+        `<div class="icon">⚠️</div>
+         <h1>Database Error</h1>
+         <p>Gagal akses database. Hubungi admin.</p>
+         <div class="debug">${findErr.message}</div>`,
+        '#EF4444'
+      ),
+      { status: 500, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+    );
+  }
+
+  if (!trip) {
     return new NextResponse(
       htmlPage(
         'Link Kadaluarsa',
         `<div class="icon">⏰</div>
          <h1>Link Sudah Kadaluarsa</h1>
-         <p>Link ini sudah tidak berlaku atau sudah pernah digunakan.</p>
-         <p>Mohon hubungi admin kalau Kakak belum sempat konfirmasi.</p>`,
+         <p>Link ini sudah tidak berlaku karena admin sudah kirim ulang WA dengan link baru.</p>
+         <p>Cek WA terakhir untuk link yg masih aktif, atau hubungi admin.</p>
+         <div class="debug">Token: ${token}</div>`,
         '#F59E0B'
       ),
       { status: 410, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
     );
   }
 
-  // Kalau sudah pernah respon, jangan biarkan respon lagi
+  // Kalau sudah pernah respon, tampilkan info
   if (trip.tl_assignment_status !== 'pending') {
     const wasApproved = trip.tl_assignment_status === 'approved';
     return new NextResponse(
@@ -146,7 +176,7 @@ export async function GET(request, { params }) {
         'Sudah Pernah Konfirmasi',
         `<div class="icon">${wasApproved ? '✅' : '❌'}</div>
          <h1>Sudah Pernah Konfirmasi</h1>
-         <p>Trip "<b>${trip.name || trip.id}</b>" sudah Kakak ${wasApproved ? 'Approve ✅' : 'Reject ❌'}.</p>
+         <p>Trip "<b>${trip.name || trip.kode_trip || trip.id}</b>" sudah Kakak ${wasApproved ? 'Approve ✅' : 'Reject ❌'}.</p>
          <p>Hubungi admin kalau mau ubah konfirmasi.</p>`,
         wasApproved ? '#10B981' : '#EF4444'
       ),
@@ -180,6 +210,8 @@ export async function GET(request, { params }) {
   }
 
   // Success
+  const tripDisplayName = trip.name || trip.kode_trip || `Trip #${trip.id}`;
+
   if (newStatus === 'approved') {
     return new NextResponse(
       htmlPage(
@@ -188,7 +220,7 @@ export async function GET(request, { params }) {
          <h1>Approve Berhasil!</h1>
          <p>Terima kasih sudah konfirmasi 🙏</p>
          <p>Kakak akan ter-assign sebagai Tour Leader untuk:</p>
-         <p style="margin-top: 12px; font-weight: 600; color: #111;">${trip.name || 'Trip #' + trip.id}</p>
+         <p style="margin-top: 12px; font-weight: 600; color: #111;">${tripDisplayName}</p>
          <p style="margin-top: 16px; font-size: 13px; color: #6b7280;">Detail lengkap akan dikirim via WA terpisah oleh admin.</p>`,
         '#10B981'
       ),
@@ -201,8 +233,8 @@ export async function GET(request, { params }) {
         `<div class="icon">❌</div>
          <h1>Trip Di-Reject</h1>
          <p>Konfirmasi diterima.</p>
-         <p>Trip "<b>${trip.name || trip.id}</b>" sudah Kakak reject.</p>
-         <p style="margin-top: 16px; font-size: 13px; color: #6b7280;">Admin akan mencari TL pengganti. Terima kasih atas konfirmasinya 🙏</p>`,
+         <p>Trip "<b>${tripDisplayName}</b>" sudah Kakak reject.</p>
+         <p style="margin-top: 16px; font-size: 13px; color: #6b7280;">Admin akan mencari TL pengganti. Terima kasih 🙏</p>`,
         '#EF4444'
       ),
       { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
