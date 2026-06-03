@@ -1,7 +1,5 @@
-// Round 194: Invoices page — COMPACT list per trip + filter bulanan
-// Trip cards collapse by default, klik expand → invoice detail
-// + DP Approval Panel di atas (kalau ada pending)
-// Path: app/(app)/invoices/page.jsx
+// Round 194 + R200i FIX: Invoices page — COMPACT list per trip + filter bulanan
+// FIX: kirim `requests={dpRequests}` ke DPApprovalPanel (bukan `dpRequests={...}`)
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
@@ -105,11 +103,9 @@ export default async function InvoicesPage() {
   const groups = Object.values(byTrip)
     .filter((g) => g.invoices.length > 0 || g.pesertaCount > 0)
     .sort((a, b) => {
-      // Sort by departure date desc (newest first)
       return (b.trip.departure || '').localeCompare(a.trip.departure || '');
     });
 
-  // Grand stats (semua trip)
   const grand = {
     totalInvoices: allInvoices.length,
     paidInvoices: allInvoices.filter((i) => i.status === 'paid').length,
@@ -130,7 +126,7 @@ export default async function InvoicesPage() {
         </Link>
       </div>
 
-      {/* GRAND STATS (semua data) */}
+      {/* GRAND STATS */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Total Invoice" value={grand.totalInvoices} color="text-brand-700" bg="bg-brand-50" />
         <StatCard label="Total Tagihan" value={fmtRupiah(grand.totalAmount)} color="text-amber-700" bg="bg-amber-50" small />
@@ -138,7 +134,7 @@ export default async function InvoicesPage() {
         <StatCard label="Sisa Tagihan" value={fmtRupiah(sisa)} color="text-red-700" bg="bg-red-50" small />
       </div>
 
-      {/* DP APPROVAL PANEL — kalau ada pending */}
+      {/* DP APPROVAL PANEL */}
       {pendingDPCount > 0 && (
         <div className="bg-blue-50 border-l-4 border-blue-500 p-3 rounded">
           <p className="text-sm font-bold text-blue-900">
@@ -149,14 +145,13 @@ export default async function InvoicesPage() {
 
       {pendingDPCount > 0 && (
         <DPApprovalPanel
-          dpRequests={dpRequests}
+          requests={dpRequests}
           passengers={passengersWithCustomer}
           familyGroups={familyGroups}
-          trips={trips}
         />
       )}
 
-      {/* TRIP LIST (compact, with filter) */}
+      {/* TRIP LIST */}
       <TripInvoicesBrowser groups={groups} />
     </div>
   );
