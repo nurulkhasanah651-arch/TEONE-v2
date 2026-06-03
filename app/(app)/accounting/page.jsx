@@ -1,6 +1,6 @@
-// Round 169: Accounting dashboard — Download Center DIHAPUS (sudah ada per-tab)
+// Round 169 + R196: Accounting dashboard + AccountingSheetPanel
 // Filter periode tetap aktif (Hari/Minggu/Bulan/Tahun/Custom)
-// Transaksi list di bawah juga masih bisa di-download
+// R196: + AccountingSheetPanel buat sync ke Google Sheet
 // Path: app/(app)/accounting/page.jsx
 
 import Link from 'next/link';
@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import PaymentRequests from '@/components/accounting/PaymentRequests';
 import DownloadButtons from '@/components/common/DownloadButtons';
+// R196: Accounting sheet sync panel
+import AccountingSheetPanel from '@/components/accounting/AccountingSheetPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +17,6 @@ async function safeQuery(promise, fallback = []) {
   try { const res = await promise; return res.data || fallback; } catch { return fallback; }
 }
 
-// ===== R158: Date range helpers =====
 function getDateRange(period, customFrom, customTo) {
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
@@ -28,7 +29,7 @@ function getDateRange(period, customFrom, customTo) {
   }
   if (period === 'week') {
     const start = new Date(today);
-    const day = start.getDay() || 7; // Monday-based
+    const day = start.getDay() || 7;
     start.setDate(start.getDate() - day + 1);
     return { from: start.toISOString().slice(0, 10), to: todayStr };
   }
@@ -40,7 +41,6 @@ function getDateRange(period, customFrom, customTo) {
     const start = new Date(today.getFullYear(), 0, 1);
     return { from: start.toISOString().slice(0, 10), to: todayStr };
   }
-  // 'all' or default
   return { from: '', to: '' };
 }
 
@@ -65,7 +65,7 @@ function getPeriodLabel(period) {
 
 export default async function AccountingDashboard({ searchParams }) {
   const sp = await searchParams;
-  const period = sp?.period || 'month'; // default bulan ini
+  const period = sp?.period || 'month';
   const customFrom = sp?.from || '';
   const customTo = sp?.to || '';
   const filterType = sp?.type || 'all';
@@ -79,7 +79,6 @@ export default async function AccountingDashboard({ searchParams }) {
     safeQuery(supabase.from('accounts').select('*').eq('active', true)),
     safeQuery(supabase.from('accounting_entries').select('*').order('date', { ascending: false })),
     safeQuery(supabase.from('participant_payments').select('*').order('paid_at', { ascending: false, nullsFirst: false })),
-    // R182: fetch HPP items dengan dp_paid > 0 (termasuk DP partial) ATAU payment_status='lunas'
     safeQuery(supabase.from('trip_finance_items').select('*').eq('item_type', 'hpp').or('payment_status.eq.lunas,dp_paid.gt.0')),
     safeQuery(supabase.from('trip_passengers').select('id, trip_id, customer_id, price_paid')),
     safeQuery(supabase.from('customers').select('id, name')),
@@ -89,7 +88,6 @@ export default async function AccountingDashboard({ searchParams }) {
     safeQuery(supabase.from('trip_finance_items').select('*').eq('item_type', 'hpp').eq('payment_request_status', 'requested').order('payment_requested_at', { ascending: true })),
   ]);
 
-  // === Saldo per account (full history) ===
   const accountBalances = {};
   for (const a of accounts) accountBalances[a.id] = (a.starting_balance || 0);
   for (const e of accEntries) {
@@ -99,11 +97,9 @@ export default async function AccountingDashboard({ searchParams }) {
   }
   const manualBankSum = Object.values(accountBalances).reduce((s, b) => s + b, 0);
 
-  // === Auto cashflow (FULL history) ===
   let autoCashInAll = 0;
   for (const p of payments) autoCashInAll += Number(p.amount || 0);
   let autoCashOutAll = 0;
-  // R182: pakai dp_paid (cash actual yg keluar), fallback ke total_amount kalau dp_paid=0 (legacy lunas)
   for (const it of hppLunas) {
     const paid = Number(it.dp_paid) || 0;
     autoCashOutAll += paid > 0 ? paid : Number(it.total_amount || 0);
@@ -127,12 +123,10 @@ export default async function AccountingDashboard({ searchParams }) {
   const realCompanyMoney = totalBank - hutang;
   const netEquity = (totalBank + piutang) - hutang;
 
-  // === Maps for entry construction ===
   const tripMap = Object.fromEntries(trips.map((t) => [t.id, t]));
   const paxMap = Object.fromEntries(passengers.map((p) => [p.id, p]));
   const custMap = Object.fromEntries(customers.map((c) => [c.id, c]));
 
-  // === Build all entries (cash in + cash out combined) ===
   const allEntries = [];
   for (const p of payments) {
     if (!p.amount || p.amount <= 0) continue;
@@ -152,11 +146,8 @@ export default async function AccountingDashboard({ searchParams }) {
       source_label: 'Peserta',
     });
   }
-  // R182: HPP entries (lunas + partial DP) — dengan fallback date supaya gak hilang
-  // Date prioritas: transfer_date > payoff_date > payment_approved_at > updated_at > today
   const todayStr = new Date().toISOString().slice(0, 10);
   for (const it of hppLunas) {
-    // R182: amount = dp_paid (actual cash keluar). Kalau dp_paid=0 (legacy lunas) fallback ke total_amount
     const dpPaid = Number(it.dp_paid) || 0;
     const amount = dpPaid > 0 ? dpPaid : Number(it.total_amount || 0);
     if (amount <= 0) continue;
@@ -171,7 +162,6 @@ export default async function AccountingDashboard({ searchParams }) {
 
     const isRefund = (it.category || '').toLowerCase().includes('refund');
     const status = String(it.payment_status || '').toLowerCase();
-    // Label berdasarkan status: DP partial vs Lunas
     const statusLabel = status === 'lunas' ? '✅ Lunas' : (status.includes('dp') ? '🟡 DP' : '');
 
     allEntries.push({
@@ -188,28 +178,18 @@ export default async function AccountingDashboard({ searchParams }) {
     });
   }
 
-  // R182: Build set of HPP item IDs yg udah ke-cover hppLunas
-  // → accounting_entries dengan linked_finance_item_id pointing ke item itu = duplicate
   const hppItemIdsInLunas = new Set(hppLunas.map((it) => it.id));
-  // Build set of payment IDs yg udah ke-cover di payments loop
   const paymentIdsCovered = new Set(payments.map((p) => p.id));
 
   for (const m of accEntries) {
     if (!m.amount || m.amount <= 0) continue;
-    // R182: Skip kalau linked ke item yg udah muncul via hppLunas (avoid double)
     if (m.linked_finance_item_id && hppItemIdsInLunas.has(m.linked_finance_item_id)) continue;
-    // Skip kalau linked ke payment yg udah muncul via payments
     if (m.linked_payment_id && paymentIdsCovered.has(m.linked_payment_id)) continue;
-    // Skip TL payment entries (udah ke-count via trip_finance_items lewat R177v4)
     if (m.source === 'tl_payment') continue;
-    // Skip payroll entries (udah ke-track terpisah, tapi untuk SAFETY tampilkan)
-    // (kalau gak mau tampil, comment out baris berikut)
-    // if (m.source === 'payroll') continue;
 
     const dateRaw = m.date || m.created_at || todayStr;
     const date = String(dateRaw).slice(0, 10);
 
-    // Kalau linked tapi gak ada match (orphan), tampilkan dengan label berbeda
     const isOrphanLinked = m.linked_finance_item_id || m.linked_payment_id;
 
     allEntries.push({
@@ -226,45 +206,30 @@ export default async function AccountingDashboard({ searchParams }) {
     });
   }
 
-  // === Apply date filter ===
   let inRangeEntries = allEntries;
   if (from || to) {
     inRangeEntries = allEntries.filter((e) => isInRange(e.date, from, to));
   }
 
-  // Type filter (for display only, downloads use full inRange)
   let filteredForDisplay = inRangeEntries;
   if (filterType === 'in') filteredForDisplay = inRangeEntries.filter((e) => e.type === 'in');
   if (filterType === 'out') filteredForDisplay = inRangeEntries.filter((e) => e.type === 'out');
   filteredForDisplay.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
-  // === Filtered totals for stats ===
   const cashInEntries = inRangeEntries.filter((e) => e.type === 'in');
   const cashOutEntries = inRangeEntries.filter((e) => e.type === 'out');
   const periodCashIn = cashInEntries.reduce((s, e) => s + e.amount, 0);
   const periodCashOut = cashOutEntries.reduce((s, e) => s + e.amount, 0);
   const periodNet = periodCashIn - periodCashOut;
 
-  // === Sort untuk download (date descending) ===
   cashInEntries.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   cashOutEntries.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  const cashflowCombined = [...inRangeEntries].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
   const subtitleDate = from && to
     ? `${periodLabel} · ${from} s/d ${to}`
     : from
       ? `${periodLabel} · sejak ${from}`
       : periodLabel;
-
-  // === Common columns ===
-  const detailColumns = [
-    { key: 'date', label: 'Tanggal', format: 'date' },
-    { key: 'source_label', label: 'Sumber' },
-    { key: 'category', label: 'Kategori' },
-    { key: 'description', label: 'Keterangan' },
-    { key: 'trip_kode', label: 'Trip' },
-    { key: 'amount', label: 'Nominal', align: 'right', format: 'rupiah' },
-  ];
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -279,7 +244,10 @@ export default async function AccountingDashboard({ searchParams }) {
         trips={trips}
       />
 
-      {/* === R158: PERIODE FILTER === */}
+      {/* R196: GOOGLE SHEET SYNC PANEL */}
+      <AccountingSheetPanel />
+
+      {/* PERIODE FILTER */}
       <div className="bg-white rounded-xl border-2 border-brand-200 shadow-card p-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
@@ -295,7 +263,6 @@ export default async function AccountingDashboard({ searchParams }) {
           </div>
         </div>
 
-        {/* Custom range form */}
         <form action="/accounting" method="get" className="mt-3 flex items-center gap-2 flex-wrap">
           <input type="hidden" name="period" value="custom" />
           <label className="text-[11px] font-bold text-slate-700">Custom:</label>
@@ -313,7 +280,6 @@ export default async function AccountingDashboard({ searchParams }) {
         </form>
       </div>
 
-      {/* === R158: STATS UNTUK PERIODE INI === */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <StatCard
           label={`⬆ Cash In (${periodLabel})`}
@@ -345,7 +311,6 @@ export default async function AccountingDashboard({ searchParams }) {
         />
       </div>
 
-      {/* SHORTCUT TO OTHER ACCOUNTING SECTIONS */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
         <SectionCard href="/accounting/reports" icon="📊" title="Laporan Bulanan" color="from-indigo-500 to-blue-700" />
         <SectionCard href="/accounting/cash-position" icon="💼" title="Posisi Kas" color="from-emerald-500 to-green-700" />
@@ -356,7 +321,6 @@ export default async function AccountingDashboard({ searchParams }) {
         <SectionCard href="/accounting/new" icon="➕" title="Entry Manual" color="from-amber-500 to-orange-700" />
       </div>
 
-      {/* === Saldo Bank/Kas (full history, tidak terpengaruh filter) === */}
       <div className="bg-white rounded-xl border border-blue-300 shadow-card overflow-hidden">
         <div className="px-5 py-3 bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-blue-200">
           <h2 className="font-bold text-brand-700 flex items-center gap-2">
@@ -383,7 +347,6 @@ export default async function AccountingDashboard({ searchParams }) {
         </div>
       </div>
 
-      {/* TYPE FILTER + TRANSAKSI LIST (preview) */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4">
         <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">Filter Type</p>
         <div className="flex flex-wrap gap-2 items-center">
