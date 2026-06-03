@@ -1,12 +1,13 @@
 'use client';
 
-// Round 72 Trip Form
+// Round 72 + R198 — Trip Form
 // - Auto-format harga dengan titik ribuan otomatis saat ngetik
 // - Tambah PNR + Route picker (dari pnr_inventory atau manual)
-// - Inherit semua fitur Round 44 (price_breakdown + auto deadline + auto closed_at)
+// - R198: Send WA Konfirmasi ke TL (di samping Tour Leader)
 
 import { useState, useEffect } from 'react';
 import { ROOM_KEYS, AGE_KEYS, ADDON_KEYS, autoDeadlineClose } from '@/lib/utils/price-breakdown';
+import TLSendWAButton from '@/components/master-trip/TLSendWAButton';
 
 let TLPicker;
 try { TLPicker = require('./TLPicker').default; } catch { TLPicker = null; }
@@ -61,7 +62,6 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
     setBreakdown((b) => ({ ...b, _custom: b._custom.filter((_, i) => i !== idx) }));
   }
 
-  // Auto deadline_close = departure - 45 hari (kalau user belum override)
   useEffect(() => {
     if (departure && !initial.deadline_close && !deadlineClose) {
       const auto = autoDeadlineClose(departure);
@@ -69,7 +69,6 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
     }
   }, [departure, initial.deadline_close]);
 
-  // Auto closed_at = today saat status ganti ke 'closed selling' atau 'completed'
   useEffect(() => {
     if (['closed selling', 'completed'].includes(status) && !closedAt) {
       setClosedAt(new Date().toISOString().slice(0, 10));
@@ -112,7 +111,7 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
         </div>
       </Section>
 
-      {/* PNR + Route — Round 72 BARU */}
+      {/* PNR + Route — Round 72 */}
       <Section title="✈ PNR & Route">
         {PnrPicker ? (
           <PnrPicker
@@ -242,6 +241,29 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
                 <input name="tl_name" defaultValue={initial.tl_name || ''} className={inputCls} placeholder="Nama TL" />
               )}
             </Field>
+
+            {/* R198: Send WA Konfirmasi — pakai data initial dari DB */}
+            {initial?.id && (
+              <div className="mt-3 p-3 border border-slate-200 rounded-lg bg-white">
+                <p className="text-xs font-semibold text-slate-600 mb-2">
+                  📱 Konfirmasi TL via WhatsApp
+                </p>
+                <TLSendWAButton
+                  tripId={initial.id}
+                  tlPhone={initial.tl_phone || ''}
+                  tlName={initial.tl_name || ''}
+                  tlId={initial.tl_id || null}
+                  initialStatus={initial.tl_assignment_status || 'pending'}
+                  initialSentAt={initial.tl_assignment_sent_at || null}
+                  initialRespondedAt={initial.tl_assignment_responded_at || null}
+                />
+                {!initial.tl_phone && !initial.tl_id && (
+                  <p className="text-[11px] text-slate-500 mt-2">
+                    💡 Pilih TL di dropdown atas dan <b>Save trip</b> dulu, baru bisa kirim WA.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </Section>
