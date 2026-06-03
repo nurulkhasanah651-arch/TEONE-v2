@@ -1,11 +1,14 @@
-// Round 194 + R200i FIX: Invoices page — COMPACT list per trip + filter bulanan
-// FIX: kirim `requests={dpRequests}` ke DPApprovalPanel (bukan `dpRequests={...}`)
+// Round 194 + R200i + R201: Invoices page
+// - DP Approval Panel (CS Daily submit DP)
+// - Invoice Payment Approval Panel (peserta upload bukti via link)  ← R201 NEW
+// - Trip Invoices Browser (compact list per trip)
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { fmtRupiah } from '@/lib/utils/format';
 import DPApprovalPanel from '@/components/accounting/DPApprovalPanel';
+import InvoicePaymentApprovalPanel from '@/components/invoices/InvoicePaymentApprovalPanel';
 import TripInvoicesBrowser from '@/components/invoices/TripInvoicesBrowser';
 
 export const dynamic = 'force-dynamic';
@@ -31,12 +34,12 @@ export default async function InvoicesPage() {
     supabase.from('trips').select('id, kode_trip, name, departure, status'),
     supabase.from('trip_passengers').select('id, trip_id, customer_id, family_group_id, is_family_head'),
     supabase.from('customers').select('id, name, phone'),
-    supabase
+    serviceClient
       .from('invoice_payments')
-      .select('*, invoices(id, invoice_no, milestone, trip_id, customer_name, trip_kode)')
+      .select('*, invoices(id, invoice_no, milestone, trip_id, customer_name, trip_kode, amount)')
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
-      .limit(50),
+      .limit(100),
     serviceClient
       .from('dp_payment_requests')
       .select('*')
@@ -64,6 +67,7 @@ export default async function InvoicesPage() {
   }));
 
   const pendingDPCount = dpRequests.filter((r) => r.status === 'pending').length;
+  const pendingPaymentCount = pendingPayments.length;
 
   // Group invoices by trip
   const byTrip = {};
@@ -134,7 +138,7 @@ export default async function InvoicesPage() {
         <StatCard label="Sisa Tagihan" value={fmtRupiah(sisa)} color="text-red-700" bg="bg-red-50" small />
       </div>
 
-      {/* DP APPROVAL PANEL */}
+      {/* BANNER ALERTS */}
       {pendingDPCount > 0 && (
         <div className="bg-blue-50 border-l-4 border-blue-500 p-3 rounded">
           <p className="text-sm font-bold text-blue-900">
@@ -143,6 +147,20 @@ export default async function InvoicesPage() {
         </div>
       )}
 
+      {pendingPaymentCount > 0 && (
+        <div className="bg-amber-50 border-l-4 border-amber-500 p-3 rounded">
+          <p className="text-sm font-bold text-amber-900">
+            💳 {pendingPaymentCount} Pembayaran Peserta menunggu approve (dari link bukti transfer)
+          </p>
+        </div>
+      )}
+
+      {/* PAYMENT APPROVAL PANEL — R201 NEW */}
+      {pendingPaymentCount > 0 && (
+        <InvoicePaymentApprovalPanel payments={pendingPayments} />
+      )}
+
+      {/* DP APPROVAL PANEL */}
       {pendingDPCount > 0 && (
         <DPApprovalPanel
           requests={dpRequests}
