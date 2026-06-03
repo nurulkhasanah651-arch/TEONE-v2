@@ -1,9 +1,10 @@
-// Edit Trip page — Round 72: fetch tourLeaders + pnrInventory
+// Edit Trip page — Round 72 + R198: tambah TLAssignmentPanel
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import TripForm from '@/components/trips/TripForm';
+import TLAssignmentPanel from '@/components/master-trip/TLAssignmentPanel'; // R198: NEW
 import { updateTrip } from '../../actions';
 
 export const dynamic = 'force-dynamic';
@@ -68,6 +69,9 @@ export default async function EditTripPage({ params }) {
           pnrInventory={pnrInventory}
         />
       </div>
+
+      {/* R198: TL WA Confirmation Panel — taruh di bawah form */}
+      <TLAssignmentPanel trip={trip} />
     </div>
   );
 }
