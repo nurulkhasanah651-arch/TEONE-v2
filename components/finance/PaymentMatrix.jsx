@@ -1,8 +1,7 @@
 'use client';
 
-// Payment Matrix — Round 102e + R207
-// R207: pass allPayments ke deriveMilestones supaya custom milestone (typed di Invoice)
-// muncul sbg kolom di matrix
+// Payment Matrix — Round 102e + R207 + R211
+// R211: render DiscountPanel di expanded row + badge diskon di nama peserta
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -10,6 +9,7 @@ import { toggleMilestone, updatePaymentAmount, updatePaymentNotes } from '@/lib/
 import { fmtRupiah } from '@/lib/utils/format';
 import { deriveMilestones, expectedPerPassenger, mainExpectedPerPassenger } from '@/lib/utils/price-breakdown';
 import InvoicePanelForPassenger from '@/components/invoice/InvoicePanelForPassenger';
+import DiscountPanel from '@/components/finance/DiscountPanel';
 
 export default function PaymentMatrix({
   tripId,
@@ -26,7 +26,6 @@ export default function PaymentMatrix({
   const [expandedRow, setExpandedRow] = useState(null);
   const router = useRouter();
 
-  // R207: Pass allPayments supaya custom milestone (typed di Invoice) muncul sebagai kolom
   const allPayments = Object.values(paymentsByPassenger).flat();
   const milestones = deriveMilestones(template, breakdown, allPayments);
 
@@ -122,7 +121,6 @@ export default function PaymentMatrix({
     template_custom: 'text-purple-700 border-b-purple-300 bg-purple-50/40',
   };
 
-  // Round 102e: Pre-compute expected+paid per pax
   const paxExpectedMap = {};
   for (const p of passengers) {
     const pays = paymentsByPassenger[p.id] || [];
@@ -150,6 +148,7 @@ export default function PaymentMatrix({
           <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-700">Wajib</span>
           <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">Opt-in</span>
           <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700">Custom</span>
+          <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-700">🎟 Diskon</span>
         </div>
       </div>
 
@@ -178,6 +177,7 @@ export default function PaymentMatrix({
               const expectedTotal = expectedPerPassenger(p, breakdown, pays);
               const optionalPaid = expectedTotal - mainExpected;
               const remaining = expectedTotal - totalPaid;
+              const discount = Number(p.discount_amount) || 0;
 
               const fg = (p.family_group_id && familyMap[p.family_group_id]) ? familyMap[p.family_group_id] : null;
               const isHead = p.is_family_head && fg;
@@ -202,10 +202,18 @@ export default function PaymentMatrix({
                               👨‍👩‍👧 {fg.name.length > 14 ? fg.name.slice(0, 14) + '…' : fg.name}
                             </span>
                           )}
+                          {/* R211: Diskon badge */}
+                          {discount > 0 && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-100 text-amber-800 border border-amber-300"
+                              title={`Diskon ${fmtRupiah(discount)}`}>
+                              🎟 -{fmtRupiah(discount)}
+                            </span>
+                          )}
                         </p>
                         <p className="text-[10px] text-slate-500">
                           #{idx + 1}{p.room_type && ` · ${p.room_type}`} ·
                           Wajib {fmtRupiah(mainExpected)}{optionalPaid > 0 && ` + opt ${fmtRupiah(optionalPaid)}`}
+                          {discount > 0 && <span className="text-amber-700"> · diskon -{fmtRupiah(discount)}</span>}
                         </p>
                       </button>
                     </td>
@@ -264,6 +272,9 @@ export default function PaymentMatrix({
                         / {fmtRupiah(expectedTotal)}
                         {totalPaid >= expectedTotal && expectedTotal > 0 && <span className="ml-1 text-green-700 font-bold">✓</span>}
                       </p>
+                      {discount > 0 && (
+                        <p className="text-[10px] text-amber-700 font-semibold">(setelah diskon)</p>
+                      )}
                       {remaining > 0 && (
                         <p className="text-[10px] text-amber-700 font-semibold">Sisa: {fmtRupiah(remaining)}</p>
                       )}
@@ -281,13 +292,19 @@ export default function PaymentMatrix({
                             </span>
                           )}
                           <span className="ml-2 text-[10px] font-normal text-slate-600">
-                            Room: {p.room_type || '—'} · Wajib: {fmtRupiah(mainExpected)} · Optional ✓: {fmtRupiah(optionalPaid)} · Expected: {fmtRupiah(expectedTotal)}
+                            Room: {p.room_type || '—'} · Wajib: {fmtRupiah(mainExpected)} · Optional ✓: {fmtRupiah(optionalPaid)}
+                            {discount > 0 && <span className="text-amber-700"> · Diskon: -{fmtRupiah(discount)}</span>}
+                            {' · '}Expected: {fmtRupiah(expectedTotal)}
                           </span>
                         </p>
+
+                        {/* R211: Diskon panel */}
+                        <DiscountPanel passenger={p} customerName={c.name} />
+
                         {pays.length === 0 ? (
-                          <p className="text-xs text-slate-500 italic">Belum ada pembayaran. Klik milestone di atas untuk tandai lunas.</p>
+                          <p className="text-xs text-slate-500 italic mt-3">Belum ada pembayaran. Klik milestone di atas untuk tandai lunas.</p>
                         ) : (
-                          <div className="space-y-1.5">
+                          <div className="space-y-1.5 mt-3">
                             {pays.map((py) => {
                               const isEditingThisNote = editingNotes?.paymentId === py.id;
                               return (
