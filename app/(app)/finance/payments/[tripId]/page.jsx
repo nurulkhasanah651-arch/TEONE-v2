@@ -1,6 +1,6 @@
-// Round 187: Payment Checklist — RESTORE props lengkap ke PaymentMatrix
+// Round 187 + R208: Payment Checklist — RESTORE props lengkap ke PaymentMatrix
 // supaya InvoicePanelForPassenger render dengan benar (invoice list + tombol WA inline)
-// + Delivery Section (R185)
+// + Delivery Section (R185 + R208 — pass trip prop)
 // Path: app/(app)/finance/payments/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -10,7 +10,6 @@ import { fmtRupiah } from '@/lib/utils/format';
 import PaymentTemplateForm from '@/components/finance/PaymentTemplateForm';
 import PaymentMatrix from '@/components/finance/PaymentMatrix';
 import DownloadButtons from '@/components/common/DownloadButtons';
-// R185: Delivery perlengkapan
 import DeliverySection from '@/components/checklist/DeliverySection';
 
 export const dynamic = 'force-dynamic';
@@ -46,7 +45,7 @@ export default async function TripPaymentsPage({ params }) {
   if (customerIds.length > 0) {
     const { data: cust } = await supabase
       .from('customers')
-      .select('id, name, phone, email, whatsapp')
+      .select('id, name, phone, email, whatsapp, sex')
       .in('id', customerIds);
     customerMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
   }
@@ -73,7 +72,7 @@ export default async function TripPaymentsPage({ params }) {
     }
   }
 
-  // R187: FETCH INVOICES per peserta — supaya InvoicePanel kebawa list invoice & tombol WA
+  // R187: FETCH INVOICES per peserta
   let invoicesByPassenger = {};
   if (passengerIds.length > 0) {
     const { data: invs } = await supabase
@@ -87,7 +86,7 @@ export default async function TripPaymentsPage({ params }) {
     }
   }
 
-  // R187: FETCH FAMILY GROUPS — supaya kepala family detection & invoice family jalan
+  // R187: FETCH FAMILY GROUPS
   let familyGroups = [];
   try {
     const { data: fgRes } = await supabase
@@ -97,7 +96,7 @@ export default async function TripPaymentsPage({ params }) {
     familyGroups = fgRes || [];
   } catch { familyGroups = []; }
 
-  // R187: PRICE BREAKDOWN dari trip — supaya getPresetAmount jalan (visa, asuransi, room, dll)
+  // R187: PRICE BREAKDOWN dari trip
   const breakdown = (trip.price_breakdown && typeof trip.price_breakdown === 'object') ? trip.price_breakdown : {};
 
   // R155: PNR / Flight Inventory data
@@ -217,11 +216,12 @@ export default async function TripPaymentsPage({ params }) {
         familyGroups={familyGroups}
       />
 
-      {/* R185: DELIVERY PERLENGKAPAN */}
+      {/* R185 + R208: DELIVERY PERLENGKAPAN — pass trip prop untuk items config */}
       <DeliverySection
         tripId={tripId}
         passengers={passengersWithCustomers}
         appUrl={appUrl}
+        trip={trip}
       />
 
       {/* R155: PNR DEPOSIT SECTION */}
