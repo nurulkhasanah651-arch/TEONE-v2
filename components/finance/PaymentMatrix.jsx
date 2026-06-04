@@ -1,7 +1,8 @@
 'use client';
 
-// Payment Matrix — Round 102e: pass expectedTotal+totalPaid+sisa per peserta ke InvoicePanel
-// supaya InvoicePanel bisa auto-fill Pelunasan amount = sisa
+// Payment Matrix — Round 102e + R207
+// R207: pass allPayments ke deriveMilestones supaya custom milestone (typed di Invoice)
+// muncul sbg kolom di matrix
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -25,7 +26,9 @@ export default function PaymentMatrix({
   const [expandedRow, setExpandedRow] = useState(null);
   const router = useRouter();
 
-  const milestones = deriveMilestones(template, breakdown);
+  // R207: Pass allPayments supaya custom milestone (typed di Invoice) muncul sebagai kolom
+  const allPayments = Object.values(paymentsByPassenger).flat();
+  const milestones = deriveMilestones(template, breakdown, allPayments);
 
   const paymentLookup = {};
   for (const pid in paymentsByPassenger) {
@@ -119,7 +122,7 @@ export default function PaymentMatrix({
     template_custom: 'text-purple-700 border-b-purple-300 bg-purple-50/40',
   };
 
-  // Round 102e: Pre-compute expected+paid per pax untuk passing ke InvoicePanel (& family members)
+  // Round 102e: Pre-compute expected+paid per pax
   const paxExpectedMap = {};
   for (const p of passengers) {
     const pays = paymentsByPassenger[p.id] || [];
