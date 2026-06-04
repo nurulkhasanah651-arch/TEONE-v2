@@ -1,7 +1,7 @@
 'use client';
 
-// Round 102e: InvoicePanel — auto-fill Pelunasan amount = SISA (expected - paid)
-// Plus per-pax sisa untuk family Pelunasan custom mode
+// Round 102e + R206: InvoicePanel — dropdown milestone DINAMIS dari paymentTemplate
+// FIX: MILESTONE_OPTIONS computed inside component → P1-P7 dari template auto-muncul
 
 import { useState, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -33,7 +33,18 @@ const STATUS_BADGE = {
   cancelled: { label: 'Cancelled',     color: 'bg-slate-100 text-slate-500' },
 };
 
-const MILESTONE_OPTIONS = ['DP', 'P1', 'P2', 'P3', 'Pelunasan', 'Visa', 'Asuransi', 'Custom'];
+// R206: Helper — generate MILESTONE_OPTIONS dinamis dari paymentTemplate
+function buildMilestoneOptions(paymentTemplate) {
+  // Ambil semua P keys dari template (P1, P2, ..., P10, dst), sorted by angka
+  const templatePKeys = Object.keys(paymentTemplate || {})
+    .filter((k) => /^P\d+$/.test(k))
+    .sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
+
+  // Fallback ke P1-P3 kalau template kosong
+  const pKeys = templatePKeys.length > 0 ? templatePKeys : ['P1', 'P2', 'P3'];
+
+  return ['DP', ...pKeys, 'Pelunasan', 'Visa', 'Asuransi', 'Custom'];
+}
 
 export default function InvoicePanelForPassenger({
   tripId, passenger, customer, invoices = [],
@@ -60,6 +71,9 @@ export default function InvoicePanelForPassenger({
   const [customPerPax, setCustomPerPax] = useState(false);
   const [perPaxAmounts, setPerPaxAmounts] = useState({});
 
+  // R206: MILESTONE_OPTIONS dinamis berdasarkan paymentTemplate
+  const MILESTONE_OPTIONS = buildMilestoneOptions(paymentTemplate);
+
   const isFamilyHead = !!(familyGroup && passenger?.is_family_head);
   const familyMemberCount = familyMembers?.length || 0;
   const familyMemberIds = (familyMembers || []).map((m) => m.id);
@@ -69,7 +83,6 @@ export default function InvoicePanelForPassenger({
 
   function getPresetAmount(key) {
     if (!key || key === 'Custom') return 0;
-    // Round 102e: Pelunasan → SISA (expected - paid)
     if (key === 'Pelunasan' && sisaPerPax > 0) return sisaPerPax;
     if (paymentTemplate && Object.prototype.hasOwnProperty.call(paymentTemplate, key)) {
       const v = Number(paymentTemplate[key]);
@@ -98,7 +111,6 @@ export default function InvoicePanelForPassenger({
     return 0;
   }
 
-  // Round 102e: Per-pax sisa for family Pelunasan
   function getPerPaxSisa(paxId) {
     const info = paxExpectedMap[paxId];
     if (!info) return 0;
@@ -112,17 +124,14 @@ export default function InvoicePanelForPassenger({
     const isFamily = mode === 'family_invoice' || mode === 'family_receipt';
 
     if (milestone === 'Pelunasan') {
-      // ROUND 102e: Pelunasan auto = SISA
       if (isFamily) {
         if (customPerPax) {
-          // Per pax sisa
           const newMap = {};
           for (const m of familyMembers) {
             newMap[m.id] = String(getPerPaxSisa(m.id));
           }
           setPerPaxAmounts(newMap);
         } else {
-          // Average sisa per pax = total family sisa / N
           const totalFamilySisa = familyMembers.reduce((s, m) => s + getPerPaxSisa(m.id), 0);
           const avgPerPax = familyMemberCount > 0 ? Math.round(totalFamilySisa / familyMemberCount) : 0;
           setAmountPerPax(String(avgPerPax));
@@ -133,7 +142,6 @@ export default function InvoicePanelForPassenger({
       return;
     }
 
-    // Other milestones → preset
     const preset = getPresetAmount(milestone);
     if (preset > 0) {
       if (isFamily) {
@@ -369,7 +377,6 @@ export default function InvoicePanelForPassenger({
                 </p>
               )}
 
-              {/* Round 102e: Tampilkan summary */}
               <div className="text-[10px] text-slate-700 bg-slate-50 border border-slate-200 rounded px-2 py-1 grid grid-cols-3 gap-1">
                 <span>Expected: <b>{fmtRupiah(expectedTotal)}</b></span>
                 <span>Paid: <b className="text-green-700">{fmtRupiah(totalPaidPerPax)}</b></span>
@@ -507,7 +514,6 @@ export default function InvoicePanelForPassenger({
                       onChange={(e) => {
                         setCustomPerPax(e.target.checked);
                         if (e.target.checked) {
-                          // Auto-fill per pax — kalau Pelunasan pakai sisa per pax
                           const map = {};
                           for (const m of familyMembers) {
                             if (milestone === 'Pelunasan') {
