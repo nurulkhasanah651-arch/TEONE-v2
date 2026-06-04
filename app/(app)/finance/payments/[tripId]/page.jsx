@@ -1,5 +1,4 @@
-// Round 187 + R208 v2: Payment Checklist
-// v2 FIX: fetch customers.gender (selain sex)
+// R208 + R209 + R210: Payment Checklist + ongkir invoices fetch
 // Path: app/(app)/finance/payments/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -42,7 +41,6 @@ export default async function TripPaymentsPage({ params }) {
 
   let customerMap = {};
   if (customerIds.length > 0) {
-    // R208 v2: tambah gender + sex (fallback)
     const { data: cust } = await supabase
       .from('customers')
       .select('id, name, phone, email, whatsapp, gender, sex')
@@ -82,6 +80,21 @@ export default async function TripPaymentsPage({ params }) {
     for (const inv of (invs || [])) {
       if (!invoicesByPassenger[inv.passenger_id]) invoicesByPassenger[inv.passenger_id] = [];
       invoicesByPassenger[inv.passenger_id].push(inv);
+    }
+  }
+
+  // R210: Fetch ongkir invoices per peserta
+  let ongkirInvoicesByPassenger = {};
+  if (passengerIds.length > 0) {
+    const { data: ongkirInvs } = await supabase
+      .from('invoices')
+      .select('id, invoice_no, passenger_id, amount, status, paid_at, milestone, public_token')
+      .in('passenger_id', passengerIds)
+      .ilike('milestone', '%ongkir%')
+      .order('created_at', { ascending: false });
+    for (const inv of (ongkirInvs || [])) {
+      if (!ongkirInvoicesByPassenger[inv.passenger_id]) ongkirInvoicesByPassenger[inv.passenger_id] = [];
+      ongkirInvoicesByPassenger[inv.passenger_id].push(inv);
     }
   }
 
@@ -209,11 +222,13 @@ export default async function TripPaymentsPage({ params }) {
         familyGroups={familyGroups}
       />
 
+      {/* R208 + R210: pass ongkirInvoicesByPassenger */}
       <DeliverySection
         tripId={tripId}
         passengers={passengersWithCustomers}
         appUrl={appUrl}
         trip={trip}
+        ongkirInvoicesByPassenger={ongkirInvoicesByPassenger}
       />
 
       {pnrs.length > 0 && (
