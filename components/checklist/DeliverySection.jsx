@@ -1,9 +1,7 @@
 'use client';
 
-// Round 185 + R208 + R209: DeliverySection
-// R208: gender items + internal notes
-// R209: ongkir invoice — pas Mark Dikirim, input ongkir, bikin invoice + WA bareng resi
-// JANGAN nyentuh fitur existing
+// Round 185 + R208 + R209 + R210: DeliverySection
+// R210: CSV enhance (gender + items) + display 'Ongkir Sudah Dibayar' lebih prominent
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -21,7 +19,6 @@ import {
   setAllItemsStatus,
   updateInternalNotes,
 } from '@/lib/actions/delivery-items';
-// R209: ongkir
 import { createAndSendOngkirInvoice } from '@/lib/actions/delivery-ongkir';
 
 function fmtDate(d) {
@@ -78,14 +75,14 @@ export default function DeliverySection({
   passengers = [],
   appUrl = '',
   trip = {},
-  ongkirInvoicesByPassenger = {}, // R209: prop baru
+  ongkirInvoicesByPassenger = {},
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [openSent, setOpenSent] = useState(null);
   const [courier, setCourier] = useState('JNE');
   const [resi, setResi] = useState('');
-  const [ongkir, setOngkir] = useState(''); // R209
+  const [ongkir, setOngkir] = useState('');
   const [msg, setMsg] = useState(null);
 
   const initialConfig = (trip?.delivery_items_config && typeof trip.delivery_items_config === 'object')
@@ -113,6 +110,24 @@ export default function DeliverySection({
     if (counts[s] != null) counts[s]++;
   }
 
+  function getItemsForGender(gender) {
+    if (gender === 'cowok') return cowokItems;
+    if (gender === 'cewek') return cewekItems;
+    return [];
+  }
+
+  function getOngkirStatus(passengerId) {
+    const invs = ongkirInvoicesByPassenger[passengerId] || [];
+    if (invs.length === 0) return null;
+    const latest = invs[0];
+    return {
+      invoice_no: latest.invoice_no,
+      amount: latest.amount,
+      status: latest.status,
+      paid_at: latest.paid_at,
+    };
+  }
+
   async function handleSendLink(id) {
     startTransition(async () => {
       const r = await sendDeliveryLink(id);
@@ -131,7 +146,6 @@ export default function DeliverySection({
     });
   }
 
-  // R209: handleSent — mark dikirim + bikin invoice ongkir (kalau ada) bareng WA
   async function handleSent(id) {
     if (!courier || !resi) { flash('Isi kurir + resi dulu', true); return; }
     const ongkirAmount = parseInt(ongkir) || 0;
@@ -141,19 +155,19 @@ export default function DeliverySection({
     fd.append('resi', resi);
 
     startTransition(async () => {
-      // 1. Mark Dikirim (existing) — kirim WA resi
       const r = await markDeliverySent(id, fd);
       if (r?.error) { flash(r.error, true); return; }
 
-      // 2. R209: kalo ongkir > 0, bikin invoice + kirim WA tagihan ongkir
       if (ongkirAmount > 0) {
         const oRes = await createAndSendOngkirInvoice(id, ongkirAmount, courier, resi);
         if (oRes?.error) {
           flash(`✓ Resi terkirim, tapi tagihan ongkir gagal: ${oRes.error}`, true);
-        } else if (oRes?.wa_sent) {
-          flash(`✓ Resi + tagihan ongkir ${fmtRupiah(ongkirAmount)} terkirim ke peserta`);
         } else {
-          flash(`✓ Resi terkirim. Invoice ongkir dibikin tapi WA gagal: ${oRes?.wa_error || 'unknown'}`);
+          let msgText = `✓ Resi terkirim`;
+          if (oRes.wa_sent) msgText += ` + tagihan ongkir ${fmtRupiah(ongkirAmount)}`;
+          if (oRes.cash_out) msgText += ` + Cash Out tercatat`;
+          else if (oRes.cash_out_error) msgText += ` (⚠ Cash Out gagal: ${oRes.cash_out_error})`;
+          flash(msgText);
         }
       } else {
         flash('✓ Resi terkirim ke peserta');
@@ -200,17 +214,29 @@ export default function DeliverySection({
     flash('✓ Link disalin ke clipboard');
   }
 
+  // R210: Enhanced CSV with gender + items + ongkir
   async function downloadExcel() {
     const filled = passengers.filter((p) => p.delivery_status === 'filled' || p.delivery_status === 'sent' || p.delivery_status === 'received');
     if (filled.length === 0) { flash('Belum ada alamat yg terisi', true); return; }
 
     const rows = [
-      ['No', 'Nama Peserta', 'Nama Penerima', 'No HP', 'Alamat', 'Kelurahan', 'Kecamatan', 'Kota', 'Provinsi', 'Kode Pos', 'Catatan', 'Status', 'Kurir', 'Resi', 'Ongkir'],
+      ['No', 'Nama Peserta', 'Gender', 'Items Packing', 'Nama Penerima', 'No HP', 'Alamat', 'Kelurahan', 'Kecamatan', 'Kota', 'Provinsi', 'Kode Pos', 'Catatan Peserta', 'Catatan Internal', 'Status', 'Kurir', 'Resi', 'Ongkir (Rp)', 'Ongkir Status'],
       ...filled.map((p, i) => {
         const c = p.customers || {};
+        const gender = normalizeGender(c.gender, c.sex);
+        const items = getItemsForGender(gender);
+        const itemsList = items.length > 0 ? items.join(', ') : '-';
+        const ongkirInfo = getOngkirStatus(p.id);
+        const ongkirAmt = p.delivery_ongkir_amount || ongkirInfo?.amount || 0;
+        const ongkirStatus = ongkirInfo
+          ? (ongkirInfo.status === 'paid' ? 'LUNAS' : `Pending (${ongkirInfo.invoice_no})`)
+          : (ongkirAmt > 0 ? 'Pending' : '-');
+
         return [
           i + 1,
           c.name || '',
+          gender === 'cowok' ? 'Laki-laki' : gender === 'cewek' ? 'Perempuan' : '-',
+          itemsList,
           p.delivery_recipient || '',
           p.delivery_phone || '',
           p.delivery_street || '',
@@ -220,10 +246,12 @@ export default function DeliverySection({
           p.delivery_provinsi || '',
           p.delivery_kode_pos || '',
           p.delivery_notes || '',
+          p.delivery_internal_notes || '',
           p.delivery_status || '',
           p.delivery_courier || '',
           p.delivery_resi || '',
-          p.delivery_ongkir_amount || 0,
+          ongkirAmt,
+          ongkirStatus,
         ];
       }),
     ];
@@ -232,10 +260,10 @@ export default function DeliverySection({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `daftar-alamat-pengiriman-trip-${tripId}-${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = `daftar-pengiriman-trip-${tripId}-${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    flash(`✓ Downloaded daftar alamat ${filled.length} peserta`);
+    flash(`✓ Downloaded ${filled.length} peserta (lengkap: gender, items, alamat, ongkir)`);
   }
 
   async function saveItemsConfig() {
@@ -272,12 +300,6 @@ export default function DeliverySection({
     });
   }
 
-  function getItemsForGender(gender) {
-    if (gender === 'cowok') return cowokItems;
-    if (gender === 'cewek') return cewekItems;
-    return [];
-  }
-
   function addItemToList(gender) {
     const name = prompt('Nama item baru:');
     if (!name || !name.trim()) return;
@@ -288,19 +310,6 @@ export default function DeliverySection({
   function removeItemFromList(gender, idx) {
     if (gender === 'cowok') setCowokItems(cowokItems.filter((_, i) => i !== idx));
     else setCewekItems(cewekItems.filter((_, i) => i !== idx));
-  }
-
-  // R209: helper — ongkir status per peserta
-  function getOngkirStatus(passengerId) {
-    const invs = ongkirInvoicesByPassenger[passengerId] || [];
-    if (invs.length === 0) return null;
-    const latest = invs[0]; // sudah di-sort desc di page
-    return {
-      invoice_no: latest.invoice_no,
-      amount: latest.amount,
-      status: latest.status, // draft / sent / paid
-      paid_at: latest.paid_at,
-    };
   }
 
   return (
@@ -413,8 +422,8 @@ export default function DeliverySection({
             const isItemsExpanded = expandedItems === p.id;
             const internalNotes = notesDraft[p.id] ?? (p.delivery_internal_notes || '');
 
-            // R209: ongkir status
             const ongkirInfo = getOngkirStatus(p.id);
+            const ongkirPaid = ongkirInfo?.status === 'paid';
 
             return (
               <div key={p.id} className="p-4">
@@ -437,22 +446,29 @@ export default function DeliverySection({
                           📦 {itemsDoneCount}/{items.length} item
                         </span>
                       )}
-                      {/* R209: Ongkir badge */}
                       {ongkirInfo && (
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                          ongkirInfo.status === 'paid'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-amber-100 text-amber-800'
+                          ongkirPaid
+                            ? 'bg-green-100 text-green-800 border border-green-300'
+                            : 'bg-amber-100 text-amber-800 border border-amber-300'
                         }`}>
-                          💰 Ongkir {fmtRupiah(ongkirInfo.amount)} — {ongkirInfo.status === 'paid' ? 'LUNAS ✓' : 'Pending'}
-                        </span>
-                      )}
-                      {p.delivery_link_sent_at && p.delivery_status === 'pending' && (
-                        <span className="text-[10px] text-slate-500">
-                          Link dikirim: {fmtDate(p.delivery_link_sent_at)}
+                          💰 Ongkir {fmtRupiah(ongkirInfo.amount)} — {ongkirPaid ? '✅ LUNAS' : '⏳ Pending'}
                         </span>
                       )}
                     </div>
+
+                    {/* R210: Banner "Ongkir Sudah Dibayar" prominent */}
+                    {ongkirPaid && (
+                      <div className="mt-2 text-xs bg-green-50 text-green-800 rounded p-2 border border-green-300 flex items-center gap-2">
+                        <span className="text-base">✅</span>
+                        <div>
+                          <p className="font-bold">Ongkir Sudah Dibayar</p>
+                          <p className="text-[10px]">
+                            {fmtRupiah(ongkirInfo.amount)} · Invoice <span className="font-mono">{ongkirInfo.invoice_no}</span> · {fmtDate(ongkirInfo.paid_at)}
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     {isFilled && (
                       <div className="mt-2 text-xs text-slate-700 bg-slate-50 rounded p-2">
@@ -477,11 +493,10 @@ export default function DeliverySection({
                         {p.delivery_received_at && (
                           <span className="block text-green-700">✓ Diterima: {fmtDate(p.delivery_received_at)}</span>
                         )}
-                        {/* R209: Ongkir detail */}
                         {ongkirInfo && (
                           <span className="block mt-1">
                             💰 Tagihan ongkir: <b>{fmtRupiah(ongkirInfo.amount)}</b> · Invoice <span className="font-mono">{ongkirInfo.invoice_no}</span> ·
-                            {ongkirInfo.status === 'paid'
+                            {ongkirPaid
                               ? <span className="text-green-700 font-bold ml-1">✓ Sudah dibayar {fmtDate(ongkirInfo.paid_at)}</span>
                               : <span className="text-amber-700 font-bold ml-1">⏳ Menunggu bayar</span>}
                           </span>
@@ -568,7 +583,6 @@ export default function DeliverySection({
                           placeholder="Contoh: JNE1234567890"
                           className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm bg-white" />
                       </label>
-                      {/* R209: Ongkir input */}
                       <label className="block">
                         <span className="text-[11px] text-slate-700 block mb-0.5">
                           💰 Ongkir (Rp) <span className="text-slate-400">opsional</span>
@@ -588,8 +602,8 @@ export default function DeliverySection({
                     </div>
                     {parseInt(ongkir) > 0 && (
                       <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                        ⚡ WA peserta nampilin: <b>resi {courier} {resi}</b> + <b>tagihan ongkir {fmtRupiah(parseInt(ongkir))}</b> + link bayar.
-                        Setelah peserta upload bukti, finance approve di tab Invoice → status ongkir auto-update jadi LUNAS.
+                        ⚡ WA peserta: <b>resi {courier} {resi}</b> + <b>tagihan ongkir {fmtRupiah(parseInt(ongkir))}</b> + link bayar.
+                        Cash Out ongkir otomatis tercatat di Accounting.
                       </p>
                     )}
                     <div className="flex gap-2 justify-end">
@@ -683,8 +697,7 @@ export default function DeliverySection({
 
                       <div className="pt-2 border-t border-purple-200">
                         <p className="text-xs font-bold text-purple-800 mb-1">📝 Catatan Internal (tim only)</p>
-                        {/* R209: Auto-show "Ongkir sudah dibayar" kalau ada */}
-                        {ongkirInfo?.status === 'paid' && (
+                        {ongkirPaid && (
                           <p className="text-[10px] text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1 mb-1">
                             ✅ <b>Ongkir sudah dibayar</b> ({fmtRupiah(ongkirInfo.amount)}) — Invoice {ongkirInfo.invoice_no} · {fmtDate(ongkirInfo.paid_at)}
                           </p>
