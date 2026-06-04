@@ -1,6 +1,5 @@
-// Round 187 + R208: Payment Checklist — RESTORE props lengkap ke PaymentMatrix
-// supaya InvoicePanelForPassenger render dengan benar (invoice list + tombol WA inline)
-// + Delivery Section (R185 + R208 — pass trip prop)
+// Round 187 + R208 v2: Payment Checklist
+// v2 FIX: fetch customers.gender (selain sex)
 // Path: app/(app)/finance/payments/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -43,9 +42,10 @@ export default async function TripPaymentsPage({ params }) {
 
   let customerMap = {};
   if (customerIds.length > 0) {
+    // R208 v2: tambah gender + sex (fallback)
     const { data: cust } = await supabase
       .from('customers')
-      .select('id, name, phone, email, whatsapp, sex')
+      .select('id, name, phone, email, whatsapp, gender, sex')
       .in('id', customerIds);
     customerMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
   }
@@ -72,7 +72,6 @@ export default async function TripPaymentsPage({ params }) {
     }
   }
 
-  // R187: FETCH INVOICES per peserta
   let invoicesByPassenger = {};
   if (passengerIds.length > 0) {
     const { data: invs } = await supabase
@@ -86,7 +85,6 @@ export default async function TripPaymentsPage({ params }) {
     }
   }
 
-  // R187: FETCH FAMILY GROUPS
   let familyGroups = [];
   try {
     const { data: fgRes } = await supabase
@@ -96,10 +94,8 @@ export default async function TripPaymentsPage({ params }) {
     familyGroups = fgRes || [];
   } catch { familyGroups = []; }
 
-  // R187: PRICE BREAKDOWN dari trip
   const breakdown = (trip.price_breakdown && typeof trip.price_breakdown === 'object') ? trip.price_breakdown : {};
 
-  // R155: PNR / Flight Inventory data
   const { data: pnrRes } = await supabase.from('flight_inventory').select('*').eq('trip_id', tripId);
   const pnrs = pnrRes || [];
 
@@ -142,7 +138,6 @@ export default async function TripPaymentsPage({ params }) {
 
   const totalPnrDeposit = pnrRows.reduce((s, p) => s + p.total_paid, 0);
 
-  // R185: app URL untuk delivery section
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ||
                  (process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : '');
 
@@ -195,7 +190,6 @@ export default async function TripPaymentsPage({ params }) {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Peserta Aktif" value={passengers.length} color="text-brand-700" bg="bg-brand-50" />
         <StatCard label="Template / Pax" value={fmtRupiah(templateTotal)} color="text-purple-700" bg="bg-purple-50" small />
@@ -205,7 +199,6 @@ export default async function TripPaymentsPage({ params }) {
 
       <PaymentTemplateForm tripId={tripId} template={template} />
 
-      {/* R187: Pass props lengkap supaya InvoicePanel jalan dengan benar */}
       <PaymentMatrix
         tripId={tripId}
         passengers={passengersWithCustomers}
@@ -216,7 +209,6 @@ export default async function TripPaymentsPage({ params }) {
         familyGroups={familyGroups}
       />
 
-      {/* R185 + R208: DELIVERY PERLENGKAPAN — pass trip prop untuk items config */}
       <DeliverySection
         tripId={tripId}
         passengers={passengersWithCustomers}
@@ -224,7 +216,6 @@ export default async function TripPaymentsPage({ params }) {
         trip={trip}
       />
 
-      {/* R155: PNR DEPOSIT SECTION */}
       {pnrs.length > 0 && (
         <div className="bg-white rounded-xl border-2 border-purple-200 shadow-card overflow-hidden">
           <div className="px-5 py-3 border-b bg-purple-50 border-purple-200 flex items-center justify-between flex-wrap gap-2">
