@@ -1,4 +1,4 @@
-// R208 + R209 + R210: Payment Checklist + ongkir invoices fetch
+// R208 + R209 + R210 + R212: Payment Checklist + familyGroups ke DeliverySection
 // Path: app/(app)/finance/payments/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -83,7 +83,6 @@ export default async function TripPaymentsPage({ params }) {
     }
   }
 
-  // R210: Fetch ongkir invoices per peserta
   let ongkirInvoicesByPassenger = {};
   if (passengerIds.length > 0) {
     const { data: ongkirInvs } = await supabase
@@ -222,13 +221,14 @@ export default async function TripPaymentsPage({ params }) {
         familyGroups={familyGroups}
       />
 
-      {/* R208 + R210: pass ongkirInvoicesByPassenger */}
+      {/* R212: pass familyGroups ke DeliverySection juga */}
       <DeliverySection
         tripId={tripId}
         passengers={passengersWithCustomers}
         appUrl={appUrl}
         trip={trip}
         ongkirInvoicesByPassenger={ongkirInvoicesByPassenger}
+        familyGroups={familyGroups}
       />
 
       {pnrs.length > 0 && (
