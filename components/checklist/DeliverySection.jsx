@@ -1,7 +1,8 @@
 'use client';
 
-// Round 185 + R208: DeliverySection
+// Round 185 + R208 v2: DeliverySection
 // R208 ADDITIVE: tambah gender badge + items checklist by gender + internal notes
+// v2 FIX: pake c.gender (fallback c.sex) — bukan c.sex doang
 // JANGAN nyentuh fitur existing (Kirim Link, Copy link, Skip, Mark Sent, Mark Received)
 
 import { useState, useTransition } from 'react';
@@ -14,7 +15,6 @@ import {
   skipDelivery,
   resetDeliveryStatus,
 } from '@/lib/actions/delivery';
-// R208: NEW imports
 import {
   saveDeliveryItemsConfig,
   updateItemStatus,
@@ -37,7 +37,6 @@ const STATUS_BADGE = {
   skip:     { label: '— Skip',              cls: 'bg-slate-100 text-slate-400' },
 };
 
-// R208: Status item per peserta
 const ITEM_STATUS_OPTIONS = [
   { value: 'belum',    label: '○ Belum',    cls: 'bg-slate-100 text-slate-600 border-slate-300' },
   { value: 'siap',     label: '📦 Siap',    cls: 'bg-amber-100 text-amber-800 border-amber-300' },
@@ -45,18 +44,18 @@ const ITEM_STATUS_OPTIONS = [
   { value: 'diterima', label: '✅ Terima',  cls: 'bg-green-100 text-green-800 border-green-300' },
 ];
 
-// R208: Default items config (fallback kalau trip.delivery_items_config kosong)
 const DEFAULT_ITEMS_CONFIG = {
   cowok: ['Koper', 'Kain ihram', 'Kain umum', 'Buku doa', 'Syal'],
   cewek: ['Koper', 'Kain umum', 'Buku doa', 'Syal', 'Mukena'],
 };
 
-// R208: helper — normalize gender
-function normalizeGender(sex) {
-  if (!sex) return 'unknown';
-  const s = String(sex).toLowerCase().trim();
-  if (s === 'm' || s === 'male' || s === 'l' || s === 'laki' || s === 'laki-laki' || s === 'pria') return 'cowok';
-  if (s === 'f' || s === 'female' || s === 'p' || s === 'perempuan' || s === 'wanita') return 'cewek';
+// R208 v2: Normalize gender — terima dari kolom gender ATAU sex
+function normalizeGender(genderValue, sexValue) {
+  const raw = genderValue || sexValue;
+  if (!raw) return 'unknown';
+  const s = String(raw).toLowerCase().trim();
+  if (s === 'm' || s === 'male' || s === 'l' || s === 'laki' || s === 'laki-laki' || s === 'pria' || s === 'cowok') return 'cowok';
+  if (s === 'f' || s === 'female' || s === 'p' || s === 'perempuan' || s === 'wanita' || s === 'cewek') return 'cewek';
   return 'unknown';
 }
 
@@ -68,7 +67,6 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
   const [resi, setResi] = useState('');
   const [msg, setMsg] = useState(null);
 
-  // R208: Items config editor state
   const initialConfig = (trip?.delivery_items_config && typeof trip.delivery_items_config === 'object')
     ? trip.delivery_items_config
     : DEFAULT_ITEMS_CONFIG;
@@ -80,7 +78,6 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
     Array.isArray(initialConfig.cewek) ? initialConfig.cewek : DEFAULT_ITEMS_CONFIG.cewek
   );
 
-  // R208: per-peserta UI state — expand items detail
   const [expandedItems, setExpandedItems] = useState(null);
   const [notesDraft, setNotesDraft] = useState({});
 
@@ -201,9 +198,6 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
     flash(`✓ Downloaded daftar alamat ${filled.length} peserta`);
   }
 
-  // ============================================================
-  // R208 NEW handlers
-  // ============================================================
   async function saveItemsConfig() {
     startTransition(async () => {
       const r = await saveDeliveryItemsConfig(tripId, { cowok: cowokItems, cewek: cewekItems });
@@ -267,7 +261,6 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {/* R208: Editor template item */}
           <button
             onClick={() => setEditingItems(!editingItems)}
             className="px-3 py-1.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 text-xs font-semibold rounded"
@@ -293,7 +286,6 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
         </div>
       </div>
 
-      {/* R208: Editor Template Item */}
       {editingItems && (
         <div className="px-5 py-4 bg-indigo-50/50 border-b border-indigo-200">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -359,8 +351,8 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
             const isFilled = ['filled', 'sent', 'received'].includes(p.delivery_status);
             const isSent = p.delivery_status === 'sent' || p.delivery_status === 'received';
 
-            // R208: Gender & item state
-            const gender = normalizeGender(c.sex);
+            // R208 v2: ambil dari c.gender DAN c.sex (fallback)
+            const gender = normalizeGender(c.gender, c.sex);
             const items = getItemsForGender(gender);
             const itemsStatus = (p.delivery_items_status && typeof p.delivery_items_status === 'object')
               ? p.delivery_items_status
@@ -375,7 +367,6 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-bold text-slate-800">{c.name || '—'}</p>
-                      {/* R208: Gender badge */}
                       {gender !== 'unknown' && (
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
                           gender === 'cowok' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'
@@ -384,7 +375,6 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
                         </span>
                       )}
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${status.cls}`}>{status.label}</span>
-                      {/* R208: Items done badge */}
                       {items.length > 0 && (
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
                           itemsDoneCount === items.length ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600'
@@ -479,7 +469,6 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
                   </div>
                 </div>
 
-                {/* Mark Sent form (inline) — EXISTING, NOT TOUCHED */}
                 {openSent === p.id && (
                   <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded space-y-2">
                     <p className="text-xs font-bold text-blue-800">🚚 Input Info Pengiriman</p>
@@ -519,9 +508,6 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
                   </div>
                 )}
 
-                {/* ============================================================
-                    R208 NEW: Items Checklist + Internal Notes (per peserta)
-                    ============================================================ */}
                 <div className="mt-3 pt-3 border-t border-slate-100">
                   <button
                     onClick={() => setExpandedItems(isItemsExpanded ? null : p.id)}
@@ -539,7 +525,7 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
                     <div className="mt-2 p-3 bg-purple-50/30 border border-purple-200 rounded space-y-3">
                       {gender === 'unknown' ? (
                         <p className="text-xs text-amber-700 italic">
-                          ⚠ Gender peserta belum di-set di Master Customer. Set dulu supaya template item muncul.
+                          ⚠ Gender peserta belum di-set di Master Customer (kolom gender/sex). Set dulu supaya template item muncul.
                         </p>
                       ) : items.length === 0 ? (
                         <p className="text-xs text-slate-500 italic">
@@ -598,7 +584,6 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
                         </>
                       )}
 
-                      {/* R208: Internal Notes */}
                       <div className="pt-2 border-t border-purple-200">
                         <p className="text-xs font-bold text-purple-800 mb-1">📝 Catatan Internal (tim only)</p>
                         <textarea
@@ -621,7 +606,6 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
                     </div>
                   )}
                 </div>
-                {/* END R208 NEW */}
               </div>
             );
           })
