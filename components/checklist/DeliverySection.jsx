@@ -1,9 +1,9 @@
 'use client';
 
-// Round 185 + R208 v2: DeliverySection
-// R208 ADDITIVE: tambah gender badge + items checklist by gender + internal notes
-// v2 FIX: pake c.gender (fallback c.sex) — bukan c.sex doang
-// JANGAN nyentuh fitur existing (Kirim Link, Copy link, Skip, Mark Sent, Mark Received)
+// Round 185 + R208 + R209: DeliverySection
+// R208: gender items + internal notes
+// R209: ongkir invoice — pas Mark Dikirim, input ongkir, bikin invoice + WA bareng resi
+// JANGAN nyentuh fitur existing
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -21,6 +21,8 @@ import {
   setAllItemsStatus,
   updateInternalNotes,
 } from '@/lib/actions/delivery-items';
+// R209: ongkir
+import { createAndSendOngkirInvoice } from '@/lib/actions/delivery-ongkir';
 
 function fmtDate(d) {
   if (!d) return '-';
@@ -28,6 +30,19 @@ function fmtDate(d) {
   if (isNaN(dt)) return d;
   return dt.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
 }
+
+function fmtRupiah(n) {
+  return 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
+}
+
+function fmtInput(v) {
+  if (v === '' || v == null) return '';
+  const n = String(v).replace(/[^0-9]/g, '');
+  if (!n) return '';
+  return Number(n).toLocaleString('id-ID');
+}
+
+function parseInput(s) { if (s == null) return ''; return String(s).replace(/[^0-9]/g, ''); }
 
 const STATUS_BADGE = {
   pending:  { label: '⏳ Belum Isi Alamat', cls: 'bg-slate-100 text-slate-700' },
@@ -38,10 +53,10 @@ const STATUS_BADGE = {
 };
 
 const ITEM_STATUS_OPTIONS = [
-  { value: 'belum',    label: '○ Belum',    cls: 'bg-slate-100 text-slate-600 border-slate-300' },
-  { value: 'siap',     label: '📦 Siap',    cls: 'bg-amber-100 text-amber-800 border-amber-300' },
-  { value: 'dikirim',  label: '🚚 Dikirim', cls: 'bg-blue-100 text-blue-800 border-blue-300' },
-  { value: 'diterima', label: '✅ Terima',  cls: 'bg-green-100 text-green-800 border-green-300' },
+  { value: 'belum',    label: '○ Belum'    },
+  { value: 'siap',     label: '📦 Siap'    },
+  { value: 'dikirim',  label: '🚚 Dikirim' },
+  { value: 'diterima', label: '✅ Terima'  },
 ];
 
 const DEFAULT_ITEMS_CONFIG = {
@@ -49,7 +64,6 @@ const DEFAULT_ITEMS_CONFIG = {
   cewek: ['Koper', 'Kain umum', 'Buku doa', 'Syal', 'Mukena'],
 };
 
-// R208 v2: Normalize gender — terima dari kolom gender ATAU sex
 function normalizeGender(genderValue, sexValue) {
   const raw = genderValue || sexValue;
   if (!raw) return 'unknown';
@@ -59,12 +73,19 @@ function normalizeGender(genderValue, sexValue) {
   return 'unknown';
 }
 
-export default function DeliverySection({ tripId, passengers = [], appUrl = '', trip = {} }) {
+export default function DeliverySection({
+  tripId,
+  passengers = [],
+  appUrl = '',
+  trip = {},
+  ongkirInvoicesByPassenger = {}, // R209: prop baru
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [openSent, setOpenSent] = useState(null);
   const [courier, setCourier] = useState('JNE');
   const [resi, setResi] = useState('');
+  const [ongkir, setOngkir] = useState(''); // R209
   const [msg, setMsg] = useState(null);
 
   const initialConfig = (trip?.delivery_items_config && typeof trip.delivery_items_config === 'object')
@@ -110,21 +131,39 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
     });
   }
 
+  // R209: handleSent — mark dikirim + bikin invoice ongkir (kalau ada) bareng WA
   async function handleSent(id) {
     if (!courier || !resi) { flash('Isi kurir + resi dulu', true); return; }
+    const ongkirAmount = parseInt(ongkir) || 0;
+
     const fd = new FormData();
     fd.append('courier', courier);
     fd.append('resi', resi);
+
     startTransition(async () => {
+      // 1. Mark Dikirim (existing) — kirim WA resi
       const r = await markDeliverySent(id, fd);
-      if (r?.error) flash(r.error, true);
-      else {
-        flash('✓ Marked dikirim + WA resi terkirim ke peserta');
-        setOpenSent(null);
-        setCourier('JNE');
-        setResi('');
-        router.refresh();
+      if (r?.error) { flash(r.error, true); return; }
+
+      // 2. R209: kalo ongkir > 0, bikin invoice + kirim WA tagihan ongkir
+      if (ongkirAmount > 0) {
+        const oRes = await createAndSendOngkirInvoice(id, ongkirAmount, courier, resi);
+        if (oRes?.error) {
+          flash(`✓ Resi terkirim, tapi tagihan ongkir gagal: ${oRes.error}`, true);
+        } else if (oRes?.wa_sent) {
+          flash(`✓ Resi + tagihan ongkir ${fmtRupiah(ongkirAmount)} terkirim ke peserta`);
+        } else {
+          flash(`✓ Resi terkirim. Invoice ongkir dibikin tapi WA gagal: ${oRes?.wa_error || 'unknown'}`);
+        }
+      } else {
+        flash('✓ Resi terkirim ke peserta');
       }
+
+      setOpenSent(null);
+      setCourier('JNE');
+      setResi('');
+      setOngkir('');
+      router.refresh();
     });
   }
 
@@ -166,7 +205,7 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
     if (filled.length === 0) { flash('Belum ada alamat yg terisi', true); return; }
 
     const rows = [
-      ['No', 'Nama Peserta', 'Nama Penerima', 'No HP', 'Alamat', 'Kelurahan', 'Kecamatan', 'Kota', 'Provinsi', 'Kode Pos', 'Catatan', 'Status', 'Kurir', 'Resi'],
+      ['No', 'Nama Peserta', 'Nama Penerima', 'No HP', 'Alamat', 'Kelurahan', 'Kecamatan', 'Kota', 'Provinsi', 'Kode Pos', 'Catatan', 'Status', 'Kurir', 'Resi', 'Ongkir'],
       ...filled.map((p, i) => {
         const c = p.customers || {};
         return [
@@ -184,6 +223,7 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
           p.delivery_status || '',
           p.delivery_courier || '',
           p.delivery_resi || '',
+          p.delivery_ongkir_amount || 0,
         ];
       }),
     ];
@@ -248,6 +288,19 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
   function removeItemFromList(gender, idx) {
     if (gender === 'cowok') setCowokItems(cowokItems.filter((_, i) => i !== idx));
     else setCewekItems(cewekItems.filter((_, i) => i !== idx));
+  }
+
+  // R209: helper — ongkir status per peserta
+  function getOngkirStatus(passengerId) {
+    const invs = ongkirInvoicesByPassenger[passengerId] || [];
+    if (invs.length === 0) return null;
+    const latest = invs[0]; // sudah di-sort desc di page
+    return {
+      invoice_no: latest.invoice_no,
+      amount: latest.amount,
+      status: latest.status, // draft / sent / paid
+      paid_at: latest.paid_at,
+    };
   }
 
   return (
@@ -351,7 +404,6 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
             const isFilled = ['filled', 'sent', 'received'].includes(p.delivery_status);
             const isSent = p.delivery_status === 'sent' || p.delivery_status === 'received';
 
-            // R208 v2: ambil dari c.gender DAN c.sex (fallback)
             const gender = normalizeGender(c.gender, c.sex);
             const items = getItemsForGender(gender);
             const itemsStatus = (p.delivery_items_status && typeof p.delivery_items_status === 'object')
@@ -360,6 +412,9 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
             const itemsDoneCount = items.filter((it) => ['diterima'].includes(itemsStatus[it])).length;
             const isItemsExpanded = expandedItems === p.id;
             const internalNotes = notesDraft[p.id] ?? (p.delivery_internal_notes || '');
+
+            // R209: ongkir status
+            const ongkirInfo = getOngkirStatus(p.id);
 
             return (
               <div key={p.id} className="p-4">
@@ -380,6 +435,16 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
                           itemsDoneCount === items.length ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600'
                         }`}>
                           📦 {itemsDoneCount}/{items.length} item
+                        </span>
+                      )}
+                      {/* R209: Ongkir badge */}
+                      {ongkirInfo && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                          ongkirInfo.status === 'paid'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          💰 Ongkir {fmtRupiah(ongkirInfo.amount)} — {ongkirInfo.status === 'paid' ? 'LUNAS ✓' : 'Pending'}
                         </span>
                       )}
                       {p.delivery_link_sent_at && p.delivery_status === 'pending' && (
@@ -411,6 +476,15 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
                         <span className="text-slate-500">Dikirim: {fmtDate(p.delivery_sent_at)}{p.delivery_sent_by && ` oleh ${p.delivery_sent_by}`}</span>
                         {p.delivery_received_at && (
                           <span className="block text-green-700">✓ Diterima: {fmtDate(p.delivery_received_at)}</span>
+                        )}
+                        {/* R209: Ongkir detail */}
+                        {ongkirInfo && (
+                          <span className="block mt-1">
+                            💰 Tagihan ongkir: <b>{fmtRupiah(ongkirInfo.amount)}</b> · Invoice <span className="font-mono">{ongkirInfo.invoice_no}</span> ·
+                            {ongkirInfo.status === 'paid'
+                              ? <span className="text-green-700 font-bold ml-1">✓ Sudah dibayar {fmtDate(ongkirInfo.paid_at)}</span>
+                              : <span className="text-amber-700 font-bold ml-1">⏳ Menunggu bayar</span>}
+                          </span>
                         )}
                       </div>
                     )}
@@ -471,8 +545,8 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
 
                 {openSent === p.id && (
                   <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded space-y-2">
-                    <p className="text-xs font-bold text-blue-800">🚚 Input Info Pengiriman</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <p className="text-xs font-bold text-blue-800">🚚 Input Info Pengiriman + Ongkir</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                       <label className="block">
                         <span className="text-[11px] text-slate-700 block mb-0.5">Kurir</span>
                         <select value={courier} onChange={(e) => setCourier(e.target.value)}
@@ -494,15 +568,38 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
                           placeholder="Contoh: JNE1234567890"
                           className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm bg-white" />
                       </label>
+                      {/* R209: Ongkir input */}
+                      <label className="block">
+                        <span className="text-[11px] text-slate-700 block mb-0.5">
+                          💰 Ongkir (Rp) <span className="text-slate-400">opsional</span>
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={fmtInput(ongkir)}
+                          onChange={(e) => setOngkir(parseInput(e.target.value))}
+                          placeholder="50.000"
+                          className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                        />
+                        <span className="text-[10px] text-slate-500 block mt-0.5">
+                          {parseInt(ongkir) > 0 ? `Tagih peserta ${fmtRupiah(parseInt(ongkir))}` : 'Kosongkan kalau gratis ongkir'}
+                        </span>
+                      </label>
                     </div>
+                    {parseInt(ongkir) > 0 && (
+                      <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                        ⚡ WA peserta nampilin: <b>resi {courier} {resi}</b> + <b>tagihan ongkir {fmtRupiah(parseInt(ongkir))}</b> + link bayar.
+                        Setelah peserta upload bukti, finance approve di tab Invoice → status ongkir auto-update jadi LUNAS.
+                      </p>
+                    )}
                     <div className="flex gap-2 justify-end">
-                      <button onClick={() => setOpenSent(null)}
+                      <button onClick={() => { setOpenSent(null); setOngkir(''); }}
                         className="px-3 py-1 text-xs bg-slate-200 hover:bg-slate-300 rounded">
                         Batal
                       </button>
                       <button onClick={() => handleSent(p.id)} disabled={pending || !courier || !resi}
                         className="px-3 py-1 text-xs bg-blue-500 hover:bg-blue-600 text-white font-bold rounded disabled:opacity-50">
-                        ✓ Confirm Dikirim + Kirim WA
+                        ✓ Confirm Dikirim {parseInt(ongkir) > 0 ? '+ Tagih Ongkir' : ''} + Kirim WA
                       </button>
                     </div>
                   </div>
@@ -586,6 +683,12 @@ export default function DeliverySection({ tripId, passengers = [], appUrl = '', 
 
                       <div className="pt-2 border-t border-purple-200">
                         <p className="text-xs font-bold text-purple-800 mb-1">📝 Catatan Internal (tim only)</p>
+                        {/* R209: Auto-show "Ongkir sudah dibayar" kalau ada */}
+                        {ongkirInfo?.status === 'paid' && (
+                          <p className="text-[10px] text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1 mb-1">
+                            ✅ <b>Ongkir sudah dibayar</b> ({fmtRupiah(ongkirInfo.amount)}) — Invoice {ongkirInfo.invoice_no} · {fmtDate(ongkirInfo.paid_at)}
+                          </p>
+                        )}
                         <textarea
                           value={internalNotes}
                           onChange={(e) => setNotesDraft({ ...notesDraft, [p.id]: e.target.value })}
