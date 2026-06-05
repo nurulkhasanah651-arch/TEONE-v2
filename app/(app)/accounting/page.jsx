@@ -1,6 +1,8 @@
-// Round 169 + R196: Accounting dashboard + AccountingSheetPanel
-// Filter periode tetap aktif (Hari/Minggu/Bulan/Tahun/Custom)
-// R196: + AccountingSheetPanel buat sync ke Google Sheet
+// R169 + R196 + R215: Accounting dashboard + search & filter kategori
+// R215: TAMBAH search box + source chip filter + category dropdown
+//       Filter periode (Hari/Minggu/Bulan/Tahun/Custom) TETAP utuh
+//       Type filter (Semua/Cash In/Cash Out) TETAP utuh
+//       AccountingSheetPanel + PaymentRequests TETAP utuh
 // Path: app/(app)/accounting/page.jsx
 
 import Link from 'next/link';
@@ -8,7 +10,6 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import PaymentRequests from '@/components/accounting/PaymentRequests';
 import DownloadButtons from '@/components/common/DownloadButtons';
-// R196: Accounting sheet sync panel
 import AccountingSheetPanel from '@/components/accounting/AccountingSheetPanel';
 
 export const dynamic = 'force-dynamic';
@@ -63,12 +64,38 @@ function getPeriodLabel(period) {
   }
 }
 
+// R215: helper utk build URL preserving semua params
+function buildUrl(base, params) {
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== '' && v !== null && v !== undefined && v !== 'all') {
+      sp.set(k, String(v));
+    }
+  }
+  const q = sp.toString();
+  return q ? `${base}?${q}` : base;
+}
+
+// R215: helper deteksi keyword DP / Cicilan dari category text
+function isDpKeyword(cat) {
+  const c = String(cat || '').toLowerCase();
+  return /\bdp\b/.test(c) || /down\s*payment/.test(c) || c === 'dp';
+}
+function isCicilanKeyword(cat) {
+  const c = String(cat || '').toLowerCase();
+  return /cicil/.test(c) || /\bp[1-9]\b/.test(c) || /pelunasan/.test(c) || /milestone/.test(c);
+}
+
 export default async function AccountingDashboard({ searchParams }) {
   const sp = await searchParams;
   const period = sp?.period || 'month';
   const customFrom = sp?.from || '';
   const customTo = sp?.to || '';
   const filterType = sp?.type || 'all';
+  // R215 — params baru
+  const filterSource = sp?.source || 'all';
+  const filterCategory = sp?.category || '';
+  const q = (sp?.q || '').trim();
 
   const { from, to } = getDateRange(period, customFrom, customTo);
   const periodLabel = getPeriodLabel(period);
@@ -211,9 +238,66 @@ export default async function AccountingDashboard({ searchParams }) {
     inRangeEntries = allEntries.filter((e) => isInRange(e.date, from, to));
   }
 
+  // R215: derive list kategori unique untuk dropdown (dari data in-range supaya relevan)
+  const allCategoriesSet = new Set();
+  for (const e of inRangeEntries) {
+    if (e.category) allCategoriesSet.add(e.category);
+  }
+  const allCategories = Array.from(allCategoriesSet).sort((a, b) => a.localeCompare(b));
+
+  // R215: filter logic
   let filteredForDisplay = inRangeEntries;
-  if (filterType === 'in') filteredForDisplay = inRangeEntries.filter((e) => e.type === 'in');
-  if (filterType === 'out') filteredForDisplay = inRangeEntries.filter((e) => e.type === 'out');
+
+  // Type filter (Cash In / Out / Semua)
+  if (filterType === 'in') filteredForDisplay = filteredForDisplay.filter((e) => e.type === 'in');
+  if (filterType === 'out') filteredForDisplay = filteredForDisplay.filter((e) => e.type === 'out');
+
+  // R215 — Source filter (Peserta/Vendor/Manual/Refund + virtual: payment_dp, payment_cicilan)
+  if (filterSource === 'payment_dp') {
+    filteredForDisplay = filteredForDisplay.filter((e) => e.source === 'payment' && isDpKeyword(e.category));
+  } else if (filterSource === 'payment_cicilan') {
+    filteredForDisplay = filteredForDisplay.filter((e) => e.source === 'payment' && isCicilanKeyword(e.category));
+  } else if (filterSource === 'refund') {
+    filteredForDisplay = filteredForDisplay.filter((e) =>
+      String(e.source_label || '').toLowerCase() === 'refund' ||
+      String(e.category || '').toLowerCase().includes('refund') ||
+      String(e.description || '').toLowerCase().includes('refund')
+    );
+  } else if (filterSource === 'ongkir') {
+    filteredForDisplay = filteredForDisplay.filter((e) =>
+      String(e.category || '').toLowerCase().includes('ongkir') ||
+      String(e.description || '').toLowerCase().includes('ongkir')
+    );
+  } else if (filterSource === 'tiket') {
+    filteredForDisplay = filteredForDisplay.filter((e) =>
+      String(e.category || '').toLowerCase().includes('tiket') ||
+      String(e.description || '').toLowerCase().includes('tiket') ||
+      String(e.description || '').toLowerCase().includes('maskapai') ||
+      String(e.description || '').toLowerCase().includes('pnr')
+    );
+  } else if (filterSource !== 'all') {
+    filteredForDisplay = filteredForDisplay.filter((e) => e.source === filterSource);
+  }
+
+  // R215 — Category dropdown (exact match)
+  if (filterCategory) {
+    filteredForDisplay = filteredForDisplay.filter((e) =>
+      String(e.category || '').toLowerCase() === filterCategory.toLowerCase()
+    );
+  }
+
+  // R215 — Search free text
+  if (q) {
+    const ql = q.toLowerCase();
+    filteredForDisplay = filteredForDisplay.filter((e) =>
+      String(e.description || '').toLowerCase().includes(ql) ||
+      String(e.category || '').toLowerCase().includes(ql) ||
+      String(e.trip_kode || '').toLowerCase().includes(ql) ||
+      String(e.trip_name || '').toLowerCase().includes(ql) ||
+      String(e.source_label || '').toLowerCase().includes(ql)
+    );
+  }
+
   filteredForDisplay.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
   const cashInEntries = inRangeEntries.filter((e) => e.type === 'in');
@@ -221,6 +305,10 @@ export default async function AccountingDashboard({ searchParams }) {
   const periodCashIn = cashInEntries.reduce((s, e) => s + e.amount, 0);
   const periodCashOut = cashOutEntries.reduce((s, e) => s + e.amount, 0);
   const periodNet = periodCashIn - periodCashOut;
+
+  // R215: subtotal yg ke-filter (in/out terpisah biar user tau dampaknya)
+  const filteredCashIn = filteredForDisplay.filter((e) => e.type === 'in').reduce((s, e) => s + e.amount, 0);
+  const filteredCashOut = filteredForDisplay.filter((e) => e.type === 'out').reduce((s, e) => s + e.amount, 0);
 
   cashInEntries.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   cashOutEntries.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
@@ -230,6 +318,20 @@ export default async function AccountingDashboard({ searchParams }) {
     : from
       ? `${periodLabel} · sejak ${from}`
       : periodLabel;
+
+  // R215: aktif filter detection
+  const hasActiveFilter = filterSource !== 'all' || filterCategory || q;
+
+  // R215: common params utk semua link (preserve filter state)
+  const commonParams = {
+    period,
+    from: customFrom,
+    to: customTo,
+    type: filterType,
+    source: filterSource,
+    category: filterCategory,
+    q,
+  };
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -244,7 +346,6 @@ export default async function AccountingDashboard({ searchParams }) {
         trips={trips}
       />
 
-      {/* R196: GOOGLE SHEET SYNC PANEL */}
       <AccountingSheetPanel />
 
       {/* PERIODE FILTER */}
@@ -347,26 +448,148 @@ export default async function AccountingDashboard({ searchParams }) {
         </div>
       </div>
 
+      {/* TYPE FILTER (existing) */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4">
         <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">Filter Type</p>
         <div className="flex flex-wrap gap-2 items-center">
-          <TypeFilterLink current={filterType} value="all" label="Semua" period={period} from={customFrom} to={customTo} color="bg-brand-500" />
-          <TypeFilterLink current={filterType} value="in" label="⬆ Cash In" period={period} from={customFrom} to={customTo} color="bg-green-500" />
-          <TypeFilterLink current={filterType} value="out" label="⬇ Cash Out" period={period} from={customFrom} to={customTo} color="bg-amber-500" />
+          <TypeFilterLink current={filterType} value="all" label="Semua" common={commonParams} color="bg-brand-500" />
+          <TypeFilterLink current={filterType} value="in" label="⬆ Cash In" common={commonParams} color="bg-green-500" />
+          <TypeFilterLink current={filterType} value="out" label="⬇ Cash Out" common={commonParams} color="bg-amber-500" />
         </div>
       </div>
 
+      {/* R215: KATEGORI & SEARCH PANEL */}
+      <div className="bg-white rounded-xl border-2 border-amber-200 shadow-card p-4 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">🔍 Filter Kategori & Search</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">Pilih sumber spesifik atau ketik nama peserta/vendor untuk filter detail</p>
+          </div>
+          {hasActiveFilter && (
+            <Link
+              href={buildUrl('/accounting', { period, from: customFrom, to: customTo, type: filterType })}
+              className="text-[11px] font-semibold px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded"
+            >
+              ✕ Reset semua filter
+            </Link>
+          )}
+        </div>
+
+        {/* Quick source chips */}
+        <div>
+          <p className="text-[10px] font-semibold text-slate-500 uppercase mb-1.5">Sumber / Jenis Transaksi:</p>
+          <div className="flex flex-wrap gap-1.5">
+            <SourceLink current={filterSource} value="all" label="🌐 Semua Sumber" common={commonParams} color="bg-brand-500" />
+            <SourceLink current={filterSource} value="payment" label="🤝 Semua Peserta" common={commonParams} color="bg-green-500" />
+            <SourceLink current={filterSource} value="payment_dp" label="💰 DP Peserta" common={commonParams} color="bg-emerald-500" />
+            <SourceLink current={filterSource} value="payment_cicilan" label="👤 Cicilan / Pelunasan" common={commonParams} color="bg-teal-500" />
+            <SourceLink current={filterSource} value="hpp" label="✈️ Vendor / HPP" common={commonParams} color="bg-amber-500" />
+            <SourceLink current={filterSource} value="tiket" label="🎫 Tiket / PNR" common={commonParams} color="bg-orange-500" />
+            <SourceLink current={filterSource} value="ongkir" label="📦 Ongkir" common={commonParams} color="bg-purple-500" />
+            <SourceLink current={filterSource} value="refund" label="💸 Refund" common={commonParams} color="bg-red-500" />
+            <SourceLink current={filterSource} value="manual" label="✎ Manual" common={commonParams} color="bg-slate-500" />
+          </div>
+        </div>
+
+        {/* Search + Category dropdown */}
+        <form action="/accounting" method="get" className="flex flex-wrap gap-2 items-end pt-2 border-t border-amber-100">
+          {period && <input type="hidden" name="period" value={period} />}
+          {customFrom && <input type="hidden" name="from" value={customFrom} />}
+          {customTo && <input type="hidden" name="to" value={customTo} />}
+          {filterType && filterType !== 'all' && <input type="hidden" name="type" value={filterType} />}
+          {filterSource && filterSource !== 'all' && <input type="hidden" name="source" value={filterSource} />}
+
+          <div className="flex-1 min-w-[220px]">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-1">
+              🔎 Cari (peserta / vendor / kode trip / kategori):
+            </label>
+            <input
+              type="text"
+              name="q"
+              defaultValue={q}
+              placeholder="contoh: zazan, Tiket Maskapai, 4UW2CS, ..."
+              className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+            />
+          </div>
+
+          <div className="min-w-[200px]">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-1">
+              📂 Kategori spesifik:
+            </label>
+            <select
+              name="category"
+              defaultValue={filterCategory}
+              className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+            >
+              <option value="">— Semua Kategori —</option>
+              {allCategories.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            type="submit"
+            className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded"
+          >
+            🔍 Apply
+          </button>
+        </form>
+
+        {/* Active filter badge */}
+        {hasActiveFilter && (
+          <div className="text-xs bg-amber-50 border border-amber-200 px-3 py-2 rounded space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-bold text-amber-800">📊 Filter aktif:</span>
+              {filterSource !== 'all' && (
+                <span className="font-mono text-amber-700 bg-white px-1.5 py-0.5 rounded border border-amber-300">
+                  sumber={filterSource}
+                </span>
+              )}
+              {filterCategory && (
+                <span className="font-mono text-amber-700 bg-white px-1.5 py-0.5 rounded border border-amber-300">
+                  kategori={filterCategory}
+                </span>
+              )}
+              {q && (
+                <span className="font-mono text-amber-700 bg-white px-1.5 py-0.5 rounded border border-amber-300">
+                  cari="{q}"
+                </span>
+              )}
+            </div>
+            <div className="flex gap-3 flex-wrap">
+              <span className="text-amber-700">
+                <strong>{filteredForDisplay.length}</strong> hasil
+              </span>
+              <span className="text-green-700">
+                ⬆ Cash In ter-filter: <strong>{fmtRupiah(filteredCashIn)}</strong>
+              </span>
+              <span className="text-red-700">
+                ⬇ Cash Out ter-filter: <strong>{fmtRupiah(filteredCashOut)}</strong>
+              </span>
+              <span className={filteredCashIn - filteredCashOut >= 0 ? 'text-blue-700' : 'text-red-700'}>
+                Net: <strong>{fmtRupiah(filteredCashIn - filteredCashOut)}</strong>
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* TRANSAKSI LIST */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h2 className="font-bold text-brand-700">Transaksi · {periodLabel} ({filteredForDisplay.length})</h2>
+            <h2 className="font-bold text-brand-700">
+              Transaksi · {periodLabel} ({filteredForDisplay.length})
+              {hasActiveFilter && <span className="text-xs ml-2 text-amber-700 font-semibold">[FILTERED]</span>}
+            </h2>
             <p className="text-xs text-slate-500 mt-0.5">Menampilkan max 50 transaksi terbaru</p>
           </div>
           {filteredForDisplay.length > 0 && (
             <DownloadButtons
-              filename={`transaksi-${filterType}-${period}`}
-              title={`Transaksi ${filterType === 'in' ? 'Cash In' : filterType === 'out' ? 'Cash Out' : 'Semua'} — ${periodLabel}`}
-              subtitle={subtitleDate}
+              filename={`transaksi-${filterType}-${filterSource}-${period}${filterCategory ? '-' + filterCategory.replace(/\s+/g, '_') : ''}`}
+              title={`Transaksi ${filterType === 'in' ? 'Cash In' : filterType === 'out' ? 'Cash Out' : 'Semua'} — ${periodLabel}${hasActiveFilter ? ' (filtered)' : ''}`}
+              subtitle={`${subtitleDate}${hasActiveFilter ? ` · Filter: ${[filterSource !== 'all' && filterSource, filterCategory, q && `cari "${q}"`].filter(Boolean).join(' · ')}` : ''}`}
               columns={[
                 { key: 'date', label: 'Tanggal', format: 'date' },
                 { key: 'type', label: 'Type' },
@@ -377,13 +600,28 @@ export default async function AccountingDashboard({ searchParams }) {
                 { key: 'amount', label: 'Nominal', align: 'right', format: 'rupiah' },
               ]}
               rows={filteredForDisplay}
+              summary={[
+                { label: 'TOTAL CASH IN', value: fmtRupiah(filteredCashIn) },
+                { label: 'TOTAL CASH OUT', value: fmtRupiah(filteredCashOut) },
+                { label: 'NET', value: fmtRupiah(filteredCashIn - filteredCashOut) },
+              ]}
             />
           )}
         </div>
         {filteredForDisplay.length === 0 ? (
           <div className="p-12 text-center">
             <p className="text-4xl mb-3">💰</p>
-            <p className="text-sm text-slate-500">Tidak ada transaksi di periode ini.</p>
+            <p className="text-sm text-slate-500">
+              Tidak ada transaksi {hasActiveFilter ? 'yang match filter' : 'di periode ini'}.
+            </p>
+            {hasActiveFilter && (
+              <Link
+                href={buildUrl('/accounting', { period, from: customFrom, to: customTo, type: filterType })}
+                className="inline-block mt-3 text-xs font-semibold px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded"
+              >
+                ✕ Reset filter
+              </Link>
+            )}
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
@@ -436,17 +674,44 @@ function PeriodLink({ current, value, label }) {
   );
 }
 
-function TypeFilterLink({ current, value, label, period, from, to, color }) {
+// R215: TypeFilterLink — preserve source, category, q
+function TypeFilterLink({ current, value, label, common, color }) {
   const isActive = current === value;
-  const params = new URLSearchParams();
-  if (period) params.set('period', period);
-  if (from) params.set('from', from);
-  if (to) params.set('to', to);
-  if (value !== 'all') params.set('type', value);
+  const params = {
+    period: common.period,
+    from: common.from,
+    to: common.to,
+    type: value,
+    source: common.source,
+    category: common.category,
+    q: common.q,
+  };
   return (
     <Link
-      href={`/accounting?${params.toString()}`}
+      href={buildUrl('/accounting', params)}
       className={`text-xs font-semibold px-3 py-1.5 rounded ${isActive ? `${color} text-white` : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+    >
+      {label}
+    </Link>
+  );
+}
+
+// R215: SourceLink — chip filter by sumber
+function SourceLink({ current, value, label, common, color }) {
+  const isActive = current === value;
+  const params = {
+    period: common.period,
+    from: common.from,
+    to: common.to,
+    type: common.type,
+    source: value,
+    category: common.category,
+    q: common.q,
+  };
+  return (
+    <Link
+      href={buildUrl('/accounting', params)}
+      className={`text-[11px] font-semibold px-2.5 py-1 rounded transition ${isActive ? `${color} text-white shadow` : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
     >
       {label}
     </Link>
