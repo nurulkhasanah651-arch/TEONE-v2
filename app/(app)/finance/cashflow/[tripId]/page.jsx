@@ -1,8 +1,8 @@
-// R157 + R215c + R215d: Finance Cashflow Detail
-// R215c: Quotation Excel download (tombol ungu)
-// R215d: Hotel HPP Calculator section + Room assignment per pax
-// EXISTING: FinanceItemForm, FinanceItemRow, Stats Cards, Cash In Auto,
-//           DownloadButtons section/full → TETAP UTUH
+// R157 + R215c + R215d + R215e: Finance Cashflow Detail
+// R215c: Quotation Excel download
+// R215d: Hotel HPP Calculator (Mode A per room / Mode B per pax)
+// R215e: Roomlist auto-generator (family + gender + room type aware)
+// EXISTING: FinanceItemForm, FinanceItemRow, Stats, Cash In, DownloadButtons → TETAP UTUH
 // Path: app/(app)/finance/cashflow/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -13,8 +13,9 @@ import FinanceItemForm from '@/components/finance/FinanceItemForm';
 import FinanceItemRow from '@/components/finance/FinanceItemRow';
 import DownloadButtons from '@/components/common/DownloadButtons';
 import QuotationDownloadButton from '@/components/finance/QuotationDownloadButton';
-// R215d — Hotel calculator section
 import HotelHPPSection from '@/components/finance/HotelHPPSection';
+// R215e — Roomlist generator panel
+import RoomlistPanel from '@/components/finance/RoomlistPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,12 +23,12 @@ export default async function CashflowDetailPage({ params }) {
   const { tripId } = await params;
   const supabase = createClient();
 
-  // R215d — fetch trip_passengers + customers untuk room assignment & count
+  // R215e — fetch gender, sex, family_group_id juga (defensive)
   const [tripRes, itemsRes, passengersRes, customersRes] = await Promise.all([
     supabase.from('trips').select('*').eq('id', tripId).maybeSingle(),
     supabase.from('trip_finance_items').select('*').eq('trip_id', tripId).order('item_type').order('category'),
     supabase.from('trip_passengers')
-      .select('id, customer_id, room_type, transfer_status, refund_status')
+      .select('id, customer_id, room_type, gender, sex, family_group_id, transfer_status, refund_status')
       .eq('trip_id', tripId),
     supabase.from('customers').select('id, name'),
   ]);
@@ -64,7 +65,6 @@ export default async function CashflowDetailPage({ params }) {
 
   const incomeItems = items.filter((i) => i.item_type === 'income');
   const hppItems = items.filter((i) => i.item_type === 'hpp');
-  // R215d — separate hotel HPP items
   const hotelHppItems = hppItems.filter((i) =>
     i.is_hotel === true ||
     String(i.category || '').toLowerCase().includes('hotel') ||
@@ -81,7 +81,6 @@ export default async function CashflowDetailPage({ params }) {
   const refundHpp = hppItems.filter((i) => i.category === 'Refund');
   const totalRefundHpp = refundHpp.reduce((s, i) => s + (i.total_amount || 0), 0);
 
-  // R215c — derive Operated by dari vendor Landtour
   const landtourItem = hppItems.find((i) => {
     const cat = String(i.category || '').toLowerCase();
     const comp = String(i.component || '').toLowerCase();
@@ -193,7 +192,6 @@ export default async function CashflowDetailPage({ params }) {
         <StatCard label="Margin" value={margin == null ? '—' : `${margin}%`} color={margin == null ? 'text-slate-500' : margin >= 0 ? 'text-purple-700' : 'text-red-700'} bg={margin == null ? 'bg-slate-50' : margin >= 0 ? 'bg-purple-50' : 'bg-red-50'} />
       </div>
 
-      {/* Cash In Peserta (Auto) */}
       <div className="bg-white rounded-xl border-2 border-green-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b bg-green-50 border-green-200 flex items-center justify-between flex-wrap gap-2">
           <h2 className="font-bold text-green-800 flex items-center gap-2">
@@ -230,7 +228,15 @@ export default async function CashflowDetailPage({ params }) {
         fmtMoney={fmtMoney}
       />
 
-      {/* R215d — HOTEL HPP CALCULATOR (NEW) */}
+      {/* R215e — ROOMLIST PANEL (NEW — di atas Hotel HPP biar workflow logical:
+          assign room dulu → liat roomlist → input hotel HPP) */}
+      <RoomlistPanel
+        trip={trip}
+        passengers={allPassengers}
+        customers={customers}
+      />
+
+      {/* R215d — HOTEL HPP CALCULATOR */}
       <HotelHPPSection
         trip={trip}
         passengers={allPassengers}
