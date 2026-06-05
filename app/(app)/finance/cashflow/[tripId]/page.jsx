@@ -1,9 +1,8 @@
-// R157 + R215c + R215d + R215e + R215f: Finance Cashflow Detail
-// R215c: Quotation Excel
-// R215d: Hotel HPP Calculator
-// R215e: Roomlist auto-generator
-// R215f: PROYEKSI INCOME PESERTA dari master trip (R211 reuse)
-// EXISTING: FinanceItemForm, FinanceItemRow, Cash In Auto, Stats → TETAP UTUH
+// R157 + R215c + R215d + R215e + R215f + R215g: Finance Cashflow Detail
+// R215g FIX:
+//   - Pakai select('*') untuk trip_passengers — defensive thd kolom belum exist
+//   - Pakai select('*') untuk participant_payments — sama
+//   - Debug info kalau 0 pax (deteksi kenapa empty)
 // Path: app/(app)/finance/cashflow/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -17,12 +16,10 @@ import DownloadButtons from '@/components/common/DownloadButtons';
 import QuotationDownloadButton from '@/components/finance/QuotationDownloadButton';
 import HotelHPPSection from '@/components/finance/HotelHPPSection';
 import RoomlistPanel from '@/components/finance/RoomlistPanel';
-// R215f — Proyeksi Income section
 import ProyeksiIncomeSection from '@/components/finance/ProyeksiIncomeSection';
 
 export const dynamic = 'force-dynamic';
 
-// R215f — fetch breakdown dari payment_templates atau trips.price_breakdown
 async function fetchBreakdown(supabase, tripId, trip) {
   try {
     const { data } = await supabase
@@ -32,9 +29,8 @@ async function fetchBreakdown(supabase, tripId, trip) {
       .maybeSingle();
     if (data) return data;
   } catch (e) {
-    // table maybe doesn't exist, try fallback
+    // table maybe doesn't exist
   }
-  // Fallback: trips.price_breakdown JSONB
   if (trip?.price_breakdown && typeof trip.price_breakdown === 'object') {
     return trip.price_breakdown;
   }
@@ -45,13 +41,11 @@ export default async function CashflowDetailPage({ params }) {
   const { tripId } = await params;
   const supabase = createClient();
 
-  // R215f — tambah price_paid, discount_amount ke passengers select
+  // R215g — pakai select('*') untuk avoid query fail karena kolom belum exist
   const [tripRes, itemsRes, passengersRes, customersRes] = await Promise.all([
     supabase.from('trips').select('*').eq('id', tripId).maybeSingle(),
     supabase.from('trip_finance_items').select('*').eq('trip_id', tripId).order('item_type').order('category'),
-    supabase.from('trip_passengers')
-      .select('id, customer_id, room_type, gender, sex, family_group_id, price_paid, discount_amount, transfer_status, refund_status')
-      .eq('trip_id', tripId),
+    supabase.from('trip_passengers').select('*').eq('trip_id', tripId),
     supabase.from('customers').select('id, name'),
   ]);
 
@@ -61,7 +55,11 @@ export default async function CashflowDetailPage({ params }) {
   const allPassengers = passengersRes.data || [];
   const customers = customersRes.data || [];
 
-  // R215f — fetch breakdown
+  // R215g — Debug log (server-side, akan muncul di vercel logs)
+  if (allPassengers.length === 0 && passengersRes.error) {
+    console.error('[CashflowDetail] trip_passengers query error:', passengersRes.error);
+  }
+
   const breakdown = await fetchBreakdown(supabase, tripId, trip);
 
   const activePassengers = allPassengers.filter((p) => {
@@ -73,7 +71,7 @@ export default async function CashflowDetailPage({ params }) {
 
   const allPaxIds = allPassengers.map((p) => p.id);
 
-  // R215f — fetch ALL payments (untuk income projection + cash in auto)
+  // R215g — select('*') for payments juga
   let allPayments = [];
   if (allPaxIds.length > 0) {
     try {
@@ -83,19 +81,16 @@ export default async function CashflowDetailPage({ params }) {
         .in('passenger_id', allPaxIds);
       allPayments = (pays || []).filter((p) => p.is_transferred !== true);
     } catch (e) {
-      // defensive
+      console.error('[CashflowDetail] payments error:', e?.message);
     }
   }
 
-  // Auto cash in (real) — sum semua valid payments
   const autoCashIn = allPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
   const actualPaymentCount = allPayments.length;
 
-  // R215f — Compute Proyeksi Income dari master trip
   const proyeksi = computeIncomeProjection(activePassengers, breakdown, allPayments);
   const proyeksiIncome = proyeksi.total || 0;
 
-  // R215f — Group payments by pax untuk display
   const paymentsByPax = {};
   for (const p of allPayments) {
     if (!paymentsByPax[p.passenger_id]) paymentsByPax[p.passenger_id] = [];
@@ -108,12 +103,14 @@ export default async function CashflowDetailPage({ params }) {
     i.is_hotel === true ||
     String(i.category || '').toLowerCase().includes('hotel') ||
     String(i.component || '').toLowerCase().includes('hotel') ||
+    String(i.component || '').toLowerCase().includes('madinah') ||
+    String(i.component || '').toLowerCase().includes('mekkah') ||
+    String(i.component || '').toLowerCase().includes('mecca') ||
     i.room_type
   );
 
   const manualIncome = incomeItems.reduce((s, i) => s + (i.total_amount || 0), 0);
 
-  // R215f — 2 metrics terpisah
   const totalIncomeProyeksi = manualIncome + proyeksiIncome;
   const totalIncomeReal = manualIncome + autoCashIn;
 
@@ -179,10 +176,20 @@ export default async function CashflowDetailPage({ params }) {
           <p className="mt-1 text-slate-600">
             Auto Proyeksi Income (dari master) + Manual Income + HPP.
             <span className="ml-2 text-xs font-semibold text-brand-600">📊 {paxCount} pax aktif</span>
+            {allPassengers.length > 0 && (
+              <span className="ml-2 text-xs text-slate-500">· {allPassengers.length} total peserta (semua status)</span>
+            )}
             {operatedBy && operatedBy !== 'PRO DMC' && (
               <span className="ml-2 text-xs font-semibold text-purple-700">🤝 Operated by {operatedBy}</span>
             )}
           </p>
+          {/* R215g — debug warning kalau 0 pax */}
+          {allPassengers.length === 0 && (
+            <div className="mt-2 p-2 bg-amber-50 border border-amber-300 rounded text-xs text-amber-800">
+              ⚠ Trip ini gak ada peserta di <code>trip_passengers</code> dgn <code>trip_id = {tripId}</code>.
+              Cek di Master Trip — kalau ada peserta tapi gak muncul, kemungkinan trip_id-nya beda (mungkin pakai UUID atau slug lain).
+            </div>
+          )}
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           <QuotationDownloadButton
@@ -230,7 +237,6 @@ export default async function CashflowDetailPage({ params }) {
         </div>
       </div>
 
-      {/* R215f — STATS CARDS: pakai PROYEKSI (cash in real as sub) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
           label="Total Income (Proyeksi)"
@@ -271,7 +277,6 @@ export default async function CashflowDetailPage({ params }) {
         />
       </div>
 
-      {/* R215f — PROYEKSI INCOME SECTION (NEW) */}
       <ProyeksiIncomeSection
         activePassengers={activePassengers}
         breakdown={breakdown}
@@ -282,7 +287,6 @@ export default async function CashflowDetailPage({ params }) {
         undefinedCount={proyeksi.undefinedCount}
       />
 
-      {/* Cash In Peserta (Auto) — EXISTING */}
       <div className="bg-white rounded-xl border-2 border-green-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b bg-green-50 border-green-200 flex items-center justify-between flex-wrap gap-2">
           <h2 className="font-bold text-green-800 flex items-center gap-2">
