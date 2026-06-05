@@ -1,34 +1,56 @@
-// R157 + R215c + R215d + R215e: Finance Cashflow Detail
-// R215c: Quotation Excel download
-// R215d: Hotel HPP Calculator (Mode A per room / Mode B per pax)
-// R215e: Roomlist auto-generator (family + gender + room type aware)
-// EXISTING: FinanceItemForm, FinanceItemRow, Stats, Cash In, DownloadButtons → TETAP UTUH
+// R157 + R215c + R215d + R215e + R215f: Finance Cashflow Detail
+// R215c: Quotation Excel
+// R215d: Hotel HPP Calculator
+// R215e: Roomlist auto-generator
+// R215f: PROYEKSI INCOME PESERTA dari master trip (R211 reuse)
+// EXISTING: FinanceItemForm, FinanceItemRow, Cash In Auto, Stats → TETAP UTUH
 // Path: app/(app)/finance/cashflow/[tripId]/page.jsx
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah } from '@/lib/utils/format';
+import { computeIncomeProjection } from '@/lib/utils/price-breakdown';
 import FinanceItemForm from '@/components/finance/FinanceItemForm';
 import FinanceItemRow from '@/components/finance/FinanceItemRow';
 import DownloadButtons from '@/components/common/DownloadButtons';
 import QuotationDownloadButton from '@/components/finance/QuotationDownloadButton';
 import HotelHPPSection from '@/components/finance/HotelHPPSection';
-// R215e — Roomlist generator panel
 import RoomlistPanel from '@/components/finance/RoomlistPanel';
+// R215f — Proyeksi Income section
+import ProyeksiIncomeSection from '@/components/finance/ProyeksiIncomeSection';
 
 export const dynamic = 'force-dynamic';
+
+// R215f — fetch breakdown dari payment_templates atau trips.price_breakdown
+async function fetchBreakdown(supabase, tripId, trip) {
+  try {
+    const { data } = await supabase
+      .from('payment_templates')
+      .select('*')
+      .eq('trip_id', tripId)
+      .maybeSingle();
+    if (data) return data;
+  } catch (e) {
+    // table maybe doesn't exist, try fallback
+  }
+  // Fallback: trips.price_breakdown JSONB
+  if (trip?.price_breakdown && typeof trip.price_breakdown === 'object') {
+    return trip.price_breakdown;
+  }
+  return {};
+}
 
 export default async function CashflowDetailPage({ params }) {
   const { tripId } = await params;
   const supabase = createClient();
 
-  // R215e — fetch gender, sex, family_group_id juga (defensive)
+  // R215f — tambah price_paid, discount_amount ke passengers select
   const [tripRes, itemsRes, passengersRes, customersRes] = await Promise.all([
     supabase.from('trips').select('*').eq('id', tripId).maybeSingle(),
     supabase.from('trip_finance_items').select('*').eq('trip_id', tripId).order('item_type').order('category'),
     supabase.from('trip_passengers')
-      .select('id, customer_id, room_type, gender, sex, family_group_id, transfer_status, refund_status')
+      .select('id, customer_id, room_type, gender, sex, family_group_id, price_paid, discount_amount, transfer_status, refund_status')
       .eq('trip_id', tripId),
     supabase.from('customers').select('id, name'),
   ]);
@@ -39,6 +61,9 @@ export default async function CashflowDetailPage({ params }) {
   const allPassengers = passengersRes.data || [];
   const customers = customersRes.data || [];
 
+  // R215f — fetch breakdown
+  const breakdown = await fetchBreakdown(supabase, tripId, trip);
+
   const activePassengers = allPassengers.filter((p) => {
     const isTransferred = p.transfer_status === 'transferred';
     const isRefunded = p.refund_status === 'refunded' || p.refund_status === 'partial_refund';
@@ -47,20 +72,34 @@ export default async function CashflowDetailPage({ params }) {
   const paxCount = activePassengers.length;
 
   const allPaxIds = allPassengers.map((p) => p.id);
-  let autoCashIn = 0;
-  let actualPaymentCount = 0;
+
+  // R215f — fetch ALL payments (untuk income projection + cash in auto)
+  let allPayments = [];
   if (allPaxIds.length > 0) {
     try {
       const { data: pays } = await supabase
         .from('participant_payments')
-        .select('amount, is_transferred, passenger_id')
+        .select('*')
         .in('passenger_id', allPaxIds);
-      const validPays = (pays || []).filter((p) => p.is_transferred !== true);
-      autoCashIn = validPays.reduce((s, p) => s + Number(p.amount || 0), 0);
-      actualPaymentCount = validPays.length;
+      allPayments = (pays || []).filter((p) => p.is_transferred !== true);
     } catch (e) {
       // defensive
     }
+  }
+
+  // Auto cash in (real) — sum semua valid payments
+  const autoCashIn = allPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
+  const actualPaymentCount = allPayments.length;
+
+  // R215f — Compute Proyeksi Income dari master trip
+  const proyeksi = computeIncomeProjection(activePassengers, breakdown, allPayments);
+  const proyeksiIncome = proyeksi.total || 0;
+
+  // R215f — Group payments by pax untuk display
+  const paymentsByPax = {};
+  for (const p of allPayments) {
+    if (!paymentsByPax[p.passenger_id]) paymentsByPax[p.passenger_id] = [];
+    paymentsByPax[p.passenger_id].push(p);
   }
 
   const incomeItems = items.filter((i) => i.item_type === 'income');
@@ -73,10 +112,15 @@ export default async function CashflowDetailPage({ params }) {
   );
 
   const manualIncome = incomeItems.reduce((s, i) => s + (i.total_amount || 0), 0);
-  const totalIncome = manualIncome + autoCashIn;
+
+  // R215f — 2 metrics terpisah
+  const totalIncomeProyeksi = manualIncome + proyeksiIncome;
+  const totalIncomeReal = manualIncome + autoCashIn;
+
   const totalHPP = hppItems.reduce((s, i) => s + (i.total_amount || 0), 0);
-  const profit = totalIncome - totalHPP;
-  const margin = totalIncome > 0 ? Math.round((profit / totalIncome) * 100) : null;
+  const profitProyeksi = totalIncomeProyeksi - totalHPP;
+  const profitReal = totalIncomeReal - totalHPP;
+  const marginProyeksi = totalIncomeProyeksi > 0 ? Math.round((profitProyeksi / totalIncomeProyeksi) * 100) : null;
 
   const refundHpp = hppItems.filter((i) => i.category === 'Refund');
   const totalRefundHpp = refundHpp.reduce((s, i) => s + (i.total_amount || 0), 0);
@@ -133,7 +177,7 @@ export default async function CashflowDetailPage({ params }) {
           <Link href="/finance/cashflow" className="text-sm text-brand-600 font-medium hover:underline">← Proyeksi Income per Group</Link>
           <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.kode_trip || `#${trip.id}`} — {trip.name}</h1>
           <p className="mt-1 text-slate-600">
-            Cash In peserta + Manual Income + HPP.
+            Auto Proyeksi Income (dari master) + Manual Income + HPP.
             <span className="ml-2 text-xs font-semibold text-brand-600">📊 {paxCount} pax aktif</span>
             {operatedBy && operatedBy !== 'PRO DMC' && (
               <span className="ml-2 text-xs font-semibold text-purple-700">🤝 Operated by {operatedBy}</span>
@@ -146,9 +190,9 @@ export default async function CashflowDetailPage({ params }) {
             incomeItems={incomeItems}
             hppItems={hppItems}
             paxCount={paxCount}
-            totalIncome={totalIncome}
+            totalIncome={totalIncomeProyeksi}
             totalHPP={totalHPP}
-            profit={profit}
+            profit={profitProyeksi}
             operatedBy={operatedBy}
           />
           <DownloadButtons
@@ -156,12 +200,13 @@ export default async function CashflowDetailPage({ params }) {
             title={`Proyeksi Income — ${trip.kode_trip || ''} ${trip.name}`}
             subtitle={`${paxCount} pax aktif · ${actualPaymentCount} payment`}
             extraInfo={[
-              { label: 'Total Income (Auto+Manual)', value: fmtMoney(totalIncome) },
-              { label: 'Cash In Peserta (Auto)', value: fmtMoney(autoCashIn) },
+              { label: 'Proyeksi Income Peserta', value: fmtMoney(proyeksiIncome) },
               { label: 'Manual Income', value: fmtMoney(manualIncome) },
+              { label: 'Total Income Proyeksi', value: fmtMoney(totalIncomeProyeksi) },
+              { label: 'Cash In Peserta (Real)', value: fmtMoney(autoCashIn) },
               { label: 'Total HPP', value: fmtMoney(totalHPP) },
-              { label: 'Profit', value: fmtMoney(profit) },
-              { label: 'Margin', value: margin == null ? '-' : `${margin}%` },
+              { label: 'Profit Proyeksi', value: fmtMoney(profitProyeksi) },
+              { label: 'Margin', value: marginProyeksi == null ? '-' : `${marginProyeksi}%` },
             ]}
             columns={[
               { key: 'tipe', label: 'Tipe' },
@@ -175,27 +220,73 @@ export default async function CashflowDetailPage({ params }) {
             ]}
             rows={fullReportRows}
             summary={[
-              { label: 'TOTAL INCOME (manual+auto)', value: fmtMoney(totalIncome) },
+              { label: 'TOTAL INCOME PROYEKSI', value: fmtMoney(totalIncomeProyeksi) },
               { label: 'TOTAL HPP', value: fmtMoney(totalHPP) },
-              { label: 'PROFIT', value: fmtMoney(profit) },
-              { label: 'MARGIN', value: margin == null ? '-' : `${margin}%` },
+              { label: 'PROFIT PROYEKSI', value: fmtMoney(profitProyeksi) },
+              { label: 'MARGIN', value: marginProyeksi == null ? '-' : `${marginProyeksi}%` },
             ]}
             buttonSize="md"
           />
         </div>
       </div>
 
+      {/* R215f — STATS CARDS: pakai PROYEKSI (cash in real as sub) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Total Income" value={fmtRupiah(totalIncome)} sub={`${actualPaymentCount} payment · ${paxCount} pax aktif`} color="text-green-700" bg="bg-green-50" />
-        <StatCard label="Total HPP" value={fmtRupiah(totalHPP)} sub={`${hppItems.length} item${refundHpp.length > 0 ? ` (${refundHpp.length} refund)` : ''}`} color="text-amber-700" bg="bg-amber-50" />
-        <StatCard label="Profit" value={fmtRupiah(profit)} color={profit >= 0 ? 'text-blue-700' : 'text-red-700'} bg={profit >= 0 ? 'bg-blue-50' : 'bg-red-50'} />
-        <StatCard label="Margin" value={margin == null ? '—' : `${margin}%`} color={margin == null ? 'text-slate-500' : margin >= 0 ? 'text-purple-700' : 'text-red-700'} bg={margin == null ? 'bg-slate-50' : margin >= 0 ? 'bg-purple-50' : 'bg-red-50'} />
+        <StatCard
+          label="Total Income (Proyeksi)"
+          value={fmtRupiah(totalIncomeProyeksi)}
+          sub={`Real Cash In: ${fmtRupiah(autoCashIn)} · ${actualPaymentCount} payment`}
+          color="text-green-700"
+          bg="bg-green-50"
+        />
+        <StatCard
+          label="Total HPP"
+          value={fmtRupiah(totalHPP)}
+          sub={`${hppItems.length} item${refundHpp.length > 0 ? ` (${refundHpp.length} refund)` : ''}`}
+          color="text-amber-700"
+          bg="bg-amber-50"
+        />
+        <StatCard
+          label="Profit (Proyeksi)"
+          value={fmtRupiah(profitProyeksi)}
+          sub={`Real: ${fmtRupiah(profitReal)}`}
+          color={profitProyeksi >= 0 ? 'text-blue-700' : 'text-red-700'}
+          bg={profitProyeksi >= 0 ? 'bg-blue-50' : 'bg-red-50'}
+        />
+        <StatCard
+          label="Margin (Proyeksi)"
+          value={marginProyeksi == null ? '—' : `${marginProyeksi}%`}
+          sub={marginProyeksi == null ? 'No income' :
+                marginProyeksi <= 12 ? 'EVALUASI' :
+                marginProyeksi <= 18 ? 'WASPADA' :
+                marginProyeksi <= 25 ? 'SEHAT' : 'EXCELLENT'}
+          color={marginProyeksi == null ? 'text-slate-500' :
+                  marginProyeksi <= 12 ? 'text-red-700' :
+                  marginProyeksi <= 18 ? 'text-amber-700' :
+                  marginProyeksi <= 25 ? 'text-green-700' : 'text-emerald-700'}
+          bg={marginProyeksi == null ? 'bg-slate-50' :
+              marginProyeksi <= 12 ? 'bg-red-50' :
+              marginProyeksi <= 18 ? 'bg-amber-50' :
+              marginProyeksi <= 25 ? 'bg-green-50' : 'bg-emerald-50'}
+        />
       </div>
 
+      {/* R215f — PROYEKSI INCOME SECTION (NEW) */}
+      <ProyeksiIncomeSection
+        activePassengers={activePassengers}
+        breakdown={breakdown}
+        paymentsByPax={paymentsByPax}
+        customers={customers}
+        total={proyeksiIncome}
+        byRoom={proyeksi.byRoom}
+        undefinedCount={proyeksi.undefinedCount}
+      />
+
+      {/* Cash In Peserta (Auto) — EXISTING */}
       <div className="bg-white rounded-xl border-2 border-green-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b bg-green-50 border-green-200 flex items-center justify-between flex-wrap gap-2">
           <h2 className="font-bold text-green-800 flex items-center gap-2">
-            <span>💰</span> Cash In Peserta (Auto)
+            <span>💰</span> Cash In Peserta (Real — Actual Received)
           </h2>
           <p className="text-lg font-bold text-green-700">{fmtRupiah(autoCashIn)}</p>
         </div>
@@ -209,6 +300,8 @@ export default async function CashflowDetailPage({ params }) {
             • Refund cash out: {fmtRupiah(totalRefundHpp)} (lihat di HPP kategori "Refund")
             <br />
             • Net peserta cash flow (after refund): <b>{fmtRupiah(autoCashIn - totalRefundHpp)}</b>
+            <br />
+            • <span className="font-bold text-emerald-700">Sisa belum diterima: {fmtRupiah(Math.max(proyeksiIncome - autoCashIn, 0))}</span> (Proyeksi - Real)
           </p>
         </div>
       </div>
@@ -228,15 +321,12 @@ export default async function CashflowDetailPage({ params }) {
         fmtMoney={fmtMoney}
       />
 
-      {/* R215e — ROOMLIST PANEL (NEW — di atas Hotel HPP biar workflow logical:
-          assign room dulu → liat roomlist → input hotel HPP) */}
       <RoomlistPanel
         trip={trip}
         passengers={allPassengers}
         customers={customers}
       />
 
-      {/* R215d — HOTEL HPP CALCULATOR */}
       <HotelHPPSection
         trip={trip}
         passengers={allPassengers}
