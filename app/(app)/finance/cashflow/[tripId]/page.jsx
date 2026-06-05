@@ -1,5 +1,8 @@
-// Round 157 HOTFIX: Proyeksi Income per Group + DOWNLOAD BUTTONS (PDF/Excel/CSV)
-// (sudah include R127 hpp qty autofill + R126 active/inactive filter)
+// R157 + R215c: Proyeksi Income per Group + Quotation Download
+// R215c: TAMBAH tombol "📋 Quotation Excel" (format PRO DMC X TBA)
+//        + auto-derive operatedBy dari vendor Landtour
+// EXISTING: FinanceItemForm, FinanceItemRow, Stats Cards, Cash In Auto,
+//           existing DownloadButtons section/full → TETAP UTUH
 // Path: app/(app)/finance/cashflow/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -9,6 +12,8 @@ import { fmtRupiah } from '@/lib/utils/format';
 import FinanceItemForm from '@/components/finance/FinanceItemForm';
 import FinanceItemRow from '@/components/finance/FinanceItemRow';
 import DownloadButtons from '@/components/common/DownloadButtons';
+// R215c — Quotation Excel download (client component)
+import QuotationDownloadButton from '@/components/finance/QuotationDownloadButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,6 +67,15 @@ export default async function CashflowDetailPage({ params }) {
   const refundHpp = hppItems.filter((i) => i.category === 'Refund');
   const totalRefundHpp = refundHpp.reduce((s, i) => s + (i.total_amount || 0), 0);
 
+  // R215c — derive Operated by dari vendor Landtour HPP
+  const landtourItem = hppItems.find((i) => {
+    const cat = String(i.category || '').toLowerCase();
+    const comp = String(i.component || '').toLowerCase();
+    return cat.includes('landtour') || cat.includes('land tour') ||
+           comp.includes('landtour') || comp.includes('dmc');
+  });
+  const operatedBy = landtourItem?.vendor_name || 'PRO DMC';
+
   function groupByCategory(arr) {
     const grouped = {};
     for (const i of arr) {
@@ -74,10 +88,8 @@ export default async function CashflowDetailPage({ params }) {
   const incomeByCategory = groupByCategory(incomeItems);
   const hppByCategory = groupByCategory(hppItems);
 
-  // R155: format helper
   const fmtMoney = (v) => `Rp ${Number(v || 0).toLocaleString('id-ID')}`;
 
-  // R155: prep rows untuk download
   const fullReportRows = [
     ...incomeItems.map((i) => ({
       tipe: 'INCOME',
@@ -110,40 +122,56 @@ export default async function CashflowDetailPage({ params }) {
           <p className="mt-1 text-slate-600">
             Cash In peserta + Manual Income + HPP.
             <span className="ml-2 text-xs font-semibold text-brand-600">📊 {paxCount} pax aktif</span>
+            {operatedBy && operatedBy !== 'PRO DMC' && (
+              <span className="ml-2 text-xs font-semibold text-purple-700">🤝 Operated by {operatedBy}</span>
+            )}
           </p>
         </div>
-        {/* R155: Download FULL PROYEKSI INCOME */}
-        <DownloadButtons
-          filename={`proyeksi-income-${trip.kode_trip || trip.id}`}
-          title={`Proyeksi Income — ${trip.kode_trip || ''} ${trip.name}`}
-          subtitle={`${paxCount} pax aktif · ${actualPaymentCount} payment`}
-          extraInfo={[
-            { label: 'Total Income (Auto+Manual)', value: fmtMoney(totalIncome) },
-            { label: 'Cash In Peserta (Auto)', value: fmtMoney(autoCashIn) },
-            { label: 'Manual Income', value: fmtMoney(manualIncome) },
-            { label: 'Total HPP', value: fmtMoney(totalHPP) },
-            { label: 'Profit', value: fmtMoney(profit) },
-            { label: 'Margin', value: margin == null ? '-' : `${margin}%` },
-          ]}
-          columns={[
-            { key: 'tipe', label: 'Tipe' },
-            { key: 'category', label: 'Kategori' },
-            { key: 'component', label: 'Komponen' },
-            { key: 'vendor', label: 'Vendor' },
-            { key: 'qty', label: 'Qty', align: 'right' },
-            { key: 'unit_price', label: 'Harga Satuan', align: 'right', format: 'rupiah' },
-            { key: 'total', label: 'Total', align: 'right', format: 'rupiah' },
-            { key: 'status', label: 'Status' },
-          ]}
-          rows={fullReportRows}
-          summary={[
-            { label: 'TOTAL INCOME (manual+auto)', value: fmtMoney(totalIncome) },
-            { label: 'TOTAL HPP', value: fmtMoney(totalHPP) },
-            { label: 'PROFIT', value: fmtMoney(profit) },
-            { label: 'MARGIN', value: margin == null ? '-' : `${margin}%` },
-          ]}
-          buttonSize="md"
-        />
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* R215c — Quotation Excel (NEW) */}
+          <QuotationDownloadButton
+            trip={trip}
+            incomeItems={incomeItems}
+            hppItems={hppItems}
+            paxCount={paxCount}
+            totalIncome={totalIncome}
+            totalHPP={totalHPP}
+            profit={profit}
+            operatedBy={operatedBy}
+          />
+          {/* EXISTING — Download full proyeksi income */}
+          <DownloadButtons
+            filename={`proyeksi-income-${trip.kode_trip || trip.id}`}
+            title={`Proyeksi Income — ${trip.kode_trip || ''} ${trip.name}`}
+            subtitle={`${paxCount} pax aktif · ${actualPaymentCount} payment`}
+            extraInfo={[
+              { label: 'Total Income (Auto+Manual)', value: fmtMoney(totalIncome) },
+              { label: 'Cash In Peserta (Auto)', value: fmtMoney(autoCashIn) },
+              { label: 'Manual Income', value: fmtMoney(manualIncome) },
+              { label: 'Total HPP', value: fmtMoney(totalHPP) },
+              { label: 'Profit', value: fmtMoney(profit) },
+              { label: 'Margin', value: margin == null ? '-' : `${margin}%` },
+            ]}
+            columns={[
+              { key: 'tipe', label: 'Tipe' },
+              { key: 'category', label: 'Kategori' },
+              { key: 'component', label: 'Komponen' },
+              { key: 'vendor', label: 'Vendor' },
+              { key: 'qty', label: 'Qty', align: 'right' },
+              { key: 'unit_price', label: 'Harga Satuan', align: 'right', format: 'rupiah' },
+              { key: 'total', label: 'Total', align: 'right', format: 'rupiah' },
+              { key: 'status', label: 'Status' },
+            ]}
+            rows={fullReportRows}
+            summary={[
+              { label: 'TOTAL INCOME (manual+auto)', value: fmtMoney(totalIncome) },
+              { label: 'TOTAL HPP', value: fmtMoney(totalHPP) },
+              { label: 'PROFIT', value: fmtMoney(profit) },
+              { label: 'MARGIN', value: margin == null ? '-' : `${margin}%` },
+            ]}
+            buttonSize="md"
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -153,7 +181,6 @@ export default async function CashflowDetailPage({ params }) {
         <StatCard label="Margin" value={margin == null ? '—' : `${margin}%`} color={margin == null ? 'text-slate-500' : margin >= 0 ? 'text-purple-700' : 'text-red-700'} bg={margin == null ? 'bg-slate-50' : margin >= 0 ? 'bg-purple-50' : 'bg-red-50'} />
       </div>
 
-      {/* Cash In Peserta (Auto) */}
       <div className="bg-white rounded-xl border-2 border-green-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b bg-green-50 border-green-200 flex items-center justify-between flex-wrap gap-2">
           <h2 className="font-bold text-green-800 flex items-center gap-2">
@@ -175,7 +202,6 @@ export default async function CashflowDetailPage({ params }) {
         </div>
       </div>
 
-      {/* Manual Income — pass paxCount */}
       <FinanceSection
         title="Manual Income (Vendor/Lain-lain)"
         emoji="💸"
@@ -191,7 +217,6 @@ export default async function CashflowDetailPage({ params }) {
         fmtMoney={fmtMoney}
       />
 
-      {/* HPP — pass paxCount untuk auto-fill qty */}
       <FinanceSection
         title="HPP (Cost) — termasuk Refund"
         emoji="🧾"
@@ -215,7 +240,6 @@ function FinanceSection({ title, emoji, color, items, itemsByCategory, total, tr
   const titleColor = color === 'green' ? 'text-green-800' : 'text-amber-800';
   const totalColor = color === 'green' ? 'text-green-700' : 'text-amber-700';
 
-  // R155: prep rows for this section
   const sectionRows = items.map((i) => ({
     category: i.category || '-',
     component: i.component,
@@ -235,7 +259,6 @@ function FinanceSection({ title, emoji, color, items, itemsByCategory, total, tr
           </h2>
           <div className="flex items-center gap-2">
             <p className={`text-lg font-bold ${totalColor}`}>{fmtRupiah(total)}</p>
-            {/* R155: Download per section */}
             {items.length > 0 && (
               <DownloadButtons
                 filename={`${type}-${tripKode}`}
