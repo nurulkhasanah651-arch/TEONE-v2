@@ -1,22 +1,26 @@
 'use client';
 
-// R215d: Hotel HPP Calculator + Room assignment per pax
+// R215d + R215j: Hotel HPP Calculator
+// R215j FIX:
+//   - Save jalan walau auto-count = 0 (manual override OK)
+//   - Persistent error message (gak auto-hide untuk error)
+//   - Console.log on save attempt + result (debug)
+//   - Try-catch wrap supaya error visible
+//   - Default pax_in_room minimum 1 (gak ke-set 0 kalau room kosong)
 // Path: components/finance/HotelHPPSection.jsx
 
-import { useState, useTransition, useMemo } from 'react';
+import { useState, useTransition, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   saveHotelHPP,
   updatePaxRoomType,
   updateTripKurs,
-  bulkAssignRooms,
 } from '@/lib/actions/hotel-hpp';
 import {
   ROOM_TYPES,
   CURRENCIES,
   ROOM_CAPACITY,
   countPaxByRoomType,
-  getKursForCurrency,
   calcHotelCost,
   calcHotelCostPerPax,
   fmtCurrency,
@@ -38,7 +42,6 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
     [customers]
   );
 
-  // Active passengers only
   const activePassengers = useMemo(
     () => passengers.filter((p) => {
       if (p.transfer_status === 'transferred') return false;
@@ -50,48 +53,57 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
 
   const counts = useMemo(() => countPaxByRoomType(activePassengers), [activePassengers]);
 
-  // R215d v2 — Form state dgn calc_mode toggle
+  // R215j — default pax_in_room minimum 1 (kalau auto-count 0, fallback ke activePassengers length atau 1)
+  const initialPaxInRoom = counts.quad > 0 ? counts.quad : (activePassengers.length || 1);
+
   const [form, setForm] = useState({
-    calc_mode: 'per_room', // 'per_room' | 'per_pax'
+    calc_mode: 'per_room',
     hotel_name: '',
     vendor_name: '',
     category: 'Hotel',
-    // Per Room fields
     room_type: 'quad',
-    pax_in_room: counts.quad,
+    pax_in_room: initialPaxInRoom,
     price_per_room: 0,
-    // Per Pax fields
-    pax_count: activePassengers.length,
+    pax_count: activePassengers.length || 1,
     price_per_pax: 0,
-    // Shared
     currency: 'SAR',
     nights: 1,
     price_mode: 'per_night',
     notes: '',
   });
 
-  // Kurs state (local — disync ke DB lewat updateTripKurs)
+  // R215j — Sync pax defaults kalau passengers berubah
+  useEffect(() => {
+    setForm((f) => ({
+      ...f,
+      pax_in_room: f.pax_in_room > 0 ? f.pax_in_room : (counts[f.room_type] || activePassengers.length || 1),
+      pax_count: f.pax_count > 0 ? f.pax_count : (activePassengers.length || 1),
+    }));
+  }, [activePassengers.length]);
+
   const [kurs, setKurs] = useState({
     kurs_usd: trip?.kurs_usd || 16000,
     kurs_eur: trip?.kurs_eur || 18000,
     kurs_sar: trip?.kurs_sar || 4500,
   });
 
-  // Auto-update pax_in_room when room_type berubah
+  // R215j — Saat room_type berubah, fallback chain yg robust
   function handleRoomTypeChange(newType) {
     setForm((f) => ({
       ...f,
       room_type: newType,
-      pax_in_room: counts[newType] || 0,
+      pax_in_room: counts[newType] > 0 ? counts[newType] : (f.pax_in_room || activePassengers.length || 1),
     }));
   }
 
+  // R215j — Persistent error message (gak auto-hide), success auto-hide 5s
   function showMsg(text, type = 'success') {
     setMsg({ text, type });
-    setTimeout(() => setMsg(null), 5000);
+    if (type !== 'error') {
+      setTimeout(() => setMsg(null), 5000);
+    }
   }
 
-  // Calculate preview
   const currentKurs = (() => {
     if (form.currency === 'USD') return kurs.kurs_usd;
     if (form.currency === 'EUR') return kurs.kurs_eur;
@@ -99,7 +111,6 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
     return 1;
   })();
 
-  // R215d v2 — calc based on mode
   const calc = form.calc_mode === 'per_room'
     ? calcHotelCost({
         paxInRoom: form.pax_in_room,
@@ -119,68 +130,100 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
         priceMode: form.price_mode,
       });
 
+  // R215j — Validation flags (untuk UI feedback)
+  const hotelNameValid = form.hotel_name.trim().length > 0;
+  const priceValid = form.calc_mode === 'per_room'
+    ? (form.price_per_room > 0)
+    : (form.price_per_pax > 0);
+  const paxValid = form.calc_mode === 'per_room'
+    ? (form.pax_in_room > 0)
+    : (form.pax_count > 0);
+  const isFormValid = hotelNameValid && priceValid && paxValid;
+
   function handleSave() {
+    // R215j — Debug log SEBELUM action
+    console.log('[HotelHPP] handleSave START', {
+      form,
+      currentKurs,
+      calc,
+      tripId: trip?.id,
+    });
+
     if (!form.hotel_name.trim()) {
-      showMsg('Nama hotel wajib diisi', 'error');
+      showMsg('❌ Nama hotel wajib diisi', 'error');
       return;
     }
 
     if (form.calc_mode === 'per_room') {
       if (!form.price_per_room || form.price_per_room <= 0) {
-        showMsg('Harga per room wajib > 0', 'error');
+        showMsg('❌ Harga per room wajib > 0', 'error');
         return;
       }
       if (form.pax_in_room <= 0) {
-        showMsg('Pax di room ini = 0. Assign room peserta dulu atau ubah pax manual.', 'error');
+        showMsg('❌ Pax di room = 0. Input jumlah pax MANUAL di field "Pax di Room ini" atau assign peserta dulu.', 'error');
         return;
       }
     } else {
       if (!form.price_per_pax || form.price_per_pax <= 0) {
-        showMsg('Harga per pax wajib > 0', 'error');
+        showMsg('❌ Harga per pax wajib > 0', 'error');
         return;
       }
       if (form.pax_count <= 0) {
-        showMsg('Jumlah pax = 0', 'error');
+        showMsg('❌ Jumlah pax = 0. Input jumlah pax manual.', 'error');
         return;
       }
     }
 
     startTransition(async () => {
-      const r = await saveHotelHPP({
-        trip_id: trip.id,
-        hotel_name: form.hotel_name.trim(),
-        vendor_name: form.vendor_name.trim(),
-        category: form.category,
-        calc_mode: form.calc_mode,
-        // Per Room
-        room_type: form.room_type,
-        pax_in_room: Number(form.pax_in_room) || 0,
-        price_per_room: Number(form.price_per_room) || 0,
-        // Per Pax
-        pax_count: Number(form.pax_count) || 0,
-        price_per_pax: Number(form.price_per_pax) || 0,
-        // Shared
-        currency: form.currency,
-        nights: Number(form.nights) || 1,
-        price_mode: form.price_mode,
-        notes: form.notes,
-      });
+      try {
+        const payload = {
+          trip_id: trip.id,
+          hotel_name: form.hotel_name.trim(),
+          vendor_name: form.vendor_name.trim(),
+          category: form.category,
+          calc_mode: form.calc_mode,
+          room_type: form.room_type,
+          pax_in_room: Number(form.pax_in_room) || 0,
+          price_per_room: Number(form.price_per_room) || 0,
+          pax_count: Number(form.pax_count) || 0,
+          price_per_pax: Number(form.price_per_pax) || 0,
+          currency: form.currency,
+          nights: Number(form.nights) || 1,
+          price_mode: form.price_mode,
+          notes: form.notes,
+        };
 
-      if (r.error) {
-        showMsg('Gagal: ' + r.error, 'error');
-        return;
+        console.log('[HotelHPP] calling saveHotelHPP with payload:', payload);
+
+        const r = await saveHotelHPP(payload);
+
+        console.log('[HotelHPP] saveHotelHPP response:', r);
+
+        if (r?.error) {
+          showMsg('❌ Gagal save: ' + r.error, 'error');
+          return;
+        }
+        if (!r?.ok) {
+          showMsg('❌ Save tidak return ok. Response: ' + JSON.stringify(r), 'error');
+          return;
+        }
+
+        const totalDisplay = r.calc?.totalIDR ? fmtRp(r.calc.totalIDR) : 'OK';
+        showMsg(`✓ ${form.hotel_name} saved: ${totalDisplay} · Lanjut input hotel berikutnya${r.warning ? ' · ' + r.warning : ''}`);
+
+        setForm((f) => ({
+          ...f,
+          hotel_name: '',
+          vendor_name: '',
+          price_per_room: 0,
+          price_per_pax: 0,
+          notes: '',
+        }));
+        router.refresh();
+      } catch (e) {
+        console.error('[HotelHPP] save error caught:', e);
+        showMsg('❌ Error: ' + (e?.message || String(e)), 'error');
       }
-      showMsg(`✓ ${form.hotel_name} (${form.room_type}) saved: ${fmtRp(r.calc.totalIDR)} · Form udah reset, lanjut input hotel berikutnya (e.g. Mekkah, Eropa) — currency & kurs masih tersimpan${r.warning ? ' · ' + r.warning : ''}`);
-      // Reset HANYA hotel-specific fields, currency/kurs/mode/calc_mode TETAP
-      setForm((f) => ({
-        ...f,
-        hotel_name: '',
-        vendor_name: '',
-        price_per_room: 0,
-        price_per_pax: 0,
-        notes: '',
-      }));
-      router.refresh();
     });
   }
 
@@ -205,7 +248,6 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
 
   return (
     <div className="bg-white rounded-xl border-2 border-amber-300 shadow-card overflow-hidden">
-      {/* HEADER */}
       <div className="px-5 py-3 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
@@ -213,7 +255,7 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
               <span>🏨</span> Hotel HPP Calculator (auto room × harga)
             </h2>
             <p className="text-[11px] text-slate-600 mt-0.5">
-              Input harga per room → auto-hitung jumlah kamar dari count peserta + auto convert ke Rupiah
+              Input harga per room/pax → auto-hitung total + auto convert ke Rupiah
             </p>
           </div>
           <div className="text-xs text-slate-600">
@@ -222,12 +264,21 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
         </div>
       </div>
 
-      {/* MESSAGE */}
+      {/* R215j — Persistent message */}
       {msg && (
-        <div className={`px-5 py-2 text-sm border-b ${
-          msg.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        <div className={`px-5 py-3 text-sm border-b font-medium flex items-start justify-between gap-2 ${
+          msg.type === 'error' ? 'bg-red-50 text-red-800 border-red-300' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
         }`}>
-          {msg.text}
+          <span>{msg.text}</span>
+          {msg.type === 'error' && (
+            <button
+              type="button"
+              onClick={() => setMsg(null)}
+              className="text-xs px-2 py-0.5 bg-white border border-red-300 rounded hover:bg-red-100"
+            >
+              ✕
+            </button>
+          )}
         </div>
       )}
 
@@ -260,41 +311,44 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
           )}
         </div>
 
-        {/* ASSIGNMENT TABLE (collapsible) */}
         {openAssign && (
           <div className="mt-3 p-3 bg-white rounded border border-slate-200 max-h-80 overflow-auto">
             <p className="text-xs font-bold text-slate-700 uppercase mb-2">Set room type per peserta:</p>
-            <table className="w-full text-xs">
-              <thead className="bg-slate-50 sticky top-0">
-                <tr className="text-left">
-                  <th className="px-2 py-1">Nama</th>
-                  <th className="px-2 py-1">Room Type</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activePassengers.map((p) => {
-                  const c = custMap[p.customer_id];
-                  return (
-                    <tr key={p.id} className="border-t border-slate-100">
-                      <td className="px-2 py-1">{c?.name || `#${p.id}`}</td>
-                      <td className="px-2 py-1">
-                        <select
-                          defaultValue={p.room_type || ''}
-                          disabled={pending}
-                          onChange={(e) => handleAssignRoom(p.id, e.target.value)}
-                          className="px-2 py-0.5 border border-slate-300 rounded text-xs"
-                        >
-                          <option value="">— Belum —</option>
-                          {ROOM_TYPES.map((rt) => (
-                            <option key={rt.key} value={rt.key}>{rt.label} ({rt.capacity})</option>
-                          ))}
-                        </select>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            {activePassengers.length === 0 ? (
+              <p className="text-xs text-red-600">Tidak ada peserta aktif. Cek master trip atau status peserta (mungkin semua transferred/refunded).</p>
+            ) : (
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50 sticky top-0">
+                  <tr className="text-left">
+                    <th className="px-2 py-1">Nama</th>
+                    <th className="px-2 py-1">Room Type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activePassengers.map((p) => {
+                    const c = custMap[p.customer_id];
+                    return (
+                      <tr key={p.id} className="border-t border-slate-100">
+                        <td className="px-2 py-1">{c?.name || `#${p.id}`}</td>
+                        <td className="px-2 py-1">
+                          <select
+                            defaultValue={p.room_type || ''}
+                            disabled={pending}
+                            onChange={(e) => handleAssignRoom(p.id, e.target.value)}
+                            className="px-2 py-0.5 border border-slate-300 rounded text-xs"
+                          >
+                            <option value="">— Belum —</option>
+                            {ROOM_TYPES.map((rt) => (
+                              <option key={rt.key} value={rt.key}>{rt.label} ({rt.capacity})</option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
       </div>
@@ -373,7 +427,7 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
       <div className="p-5 space-y-3">
         <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">🏨 Input Hotel HPP</p>
 
-        {/* R215d v2 — CALC MODE TOGGLE */}
+        {/* MODE TOGGLE */}
         <div className="p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border-2 border-purple-300">
           <p className="text-xs font-bold text-purple-800 uppercase mb-2">⚙ Mode Perhitungan</p>
           <div className="flex flex-wrap gap-2">
@@ -410,13 +464,16 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label className="text-[10px] font-semibold text-slate-600 block uppercase">Nama Hotel *</label>
+            <label className="text-[10px] font-semibold text-slate-600 block uppercase">
+              Nama Hotel <span className="text-red-500">*</span>
+              {!hotelNameValid && <span className="text-red-500 ml-1">(wajib)</span>}
+            </label>
             <input
               type="text"
               value={form.hotel_name}
               onChange={(e) => setForm((f) => ({ ...f, hotel_name: e.target.value }))}
               placeholder="e.g. Madinah Movenpick / Mekkah Hilton"
-              className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm"
+              className={`w-full px-3 py-1.5 border rounded text-sm ${hotelNameValid ? 'border-slate-300' : 'border-red-300 bg-red-50'}`}
             />
           </div>
           <div>
@@ -432,7 +489,6 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {/* CONDITIONAL: Mode A = Room Type, Mode B = N/A */}
           {form.calc_mode === 'per_room' ? (
             <>
               <div>
@@ -451,14 +507,15 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
               </div>
               <div>
                 <label className="text-[10px] font-semibold text-slate-600 block uppercase">
-                  Pax di Room ini
+                  Pax di Room ini <span className="text-red-500">*</span>
                   <span className="text-amber-600 ml-1">(auto: {counts[form.room_type] || 0})</span>
                 </label>
                 <input
                   type="number"
                   value={form.pax_in_room}
+                  min="1"
                   onChange={(e) => setForm((f) => ({ ...f, pax_in_room: Number(e.target.value) }))}
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm"
+                  className={`w-full px-3 py-1.5 border rounded text-sm ${paxValid ? 'border-slate-300' : 'border-red-300 bg-red-50'}`}
                 />
               </div>
             </>
@@ -466,14 +523,15 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
             <>
               <div className="col-span-2">
                 <label className="text-[10px] font-semibold text-slate-600 block uppercase">
-                  Jumlah Peserta
+                  Jumlah Peserta <span className="text-red-500">*</span>
                   <span className="text-amber-600 ml-1">(auto: {activePassengers.length} aktif)</span>
                 </label>
                 <input
                   type="number"
                   value={form.pax_count}
+                  min="1"
                   onChange={(e) => setForm((f) => ({ ...f, pax_count: Number(e.target.value) }))}
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm"
+                  className={`w-full px-3 py-1.5 border rounded text-sm ${paxValid ? 'border-slate-300' : 'border-red-300 bg-red-50'}`}
                 />
               </div>
             </>
@@ -504,26 +562,30 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {form.calc_mode === 'per_room' ? (
             <div>
-              <label className="text-[10px] font-semibold text-slate-600 block uppercase">Harga per Room ({form.currency})</label>
+              <label className="text-[10px] font-semibold text-slate-600 block uppercase">
+                Harga per Room ({form.currency}) <span className="text-red-500">*</span>
+              </label>
               <input
                 type="number"
                 value={form.price_per_room}
                 onChange={(e) => setForm((f) => ({ ...f, price_per_room: Number(e.target.value) }))}
                 placeholder="e.g. 520"
                 step="0.01"
-                className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm font-mono"
+                className={`w-full px-3 py-1.5 border rounded text-sm font-mono ${priceValid ? 'border-slate-300' : 'border-red-300 bg-red-50'}`}
               />
             </div>
           ) : (
             <div>
-              <label className="text-[10px] font-semibold text-slate-600 block uppercase">Harga per Pax ({form.currency})</label>
+              <label className="text-[10px] font-semibold text-slate-600 block uppercase">
+                Harga per Pax ({form.currency}) <span className="text-red-500">*</span>
+              </label>
               <input
                 type="number"
                 value={form.price_per_pax}
                 onChange={(e) => setForm((f) => ({ ...f, price_per_pax: Number(e.target.value) }))}
                 placeholder="e.g. 150"
                 step="0.01"
-                className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm font-mono"
+                className={`w-full px-3 py-1.5 border rounded text-sm font-mono ${priceValid ? 'border-slate-300' : 'border-red-300 bg-red-50'}`}
               />
             </div>
           )}
@@ -591,9 +653,6 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
                     Per room ({form.price_mode === 'per_night' ? `${form.nights} malam` : 'total stay'}):
                     <span className="font-mono ml-1">{fmtCurrency(calc.unitPriceForeign, form.currency)}</span>
                   </p>
-                  <p className="text-xs text-slate-600">
-                    <span className="font-mono">{calc.roomsNeeded} rooms × {fmtCurrency(calc.unitPriceForeign, form.currency)}</span>
-                  </p>
                 </>
               ) : (
                 <>
@@ -605,10 +664,6 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
                       × <span className="font-mono">{form.nights} malam</span>
                     </p>
                   )}
-                  <p className="text-xs text-slate-600">
-                    Per pax ({form.price_mode === 'per_night' ? `${form.nights} malam` : 'total stay'}):
-                    <span className="font-mono ml-1">{fmtCurrency(calc.unitPriceForeign, form.currency)}</span>
-                  </p>
                 </>
               )}
               <p className="text-xs text-slate-600">
@@ -631,13 +686,26 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
           </div>
         </div>
 
+        {/* R215j — Validation hint */}
+        {!isFormValid && (
+          <div className="p-2 bg-red-50 border border-red-300 rounded text-xs text-red-800">
+            ⚠ Form belum valid: {!hotelNameValid && '[Nama Hotel kosong] '}
+            {!priceValid && `[Harga ${form.calc_mode === 'per_room' ? 'per Room' : 'per Pax'} = 0] `}
+            {!paxValid && `[${form.calc_mode === 'per_room' ? 'Pax di Room' : 'Jumlah Pax'} = 0]`}
+          </div>
+        )}
+
         <button
           type="button"
           onClick={handleSave}
-          disabled={pending}
-          className="w-full px-4 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-bold rounded-lg"
+          disabled={pending || !isFormValid}
+          className={`w-full px-4 py-2.5 rounded-lg font-bold text-white ${
+            pending || !isFormValid
+              ? 'bg-slate-400 cursor-not-allowed'
+              : 'bg-amber-600 hover:bg-amber-700'
+          }`}
         >
-          {pending ? '⏳ Menyimpan...' : '💾 Simpan ke HPP'}
+          {pending ? '⏳ Menyimpan...' : (isFormValid ? '💾 Simpan ke HPP' : '⚠ Lengkapi form dulu')}
         </button>
       </div>
 
