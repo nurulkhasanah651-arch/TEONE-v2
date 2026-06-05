@@ -1,4 +1,6 @@
-// Round 181: Visa trip detail — + PDF download Manifest & Roomlist
+// Round 181 + R215m: Visa trip detail
+// R215m: TAMBAH VisaWorkflowConfig + VisaWorkflowPanel di bawah matrix existing
+// EXISTING: VisaGroupForm + VisaMatrix + VisaPDFDownloads → TETAP UTUH
 // Path: app/(app)/visa/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -9,6 +11,9 @@ import { statusCfg } from '@/lib/utils/trip-status';
 import VisaGroupForm from '@/components/visa/VisaGroupForm';
 import VisaMatrix from '@/components/visa/VisaMatrix';
 import VisaPDFDownloads from '@/components/visa/VisaPDFDownloads';
+// R215m — Workflow Config + Panel
+import VisaWorkflowConfig from '@/components/visa/VisaWorkflowConfig';
+import VisaWorkflowPanel from '@/components/visa/VisaWorkflowPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +26,6 @@ export default async function VisaTripPage({ params }) {
   const { data: tp } = await supabase.from('trip_passengers').select('*').eq('trip_id', tripId).order('joined_at', { ascending: true });
   const allPassengers = tp || [];
 
-  // Round 128: Filter active passengers
   const passengers = allPassengers.filter((p) => {
     const isTransferred = p.transfer_status === 'transferred';
     const isRefunded = p.refund_status === 'refunded' || p.refund_status === 'partial_refund';
@@ -36,7 +40,7 @@ export default async function VisaTripPage({ params }) {
     customerMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
   }
 
-  // ROUND 128: Fetch payment Visa per peserta
+  // Fetch payment Visa per peserta (existing)
   const passengerIds = passengers.map((p) => p.id);
   const visaPaymentByPassenger = {};
   if (passengerIds.length > 0) {
@@ -95,37 +99,31 @@ export default async function VisaTripPage({ params }) {
         </p>
       </div>
 
-      {/* R181: PDF download Manifest + Roomlist */}
+      {/* PDF Downloads (existing) */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4 space-y-3">
         <p className="text-xs font-bold text-brand-700 uppercase tracking-wider">📥 Download Dokumen</p>
-
-        {/* PDF row */}
         <VisaPDFDownloads trip={trip} passengers={passengersWithCustomers} />
-
-        {/* CSV row (existing) */}
         <div className="flex flex-wrap gap-2 pt-1 border-t border-slate-100">
-          <a
-            href={`/visa/${tripId}/manifest.csv`}
-            download={`manifest_${trip.kode_trip || trip.id}.csv`}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-lg flex items-center gap-2"
-          >
+          <a href={`/visa/${tripId}/manifest.csv`} download={`manifest_${trip.kode_trip || trip.id}.csv`} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-lg flex items-center gap-2">
             📋 Manifest (CSV)
           </a>
-          <a
-            href={`/visa/${tripId}/roomlist.csv`}
-            download={`roomlist_${trip.kode_trip || trip.id}.csv`}
-            className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-semibold rounded-lg flex items-center gap-2"
-          >
+          <a href={`/visa/${tripId}/roomlist.csv`} download={`roomlist_${trip.kode_trip || trip.id}.csv`} className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-semibold rounded-lg flex items-center gap-2">
             🛏 Roomlist (CSV)
           </a>
         </div>
       </div>
 
-      {/* Group info + template editor */}
+      {/* Group info + template editor (existing) */}
       <VisaGroupForm trip={trip} template={template} />
 
-      {/* Matrix */}
+      {/* R215m — Workflow Config (NEW) */}
+      <VisaWorkflowConfig trip={trip} />
+
+      {/* Matrix (existing) */}
       <VisaMatrix tripId={tripId} template={template} passengers={passengersWithCustomers} />
+
+      {/* R215m — Workflow Panel (NEW) — per peserta cost, WA, hasil */}
+      <VisaWorkflowPanel trip={trip} passengers={passengersWithCustomers} />
     </div>
   );
 }
