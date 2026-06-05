@@ -1,8 +1,8 @@
-// R157 + R215c: Proyeksi Income per Group + Quotation Download
-// R215c: TAMBAH tombol "📋 Quotation Excel" (format PRO DMC X TBA)
-//        + auto-derive operatedBy dari vendor Landtour
+// R157 + R215c + R215d: Finance Cashflow Detail
+// R215c: Quotation Excel download (tombol ungu)
+// R215d: Hotel HPP Calculator section + Room assignment per pax
 // EXISTING: FinanceItemForm, FinanceItemRow, Stats Cards, Cash In Auto,
-//           existing DownloadButtons section/full → TETAP UTUH
+//           DownloadButtons section/full → TETAP UTUH
 // Path: app/(app)/finance/cashflow/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -12,8 +12,9 @@ import { fmtRupiah } from '@/lib/utils/format';
 import FinanceItemForm from '@/components/finance/FinanceItemForm';
 import FinanceItemRow from '@/components/finance/FinanceItemRow';
 import DownloadButtons from '@/components/common/DownloadButtons';
-// R215c — Quotation Excel download (client component)
 import QuotationDownloadButton from '@/components/finance/QuotationDownloadButton';
+// R215d — Hotel calculator section
+import HotelHPPSection from '@/components/finance/HotelHPPSection';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,17 +22,22 @@ export default async function CashflowDetailPage({ params }) {
   const { tripId } = await params;
   const supabase = createClient();
 
-  const [tripRes, itemsRes, passengersRes] = await Promise.all([
+  // R215d — fetch trip_passengers + customers untuk room assignment & count
+  const [tripRes, itemsRes, passengersRes, customersRes] = await Promise.all([
     supabase.from('trips').select('*').eq('id', tripId).maybeSingle(),
     supabase.from('trip_finance_items').select('*').eq('trip_id', tripId).order('item_type').order('category'),
-    supabase.from('trip_passengers').select('id, transfer_status, refund_status').eq('trip_id', tripId),
+    supabase.from('trip_passengers')
+      .select('id, customer_id, room_type, transfer_status, refund_status')
+      .eq('trip_id', tripId),
+    supabase.from('customers').select('id, name'),
   ]);
 
   if (!tripRes.data) notFound();
   const trip = tripRes.data;
   const items = itemsRes.data || [];
-
   const allPassengers = passengersRes.data || [];
+  const customers = customersRes.data || [];
+
   const activePassengers = allPassengers.filter((p) => {
     const isTransferred = p.transfer_status === 'transferred';
     const isRefunded = p.refund_status === 'refunded' || p.refund_status === 'partial_refund';
@@ -58,6 +64,14 @@ export default async function CashflowDetailPage({ params }) {
 
   const incomeItems = items.filter((i) => i.item_type === 'income');
   const hppItems = items.filter((i) => i.item_type === 'hpp');
+  // R215d — separate hotel HPP items
+  const hotelHppItems = hppItems.filter((i) =>
+    i.is_hotel === true ||
+    String(i.category || '').toLowerCase().includes('hotel') ||
+    String(i.component || '').toLowerCase().includes('hotel') ||
+    i.room_type
+  );
+
   const manualIncome = incomeItems.reduce((s, i) => s + (i.total_amount || 0), 0);
   const totalIncome = manualIncome + autoCashIn;
   const totalHPP = hppItems.reduce((s, i) => s + (i.total_amount || 0), 0);
@@ -67,7 +81,7 @@ export default async function CashflowDetailPage({ params }) {
   const refundHpp = hppItems.filter((i) => i.category === 'Refund');
   const totalRefundHpp = refundHpp.reduce((s, i) => s + (i.total_amount || 0), 0);
 
-  // R215c — derive Operated by dari vendor Landtour HPP
+  // R215c — derive Operated by dari vendor Landtour
   const landtourItem = hppItems.find((i) => {
     const cat = String(i.category || '').toLowerCase();
     const comp = String(i.component || '').toLowerCase();
@@ -128,7 +142,6 @@ export default async function CashflowDetailPage({ params }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          {/* R215c — Quotation Excel (NEW) */}
           <QuotationDownloadButton
             trip={trip}
             incomeItems={incomeItems}
@@ -139,7 +152,6 @@ export default async function CashflowDetailPage({ params }) {
             profit={profit}
             operatedBy={operatedBy}
           />
-          {/* EXISTING — Download full proyeksi income */}
           <DownloadButtons
             filename={`proyeksi-income-${trip.kode_trip || trip.id}`}
             title={`Proyeksi Income — ${trip.kode_trip || ''} ${trip.name}`}
@@ -181,6 +193,7 @@ export default async function CashflowDetailPage({ params }) {
         <StatCard label="Margin" value={margin == null ? '—' : `${margin}%`} color={margin == null ? 'text-slate-500' : margin >= 0 ? 'text-purple-700' : 'text-red-700'} bg={margin == null ? 'bg-slate-50' : margin >= 0 ? 'bg-purple-50' : 'bg-red-50'} />
       </div>
 
+      {/* Cash In Peserta (Auto) */}
       <div className="bg-white rounded-xl border-2 border-green-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b bg-green-50 border-green-200 flex items-center justify-between flex-wrap gap-2">
           <h2 className="font-bold text-green-800 flex items-center gap-2">
@@ -217,8 +230,16 @@ export default async function CashflowDetailPage({ params }) {
         fmtMoney={fmtMoney}
       />
 
+      {/* R215d — HOTEL HPP CALCULATOR (NEW) */}
+      <HotelHPPSection
+        trip={trip}
+        passengers={allPassengers}
+        customers={customers}
+        hotelItems={hotelHppItems}
+      />
+
       <FinanceSection
-        title="HPP (Cost) — termasuk Refund"
+        title="HPP (Cost) — termasuk Hotel & Refund"
         emoji="🧾"
         color="amber"
         items={hppItems}
