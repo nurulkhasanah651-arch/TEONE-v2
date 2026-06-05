@@ -236,7 +236,7 @@ export default function RoomlistPanel({ trip, passengers = [], customers = [] })
                         </span>
                       </td>
                       <td className="px-2 py-1 text-[10px] text-slate-500">
-                        {p.family_group_id ? p.family_group_id.slice(0, 6) : '—'}
+                        {p.family_group_id ? String(p.family_group_id).slice(0, 6) : '—'}
                       </td>
                       <td className="px-2 py-1">
                         <select
