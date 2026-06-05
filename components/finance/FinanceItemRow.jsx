@@ -1,6 +1,10 @@
 'use client';
 
-// Round 184: FinanceItemRow — + invoice upload saat request + download bukti transfer
+// Round 184 + R215l: FinanceItemRow + INLINE EDIT MODE
+// R215l: TAMBAH tombol ✏ Edit → inline edit semua field (Component, Vendor, Category, Qty, Basic Fare,
+//        Total Amount, Payment Status, DP Paid, Notes)
+// R215l: Request DP default = EMPTY (sesuai request user)
+// EXISTING: Request Deposit/Pelunasan, Approve, Cancel, Delete, HPPDocumentBar → TETAP UTUH
 // Path: components/finance/FinanceItemRow.jsx
 
 import { useState, useTransition, useRef } from 'react';
@@ -12,7 +16,8 @@ import {
   approvePayment,
 } from '@/lib/actions/finance';
 import { uploadHPPInvoice } from '@/lib/actions/hpp-documents';
-// R184b: pakai standalone HPPDocumentBar component
+// R215l — Edit action
+import { updateFinanceItem } from '@/lib/actions/finance-item-edit';
 import HPPDocumentBar from './HPPDocumentBar';
 
 function fmtRupiah(n) {
@@ -43,7 +48,6 @@ function daysUntil(dateStr) {
   return Math.floor((d - today) / (1000 * 60 * 60 * 24));
 }
 
-// R179b: hitung "needs deposit phase?" — true kalau item butuh DP dulu
 function needsDepositPhase(item) {
   if (item.skip_deposit === true) return false;
   const planned = Number(item.deposit_planned) || 0;
@@ -52,8 +56,6 @@ function needsDepositPhase(item) {
   return true;
 }
 
-// R180b: deriveStatus pakai payment_status sebagai SOURCE OF TRUTH
-// (sebelumnya cuma cek dp_paid → kalau approve dari accounting gak set dp_paid, label salah)
 function deriveStatus(item) {
   const total = Number(item.total_amount) || 0;
   const dp = Number(item.dp_paid) || 0;
@@ -69,7 +71,6 @@ function deriveStatus(item) {
   if (reqStatus === 'rejected') {
     return { code: 'rejected', label: '✕ Rejected', color: 'bg-red-100 text-red-800' };
   }
-  // R180b: payment_status canonical
   if (status === 'lunas' || (dp > 0 && dp >= total && total > 0)) {
     return { code: 'lunas', label: '✅ LUNAS', color: 'bg-blue-100 text-blue-800' };
   }
@@ -86,7 +87,6 @@ function deriveStatus(item) {
   };
 }
 
-// R180b: hitung displayed "Dibayar" — kalau payment_status='lunas', force = total
 function getDisplayedPaid(item, total) {
   const dp = Number(item.dp_paid) || 0;
   const status = String(item.payment_status || '').toLowerCase();
@@ -102,13 +102,26 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
   const [reqAmount, setReqAmount] = useState('');
   const [reqNote, setReqNote] = useState('');
   const [reqPhase, setReqPhase] = useState('deposit');
-  // R184: invoice + transfer proof
   const invoiceFileRef = useRef(null);
   const [uploadingInvoice, setUploadingInvoice] = useState(false);
-  const [docMsg, setDocMsg] = useState('');
+
+  // R215l — Edit mode state
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({
+    component: '',
+    vendor_name: '',
+    category: '',
+    qty: '',
+    basic_fare: '',
+    total_amount: '',
+    payment_status: '',
+    dp_paid: '',
+    notes: '',
+  });
+  const [editMsg, setEditMsg] = useState(null);
+  const [autoCalcTotal, setAutoCalcTotal] = useState(true);
 
   const total = Number(i.total_amount) || 0;
-  // R180b: dipakai untuk display "Dibayar" — kalau status='lunas', force = total walau dp_paid=0
   const dp = getDisplayedPaid(i, total);
   const sisa = Math.max(total - dp, 0);
   const deposit = Number(i.deposit_planned) || 0;
@@ -136,11 +149,9 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
       if (!confirm(`Jumlah ${fmtRupiah(amt)} > sisa ${fmtRupiah(sisa)}. Lanjut?`)) return;
     }
     startTransition(async () => {
-      // R184: kirim request dulu
       const r = await requestPaymentToAccounting(i.id, tripId, reqNote, amt, reqPhase);
       if (r?.error) { alert(r.error); return; }
 
-      // R184: upload invoice kalau ada file
       const file = invoiceFileRef.current?.files?.[0];
       if (file) {
         setUploadingInvoice(true);
@@ -160,8 +171,6 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
       router.refresh();
     });
   }
-
-  // R184b: handlers untuk doc moved ke HPPDocumentBar component
 
   function handleCancelRequest() {
     if (!confirm('Batalkan permintaan payment?')) return;
@@ -184,17 +193,255 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
 
   function openRequestDeposit() {
     setReqPhase('deposit');
-    setReqAmount(String(deposit > 0 ? deposit : Math.round(total / 2)));
+    // R215l — empty default per user request (input manual)
+    setReqAmount('');
     setShowReqForm(true);
   }
 
   function openRequestPelunasan() {
     setReqPhase('pelunasan');
-    // Kalau skip_deposit / belum bayar apapun → request full sisa (= total)
     setReqAmount(String(sisa));
     setShowReqForm(true);
   }
 
+  // R215l — Edit mode handlers
+  function openEdit() {
+    setEditForm({
+      component: i.component || '',
+      vendor_name: i.vendor_name || '',
+      category: i.category || '',
+      qty: i.qty != null ? String(i.qty) : '',
+      basic_fare: i.basic_fare != null ? String(i.basic_fare) : '',
+      total_amount: i.total_amount != null ? String(i.total_amount) : '',
+      payment_status: i.payment_status || 'belum lunas',
+      dp_paid: i.dp_paid != null ? String(i.dp_paid) : '0',
+      notes: i.notes || '',
+    });
+    setEditMsg(null);
+    setAutoCalcTotal(true);
+    setEditMode(true);
+  }
+
+  function closeEdit() {
+    setEditMode(false);
+    setEditMsg(null);
+  }
+
+  function handleEditChange(field, value) {
+    setEditForm((f) => {
+      const next = { ...f, [field]: value };
+      // R215l — Auto-recalc total kalau qty/basic_fare berubah & autoCalcTotal aktif
+      if (autoCalcTotal && (field === 'qty' || field === 'basic_fare')) {
+        const qty = Number(field === 'qty' ? value : f.qty) || 0;
+        const fare = Number(field === 'basic_fare' ? value : f.basic_fare) || 0;
+        next.total_amount = String(qty * fare);
+      }
+      // R215l — Kalau user manual edit total → disable auto-calc
+      if (field === 'total_amount') {
+        setAutoCalcTotal(false);
+      }
+      return next;
+    });
+  }
+
+  function handleSaveEdit() {
+    const updates = {
+      component: editForm.component.trim(),
+      vendor_name: editForm.vendor_name.trim() || null,
+      category: editForm.category.trim() || 'Lainnya',
+      qty: Number(editForm.qty) || 0,
+      basic_fare: Number(editForm.basic_fare) || 0,
+      total_amount: Number(editForm.total_amount) || 0,
+      payment_status: editForm.payment_status,
+      dp_paid: Number(editForm.dp_paid) || 0,
+      notes: editForm.notes.trim(),
+    };
+
+    if (!updates.component) {
+      setEditMsg({ type: 'error', text: 'Component wajib diisi' });
+      return;
+    }
+
+    startTransition(async () => {
+      const r = await updateFinanceItem(i.id, tripId, updates);
+      if (r?.error) {
+        setEditMsg({ type: 'error', text: r.error });
+        return;
+      }
+      setEditMsg({ type: 'success', text: '✓ Saved' + (r.warning ? ' · ' + r.warning : '') });
+      setTimeout(() => {
+        setEditMode(false);
+        router.refresh();
+      }, 800);
+    });
+  }
+
+  // R215l — EDIT MODE (kalau aktif, render form)
+  if (editMode) {
+    return (
+      <div className="p-3 bg-blue-50 border-2 border-blue-400 rounded-lg space-y-2">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <p className="text-xs font-bold text-blue-800 uppercase tracking-wider">
+            ✏ EDIT MODE — Item #{i.id}
+          </p>
+          <div className="flex gap-1">
+            <button
+              type="button"
+              onClick={handleSaveEdit}
+              disabled={pending}
+              className="px-3 py-1 text-xs font-bold rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+            >
+              {pending ? '⏳ Saving...' : '💾 Save'}
+            </button>
+            <button
+              type="button"
+              onClick={closeEdit}
+              disabled={pending}
+              className="px-3 py-1 text-xs font-semibold rounded bg-slate-200 hover:bg-slate-300 text-slate-700"
+            >
+              ✕ Cancel
+            </button>
+          </div>
+        </div>
+
+        {editMsg && (
+          <div className={`p-2 rounded text-xs ${
+            editMsg.type === 'error' ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+          }`}>
+            {editMsg.text}
+          </div>
+        )}
+
+        {/* Basic info */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div>
+            <label className="text-[10px] font-bold text-slate-600 uppercase block mb-0.5">Component *</label>
+            <input
+              type="text"
+              value={editForm.component}
+              onChange={(e) => handleEditChange('component', e.target.value)}
+              className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm bg-white"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-slate-600 uppercase block mb-0.5">Vendor</label>
+            <input
+              type="text"
+              value={editForm.vendor_name}
+              onChange={(e) => handleEditChange('vendor_name', e.target.value)}
+              className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm bg-white"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-slate-600 uppercase block mb-0.5">Category</label>
+            <input
+              type="text"
+              value={editForm.category}
+              onChange={(e) => handleEditChange('category', e.target.value)}
+              className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm bg-white"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-slate-600 uppercase block mb-0.5">
+              Payment Status
+            </label>
+            <select
+              value={editForm.payment_status}
+              onChange={(e) => handleEditChange('payment_status', e.target.value)}
+              className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm bg-white"
+            >
+              <option value="belum lunas">❌ Belum Lunas</option>
+              <option value="dp">💵 DP / Partial</option>
+              <option value="lunas">✅ Lunas</option>
+              <option value="tidak perlu">— Tidak Perlu</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Quantities */}
+        <div className="p-2 bg-white border border-slate-200 rounded">
+          <p className="text-[10px] font-bold text-slate-600 uppercase mb-1">Quantities & Pricing</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div>
+              <label className="text-[10px] text-slate-500 block mb-0.5">Qty</label>
+              <input
+                type="number"
+                value={editForm.qty}
+                onChange={(e) => handleEditChange('qty', e.target.value)}
+                className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm font-mono"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-500 block mb-0.5">Basic Fare (per unit)</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={fmtInput(editForm.basic_fare)}
+                onChange={(e) => handleEditChange('basic_fare', parseInput(e.target.value))}
+                className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm font-mono"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-500 block mb-0.5">
+                Total Amount {autoCalcTotal && <span className="text-amber-600">(auto)</span>}
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={fmtInput(editForm.total_amount)}
+                onChange={(e) => handleEditChange('total_amount', parseInput(e.target.value))}
+                className={`w-full px-2 py-1.5 border rounded text-sm font-mono font-bold ${autoCalcTotal ? 'border-amber-200 bg-amber-50' : 'border-blue-300 bg-blue-50'}`}
+              />
+              {!autoCalcTotal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAutoCalcTotal(true);
+                    const qty = Number(editForm.qty) || 0;
+                    const fare = Number(editForm.basic_fare) || 0;
+                    handleEditChange('total_amount', String(qty * fare));
+                  }}
+                  className="text-[10px] text-blue-600 hover:underline mt-0.5"
+                >
+                  ↻ Re-enable auto-calc
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* DP Paid */}
+        <div>
+          <label className="text-[10px] font-bold text-slate-600 uppercase block mb-0.5">
+            DP Paid (yg sudah dibayar)
+          </label>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={fmtInput(editForm.dp_paid)}
+            onChange={(e) => handleEditChange('dp_paid', parseInput(e.target.value))}
+            className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm font-mono"
+          />
+          <p className="text-[10px] text-slate-500 mt-0.5">
+            Catatan: Set DP Paid = Total Amount + status='lunas' kalau item udah lunas
+          </p>
+        </div>
+
+        {/* Notes */}
+        <div>
+          <label className="text-[10px] font-bold text-slate-600 uppercase block mb-0.5">Notes</label>
+          <textarea
+            value={editForm.notes}
+            onChange={(e) => handleEditChange('notes', e.target.value)}
+            rows="2"
+            className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // R215l — DISPLAY MODE (existing — gak diubah)
   return (
     <div className="p-3 bg-white border border-slate-200 rounded-lg">
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -207,10 +454,14 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${status.color}`}>
               {status.label}
             </span>
-            {/* R179b: badge skip_deposit kalau memang tanpa DP */}
             {i.item_type === 'hpp' && !hasDepositPhase && status.code !== 'lunas' && (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-700">
                 💨 Tanpa DP
+              </span>
+            )}
+            {i.is_hotel === true && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
+                🏨 Hotel
               </span>
             )}
           </div>
@@ -232,7 +483,6 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
                 </div>
               </div>
 
-              {/* Deadline Deposit (kalau ada deposit phase) */}
               {hasDepositPhase && deadlineDp && dp === 0 && (
                 <div className={`mt-2 px-2 py-1 rounded text-xs flex items-center gap-2 flex-wrap ${
                   daysToDp < 0 ? 'bg-red-50 text-red-800' :
@@ -251,7 +501,6 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
                 </div>
               )}
 
-              {/* Deadline Pelunasan */}
               {deadline && sisa > 0 && (
                 <div className={`mt-2 px-2 py-1 rounded text-xs flex items-center gap-2 flex-wrap ${
                   daysToDeadline < 0 ? 'bg-red-50 text-red-800' :
@@ -294,10 +543,21 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
         </div>
 
         <div className="flex gap-1 flex-wrap">
-          {/* R179b: SMART BUTTON ROUTING */}
+          {/* R215l — EDIT button (selalu available kecuali waktu request pending) */}
+          {status.code !== 'requested' && (
+            <button
+              type="button"
+              onClick={openEdit}
+              disabled={pending}
+              className="px-2 py-1 text-xs font-semibold rounded bg-purple-100 hover:bg-purple-200 text-purple-800"
+              title="Edit item (component, vendor, qty, harga, status, dll)"
+            >
+              ✏ Edit
+            </button>
+          )}
+
           {i.item_type === 'hpp' && status.code !== 'requested' && status.code !== 'lunas' && (
             <>
-              {/* Kalau butuh DP phase & belum bayar apapun → Request Deposit */}
               {hasDepositPhase && dp === 0 && (
                 <button
                   type="button"
@@ -308,7 +568,6 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
                   📨 Request Deposit
                 </button>
               )}
-              {/* Kalau skip_deposit/no_deposit & belum bayar → langsung Request Pelunasan */}
               {!hasDepositPhase && dp === 0 && (
                 <button
                   type="button"
@@ -319,7 +578,18 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
                   📨 Request Pelunasan
                 </button>
               )}
-              {/* Setelah DP dibayar & masih ada sisa → Request Pelunasan */}
+              {/* R215l — Always allow Request DP juga (kalau status pending) */}
+              {!hasDepositPhase && dp === 0 && status.code === 'pending' && (
+                <button
+                  type="button"
+                  onClick={openRequestDeposit}
+                  disabled={pending}
+                  className="px-2 py-1 text-xs font-semibold rounded bg-amber-100 hover:bg-amber-200 text-amber-800"
+                  title="Request DP (manual)"
+                >
+                  💰 Request DP
+                </button>
+              )}
               {dp > 0 && sisa > 0 && (
                 <button
                   type="button"
@@ -374,13 +644,15 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
             📨 Request {reqPhase === 'pelunasan' ? 'Pelunasan' : 'Deposit'} ke Finance/Owner
           </p>
           <label className="block">
-            <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Jumlah (Rp)</span>
+            <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">
+              Jumlah (Rp) {reqPhase === 'deposit' && <span className="text-amber-700">(input manual)</span>}
+            </span>
             <input
               type="text"
               inputMode="numeric"
               value={fmtInput(reqAmount)}
               onChange={(e) => setReqAmount(parseInput(e.target.value))}
-              placeholder={`Sisa: ${fmtRupiah(sisa)}`}
+              placeholder={reqPhase === 'deposit' ? `Input nominal DP (sisa: ${fmtRupiah(sisa)})` : `Sisa: ${fmtRupiah(sisa)}`}
               className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm bg-white"
             />
           </label>
@@ -395,7 +667,6 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
             />
           </label>
 
-          {/* R184: Upload invoice — opsional kalau item belum ada invoice */}
           <label className="block">
             <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">
               📎 Upload Invoice {i.invoice_url ? '(replace)' : '(opsional)'}
@@ -432,7 +703,6 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
         </div>
       )}
 
-      {/* R184f: DOCUMENT BAR — Finance & Accounting sama-sama bisa upload + lihat di sini */}
       {i.item_type === 'hpp' && (
         <div className="mt-2 pt-2 border-t border-slate-100">
           <HPPDocumentBar item={i} canUploadInvoice={true} canUploadProof={true} compact={true} />
