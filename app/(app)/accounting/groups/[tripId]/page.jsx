@@ -1,5 +1,6 @@
-// Round 157 HOTFIX: Accounting per group + DOWNLOAD BUTTONS (PDF/Excel/CSV)
-// (Sudah include R124 admin fee + R126 active/inactive filter)
+// R157 HOTFIX + R214: Accounting per group — fix DEPOSIT PNR calc
+// R214: pakai deposit_total only (bukan + payoff_amount yg = sisa)
+//       + PNR gak double-counted ke totalRealOut (sudah lewat HPP)
 // Path: app/(app)/accounting/groups/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -8,7 +9,6 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import { statusCfg } from '@/lib/utils/trip-status';
 import DownloadButtons from '@/components/common/DownloadButtons';
-// R184d: HPPDocumentBar — Accounting bisa lihat invoice + upload bukti dari sini
 import HPPDocumentBar from '@/components/finance/HPPDocumentBar';
 
 export const dynamic = 'force-dynamic';
@@ -66,14 +66,11 @@ export default async function GroupCashflowDetailPage({ params }) {
   const accEntriesRaw = accEntRes.data || [];
   const refunds = refundsRes.data || [];
 
-  // R180: Pisahkan accounting_entries jadi manual murni vs linked (auto-created)
-  // linked entries udah ke-count di hppLunas / payments → jangan dihitung lagi
   const accEntries = accEntriesRaw.filter((e) =>
     !e.linked_finance_item_id &&
     !e.linked_payment_id &&
     e.source !== 'tl_payment'
   );
-  // linkedAccEntries dipakai untuk bank balance (kalau perlu)
   const linkedAccEntries = accEntriesRaw.filter((e) =>
     e.linked_finance_item_id || e.linked_payment_id || e.source === 'tl_payment'
   );
@@ -87,12 +84,10 @@ export default async function GroupCashflowDetailPage({ params }) {
   const totalRealIn = totalPaymentsIn + totalPaymentsInactive + manualIn;
 
   // === CASH OUT ===
-  // R182: include HPP partial DP juga (gak cuma 'lunas')
   const hppLunas = finItems.filter((i) =>
     i.item_type === 'hpp' &&
     (i.payment_status === 'lunas' || Number(i.dp_paid || 0) > 0)
   );
-  // R182: pakai dp_paid (actual cash keluar), fallback total_amount untuk legacy
   const hppPaidAmount = (i) => {
     const paid = Number(i.dp_paid) || 0;
     return paid > 0 ? paid : Number(i.total_amount || 0);
@@ -101,9 +96,16 @@ export default async function GroupCashflowDetailPage({ params }) {
   const hppRefundLunas = hppLunas.filter((i) => (i.category || '').toLowerCase().includes('refund'));
   const totalHppRefundLunas = hppRefundLunas.reduce((s, i) => s + hppPaidAmount(i), 0);
   const totalHppOther = totalHppLunas - totalHppRefundLunas;
-  const totalPnrPaid = pnrs.reduce((s, p) => s + (p.deposit_total || 0) + (p.payoff_amount || 0), 0);
+
+  // R214 FIX: deposit_total only (yang SUDAH dibayar) — bukan + payoff_amount (yang adalah SISA)
+  const totalPnrDeposit = pnrs.reduce((s, p) => s + (p.deposit_total || 0), 0);
+
   const manualOut = accEntries.filter((e) => e.type === 'out').reduce((s, e) => s + (e.amount || 0), 0);
-  const totalRealOut = totalHppLunas + totalPnrPaid + manualOut;
+
+  // R214 FIX: totalRealOut TIDAK include totalPnrDeposit
+  // (karena PNR sudah otomatis ke-sync ke HPP via syncPnrToHPP di pnr.js,
+  //  jadi dp_paid di trip_finance_items sudah include PNR deposit. Adding lagi = double count)
+  const totalRealOut = totalHppLunas + manualOut;
   const realProfit = totalRealIn - totalRealOut;
 
   // === PROYEKSI ===
@@ -132,7 +134,6 @@ export default async function GroupCashflowDetailPage({ params }) {
     paymentsByPassenger[p.passenger_id].push(p);
   }
 
-  // R155: prep data untuk download
   const cashInRows = [
     ...activePassengers.map((p) => {
       const c = custMap[p.customer_id] || {};
@@ -154,7 +155,6 @@ export default async function GroupCashflowDetailPage({ params }) {
     })),
   ];
 
-  // R182: pakai hppPaidAmount + label status (Lunas / DP)
   const hppLabel = (i) => {
     const status = String(i.payment_status || '').toLowerCase();
     if (status === 'lunas') return 'HPP Lunas';
@@ -168,9 +168,10 @@ export default async function GroupCashflowDetailPage({ params }) {
     ...hppLunas.filter((i) => !(i.category || '').toLowerCase().includes('refund')).map((i) => ({
       type: hppLabel(i), name: i.component, note: i.vendor_name || '', amount: hppPaidAmount(i),
     })),
+    // R214: PNR Deposit info (sudah ke-count di HPP, di-list cuma utk visibility per-vendor)
     ...pnrs.map((p) => ({
-      type: 'PNR Deposit', name: p.pnr || `PNR ${p.id}`, note: p.vendor || '',
-      amount: (p.deposit_total || 0) + (p.payoff_amount || 0),
+      type: 'PNR Deposit (info)', name: p.pnr || `PNR ${p.id}`, note: p.vendor || '',
+      amount: (p.deposit_total || 0),
     })),
     ...accEntries.filter((e) => e.type === 'out').map((e) => ({
       type: 'Manual Cash Out', name: e.description || '-', note: e.category || '', amount: e.amount || 0,
@@ -210,7 +211,6 @@ export default async function GroupCashflowDetailPage({ params }) {
             · Berangkat {fmtDate(trip.departure)}
           </p>
         </div>
-        {/* R155: Download FULL REPORT */}
         <DownloadButtons
           filename={`accounting-${trip.kode_trip || trip.id}`}
           title={`Real Cashflow — ${trip.kode_trip || ''} ${trip.name}`}
@@ -232,7 +232,6 @@ export default async function GroupCashflowDetailPage({ params }) {
         />
       </div>
 
-      {/* Top summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Real Cash In" value={fmtRupiah(totalRealIn)} color="text-green-700" bg="bg-green-50" />
         <StatCard label="Real Cash Out" value={fmtRupiah(totalRealOut)} color="text-amber-700" bg="bg-amber-50" />
@@ -240,7 +239,6 @@ export default async function GroupCashflowDetailPage({ params }) {
         <StatCard label="Proyeksi Profit" value={fmtRupiah(proyProfit)} color="text-purple-700" bg="bg-purple-50" />
       </div>
 
-      {/* REFUND TRACKING */}
       {refunds.length > 0 && (
         <div className="bg-white rounded-xl border-2 border-red-200 shadow-card overflow-hidden">
           <div className="px-5 py-3 border-b bg-red-50 border-red-200 flex items-center justify-between flex-wrap gap-2">
@@ -249,7 +247,6 @@ export default async function GroupCashflowDetailPage({ params }) {
             </h2>
             <div className="flex items-center gap-2">
               <p className="text-xs text-slate-600">{refunds.length} refund approved</p>
-              {/* R155: Download refund detail */}
               <DownloadButtons
                 filename={`refunds-${trip.kode_trip || trip.id}`}
                 title={`Refund Detail — ${trip.name}`}
@@ -315,7 +312,6 @@ export default async function GroupCashflowDetailPage({ params }) {
         </div>
       )}
 
-      {/* Classification */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
         <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">📊 Klasifikasi Uang Saat Ini</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -332,11 +328,9 @@ export default async function GroupCashflowDetailPage({ params }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* CASH IN */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-200 bg-green-50 flex items-center justify-between flex-wrap gap-2">
             <h2 className="font-bold text-green-800 flex items-center gap-2">⬆ Real Cash In <span className="text-sm">{fmtRupiah(totalRealIn)}</span></h2>
-            {/* R155: Download Cash In */}
             <DownloadButtons
               filename={`cashin-${trip.kode_trip || trip.id}`}
               title={`Cash In — ${trip.name}`}
@@ -402,11 +396,9 @@ export default async function GroupCashflowDetailPage({ params }) {
           </div>
         </div>
 
-        {/* CASH OUT */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-200 bg-amber-50 flex items-center justify-between flex-wrap gap-2">
             <h2 className="font-bold text-amber-800 flex items-center gap-2">⬇ Real Cash Out <span className="text-sm">{fmtRupiah(totalRealOut)}</span></h2>
-            {/* R155: Download Cash Out */}
             <DownloadButtons
               filename={`cashout-${trip.kode_trip || trip.id}`}
               title={`Cash Out — ${trip.name}`}
@@ -457,7 +449,6 @@ export default async function GroupCashflowDetailPage({ params }) {
                         </span>
                         <span className="font-semibold text-amber-700">{fmtRupiah(hppPaidAmount(i))}</span>
                       </div>
-                      {/* R184d: Document bar — Accounting bisa lihat invoice + upload bukti transfer */}
                       <div className="mt-1.5">
                         <HPPDocumentBar
                           item={i}
@@ -472,19 +463,34 @@ export default async function GroupCashflowDetailPage({ params }) {
               )}
             </SubSection>
 
-            <SubSection title="Deposit PNR (sudah dibayar ke maskapai)" total={totalPnrPaid} color="text-amber-700">
+            {/* R214: PNR section pakai deposit_total only + label info supaya gak confusion */}
+            <SubSection title="Deposit PNR (info — sudah counted di HPP)" total={totalPnrDeposit} color="text-amber-700">
               {pnrs.length === 0 ? (
                 <p className="text-xs text-slate-400 italic">Belum ada PNR linked</p>
               ) : (
-                pnrs.map((p) => {
-                  const totalPaid = (p.deposit_total || 0) + (p.payoff_amount || 0);
-                  return (
-                    <div key={p.id} className="flex justify-between text-sm py-1">
-                      <span className="text-slate-700">{p.pnr}{p.vendor && <span className="text-xs text-slate-400 ml-1">· {p.vendor}</span>}</span>
-                      <span className="font-semibold text-amber-700">{fmtRupiah(totalPaid)}</span>
-                    </div>
-                  );
-                })
+                <>
+                  <p className="text-[10px] text-slate-500 italic mb-1">
+                    ℹ Section ini info per-vendor. Total sudah include di "HPP Cash Out Vendor" di atas (gak di-double-count ke Real Cash Out).
+                  </p>
+                  {pnrs.map((p) => {
+                    const depositPaid = (p.deposit_total || 0);
+                    const sisaPelunasan = (p.payoff_amount || 0);
+                    return (
+                      <div key={p.id} className="flex justify-between text-sm py-1">
+                        <span className="text-slate-700">
+                          {p.pnr}
+                          {p.vendor && <span className="text-xs text-slate-400 ml-1">· {p.vendor}</span>}
+                          {sisaPelunasan > 0 && (
+                            <span className="text-[10px] text-slate-500 ml-1">
+                              (sisa pelunasan: {fmtRupiah(sisaPelunasan)})
+                            </span>
+                          )}
+                        </span>
+                        <span className="font-semibold text-amber-700">{fmtRupiah(depositPaid)}</span>
+                      </div>
+                    );
+                  })}
+                </>
               )}
             </SubSection>
 
@@ -512,7 +518,6 @@ export default async function GroupCashflowDetailPage({ params }) {
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h3 className="text-xs font-bold text-brand-700 uppercase tracking-wider">📊 Proyeksi vs Real</h3>
-          {/* R155: Download Proyeksi vs Real */}
           <DownloadButtons
             filename={`proyeksi-vs-real-${trip.kode_trip || trip.id}`}
             title={`Proyeksi vs Real — ${trip.name}`}
