@@ -1,7 +1,8 @@
 'use client';
 
-// Round 189c: BackupSheetPanel — tambah mode "LINK EXISTING SHEET"
-// Workaround buat permission denied di Drive create — user bikin sheet manual + paste URL
+// R217: BackupSheetPanel FIX — handle error di refreshStatus (loading stuck issue)
+// FIX: try-catch + fallback status + show error message
+// SEMUA fitur existing UTUH (link existing, create, sync, unlink, test connection)
 // Path: components/trip/BackupSheetPanel.jsx
 
 import { useState, useTransition, useEffect } from 'react';
@@ -34,19 +35,34 @@ export default function BackupSheetPanel({ tripId, initialStatus = null }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [status, setStatus] = useState(initialStatus);
+  const [loadError, setLoadError] = useState(null); // R217: track load error
   const [msg, setMsg] = useState(null);
   const [diag, setDiag] = useState(null);
   const [linkUrl, setLinkUrl] = useState('');
-  const [mode, setMode] = useState('link'); // 'link' or 'create'
+  const [mode, setMode] = useState('link');
 
   useEffect(() => {
     if (!initialStatus) refreshStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // R217 FIX: try-catch — kalau error, set fallback status + show error
   async function refreshStatus() {
-    const s = await getSheetStatus(tripId);
-    setStatus(s);
+    setLoadError(null);
+    try {
+      const s = await getSheetStatus(tripId);
+      if (!s) {
+        setStatus({ has_sheet: false, sa_email: 'unknown' });
+        setLoadError('Server action gak return data — kemungkinan env Google Sheets belum di-set');
+        return;
+      }
+      setStatus(s);
+    } catch (e) {
+      const errMsg = e?.message || String(e);
+      console.error('[BackupSheetPanel] getSheetStatus error:', errMsg);
+      setStatus({ has_sheet: false, sa_email: 'error' });
+      setLoadError(errMsg);
+    }
   }
 
   function showMsg(text, type = 'success') {
@@ -57,23 +73,31 @@ export default function BackupSheetPanel({ tripId, initialStatus = null }) {
   function handleTestConnection() {
     setDiag(null);
     startTransition(async () => {
-      const r = await testSheetConnection();
-      setDiag(r);
-      if (r.ok && r.auth_ok) showMsg('✓ Connection test sukses');
-      else showMsg('Test gagal: ' + (r.error || r.auth_error || 'unknown'), 'error');
+      try {
+        const r = await testSheetConnection();
+        setDiag(r);
+        if (r.ok && r.auth_ok) showMsg('✓ Connection test sukses');
+        else showMsg('Test gagal: ' + (r.error || r.auth_error || 'unknown'), 'error');
+      } catch (e) {
+        showMsg('Test connection error: ' + (e?.message || e), 'error');
+      }
     });
   }
 
   function handleLinkExisting() {
     if (!linkUrl.trim()) { showMsg('Paste URL Sheet dulu', 'error'); return; }
     startTransition(async () => {
-      const r = await linkExistingSheet(tripId, linkUrl.trim());
-      if (r.error) showMsg(r.error, 'error');
-      else {
-        showMsg('✓ Sheet ter-link & data ter-sync!');
-        setLinkUrl('');
-        await refreshStatus();
-        router.refresh();
+      try {
+        const r = await linkExistingSheet(tripId, linkUrl.trim());
+        if (r.error) showMsg(r.error, 'error');
+        else {
+          showMsg('✓ Sheet ter-link & data ter-sync!');
+          setLinkUrl('');
+          await refreshStatus();
+          router.refresh();
+        }
+      } catch (e) {
+        showMsg('Link error: ' + (e?.message || e), 'error');
       }
     });
   }
@@ -81,24 +105,32 @@ export default function BackupSheetPanel({ tripId, initialStatus = null }) {
   function handleCreate() {
     if (!confirm('Coba bikin sheet baru? (kalau ada org policy permission denied, pakai LINK EXISTING aja).')) return;
     startTransition(async () => {
-      const r = await createBackupSheet(tripId);
-      if (r.error) showMsg(r.error + '\n\n💡 Workaround: bikin sheet manual di Drive kamu, share ke service account, paste URL-nya di kolom "Link Existing".', 'error');
-      else {
-        showMsg('✓ Sheet dibuat & data ter-sync!');
-        await refreshStatus();
-        router.refresh();
+      try {
+        const r = await createBackupSheet(tripId);
+        if (r.error) showMsg(r.error + '\n\n💡 Workaround: bikin sheet manual di Drive kamu, share ke service account, paste URL-nya di kolom "Link Existing".', 'error');
+        else {
+          showMsg('✓ Sheet dibuat & data ter-sync!');
+          await refreshStatus();
+          router.refresh();
+        }
+      } catch (e) {
+        showMsg('Create error: ' + (e?.message || e), 'error');
       }
     });
   }
 
   function handleSync() {
     startTransition(async () => {
-      const r = await syncTripToSheet(tripId);
-      if (r.error) showMsg(r.error, 'error');
-      else {
-        showMsg(`✓ Sync sukses: ${r.counts?.peserta || 0} peserta, ${r.counts?.payment || 0} payment, ${r.counts?.hpp || 0} HPP`);
-        await refreshStatus();
-        router.refresh();
+      try {
+        const r = await syncTripToSheet(tripId);
+        if (r.error) showMsg(r.error, 'error');
+        else {
+          showMsg(`✓ Sync sukses: ${r.counts?.peserta || 0} peserta, ${r.counts?.payment || 0} payment, ${r.counts?.hpp || 0} HPP`);
+          await refreshStatus();
+          router.refresh();
+        }
+      } catch (e) {
+        showMsg('Sync error: ' + (e?.message || e), 'error');
       }
     });
   }
@@ -106,20 +138,46 @@ export default function BackupSheetPanel({ tripId, initialStatus = null }) {
   function handleUnlink() {
     if (!confirm('Unlink Sheet? Sheet di Drive TIDAK dihapus.')) return;
     startTransition(async () => {
-      const r = await unlinkSheet(tripId);
-      if (r.error) showMsg(r.error, 'error');
-      else {
-        showMsg('✓ Sheet di-unlink');
-        await refreshStatus();
-        router.refresh();
+      try {
+        const r = await unlinkSheet(tripId);
+        if (r.error) showMsg(r.error, 'error');
+        else {
+          showMsg('✓ Sheet di-unlink');
+          await refreshStatus();
+          router.refresh();
+        }
+      } catch (e) {
+        showMsg('Unlink error: ' + (e?.message || e), 'error');
       }
     });
   }
 
+  // R217 FIX: loading state — show error kalau ada, plus retry button
   if (!status) {
     return (
       <div className="bg-white rounded-xl border-2 border-green-200 p-4">
-        <p className="text-sm text-slate-500">Loading sheet status...</p>
+        {loadError ? (
+          <div className="space-y-2">
+            <p className="text-sm font-bold text-red-700">⚠ Gagal load sheet status</p>
+            <p className="text-xs text-slate-700 font-mono bg-red-50 p-2 rounded border border-red-200">{loadError}</p>
+            <button
+              onClick={refreshStatus}
+              className="text-xs px-3 py-1.5 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700"
+            >
+              🔄 Retry
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm text-slate-500">⏳ Loading sheet status...</p>
+            <button
+              onClick={refreshStatus}
+              className="text-xs px-2 py-1 bg-slate-100 text-slate-600 rounded hover:bg-slate-200"
+            >
+              Retry
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -145,6 +203,13 @@ export default function BackupSheetPanel({ tripId, initialStatus = null }) {
         </button>
       </div>
 
+      {/* R217: show load error warning kalau ada (non-fatal) */}
+      {loadError && (
+        <div className="px-5 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800">
+          ⚠ Status loaded with error: {loadError}
+        </div>
+      )}
+
       {msg && (
         <div className={`px-5 py-2 text-sm border-b whitespace-pre-line ${
           msg.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -168,7 +233,6 @@ export default function BackupSheetPanel({ tripId, initialStatus = null }) {
       <div className="p-5">
         {!hasSheet ? (
           <div className="space-y-4">
-            {/* MODE TOGGLE */}
             <div className="flex gap-2 border-b border-slate-200 pb-2">
               <button onClick={() => setMode('link')}
                 className={`px-3 py-1.5 text-xs font-bold rounded ${mode === 'link' ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
