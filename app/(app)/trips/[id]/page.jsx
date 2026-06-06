@@ -1,5 +1,7 @@
-// Trip Detail page — R114/115/189/192/192b
-// R192b: Pass familyGroups ke ParticipantsList biar nampilin family badge
+// Trip Detail page — R114/115/189/192/192b + R216b
+// R216b: TAMBAH ImportExcelPanel (Import dari Excel Master Trip Travelops)
+// SEMUA existing UTUH 100% (BackupSheetPanel, FamilyGroupManager, ParticipantsList, CS Updates, dll)
+// Cuma tambah: 1 import + 1 panel di antara BackupSheetPanel dan stats card
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -9,6 +11,8 @@ import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
 import ParticipantsList from '@/components/trips/ParticipantsList';
 import BackupSheetPanel from '@/components/trip/BackupSheetPanel';
 import FamilyGroupManager from '@/components/families/FamilyGroupManager';
+// R216b: Import Excel panel
+import ImportExcelPanel from '@/components/trips/ImportExcelPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -116,6 +120,9 @@ export default async function TripDetailPage({ params }) {
       </div>
 
       <BackupSheetPanel tripId={trip.id} />
+
+      {/* R216b — Import Peserta dari Excel Master Trip Travelops */}
+      <ImportExcelPanel tripId={trip.id} trip={trip} />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Seat Terjual" value={`${trip.sold || 0} / ${trip.quota || 0}`} color="text-brand-700" />
