@@ -250,6 +250,15 @@ export default function InvoiceDriveSyncPicker({ trips }) {
                       </details>
                     )}
 
+                    {syncResult.skipped_details?.length > 0 && (
+                      <details className="mt-2" open={syncResult.synced === 0}>
+                        <summary className="cursor-pointer font-bold text-slate-700">⊝ {syncResult.skipped_details.length} skipped — KENAPA?</summary>
+                        <ul className="mt-1 ml-4 list-disc text-[11px] text-slate-700 bg-amber-50 p-2 rounded">
+                          {syncResult.skipped_details.map((s, i) => <li key={i} className="font-mono">{s}</li>)}
+                        </ul>
+                      </details>
+                    )}
+
                     {syncResult.error_details?.length > 0 && (
                       <details className="mt-2" open>
                         <summary className="cursor-pointer font-bold text-red-700">⚠ {syncResult.error_details.length} error</summary>
