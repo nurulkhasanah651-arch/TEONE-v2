@@ -1,13 +1,10 @@
 'use client';
 
-// R215m + R215n + R215o: Visa Workflow Panel
-// R215o updates:
-//   - Replace URL input dgn FILE UPLOAD (langsung ke Supabase storage)
-//   - Return method selector untuk approved (kurir / team_carry / office_pickup)
-//   - Pakai uploadVisaResultFile + updateVisaReturnMethod
+// R215m+R215n+R215o+R215q: Visa Workflow Panel + BULK SEND PREVIEW MODAL
+// R215q: Confirmation modal sebelum kirim bulk WA — preview message + list peserta
 // Path: components/visa/VisaWorkflowPanel.jsx
 
-import { useState, useTransition, useRef } from 'react';
+import { useState, useTransition, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   updatePassengerVisaCost,
@@ -18,7 +15,7 @@ import {
   generateUploadToken,
 } from '@/lib/actions/visa-workflow';
 import { uploadVisaResultFile, updateVisaReturnMethod } from '@/lib/actions/visa-storage';
-import { getTemplateOptions } from '@/lib/utils/visa-templates';
+import { getTemplateOptions, renderTemplate, VISA_WA_TEMPLATES, autoDeadlineDoc } from '@/lib/utils/visa-templates';
 
 function fmtRp(n) { return `Rp ${Number(n || 0).toLocaleString('id-ID')}`; }
 function fmtTime(t) { if (!t) return '—'; return String(t).slice(0, 5); }
@@ -39,6 +36,9 @@ export default function VisaWorkflowPanel({ trip, passengers = [] }) {
   const [bulkFamilyAware, setBulkFamilyAware] = useState(true);
   const [bulkCustomDokKurang, setBulkCustomDokKurang] = useState('');
 
+  // R215q — Preview modal state
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   function showMsg(text, type = 'success') {
     setMsg({ text, type });
     if (type !== 'error') setTimeout(() => setMsg(null), 5000);
@@ -54,9 +54,15 @@ export default function VisaWorkflowPanel({ trip, passengers = [] }) {
   function selectAll() { setSelectedIds(new Set(passengers.map((p) => p.id))); }
   function clearAll() { setSelectedIds(new Set()); }
 
-  function handleBulkSend() {
+  // R215q — Open preview instead of direct send
+  function handleOpenPreview() {
+    if (selectedIds.size === 0) { showMsg('Pilih minimal 1 peserta', 'error'); return; }
+    setPreviewOpen(true);
+  }
+
+  // R215q — Confirm & actually send
+  function handleConfirmSend() {
     const ids = Array.from(selectedIds);
-    if (ids.length === 0) { showMsg('Pilih minimal 1 peserta', 'error'); return; }
     startTransition(async () => {
       const r = await sendVisaWA({
         tripId: trip.id, passengerIds: ids,
@@ -67,6 +73,8 @@ export default function VisaWorkflowPanel({ trip, passengers = [] }) {
       if (r?.error) { showMsg('Gagal: ' + r.error, 'error'); return; }
       const switched = r.template_switched ? ` (auto-switched to ${r.template_used})` : '';
       showMsg(`✓ Bulk: ${r.sent} sukses, ${r.failed} gagal${r.family_aware ? ` · Family-aware (${r.family_count})` : ''}${switched}`);
+      setPreviewOpen(false);
+      setSelectedIds(new Set());
       router.refresh();
     });
   }
@@ -78,7 +86,7 @@ export default function VisaWorkflowPanel({ trip, passengers = [] }) {
           <span>📨</span> Visa Workflow (Cost · WA · Hasil)
         </h2>
         <p className="text-[11px] text-slate-600 mt-0.5">
-          R215o: 📤 File upload langsung · ✏ Template editable · 🚚 3 opsi pengiriman paspor
+          ✨ R215q: Bulk send AUTO + preview modal · Token auto-generated · No biometric auto-switch
         </p>
       </div>
 
@@ -89,6 +97,7 @@ export default function VisaWorkflowPanel({ trip, passengers = [] }) {
         </div>
       )}
 
+      {/* BULK ACTION TOOLBAR */}
       <div className="px-5 py-3 bg-blue-50 border-b border-blue-200 space-y-2">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2 text-xs">
@@ -108,7 +117,7 @@ export default function VisaWorkflowPanel({ trip, passengers = [] }) {
               {TEMPLATE_OPTIONS.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
             </select>
             {trip.visa_needs_biometric === false && bulkTemplate === 'doc_collection' && (
-              <p className="text-[10px] text-blue-700 mt-1">ℹ Trip no-biometric → auto-switch ke "Pengumpulan Dokumen (No Biometrik)" saat send</p>
+              <p className="text-[10px] text-emerald-700 mt-1">✨ Auto: switch ke No-Biometric + auto-gen token tiap pax</p>
             )}
           </div>
           {bulkTemplate === 'doc_kurang' && (
@@ -116,11 +125,27 @@ export default function VisaWorkflowPanel({ trip, passengers = [] }) {
               <input type="text" value={bulkCustomDokKurang} onChange={(e) => setBulkCustomDokKurang(e.target.value)} placeholder="Dokumen kurang" className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm" />
             </div>
           )}
-          <button type="button" onClick={handleBulkSend} disabled={pending || selectedIds.size === 0} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold rounded">
-            {pending ? '⏳' : '📨 Send Bulk'}
+          {/* R215q — Klik buka preview dulu (BUKAN langsung send) */}
+          <button type="button" onClick={handleOpenPreview} disabled={pending || selectedIds.size === 0} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold rounded">
+            👀 Preview & Send
           </button>
         </div>
       </div>
+
+      {/* R215q — Preview Modal */}
+      {previewOpen && (
+        <BulkWAPreviewModal
+          trip={trip}
+          passengers={passengers}
+          selectedIds={selectedIds}
+          templateKey={bulkTemplate}
+          familyAware={bulkFamilyAware}
+          customVars={bulkCustomDokKurang ? { list_dokumen_kurang: bulkCustomDokKurang } : {}}
+          onCancel={() => setPreviewOpen(false)}
+          onConfirm={handleConfirmSend}
+          pending={pending}
+        />
+      )}
 
       <div className="divide-y divide-slate-100">
         {passengers.length === 0 ? (
@@ -145,6 +170,200 @@ export default function VisaWorkflowPanel({ trip, passengers = [] }) {
   );
 }
 
+// ============================================================
+// R215q — Preview Modal
+// ============================================================
+function BulkWAPreviewModal({ trip, passengers, selectedIds, templateKey, familyAware, customVars, onCancel, onConfirm, pending }) {
+  // Determine effective template (auto-switch detection)
+  let effectiveTemplate = templateKey;
+  let autoSwitched = false;
+  if (templateKey === 'doc_collection' && trip.visa_needs_biometric === false) {
+    effectiveTemplate = 'doc_collection_no_biometric';
+    autoSwitched = true;
+  }
+
+  // Determine target peserta (apply family-aware dedup)
+  const selected = passengers.filter((p) => selectedIds.has(p.id));
+  let targets = selected;
+  let familyDedupCount = 0;
+  if (familyAware) {
+    const seen = new Set();
+    targets = selected.filter((p) => {
+      if (p.family_group_id) {
+        if (seen.has(p.family_group_id)) {
+          familyDedupCount++;
+          return false;
+        }
+        seen.add(p.family_group_id);
+      }
+      return true;
+    });
+  }
+
+  // Count yg perlu auto-gen token
+  const needsTokenCount = effectiveTemplate === 'doc_collection_no_biometric'
+    ? targets.filter((p) => !p.visa_upload_token).length
+    : 0;
+
+  // Count peserta tanpa phone
+  const noPhoneCount = targets.filter((p) => !p.customers?.phone).length;
+
+  // Sample message rendering (pakai data peserta pertama)
+  const samplePax = targets[0];
+  const sampleCust = samplePax?.customers || {};
+  const deadlineDoc = trip.visa_deadline_doc || autoDeadlineDoc(trip.departure);
+
+  const sampleToken = samplePax?.visa_upload_token || '{{AKAN_AUTO_GENERATE}}';
+  const siteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://teone.dev';
+
+  const sampleVars = {
+    nama_peserta: sampleCust.name || 'Peserta',
+    nama_kepala_keluarga: sampleCust.name || 'Peserta',
+    list_nama_anggota_family: sampleCust.name || '',
+    nama_trip: trip.name,
+    country_name: trip.visa_country || 'Negara Tujuan',
+    tanggal_keberangkatan: trip.departure,
+    tanggal_biometrik: samplePax?.visa_biometric_date || trip.visa_biometric_date,
+    jam_biometrik: samplePax?.visa_biometric_time || null,
+    lokasi_biometrik: trip.visa_biometric_location,
+    pickup_address: trip.visa_pickup_address,
+    pdf_syarat_visa_url: trip.visa_pdf_syarat_url,
+    pdf_template_dokumen_url: trip.visa_pdf_template_url,
+    deadline_dokumen: deadlineDoc,
+    upload_portal_url: `${siteUrl}/visa/upload/${sampleToken}`,
+    return_method: samplePax?.visa_return_method || 'kurir',
+    visa_valid_from: samplePax?.visa_valid_from,
+    visa_valid_until: samplePax?.visa_valid_until,
+    visa_entry_type: samplePax?.visa_entry_type,
+    return_kurir: samplePax?.visa_return_kurir,
+    return_resi: samplePax?.visa_return_resi,
+    rejection_reason: samplePax?.visa_rejection_reason,
+    ...customVars,
+  };
+
+  const sampleMessage = samplePax ? renderTemplate(effectiveTemplate, sampleVars, trip) : '';
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="px-5 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white flex items-center justify-between">
+          <div>
+            <h2 className="font-bold text-lg">👀 Preview Bulk WA Send</h2>
+            <p className="text-xs text-blue-100">Cek dulu sebelum kirim ke {targets.length} peserta</p>
+          </div>
+          <button type="button" onClick={onCancel} className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded text-sm font-bold">✕</button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-auto p-5 space-y-4">
+          {/* Summary */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+            <div className="p-2 bg-blue-50 rounded border border-blue-200">
+              <p className="text-[10px] font-bold text-blue-700 uppercase">📋 Template</p>
+              <p className="font-bold text-blue-800 text-[11px]">{VISA_WA_TEMPLATES[effectiveTemplate]?.label || effectiveTemplate}</p>
+              {autoSwitched && <p className="text-[9px] text-emerald-700 mt-0.5">✨ Auto-switched (no-biometric)</p>}
+            </div>
+            <div className="p-2 bg-emerald-50 rounded border border-emerald-200">
+              <p className="text-[10px] font-bold text-emerald-700 uppercase">📤 Target Send</p>
+              <p className="font-bold text-emerald-800">{targets.length} peserta</p>
+              {familyAware && familyDedupCount > 0 && <p className="text-[9px] text-amber-700 mt-0.5">👨‍👩 {familyDedupCount} family dedup</p>}
+            </div>
+            <div className="p-2 bg-amber-50 rounded border border-amber-200">
+              <p className="text-[10px] font-bold text-amber-700 uppercase">🎟 Auto-gen Token</p>
+              <p className="font-bold text-amber-800">{needsTokenCount} peserta</p>
+              <p className="text-[9px] text-slate-500 mt-0.5">{targets.length - needsTokenCount} udah punya</p>
+            </div>
+            <div className={`p-2 rounded border ${noPhoneCount > 0 ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200'}`}>
+              <p className={`text-[10px] font-bold uppercase ${noPhoneCount > 0 ? 'text-red-700' : 'text-slate-600'}`}>📞 Phone Status</p>
+              <p className={`font-bold ${noPhoneCount > 0 ? 'text-red-800' : 'text-slate-700'}`}>
+                {noPhoneCount > 0 ? `${noPhoneCount} TANPA phone` : '✓ Semua ada'}
+              </p>
+            </div>
+          </div>
+
+          {/* Target list */}
+          <div className="border border-slate-200 rounded-lg overflow-hidden">
+            <p className="px-3 py-2 text-xs font-bold text-slate-700 uppercase bg-slate-50 border-b border-slate-200">
+              👥 Peserta yang akan dikirim ({targets.length})
+            </p>
+            <div className="max-h-48 overflow-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50 sticky top-0">
+                  <tr className="text-left">
+                    <th className="px-2 py-1">No</th>
+                    <th className="px-2 py-1">Nama</th>
+                    <th className="px-2 py-1">Phone</th>
+                    <th className="px-2 py-1">Family</th>
+                    <th className="px-2 py-1">Token</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {targets.map((p, idx) => {
+                    const cust = p.customers || {};
+                    return (
+                      <tr key={p.id} className="border-t border-slate-100">
+                        <td className="px-2 py-1 text-slate-500">{idx + 1}</td>
+                        <td className="px-2 py-1 font-semibold">{cust.name || `#${p.id}`}</td>
+                        <td className={`px-2 py-1 ${cust.phone ? 'text-slate-700' : 'text-red-600 font-bold'}`}>
+                          {cust.phone || '⚠ Gak ada'}
+                        </td>
+                        <td className="px-2 py-1 text-[10px] text-slate-500">{p.family_group_id ? '👨‍👩' : '—'}</td>
+                        <td className="px-2 py-1 text-[10px] font-mono text-slate-500">
+                          {p.visa_upload_token ? '✓ Ada' : (effectiveTemplate === 'doc_collection_no_biometric' ? '🎟 Auto-gen' : '—')}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Sample message preview */}
+          {samplePax && (
+            <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <p className="px-3 py-2 text-xs font-bold text-slate-700 uppercase bg-slate-50 border-b border-slate-200">
+                💬 Sample Message (pakai data: {samplePax.customers?.name || `#${samplePax.id}`})
+              </p>
+              <div className="p-4 bg-gradient-to-b from-emerald-50 to-white">
+                <pre className="text-xs text-slate-800 whitespace-pre-wrap font-sans">{sampleMessage}</pre>
+              </div>
+              <p className="px-3 py-2 text-[10px] text-slate-500 italic bg-slate-50 border-t border-slate-200">
+                ℹ Setiap peserta akan dapat message yg sama dgn data MASING-MASING (nama, link upload unique, dll).
+              </p>
+            </div>
+          )}
+
+          {noPhoneCount > 0 && (
+            <div className="p-3 bg-red-50 border border-red-300 rounded text-xs text-red-800">
+              ⚠ Ada {noPhoneCount} peserta TANPA phone — mereka akan SKIP saat kirim. Update phone di Master Customer dulu.
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
+          <p className="text-xs text-slate-600">
+            ✨ Token auto-generated untuk {needsTokenCount} peserta · Family dedup: {familyDedupCount}
+          </p>
+          <div className="flex gap-2">
+            <button type="button" onClick={onCancel} disabled={pending} className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-bold rounded">
+              ✕ Cancel
+            </button>
+            <button type="button" onClick={onConfirm} disabled={pending || targets.length === 0} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold rounded">
+              {pending ? '⏳ Sending...' : `✓ Confirm & Send (${targets.length})`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// PER PESERTA ROW (TETAP SAMA dengan R215o)
+// ============================================================
 function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, showMsg, pending, startTransition, router }) {
   const p = passenger;
   const c = p.customers || {};
@@ -220,8 +439,6 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
       }
     });
   }
-
-  // R215o: Upload file langsung ke Supabase storage
   async function handleFileUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -230,12 +447,8 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
       const fd = new FormData();
       fd.append('visa_file', file);
       const r = await uploadVisaResultFile(p.id, fd);
-      if (r?.error) {
-        showMsg('Upload gagal: ' + r.error, 'error');
-      } else {
-        setUploadedFileUrl(r.file_url);
-        showMsg(`✓ File uploaded: ${r.file_path}`);
-      }
+      if (r?.error) showMsg('Upload gagal: ' + r.error, 'error');
+      else { setUploadedFileUrl(r.file_url); showMsg(`✓ File uploaded`); }
     } catch (e) {
       showMsg('Upload error: ' + e.message, 'error');
     } finally {
@@ -243,11 +456,8 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
-
   function handleSaveResult() {
-    if (!uploadedFileUrl) {
-      if (!confirm('Belum upload file hasil visa. Save tanpa file?')) return;
-    }
+    if (!uploadedFileUrl && !confirm('Belum upload file. Save tanpa file?')) return;
     startTransition(async () => {
       const extras = {};
       if (resultType === 'approved') {
@@ -265,7 +475,7 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
 
       const r = await uploadVisaResult(p.id, uploadedFileUrl, resultType, extras);
       if (r?.error) { showMsg(r.error, 'error'); return; }
-      showMsg(`✓ Hasil visa ${resultType}${r.wa_sent ? ' + WA sent' : ''}`);
+      showMsg(`✓ Hasil ${resultType}${r.wa_sent ? ' + WA sent' : ''}`);
       setShowUploadResult(false);
       router.refresh();
     });
@@ -284,11 +494,7 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
               {p.visa_result === 'approved' && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">✅ Approved</span>}
               {p.visa_result === 'rejected' && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-800">❌ Rejected</span>}
               {p.visa_biometric_time && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800">⏰ {fmtTime(p.visa_biometric_time)}</span>}
-              {p.visa_return_method && p.visa_return_method !== 'kurir' && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-cyan-100 text-cyan-800">
-                  {p.visa_return_method === 'team_carry' ? '✈ Tim bawa' : '🏢 Ambil kantor'}
-                </span>
-              )}
+              {p.visa_upload_token && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-cyan-100 text-cyan-800">🎟 Token Ready</span>}
             </div>
             <button type="button" onClick={() => setExpanded((v) => !v)} className="text-xs font-semibold text-amber-700 hover:underline">
               {expanded ? '▾ Tutup' : '▸ Expand'}
@@ -296,31 +502,15 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
           </div>
 
           <div className="mt-1 grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
-            <div className="bg-amber-50 rounded px-2 py-1">
-              <p className="text-[10px] text-amber-700 font-semibold">🔬 Biometrik</p>
-              <p className="font-bold text-amber-800">{fmtRp(biometricCost)}</p>
-            </div>
-            <div className="bg-purple-50 rounded px-2 py-1">
-              <p className="text-[10px] text-purple-700 font-semibold">🛂 Visa</p>
-              <p className="font-bold text-purple-800">{fmtRp(visaCost)}</p>
-            </div>
-            <div className="bg-indigo-50 rounded px-2 py-1">
-              <p className="text-[10px] text-indigo-700 font-semibold">⏰ Jam</p>
-              <p className="font-bold text-indigo-800">{fmtTime(p.visa_biometric_time)}</p>
-            </div>
-            <div className="bg-blue-50 rounded px-2 py-1">
-              <p className="text-[10px] text-blue-700 font-semibold">📤 Token</p>
-              <p className="text-[11px] font-mono text-blue-800 truncate">{p.visa_upload_token ? '✓ Ada' : '—'}</p>
-            </div>
-            <div className="bg-slate-50 rounded px-2 py-1">
-              <p className="text-[10px] text-slate-600 font-semibold">📸 File</p>
-              <p className="text-[11px] text-slate-700">{p.visa_result_photo_url ? '✓ Ada' : '—'}</p>
-            </div>
+            <div className="bg-amber-50 rounded px-2 py-1"><p className="text-[10px] text-amber-700 font-semibold">🔬 Biometrik</p><p className="font-bold text-amber-800">{fmtRp(biometricCost)}</p></div>
+            <div className="bg-purple-50 rounded px-2 py-1"><p className="text-[10px] text-purple-700 font-semibold">🛂 Visa</p><p className="font-bold text-purple-800">{fmtRp(visaCost)}</p></div>
+            <div className="bg-indigo-50 rounded px-2 py-1"><p className="text-[10px] text-indigo-700 font-semibold">⏰ Jam</p><p className="font-bold text-indigo-800">{fmtTime(p.visa_biometric_time)}</p></div>
+            <div className="bg-blue-50 rounded px-2 py-1"><p className="text-[10px] text-blue-700 font-semibold">📤 Token</p><p className="text-[11px] font-mono text-blue-800 truncate">{p.visa_upload_token ? '✓ Ada' : '—'}</p></div>
+            <div className="bg-slate-50 rounded px-2 py-1"><p className="text-[10px] text-slate-600 font-semibold">📸 File</p><p className="text-[11px] text-slate-700">{p.visa_result_photo_url ? '✓ Ada' : '—'}</p></div>
           </div>
 
           {expanded && (
             <div className="mt-3 space-y-3">
-              {/* Jam Biometrik */}
               <div className="p-3 bg-indigo-50 rounded border border-indigo-200">
                 <p className="text-xs font-bold text-indigo-800 uppercase mb-1">⏰ Jam Biometrik</p>
                 <div className="flex gap-2 items-center">
@@ -329,7 +519,6 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                 </div>
               </div>
 
-              {/* Cost */}
               <div className="p-3 bg-amber-50 rounded border border-amber-200">
                 <p className="text-xs font-bold text-amber-800 uppercase mb-2">💰 Cost & Request DP</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -352,7 +541,6 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                 </div>
               </div>
 
-              {/* Send WA */}
               <div className="p-3 bg-blue-50 rounded border border-blue-200">
                 <p className="text-xs font-bold text-blue-800 uppercase mb-2">📨 Send WA</p>
                 <div className="flex flex-wrap gap-2 items-end">
@@ -360,9 +548,6 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                     <select value={singleTemplate} onChange={(e) => setSingleTemplate(e.target.value)} className="w-full px-2 py-1 border border-slate-300 rounded text-sm bg-white">
                       {TEMPLATE_OPTIONS.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
                     </select>
-                    {trip.visa_needs_biometric === false && singleTemplate === 'doc_collection' && (
-                      <p className="text-[10px] text-blue-700 mt-1">ℹ Auto-switch to no-biometric template + auto-gen upload token</p>
-                    )}
                   </div>
                   {singleTemplate === 'doc_kurang' && (
                     <input type="text" placeholder="Doc kurang" value={singleCustomVars.list_dokumen_kurang || ''} onChange={(e) => setSingleCustomVars({ list_dokumen_kurang: e.target.value })} className="flex-1 min-w-[200px] px-2 py-1 border border-slate-300 rounded text-sm" />
@@ -373,15 +558,15 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
 
               {!trip.visa_needs_biometric && (
                 <div className="p-3 bg-cyan-50 rounded border border-cyan-200">
-                  <p className="text-xs font-bold text-cyan-800 uppercase mb-1">🔗 Upload Portal</p>
+                  <p className="text-xs font-bold text-cyan-800 uppercase mb-1">🔗 Upload Portal (Manual)</p>
                   <div className="flex gap-2 items-center">
                     <button type="button" onClick={handleGenerateToken} disabled={pending} className="px-3 py-1 bg-cyan-600 text-white text-xs font-bold rounded">🎟 Generate Token</button>
                     {p.visa_upload_token && <span className="text-[10px] font-mono text-slate-600 truncate">{p.visa_upload_token}</span>}
                   </div>
+                  <p className="text-[10px] text-slate-500 mt-1">ℹ Sebenarnya gak perlu klik ini — bulk Send WA udah auto-gen token</p>
                 </div>
               )}
 
-              {/* Upload Result */}
               <div className="p-3 bg-emerald-50 rounded border border-emerald-200">
                 <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
                   <p className="text-xs font-bold text-emerald-800 uppercase">📸 Hasil Visa</p>
@@ -392,27 +577,12 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                 {showUploadResult && (
                   <div className="space-y-2">
                     <div className="grid grid-cols-2 gap-2">
-                      <label className="flex items-center gap-1 cursor-pointer">
-                        <input type="radio" checked={resultType === 'approved'} onChange={() => setResultType('approved')} />
-                        <span className="text-xs font-semibold text-emerald-800">✅ Approved</span>
-                      </label>
-                      <label className="flex items-center gap-1 cursor-pointer">
-                        <input type="radio" checked={resultType === 'rejected'} onChange={() => setResultType('rejected')} />
-                        <span className="text-xs font-semibold text-red-800">❌ Rejected</span>
-                      </label>
+                      <label className="flex items-center gap-1 cursor-pointer"><input type="radio" checked={resultType === 'approved'} onChange={() => setResultType('approved')} /><span className="text-xs font-semibold text-emerald-800">✅ Approved</span></label>
+                      <label className="flex items-center gap-1 cursor-pointer"><input type="radio" checked={resultType === 'rejected'} onChange={() => setResultType('rejected')} /><span className="text-xs font-semibold text-red-800">❌ Rejected</span></label>
                     </div>
-
-                    {/* R215o: File upload langsung */}
                     <div className="p-2 bg-white rounded border border-emerald-300">
-                      <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">📤 Upload File (JPG/PNG/PDF, max 10MB)</label>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".jpg,.jpeg,.png,.webp,.pdf"
-                        onChange={handleFileUpload}
-                        disabled={uploading}
-                        className="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-emerald-200 file:text-emerald-800 file:font-bold"
-                      />
+                      <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">📤 Upload File (max 10MB)</label>
+                      <input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" onChange={handleFileUpload} disabled={uploading} className="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-emerald-200 file:text-emerald-800 file:font-bold" />
                       {uploading && <p className="text-[10px] text-amber-700 mt-1">⏳ Uploading...</p>}
                       {uploadedFileUrl && !uploading && (
                         <div className="mt-1 flex items-center gap-2">
@@ -421,7 +591,6 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                         </div>
                       )}
                     </div>
-
                     {resultType === 'approved' && (
                       <>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -432,18 +601,13 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                             <option value="multiple">Multiple Entry</option>
                           </select>
                         </div>
-
-                        {/* R215o: Return method selector */}
                         <div className="p-2 bg-cyan-50 rounded border border-cyan-200">
-                          <label className="text-[10px] font-bold text-cyan-800 uppercase block mb-1">🚚 Cara Pengiriman Paspor</label>
+                          <label className="text-[10px] font-bold text-cyan-800 uppercase block mb-1">🚚 Cara Pengiriman</label>
                           <div className="space-y-1">
                             {RETURN_METHODS.map((m) => (
                               <label key={m.value} className="flex items-start gap-2 cursor-pointer p-1.5 bg-white rounded">
                                 <input type="radio" checked={resultReturnMethod === m.value} onChange={() => setResultReturnMethod(m.value)} className="mt-0.5" />
-                                <div>
-                                  <p className="text-xs font-bold text-slate-800">{m.label}</p>
-                                  <p className="text-[10px] text-slate-500">{m.desc}</p>
-                                </div>
+                                <div><p className="text-xs font-bold text-slate-800">{m.label}</p><p className="text-[10px] text-slate-500">{m.desc}</p></div>
                               </label>
                             ))}
                           </div>
@@ -456,17 +620,12 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                         </div>
                       </>
                     )}
-
                     {resultType === 'rejected' && (
                       <textarea value={resultRejReason} onChange={(e) => setResultRejReason(e.target.value)} placeholder="Alasan penolakan" rows="2" className="w-full px-2 py-1 border border-slate-300 rounded text-sm" />
                     )}
-
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={autoSendWA} onChange={(e) => setAutoSendWA(e.target.checked)} />
-                      <span className="text-xs font-semibold">📨 Auto-send WA + foto attached</span>
-                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={autoSendWA} onChange={(e) => setAutoSendWA(e.target.checked)} /><span className="text-xs font-semibold">📨 Auto-send WA + foto attached</span></label>
                     <button type="button" onClick={handleSaveResult} disabled={pending || uploading} className="w-full px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-bold rounded">
-                      {pending ? '⏳' : '💾 Simpan Hasil' + (autoSendWA ? ' + Send WA' : '')}
+                      {pending ? '⏳' : '💾 Simpan' + (autoSendWA ? ' + Send WA' : '')}
                     </button>
                   </div>
                 )}
