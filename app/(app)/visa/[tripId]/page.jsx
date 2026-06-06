@@ -1,8 +1,9 @@
-// R181 + R215m + R215o + R215r + R215s: Visa trip detail
+// R181 + R215m + R215o + R215r + R215s + R215t: Visa trip detail FULL
 // R215m: VisaWorkflowConfig + VisaWorkflowPanel (cost, WA, hasil)
-// R215o: VisaTemplateEditor (CS bisa edit template WA)
-// R215r: VisaDocsDownloadPanel (view + download uploaded docs ZIP per peserta)
-// R215s: trigger view tracking (mark as viewed pas buka page)
+// R215o: VisaTemplateEditor (CS edit template WA)
+// R215r: VisaDocsDownloadPanel (view + ZIP per peserta)
+// R215s: New uploads notification + auto-mark as viewed
+// R215t: VisaDriveSyncPanel (sync ke Google Drive auto-folder per peserta)
 // Path: app/(app)/visa/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -16,8 +17,11 @@ import VisaPDFDownloads from '@/components/visa/VisaPDFDownloads';
 import VisaWorkflowConfig from '@/components/visa/VisaWorkflowConfig';
 import VisaWorkflowPanel from '@/components/visa/VisaWorkflowPanel';
 import VisaTemplateEditor from '@/components/visa/VisaTemplateEditor';
-// R215r — Download Panel (view + ZIP per peserta)
 import VisaDocsDownloadPanel from '@/components/visa/VisaDocsDownloadPanel';
+// R215t — Drive sync
+import VisaDriveSyncPanel from '@/components/visa/VisaDriveSyncPanel';
+// R215s — auto-mark uploads as viewed
+import { markTripUploadsAsViewed } from '@/lib/actions/visa-mark-viewed';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +46,33 @@ export default async function VisaTripPage({ params }) {
   if (customerIds.length > 0) {
     const { data: cust } = await supabase.from('customers').select('*').in('id', customerIds);
     customerMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
+  }
+
+  // R215s — Count uploaded docs untuk header badge (BEFORE markAsViewed)
+  let totalUploadedDocs = 0;
+  let passengersWithUploads = 0;
+  let newUploadsCount = 0;
+  for (const p of passengers) {
+    const uploads = Array.isArray(p.visa_uploaded_docs) ? p.visa_uploaded_docs : [];
+    if (uploads.length > 0) {
+      totalUploadedDocs += uploads.length;
+      passengersWithUploads++;
+      const lastViewed = p.visa_uploads_last_viewed_at ? new Date(p.visa_uploads_last_viewed_at).getTime() : 0;
+      for (const u of uploads) {
+        const uploadTime = u.uploaded_at ? new Date(u.uploaded_at).getTime() : 0;
+        if (uploadTime > lastViewed) newUploadsCount++;
+      }
+    }
+  }
+
+  // R215s — Auto-mark all uploads as viewed (fire & forget, gak nunggu)
+  if (newUploadsCount > 0) {
+    try {
+      await markTripUploadsAsViewed(tripId);
+    } catch (e) {
+      // Defensive — kalau kolom belum exist, skip aja
+      console.warn('[markTripUploadsAsViewed]', e?.message);
+    }
   }
 
   // Existing — fetch payment Visa per peserta
@@ -84,23 +115,6 @@ export default async function VisaTripPage({ params }) {
     visaPayment: visaPaymentByPassenger[p.id] || null,
   }));
 
-  // R215s — Count uploaded docs untuk header badge
-  let totalUploadedDocs = 0;
-  let passengersWithUploads = 0;
-  let newUploadsCount = 0;
-  for (const p of passengers) {
-    const uploads = Array.isArray(p.visa_uploaded_docs) ? p.visa_uploaded_docs : [];
-    if (uploads.length > 0) {
-      totalUploadedDocs += uploads.length;
-      passengersWithUploads++;
-      const lastViewed = p.visa_uploads_last_viewed_at ? new Date(p.visa_uploads_last_viewed_at).getTime() : 0;
-      for (const u of uploads) {
-        const uploadTime = u.uploaded_at ? new Date(u.uploaded_at).getTime() : 0;
-        if (uploadTime > lastViewed) newUploadsCount++;
-      }
-    }
-  }
-
   const template = trip.visa_doc_template || [];
   const s = statusCfg(trip.status);
 
@@ -114,7 +128,7 @@ export default async function VisaTripPage({ params }) {
           {/* R215s — New uploads badge */}
           {newUploadsCount > 0 && (
             <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-500 text-white animate-pulse">
-              🔔 {newUploadsCount} doc BARU di-upload
+              🔔 {newUploadsCount} doc BARU di-upload (akan di-mark sebagai viewed)
             </span>
           )}
         </div>
@@ -154,7 +168,10 @@ export default async function VisaTripPage({ params }) {
       {/* R215o — Template Editor (CS edit template WA) */}
       <VisaTemplateEditor trip={trip} />
 
-      {/* R215r — DOWNLOAD PANEL (view + ZIP per peserta) ←─ NEW di sini, di atas matrix biar visible */}
+      {/* R215t — Google Drive Sync (auto upload ke Drive folder per peserta) */}
+      <VisaDriveSyncPanel trip={trip} />
+
+      {/* R215r — DOWNLOAD PANEL (view + ZIP per peserta) */}
       <VisaDocsDownloadPanel trip={trip} passengers={passengersWithCustomers} />
 
       {/* Existing — Matrix */}
