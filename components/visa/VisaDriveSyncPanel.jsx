@@ -1,9 +1,7 @@
 'use client';
 
-// R215t: Visa Drive Sync Panel
-// - Setup parent folder (admin paste URL)
-// - Sync all docs ke Drive (auto-create folder per peserta)
-// - Open Drive folder
+// R215t + R215u: Visa Drive Sync Panel
+// R215u FIX: Show detailed error if upload fail
 // Path: components/visa/VisaDriveSyncPanel.jsx
 
 import { useState, useTransition } from 'react';
@@ -30,6 +28,7 @@ export default function VisaDriveSyncPanel({ trip }) {
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
   const [folderInput, setFolderInput] = useState('');
+  const [syncResult, setSyncResult] = useState(null);
 
   const hasSetup = !!trip?.visa_drive_trip_folder_id;
   const folderUrl = trip?.visa_drive_trip_folder_url;
@@ -45,28 +44,34 @@ export default function VisaDriveSyncPanel({ trip }) {
     startTransition(async () => {
       const r = await setVisaDriveFolder(trip.id, folderInput.trim());
       if (r?.error) { showMsg(r.error, 'error'); return; }
-      showMsg(`✓ Drive folder ter-link! Trip folder: ${r.trip_folder_url}`);
+      showMsg(`✓ Drive folder ter-link!`);
       setFolderInput('');
       router.refresh();
     });
   }
 
   function handleSync() {
+    setSyncResult(null);
     startTransition(async () => {
       const r = await syncTripDocsToDrive(trip.id);
       if (r?.error) { showMsg(r.error, 'error'); return; }
+      setSyncResult(r);
       if (r.message) showMsg(r.message);
-      else showMsg(`✓ Sync sukses: ${r.synced} file di-upload, ${r.skipped} skipped, ${r.errors} error`);
+      else if (r.errors > 0) {
+        showMsg(`⚠ Sync partial: ${r.synced} sukses, ${r.errors} GAGAL. Cek detail di bawah.`, 'error');
+      } else {
+        showMsg(`✓ Sync sukses: ${r.synced} file di-upload, ${r.skipped} skipped`);
+      }
       router.refresh();
     });
   }
 
   function handleUnlink() {
-    if (!confirm('Unlink Drive folder?\nFile di Drive TIDAK dihapus, cuma TEONE gak tracking lagi.')) return;
+    if (!confirm('Unlink Drive folder?\nFile di Drive TIDAK dihapus.')) return;
     startTransition(async () => {
       const r = await unlinkVisaDriveFolder(trip.id);
       if (r?.error) showMsg(r.error, 'error');
-      else { showMsg('✓ Drive folder unlinked'); router.refresh(); }
+      else { showMsg('✓ Unlinked'); router.refresh(); }
     });
   }
 
@@ -77,13 +82,14 @@ export default function VisaDriveSyncPanel({ trip }) {
           <span>☁️</span> Google Drive Sync (auto folder per peserta)
         </h2>
         <p className="text-[11px] text-slate-600 mt-0.5">
-          Auto-upload dokumen visa peserta ke Google Drive. Folder per peserta auto-create.
+          Auto-upload dokumen visa peserta ke Google Drive
         </p>
       </div>
 
       {msg && (
-        <div className={`px-5 py-3 text-sm border-b ${msg.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-          {msg.text}
+        <div className={`px-5 py-3 text-sm border-b flex items-start justify-between gap-2 ${msg.type === 'error' ? 'bg-red-50 text-red-800 border-red-200 font-medium' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+          <span className="flex-1">{msg.text}</span>
+          {msg.type === 'error' && <button type="button" onClick={() => setMsg(null)} className="text-xs px-2 py-0.5 bg-white border border-red-300 rounded">✕</button>}
         </div>
       )}
 
@@ -94,14 +100,10 @@ export default function VisaDriveSyncPanel({ trip }) {
               <p className="font-bold">📋 Setup (sekali doang per trip):</p>
               <ol className="list-decimal list-inside space-y-1 ml-1">
                 <li>Buka <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="underline font-bold">drive.google.com</a></li>
-                <li>Bikin folder baru, misal <b>"Visa Documents TE"</b></li>
+                <li>Bikin folder baru, misal "Visa Documents TE"</li>
                 <li>Klik kanan folder → <b>Share</b> → tambah email service account TE sebagai <b>Editor</b></li>
-                <li>Klik kanan folder → <b>Get link</b> → copy URL</li>
-                <li>Paste URL di kolom di bawah</li>
+                <li>Get link → paste di bawah</li>
               </ol>
-              <p className="text-[10px] mt-2 italic">
-                ℹ Service account email sama dgn yang dipakai accounting-sheet sync. Cek di Accounting → Google Sheet panel.
-              </p>
             </div>
 
             <div>
@@ -113,9 +115,6 @@ export default function VisaDriveSyncPanel({ trip }) {
                 placeholder="https://drive.google.com/drive/folders/..."
                 className="w-full px-3 py-2 border-2 border-slate-300 rounded text-sm font-mono"
               />
-              <p className="text-[10px] text-slate-500 mt-1">
-                Folder ini akan jadi PARENT. Sistem auto-create subfolder "{trip.kode_trip || trip.id} - {trip.name}" di dalamnya.
-              </p>
             </div>
 
             <button
@@ -135,28 +134,12 @@ export default function VisaDriveSyncPanel({ trip }) {
                 <a href={folderUrl} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline font-semibold inline-flex items-center gap-1">
                   ↗ Buka di Google Drive
                 </a>
-                <p className="text-[10px] text-slate-400 mt-1 font-mono break-all">
-                  ID: {trip.visa_drive_trip_folder_id}
-                </p>
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-600 uppercase">Last Sync</p>
                 <p className="text-slate-800 font-semibold">{fmtDateTime(lastSync)}</p>
                 {lastSync && <p className="text-[10px] text-slate-500">{timeAgo(lastSync)}</p>}
               </div>
-            </div>
-
-            <div className="bg-slate-50 rounded p-2 text-xs text-slate-600">
-              <p className="font-bold mb-1">📁 Struktur folder di Drive:</p>
-              <pre className="text-[11px] bg-white p-2 rounded border border-slate-200">{`Visa Documents TE/
-└── ${(trip.kode_trip || trip.id) + ' - ' + (trip.name || 'Trip')}/
-    ├── nama_peserta_1/
-    │   ├── KTP-ktp.jpg
-    │   ├── Passport-passport.pdf
-    │   └── ...
-    ├── nama_peserta_2/
-    │   └── ...
-`}</pre>
             </div>
 
             <div className="flex gap-2 flex-wrap pt-2 border-t border-slate-100">
@@ -172,7 +155,7 @@ export default function VisaDriveSyncPanel({ trip }) {
                 href={folderUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="px-4 py-2 rounded bg-blue-100 text-blue-700 text-sm font-bold hover:bg-blue-200 inline-flex items-center gap-1"
+                className="px-4 py-2 rounded bg-blue-100 text-blue-700 text-sm font-bold hover:bg-blue-200"
               >
                 ↗ Open Drive Folder
               </a>
@@ -186,8 +169,50 @@ export default function VisaDriveSyncPanel({ trip }) {
               </button>
             </div>
 
+            {/* R215u — Detailed sync result */}
+            {syncResult && (
+              <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded text-xs">
+                <p className="font-bold text-slate-700 mb-2">📊 Sync Result:</p>
+                <div className="grid grid-cols-3 gap-2 mb-2">
+                  <div className="p-2 bg-emerald-100 rounded text-center">
+                    <p className="text-[10px] font-bold text-emerald-700">✓ Synced</p>
+                    <p className="font-bold text-emerald-800">{syncResult.synced}</p>
+                  </div>
+                  <div className="p-2 bg-slate-100 rounded text-center">
+                    <p className="text-[10px] font-bold text-slate-600">⊝ Skipped</p>
+                    <p className="font-bold text-slate-700">{syncResult.skipped}</p>
+                  </div>
+                  <div className={`p-2 rounded text-center ${syncResult.errors > 0 ? 'bg-red-100' : 'bg-slate-100'}`}>
+                    <p className={`text-[10px] font-bold ${syncResult.errors > 0 ? 'text-red-700' : 'text-slate-600'}`}>✕ Errors</p>
+                    <p className={`font-bold ${syncResult.errors > 0 ? 'text-red-800' : 'text-slate-700'}`}>{syncResult.errors}</p>
+                  </div>
+                </div>
+
+                {syncResult.success_details?.length > 0 && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer font-semibold text-emerald-700">✓ {syncResult.success_details.length} file ter-upload</summary>
+                    <ul className="mt-1 ml-4 list-disc text-[11px] text-slate-600">
+                      {syncResult.success_details.map((s, i) => <li key={i}>{s}</li>)}
+                    </ul>
+                  </details>
+                )}
+
+                {syncResult.error_details?.length > 0 && (
+                  <details className="mt-2" open>
+                    <summary className="cursor-pointer font-bold text-red-700">⚠ {syncResult.error_details.length} error detail (klik buka log)</summary>
+                    <ul className="mt-1 ml-4 list-disc text-[11px] text-red-700 bg-red-50 p-2 rounded">
+                      {syncResult.error_details.map((e, i) => <li key={i} className="font-mono">{e}</li>)}
+                    </ul>
+                    <p className="text-[10px] text-slate-500 mt-1 italic">
+                      💡 Cek juga Vercel Runtime Logs untuk log detail [Sync] dan [Drive Upload FAIL/OK]
+                    </p>
+                  </details>
+                )}
+              </div>
+            )}
+
             <p className="text-[10px] text-slate-500 italic">
-              ℹ Sync = upload semua dokumen di Supabase storage ke Drive. File yg udah ke-sync (ada drive_file_id) akan di-skip biar gak duplicate.
+              ℹ File yg udah ke-sync di-skip biar gak duplicate.
             </p>
           </div>
         )}
