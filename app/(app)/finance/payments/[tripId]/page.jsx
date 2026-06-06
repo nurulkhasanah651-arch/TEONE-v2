@@ -1,5 +1,5 @@
-// R208 + R209 + R210 + R212 + R215y: Payment Checklist + familyGroups + Payment Drive Sync
-// R215y: TAMBAH PaymentDriveSyncPanel — sync bukti transfer per peserta ke Google Drive
+// R208 + R209 + R210 + R212: Payment Checklist + familyGroups
+// R215y² REVERT: PaymentDriveSyncPanel DIHAPUS dari sini (pindah ke /invoices)
 // SEMUA fitur existing TETAP UTUH (PaymentTemplateForm, PaymentMatrix, DeliverySection, PNR Deposit table)
 // Path: app/(app)/finance/payments/[tripId]/page.jsx
 
@@ -11,8 +11,6 @@ import PaymentTemplateForm from '@/components/finance/PaymentTemplateForm';
 import PaymentMatrix from '@/components/finance/PaymentMatrix';
 import DownloadButtons from '@/components/common/DownloadButtons';
 import DeliverySection from '@/components/checklist/DeliverySection';
-// R215y — Payment Drive Sync panel
-import PaymentDriveSyncPanel from '@/components/finance/PaymentDriveSyncPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -214,9 +212,6 @@ export default async function TripPaymentsPage({ params }) {
       </div>
 
       <PaymentTemplateForm tripId={tripId} template={template} />
-
-      {/* R215y — Payment Drive Sync (sync bukti transfer per peserta ke Google Drive) */}
-      <PaymentDriveSyncPanel trip={trip} />
 
       <PaymentMatrix
         tripId={tripId}
