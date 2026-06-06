@@ -1,7 +1,6 @@
 'use client';
 
-// R215m: Visa Workflow Config Panel — trip-level config (PDF URLs, default cost, location)
-// ADDITIVE — gak ngubah VisaGroupForm existing
+// R215m + R215n: Visa Workflow Config — REMOVE jam biometrik (sekarang per pax)
 // Path: components/visa/VisaWorkflowConfig.jsx
 
 import { useState, useTransition } from 'react';
@@ -24,7 +23,6 @@ export default function VisaWorkflowConfig({ trip }) {
     visa_needs_biometric: trip.visa_needs_biometric !== false,
     visa_needs_physical_doc: trip.visa_needs_physical_doc !== false,
     visa_biometric_location: trip.visa_biometric_location || '',
-    visa_biometric_time: trip.visa_biometric_time || '',
     visa_pickup_address: trip.visa_pickup_address || '',
     visa_default_biometric_cost: trip.visa_default_biometric_cost || 0,
     visa_default_visa_cost: trip.visa_default_visa_cost || 0,
@@ -33,7 +31,7 @@ export default function VisaWorkflowConfig({ trip }) {
 
   function showMsg(text, type = 'success') {
     setMsg({ text, type });
-    if (type !== 'error') setTimeout(() => setMsg(null), 4000);
+    if (type !== 'error') setTimeout(() => setMsg(null), 6000);
   }
 
   function handleSave() {
@@ -43,10 +41,13 @@ export default function VisaWorkflowConfig({ trip }) {
         visa_default_biometric_cost: Number(form.visa_default_biometric_cost) || 0,
         visa_default_visa_cost: Number(form.visa_default_visa_cost) || 0,
         visa_deadline_doc: form.visa_deadline_doc || null,
-        visa_biometric_time: form.visa_biometric_time || null,
       });
-      if (r?.error) { showMsg('Gagal: ' + r.error, 'error'); return; }
-      showMsg('✓ Config visa workflow tersimpan');
+      if (r?.error) { showMsg('❌ Gagal: ' + r.error, 'error'); return; }
+      if (r?.warning) {
+        showMsg('⚠ Tersimpan dengan warning: ' + r.warning, 'error');
+      } else {
+        showMsg('✓ Config visa workflow tersimpan');
+      }
       router.refresh();
     });
   }
@@ -57,10 +58,12 @@ export default function VisaWorkflowConfig({ trip }) {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <h2 className="font-bold text-purple-800 flex items-center gap-2">
-              <span>⚙</span> Visa Workflow Config (PDF, Cost, Biometrik)
+              <span>⚙</span> Visa Workflow Config
             </h2>
             <p className="text-[11px] text-slate-600 mt-0.5">
-              Setting trip-level untuk PDF syarat, default cost biometrik & visa, lokasi biometrik
+              Trip-level: PDF syarat, default cost biometrik & visa, lokasi biometrik, alamat pickup
+              <br />
+              <span className="text-amber-700 font-semibold">⏰ Jam biometrik di-set per peserta (bukan di sini, di Workflow Panel bawah)</span>
             </p>
           </div>
           <button
@@ -74,24 +77,23 @@ export default function VisaWorkflowConfig({ trip }) {
       </div>
 
       {msg && (
-        <div className={`px-5 py-2 text-sm border-b ${msg.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-          {msg.text}
+        <div className={`px-5 py-3 text-sm border-b flex items-start justify-between gap-2 ${msg.type === 'error' ? 'bg-red-50 text-red-800 border-red-200 font-medium' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+          <span className="flex-1">{msg.text}</span>
+          {msg.type === 'error' && (
+            <button type="button" onClick={() => setMsg(null)} className="text-xs px-2 py-0.5 bg-white border border-red-300 rounded">✕</button>
+          )}
         </div>
       )}
 
-      {/* Summary view (always visible) */}
+      {/* Summary view */}
       <div className="px-5 py-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
         <div className="p-2 bg-slate-50 rounded">
           <p className="text-[10px] font-bold text-slate-600 uppercase">Biometrik?</p>
-          <p className="font-bold text-slate-800">
-            {form.visa_needs_biometric ? '✅ Perlu' : '❌ Gak Perlu'}
-          </p>
+          <p className="font-bold text-slate-800">{form.visa_needs_biometric ? '✅ Perlu' : '❌ Gak Perlu'}</p>
         </div>
         <div className="p-2 bg-slate-50 rounded">
           <p className="text-[10px] font-bold text-slate-600 uppercase">Doc Fisik?</p>
-          <p className="font-bold text-slate-800">
-            {form.visa_needs_physical_doc ? '✅ Kirim Doc' : '📤 Upload Portal'}
-          </p>
+          <p className="font-bold text-slate-800">{form.visa_needs_physical_doc ? '✅ Kirim Doc' : '📤 Upload Portal'}</p>
         </div>
         <div className="p-2 bg-amber-50 rounded">
           <p className="text-[10px] font-bold text-amber-700 uppercase">Default Biometrik</p>
@@ -111,12 +113,12 @@ export default function VisaWorkflowConfig({ trip }) {
         )}
       </div>
 
-      {/* Edit form (collapsible) */}
+      {/* Edit form */}
       {open && (
         <div className="p-5 border-t border-slate-200 space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">PDF Syarat URL (Schengen, USA, dll)</label>
+              <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">PDF Syarat URL</label>
               <input
                 type="url"
                 value={form.visa_pdf_syarat_url}
@@ -174,7 +176,7 @@ export default function VisaWorkflowConfig({ trip }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Lokasi Biometrik</label>
               <input
@@ -182,15 +184,6 @@ export default function VisaWorkflowConfig({ trip }) {
                 value={form.visa_biometric_location}
                 onChange={(e) => setForm((f) => ({ ...f, visa_biometric_location: e.target.value }))}
                 placeholder="VFS Global Jakarta, ..."
-                className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Jam Biometrik</label>
-              <input
-                type="time"
-                value={form.visa_biometric_time}
-                onChange={(e) => setForm((f) => ({ ...f, visa_biometric_time: e.target.value }))}
                 className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm"
               />
             </div>
@@ -212,7 +205,7 @@ export default function VisaWorkflowConfig({ trip }) {
               onChange={(e) => setForm((f) => ({ ...f, visa_pickup_address: e.target.value }))}
               rows="4"
               className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm"
-              placeholder="PT KHASANAH GLOBAL INTERNATIONAL&#10;Traveling Eropa Headquarter&#10;Ruko Golden 8, Summarecon Blok B No. 9&#10;..."
+              placeholder="PT KHASANAH GLOBAL INTERNATIONAL&#10;Traveling Eropa Headquarter&#10;..."
             />
           </div>
 
