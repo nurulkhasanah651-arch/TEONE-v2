@@ -1,6 +1,6 @@
 'use client';
 
-// R216b: Import Excel ke Trip — UI panel
+// R216c: Import Excel ke Trip + Family preview
 // Path: components/trips/ImportExcelPanel.jsx
 
 import { useState, useTransition, useRef } from 'react';
@@ -16,6 +16,12 @@ const STATUS_BADGE = {
   new_customer: { label: '🆕 Baru', color: 'bg-emerald-100 text-emerald-800' },
   existing_customer: { label: '👤 Sudah Ada', color: 'bg-blue-100 text-blue-800' },
   skip: { label: '⊝ Skip', color: 'bg-slate-100 text-slate-600' },
+};
+
+const FAMILY_BADGE = {
+  head: { label: '👑 Head', color: 'bg-purple-100 text-purple-800' },
+  member: { label: '👨‍👩‍👧 Member', color: 'bg-indigo-100 text-indigo-700' },
+  solo: { label: '🧍 Solo', color: 'bg-slate-50 text-slate-600' },
 };
 
 export default function ImportExcelPanel({ tripId, trip }) {
@@ -54,7 +60,7 @@ export default function ImportExcelPanel({ tripId, trip }) {
       const r = await previewExcelImport(tripId, formData);
       if (r?.error) { showMsg(r.error, 'error'); return; }
       setPreview(r);
-      showMsg(`✓ Preview: ${r.stats.total} baris (${r.stats.new_customer} baru, ${r.stats.existing_customer} sudah ada, ${r.stats.skip} skip)`);
+      showMsg(`✓ Preview: ${r.stats.total} baris (${r.stats.new_customer} baru, ${r.stats.existing_customer} sudah ada, ${r.stats.skip} skip) · ${r.stats.families} family + ${r.stats.solo_travelers} solo`);
     });
   }
 
@@ -65,7 +71,16 @@ export default function ImportExcelPanel({ tripId, trip }) {
       showMsg('Semua baris di-skip — gak ada yg di-import', 'error');
       return;
     }
-    if (!confirm(`Import ${importable.length} peserta ke trip ${preview.trip.kode_trip}?\n\n• ${preview.stats.new_customer} customer baru akan dibuat\n• ${preview.stats.existing_customer} customer existing akan masuk ke trip\n• ${preview.stats.skip} di-skip (sudah di trip ini)\n• Payment total: ${fmtMoney(preview.stats.total_payment)}`)) return;
+    if (!confirm(
+`Import ${importable.length} peserta ke trip ${preview.trip.kode_trip}?
+
+• ${preview.stats.new_customer} customer baru akan dibuat
+• ${preview.stats.existing_customer} customer existing akan masuk ke trip
+• ${preview.stats.skip} di-skip (sudah di trip ini)
+• ${preview.stats.families} family group akan dibuat
+• ${preview.stats.solo_travelers} solo traveler
+• Payment total: ${fmtMoney(preview.stats.total_payment)}`
+    )) return;
 
     startTransition(async () => {
       const r = await confirmExcelImport(tripId, preview.rows);
@@ -75,9 +90,9 @@ export default function ImportExcelPanel({ tripId, trip }) {
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       if (r.errors?.length > 0) {
-        showMsg(`⚠ Imported with ${r.errors.length} error — ${r.inserted_pax} peserta, ${r.inserted_payments} payment`, 'error');
+        showMsg(`⚠ Imported with ${r.errors.length} error — ${r.inserted_pax} peserta, ${r.inserted_families} family, ${r.inserted_payments} payment`, 'error');
       } else {
-        showMsg(`✓ Imported: ${r.inserted_pax} peserta, ${r.inserted_payments} payment, ${r.inserted_customers} customer baru`);
+        showMsg(`✓ Imported: ${r.inserted_pax} peserta, ${r.inserted_families} family, ${r.inserted_payments} payment, ${r.inserted_customers} customer baru`);
       }
       router.refresh();
     });
@@ -103,7 +118,7 @@ export default function ImportExcelPanel({ tripId, trip }) {
             <span>📥</span> Import Peserta dari Excel (Master Trip Travelops)
           </h2>
           <p className="text-[11px] text-slate-600 mt-0.5">
-            Upload xlsx → preview → confirm. Auto-create customer, peserta, payment. Klik untuk {open ? 'tutup' : 'buka'}
+            Upload xlsx → preview → confirm. Auto-create customer, peserta, payment, family group. Klik untuk {open ? 'tutup' : 'buka'}
           </p>
         </div>
         <span className="text-indigo-700 font-bold text-lg">{open ? '−' : '+'}</span>
@@ -121,7 +136,6 @@ export default function ImportExcelPanel({ tripId, trip }) {
           )}
 
           <div className="p-5 space-y-4">
-            {/* Upload section */}
             {!preview && !importResult && (
               <div className="space-y-3">
                 <div className="bg-indigo-50 border border-indigo-200 rounded p-3 text-xs text-indigo-800 space-y-1">
@@ -130,6 +144,12 @@ export default function ImportExcelPanel({ tripId, trip }) {
                     <li>File <b>xlsx</b> dengan sheet <b>"Client Data"</b></li>
                     <li>Header di row 11, data mulai row 12</li>
                     <li>29 kolom: No, Kode Booking, First Name, Surname, ..., DP, P1, P2</li>
+                  </ul>
+                  <p className="font-bold mt-2">👨‍👩‍👧 Auto Family Detection:</p>
+                  <ul className="list-disc list-inside space-y-0.5 ml-1">
+                    <li><b>"(2 PAX)", "(6 PAX)"</b> dst di nama → bikin family group, peserta berikutnya jadi member</li>
+                    <li><b>"(2 PAX + 1 CNB)"</b> → family 3 orang (incl child)</li>
+                    <li><b>"(1 PAX)"</b> atau no marker → solo traveler</li>
                   </ul>
                   <p className="text-[10px] mt-2 italic">
                     ℹ Match peserta existing pakai combo: passport → phone → nama. Peserta yg udah di trip ini akan di-skip.
@@ -163,12 +183,11 @@ export default function ImportExcelPanel({ tripId, trip }) {
               </div>
             )}
 
-            {/* Preview table */}
             {preview && !importResult && (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                   <div className="p-2 bg-slate-100 rounded text-center">
-                    <p className="text-[10px] font-bold text-slate-600">Total Baris</p>
+                    <p className="text-[10px] font-bold text-slate-600">Total</p>
                     <p className="font-bold text-slate-800 text-lg">{preview.stats.total}</p>
                   </div>
                   <div className="p-2 bg-emerald-100 rounded text-center">
@@ -184,6 +203,22 @@ export default function ImportExcelPanel({ tripId, trip }) {
                     <p className="font-bold text-slate-700 text-lg">{preview.stats.skip}</p>
                   </div>
                 </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                  <div className="p-2 bg-purple-100 rounded text-center">
+                    <p className="text-[10px] font-bold text-purple-700">👑 Family Groups</p>
+                    <p className="font-bold text-purple-800 text-lg">{preview.stats.families}</p>
+                  </div>
+                  <div className="p-2 bg-indigo-100 rounded text-center">
+                    <p className="text-[10px] font-bold text-indigo-700">👨‍👩‍👧 Members</p>
+                    <p className="font-bold text-indigo-800 text-lg">{preview.stats.family_members}</p>
+                  </div>
+                  <div className="p-2 bg-slate-100 rounded text-center">
+                    <p className="text-[10px] font-bold text-slate-600">🧍 Solo</p>
+                    <p className="font-bold text-slate-700 text-lg">{preview.stats.solo_travelers}</p>
+                  </div>
+                </div>
+
                 <div className="p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800 text-center">
                   💰 Total payment akan di-import: <b>{fmtMoney(preview.stats.total_payment)}</b>
                 </div>
@@ -193,6 +228,7 @@ export default function ImportExcelPanel({ tripId, trip }) {
                     <thead className="bg-slate-100 sticky top-0">
                       <tr>
                         <th className="px-2 py-1.5 text-left">Status</th>
+                        <th className="px-2 py-1.5 text-left">Family</th>
                         <th className="px-2 py-1.5 text-left">Nama</th>
                         <th className="px-2 py-1.5 text-left">Phone</th>
                         <th className="px-2 py-1.5 text-left">Passport</th>
@@ -205,12 +241,22 @@ export default function ImportExcelPanel({ tripId, trip }) {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {preview.rows.map((r, i) => {
-                        const badge = STATUS_BADGE[r.match_status] || STATUS_BADGE.skip;
+                        const sBadge = STATUS_BADGE[r.match_status] || STATUS_BADGE.skip;
+                        const fBadge = FAMILY_BADGE[r.family_role] || FAMILY_BADGE.solo;
                         return (
                           <tr key={i} className={r.match_status === 'skip' ? 'opacity-50' : ''}>
                             <td className="px-2 py-1.5">
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${badge.color}`}>{badge.label}</span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${sBadge.color}`}>{sBadge.label}</span>
                               {r.match_via && <span className="text-[9px] text-slate-500 block">via {r.match_via}</span>}
+                            </td>
+                            <td className="px-2 py-1.5">
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${fBadge.color}`}>{fBadge.label}</span>
+                              {r.family_role === 'head' && (
+                                <span className="text-[9px] text-purple-600 block">{r.family_total_pax} PAX</span>
+                              )}
+                              {r.family_role === 'member' && r.family_head_name && (
+                                <span className="text-[9px] text-indigo-600 block">→ {r.family_head_name}</span>
+                              )}
                             </td>
                             <td className="px-2 py-1.5 font-semibold">{r.full_name}</td>
                             <td className="px-2 py-1.5 text-slate-600">{r.phone || '-'}</td>
@@ -234,7 +280,7 @@ export default function ImportExcelPanel({ tripId, trip }) {
                     disabled={pending}
                     className="flex-1 px-4 py-2.5 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700 disabled:opacity-50"
                   >
-                    {pending ? '⏳ Importing...' : `✓ Confirm Import (${preview.stats.new_customer + preview.stats.existing_customer} peserta)`}
+                    {pending ? '⏳ Importing...' : `✓ Confirm Import (${preview.stats.new_customer + preview.stats.existing_customer} peserta + ${preview.stats.families} family)`}
                   </button>
                   <button
                     type="button"
@@ -248,10 +294,9 @@ export default function ImportExcelPanel({ tripId, trip }) {
               </div>
             )}
 
-            {/* Import result */}
             {importResult && (
               <div className="space-y-3">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
                   <div className="p-2 bg-emerald-100 rounded text-center">
                     <p className="text-[10px] font-bold text-emerald-700">🆕 Customer</p>
                     <p className="font-bold text-emerald-800 text-lg">{importResult.inserted_customers}</p>
@@ -259,6 +304,10 @@ export default function ImportExcelPanel({ tripId, trip }) {
                   <div className="p-2 bg-blue-100 rounded text-center">
                     <p className="text-[10px] font-bold text-blue-700">👥 Peserta</p>
                     <p className="font-bold text-blue-800 text-lg">{importResult.inserted_pax}</p>
+                  </div>
+                  <div className="p-2 bg-purple-100 rounded text-center">
+                    <p className="text-[10px] font-bold text-purple-700">👨‍👩‍👧 Family</p>
+                    <p className="font-bold text-purple-800 text-lg">{importResult.inserted_families}</p>
                   </div>
                   <div className="p-2 bg-amber-100 rounded text-center">
                     <p className="text-[10px] font-bold text-amber-700">💰 Payment</p>
@@ -272,7 +321,7 @@ export default function ImportExcelPanel({ tripId, trip }) {
 
                 {importResult.errors?.length > 0 && (
                   <details open className="bg-red-50 border border-red-200 rounded p-3">
-                    <summary className="cursor-pointer font-bold text-red-800">⚠ {importResult.errors.length} error</summary>
+                    <summary className="cursor-pointer font-bold text-red-800">⚠ {importResult.errors.length} error / warning</summary>
                     <ul className="mt-2 ml-4 list-disc text-[11px] text-red-700">
                       {importResult.errors.map((e, i) => <li key={i} className="font-mono">{e}</li>)}
                     </ul>
