@@ -1,5 +1,8 @@
-// Round 181 + R215m + R215o: Visa trip detail
-// R215o: TAMBAH VisaTemplateEditor
+// R181 + R215m + R215o + R215r + R215s: Visa trip detail
+// R215m: VisaWorkflowConfig + VisaWorkflowPanel (cost, WA, hasil)
+// R215o: VisaTemplateEditor (CS bisa edit template WA)
+// R215r: VisaDocsDownloadPanel (view + download uploaded docs ZIP per peserta)
+// R215s: trigger view tracking (mark as viewed pas buka page)
 // Path: app/(app)/visa/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -12,8 +15,9 @@ import VisaMatrix from '@/components/visa/VisaMatrix';
 import VisaPDFDownloads from '@/components/visa/VisaPDFDownloads';
 import VisaWorkflowConfig from '@/components/visa/VisaWorkflowConfig';
 import VisaWorkflowPanel from '@/components/visa/VisaWorkflowPanel';
-// R215o — Template editor
 import VisaTemplateEditor from '@/components/visa/VisaTemplateEditor';
+// R215r — Download Panel (view + ZIP per peserta)
+import VisaDocsDownloadPanel from '@/components/visa/VisaDocsDownloadPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +44,7 @@ export default async function VisaTripPage({ params }) {
     customerMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
   }
 
+  // Existing — fetch payment Visa per peserta
   const passengerIds = passengers.map((p) => p.id);
   const visaPaymentByPassenger = {};
   if (passengerIds.length > 0) {
@@ -79,6 +84,23 @@ export default async function VisaTripPage({ params }) {
     visaPayment: visaPaymentByPassenger[p.id] || null,
   }));
 
+  // R215s — Count uploaded docs untuk header badge
+  let totalUploadedDocs = 0;
+  let passengersWithUploads = 0;
+  let newUploadsCount = 0;
+  for (const p of passengers) {
+    const uploads = Array.isArray(p.visa_uploaded_docs) ? p.visa_uploaded_docs : [];
+    if (uploads.length > 0) {
+      totalUploadedDocs += uploads.length;
+      passengersWithUploads++;
+      const lastViewed = p.visa_uploads_last_viewed_at ? new Date(p.visa_uploads_last_viewed_at).getTime() : 0;
+      for (const u of uploads) {
+        const uploadTime = u.uploaded_at ? new Date(u.uploaded_at).getTime() : 0;
+        if (uploadTime > lastViewed) newUploadsCount++;
+      }
+    }
+  }
+
   const template = trip.visa_doc_template || [];
   const s = statusCfg(trip.status);
 
@@ -89,15 +111,27 @@ export default async function VisaTripPage({ params }) {
         <div className="mt-2 flex items-center gap-2 flex-wrap">
           <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${s.bg} ${s.text}`}>{trip.kode_trip || `#${trip.id}`}</span>
           <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${s.bg} ${s.text} border ${s.border}`}>{s.label}</span>
+          {/* R215s — New uploads badge */}
+          {newUploadsCount > 0 && (
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-500 text-white animate-pulse">
+              🔔 {newUploadsCount} doc BARU di-upload
+            </span>
+          )}
         </div>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.name}</h1>
         <p className="mt-1 text-slate-600">
           {passengers.length} peserta aktif
           {inactiveCount > 0 && <span className="text-amber-600"> · {inactiveCount} transferred/refunded</span>}
           · Berangkat {fmtDate(trip.departure)}
+          {totalUploadedDocs > 0 && (
+            <span className="ml-2 text-emerald-700 font-semibold">
+              · 📤 {totalUploadedDocs} dokumen dari {passengersWithUploads} peserta
+            </span>
+          )}
         </p>
       </div>
 
+      {/* Existing — PDF Downloads */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4 space-y-3">
         <p className="text-xs font-bold text-brand-700 uppercase tracking-wider">📥 Download Dokumen</p>
         <VisaPDFDownloads trip={trip} passengers={passengersWithCustomers} />
@@ -111,15 +145,22 @@ export default async function VisaTripPage({ params }) {
         </div>
       </div>
 
+      {/* Existing — Group info + template editor */}
       <VisaGroupForm trip={trip} template={template} />
 
+      {/* R215m — Workflow Config (trip-level: PDF, default cost, biometric location) */}
       <VisaWorkflowConfig trip={trip} />
 
-      {/* R215o — Template Editor */}
+      {/* R215o — Template Editor (CS edit template WA) */}
       <VisaTemplateEditor trip={trip} />
 
+      {/* R215r — DOWNLOAD PANEL (view + ZIP per peserta) ←─ NEW di sini, di atas matrix biar visible */}
+      <VisaDocsDownloadPanel trip={trip} passengers={passengersWithCustomers} />
+
+      {/* Existing — Matrix */}
       <VisaMatrix tripId={tripId} template={template} passengers={passengersWithCustomers} />
 
+      {/* R215m — Workflow Panel (cost, WA, hasil per peserta) */}
       <VisaWorkflowPanel trip={trip} passengers={passengersWithCustomers} />
     </div>
   );
