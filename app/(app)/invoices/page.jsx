@@ -1,7 +1,12 @@
-// Round 194 + R200i + R201: Invoices page
-// - DP Approval Panel (CS Daily submit DP)
-// - Invoice Payment Approval Panel (peserta upload bukti via link)  ← R201 NEW
-// - Trip Invoices Browser (compact list per trip)
+// R215y² — Invoices page + InvoiceDriveSyncPicker (collapsed by default)
+// Path: app/(app)/invoices/page.jsx
+// FULL REPLACE — semua existing PRESERVED, tambahan minimal:
+//   1. import InvoiceDriveSyncPicker
+//   2. select payment_drive_* columns dari trips
+//   3. <InvoiceDriveSyncPicker trips={tripsWithDrive} /> setelah approval panels
+//
+// ALUR EXISTING (DP Approval, Payment Approval, Trip Browser) UTUH 100%.
+// Drive picker = COLLAPSED by default — gak ganggu workflow normal.
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
@@ -10,6 +15,7 @@ import { fmtRupiah } from '@/lib/utils/format';
 import DPApprovalPanel from '@/components/accounting/DPApprovalPanel';
 import InvoicePaymentApprovalPanel from '@/components/invoices/InvoicePaymentApprovalPanel';
 import TripInvoicesBrowser from '@/components/invoices/TripInvoicesBrowser';
+import InvoiceDriveSyncPicker from '@/components/invoices/InvoiceDriveSyncPicker';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +37,8 @@ export default async function InvoicesPage() {
     pendingPaymentsRes, dpRequestsRes, familyGroupsRes
   ] = await Promise.all([
     supabase.from('invoices').select('*').order('created_at', { ascending: false }).limit(500),
-    supabase.from('trips').select('id, kode_trip, name, departure, status'),
+    // R215y² — tambahin payment_drive_* columns ke select trips
+    supabase.from('trips').select('id, kode_trip, name, departure, status, payment_drive_parent_folder_id, payment_drive_trip_folder_id, payment_drive_trip_folder_url, payment_drive_last_sync_at'),
     supabase.from('trip_passengers').select('id, trip_id, customer_id, family_group_id, is_family_head'),
     supabase.from('customers').select('id, name, phone'),
     serviceClient
@@ -118,6 +125,9 @@ export default async function InvoicesPage() {
   };
   const sisa = grand.totalAmount - grand.paidAmount;
 
+  // R215y² — trips list buat Drive picker (cuma yg punya invoice, biar relevant)
+  const tripsForDrivePicker = trips.filter((t) => allInvoices.some((inv) => inv.trip_id === t.id));
+
   return (
     <div className="max-w-7xl mx-auto space-y-5">
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -168,6 +178,9 @@ export default async function InvoicesPage() {
           familyGroups={familyGroups}
         />
       )}
+
+      {/* R215y² — DRIVE SYNC PICKER (collapsed by default — gak ganggu workflow) */}
+      <InvoiceDriveSyncPicker trips={tripsForDrivePicker} />
 
       {/* TRIP LIST */}
       <TripInvoicesBrowser groups={groups} />
