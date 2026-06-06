@@ -1,10 +1,15 @@
-// Round 141 HOTFIX: passport-manage per trip — pakai 2 query terpisah (sama kaya master trip page)
+// R215z: passport-manage per trip + Drive Sync Panel
 // Path: app/(app)/trips/[id]/passport-manage/page.jsx
+// FULL REPLACE — semua existing PRESERVED, tambahan minimal:
+//   1. import PassportDriveSyncPanel
+//   2. trip select query include passport_drive_* columns
+//   3. <PassportDriveSyncPanel trip={trip} /> di antara action bar & passenger list
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { redirect } from 'next/navigation';
+import PassportDriveSyncPanel from '@/components/passport/PassportDriveSyncPanel';
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -43,9 +48,10 @@ export default async function PassportManagePage({ params }) {
   // Pakai service client utk bypass RLS
   const supabase = getServiceClient() || createClient();
 
+  // R215z: tambahin passport_drive_* columns ke select
   const { data: trip } = await supabase
     .from('trips')
-    .select('id, kode_trip, name, departure')
+    .select('id, kode_trip, name, departure, passport_drive_parent_folder_id, passport_drive_trip_folder_id, passport_drive_trip_folder_url, passport_drive_last_sync_at')
     .eq('id', tripId)
     .maybeSingle();
 
@@ -141,6 +147,9 @@ export default async function PassportManagePage({ params }) {
           📋 Semua Trip
         </Link>
       </div>
+
+      {/* R215z — Passport Drive Sync Panel (per trip, folder per peserta) */}
+      <PassportDriveSyncPanel trip={trip} />
 
       {/* Passenger list */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
