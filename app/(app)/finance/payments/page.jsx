@@ -1,4 +1,5 @@
-// R157 + R194b: Payment Checklist LIST + filter bulanan + status + search
+// R157 + R194b + R215y⁴: Payment Checklist LIST + filter bulanan + status + search
+// R215y⁴ FIX: SINKRON ke peserta aktif — exclude transferred + refunded (sama dgn trip detail page)
 // Path: app/(app)/finance/payments/page.jsx
 
 import Link from 'next/link';
@@ -13,13 +14,25 @@ export default async function PaymentsListPage() {
 
   const [tripsRes, passengersRes, paymentsRes] = await Promise.all([
     supabase.from('trips').select('id, kode_trip, name, status, departure, quota, sold').order('departure', { ascending: true }),
-    supabase.from('trip_passengers').select('id, trip_id, price_paid'),
-    supabase.from('participant_payments').select('passenger_id, amount, type'),
+    // R215y⁴: tambah transfer_status + refund_status biar bisa filter peserta aktif
+    supabase.from('trip_passengers').select('id, trip_id, price_paid, transfer_status, refund_status'),
+    // R215y⁴: tambah is_transferred biar bisa exclude payment yg udah dipindah
+    supabase.from('participant_payments').select('passenger_id, amount, type, is_transferred'),
   ]);
 
   const trips = tripsRes.data || [];
-  const passengers = passengersRes.data || [];
-  const payments = paymentsRes.data || [];
+  const allPassengers = passengersRes.data || [];
+  const allPayments = paymentsRes.data || [];
+
+  // R215y⁴: FILTER peserta aktif (exclude transferred + refunded) — sama dgn detail page
+  const passengers = allPassengers.filter((p) => {
+    const isTransferred = p.transfer_status === 'transferred';
+    const isRefunded = p.refund_status === 'refunded' || p.refund_status === 'partial_refund';
+    return !isTransferred && !isRefunded;
+  });
+
+  // R215y⁴: FILTER payment yg belum di-transfer (defensive — kalau column gak ada, treat as false)
+  const payments = allPayments.filter((p) => p.is_transferred !== true);
 
   const paidByPassenger = {};
   for (const p of payments) {
@@ -72,7 +85,7 @@ export default async function PaymentsListPage() {
         <DownloadButtons
           filename={`payment-status-semua-trip-${new Date().toISOString().slice(0,10)}`}
           title="Payment Status — Semua Trip"
-          subtitle={`${sorted.length} trip · ${grandPax} pax · ${grandLunas} lunas`}
+          subtitle={`${sorted.length} trip · ${grandPax} pax aktif · ${grandLunas} lunas`}
           extraInfo={[
             { label: 'Total Expected', value: fmtMoney(grandExpected) },
             { label: 'Total Paid', value: fmtMoney(grandPaid) },
