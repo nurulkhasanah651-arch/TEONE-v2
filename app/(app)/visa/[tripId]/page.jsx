@@ -1,6 +1,5 @@
-// Round 181 + R215m: Visa trip detail
-// R215m: TAMBAH VisaWorkflowConfig + VisaWorkflowPanel di bawah matrix existing
-// EXISTING: VisaGroupForm + VisaMatrix + VisaPDFDownloads → TETAP UTUH
+// Round 181 + R215m + R215o: Visa trip detail
+// R215o: TAMBAH VisaTemplateEditor
 // Path: app/(app)/visa/[tripId]/page.jsx
 
 import Link from 'next/link';
@@ -11,9 +10,10 @@ import { statusCfg } from '@/lib/utils/trip-status';
 import VisaGroupForm from '@/components/visa/VisaGroupForm';
 import VisaMatrix from '@/components/visa/VisaMatrix';
 import VisaPDFDownloads from '@/components/visa/VisaPDFDownloads';
-// R215m — Workflow Config + Panel
 import VisaWorkflowConfig from '@/components/visa/VisaWorkflowConfig';
 import VisaWorkflowPanel from '@/components/visa/VisaWorkflowPanel';
+// R215o — Template editor
+import VisaTemplateEditor from '@/components/visa/VisaTemplateEditor';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +40,6 @@ export default async function VisaTripPage({ params }) {
     customerMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
   }
 
-  // Fetch payment Visa per peserta (existing)
   const passengerIds = passengers.map((p) => p.id);
   const visaPaymentByPassenger = {};
   if (passengerIds.length > 0) {
@@ -99,7 +98,6 @@ export default async function VisaTripPage({ params }) {
         </p>
       </div>
 
-      {/* PDF Downloads (existing) */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4 space-y-3">
         <p className="text-xs font-bold text-brand-700 uppercase tracking-wider">📥 Download Dokumen</p>
         <VisaPDFDownloads trip={trip} passengers={passengersWithCustomers} />
@@ -113,16 +111,15 @@ export default async function VisaTripPage({ params }) {
         </div>
       </div>
 
-      {/* Group info + template editor (existing) */}
       <VisaGroupForm trip={trip} template={template} />
 
-      {/* R215m — Workflow Config (NEW) */}
       <VisaWorkflowConfig trip={trip} />
 
-      {/* Matrix (existing) */}
+      {/* R215o — Template Editor */}
+      <VisaTemplateEditor trip={trip} />
+
       <VisaMatrix tripId={tripId} template={template} passengers={passengersWithCustomers} />
 
-      {/* R215m — Workflow Panel (NEW) — per peserta cost, WA, hasil */}
       <VisaWorkflowPanel trip={trip} passengers={passengersWithCustomers} />
     </div>
   );
