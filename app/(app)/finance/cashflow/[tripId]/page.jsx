@@ -46,7 +46,7 @@ export default async function CashflowDetailPage({ params }) {
     supabase.from('trips').select('*').eq('id', tripId).maybeSingle(),
     supabase.from('trip_finance_items').select('*').eq('trip_id', tripId).order('item_type').order('category'),
     supabase.from('trip_passengers').select('*').eq('trip_id', tripId),
-    supabase.from('customers').select('id, name'),
+    supabase.from('customers').select('id, name, gender, sex'),
   ]);
 
   if (!tripRes.data) notFound();

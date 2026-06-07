@@ -286,13 +286,7 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
       <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
           <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">📊 Room Distribution</p>
-          <button
-            type="button"
-            onClick={() => setOpenAssign((v) => !v)}
-            className="text-[11px] font-semibold px-3 py-1 bg-brand-500 hover:bg-brand-600 text-white rounded"
-          >
-            {openAssign ? '✕ Tutup' : '🛏 Assign Room per Peserta'}
-          </button>
+          <span className="text-[10px] text-slate-500">↑ atur kamar di panel Roomlist di atas (otomatis sinkron)</span>
         </div>
         <div className="grid grid-cols-3 md:grid-cols-6 gap-2 text-xs">
           {ROOM_TYPES.map((rt) => (
@@ -311,46 +305,6 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
           )}
         </div>
 
-        {openAssign && (
-          <div className="mt-3 p-3 bg-white rounded border border-slate-200 max-h-80 overflow-auto">
-            <p className="text-xs font-bold text-slate-700 uppercase mb-2">Set room type per peserta:</p>
-            {activePassengers.length === 0 ? (
-              <p className="text-xs text-red-600">Tidak ada peserta aktif. Cek master trip atau status peserta (mungkin semua transferred/refunded).</p>
-            ) : (
-              <table className="w-full text-xs">
-                <thead className="bg-slate-50 sticky top-0">
-                  <tr className="text-left">
-                    <th className="px-2 py-1">Nama</th>
-                    <th className="px-2 py-1">Room Type</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {activePassengers.map((p) => {
-                    const c = custMap[p.customer_id];
-                    return (
-                      <tr key={p.id} className="border-t border-slate-100">
-                        <td className="px-2 py-1">{c?.name || `#${p.id}`}</td>
-                        <td className="px-2 py-1">
-                          <select
-                            defaultValue={p.room_type || ''}
-                            disabled={pending}
-                            onChange={(e) => handleAssignRoom(p.id, e.target.value)}
-                            className="px-2 py-0.5 border border-slate-300 rounded text-xs"
-                          >
-                            <option value="">— Belum —</option>
-                            {ROOM_TYPES.map((rt) => (
-                              <option key={rt.key} value={rt.key}>{rt.label} ({rt.capacity})</option>
-                            ))}
-                          </select>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
       </div>
 
       {/* KURS CONFIG */}
