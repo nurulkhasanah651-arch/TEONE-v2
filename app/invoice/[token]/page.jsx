@@ -4,6 +4,7 @@
 
 import { notFound } from 'next/navigation';
 import { createPublicClient as createClient } from '@/lib/supabase/server';
+import { getExpectedAndPaidForPassenger } from '@/lib/actions/invoices';
 
 export const dynamic = 'force-dynamic';
 
@@ -107,7 +108,7 @@ export default async function PublicInvoicePage({ params }) {
   if (inv.passenger_id) {
     try {
       const { data } = await supabase.from('trip_passengers')
-        .select('id, name, room_type, age_type, price_paid').eq('id', inv.passenger_id).maybeSingle();
+        .select('id, room_type, age_type, price_paid').eq('id', inv.passenger_id).maybeSingle();
       passenger = data;
     } catch (e) { errors.push(`passenger: ${e.message}`); }
     try {
@@ -126,20 +127,26 @@ export default async function PublicInvoicePage({ params }) {
   const asuransiPrice = Number(breakdown.asuransi || 0);
 
   const paidTypes = new Set(participantPayments.map((p) => p.type));
-  const totalPaidReal = participantPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
 
-  // expectedTotalReal — kalau breakdown ada pakai itu, kalau gak ada fallback ke passenger.price_paid
-  let expectedTotalReal = roomPrice + tips + cityTax;
-  const optItems = [];
-  if (paidTypes.has('Visa') && visaPrice > 0) { expectedTotalReal += visaPrice; optItems.push({ label: 'Visa', amount: visaPrice }); }
-  if (paidTypes.has('Asuransi') && asuransiPrice > 0) { expectedTotalReal += asuransiPrice; optItems.push({ label: 'Asuransi', amount: asuransiPrice }); }
-
-  // FALLBACK: kalau breakdown empty (0), pakai price_paid passenger
-  if (expectedTotalReal === 0 && passenger?.price_paid) {
-    expectedTotalReal = Number(passenger.price_paid);
+  // RUMUS SAMA DENGAN TEMPLATE WA — satu sumber: getExpectedAndPaidForPassenger
+  let expectedTotalReal = 0;
+  let totalPaidReal = 0;
+  let sisaReal = 0;
+  if (inv.trip_id && inv.passenger_id) {
+    try {
+      const summary = await getExpectedAndPaidForPassenger(supabase, inv.trip_id, inv.passenger_id);
+      expectedTotalReal = Number(summary.expectedTotal) || 0;
+      totalPaidReal = Number(summary.totalPaid) || 0;
+      sisaReal = Number(summary.sisa) || 0;
+    } catch (e) { errors.push(`summary: ${e.message}`); }
+  } else {
+    totalPaidReal = participantPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
   }
 
-  const sisaReal = Math.max(expectedTotalReal - totalPaidReal, 0);
+  const optItems = [];
+  if (paidTypes.has('Visa') && visaPrice > 0) optItems.push({ label: 'Visa', amount: visaPrice });
+  if (paidTypes.has('Asuransi') && asuransiPrice > 0) optItems.push({ label: 'Asuransi', amount: asuransiPrice });
+
   const isLunas = expectedTotalReal > 0 && sisaReal === 0;
 
   // Tour breakdown items
