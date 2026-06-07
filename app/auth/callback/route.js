@@ -39,21 +39,39 @@ export async function GET(request) {
       return NextResponse.redirect(`${origin}/login?error=no_user_after_exchange`);
     }
 
-    // CHECK ROLE — kalau belum ada, set ke 'pending' agar app tahu user baru
-    const currentRole = user.user_metadata?.role || user.app_metadata?.role;
-    if (!currentRole) {
+    // CHECK ROLE — login via Google = Tour Leader: auto-assign & langsung ke /tl
+    let role = user.user_metadata?.role || user.app_metadata?.role || null;
+    if (!role || role === 'pending') {
+      // Cek dulu kalau owner sudah set role di tabel users
+      try {
+        const { data: profile } = await supabase
+          .from('users').select('role').eq('id', user.id).maybeSingle();
+        const map = { tl: 'tour_leader', finance: 'ops', team: 'ops' };
+        role = map[profile?.role] || profile?.role || null;
+      } catch {}
+      if (!role || role === 'pending') role = 'tour_leader';
       try {
         await supabase.auth.updateUser({
-          data: { ...user.user_metadata, role: 'pending' },
+          data: { ...user.user_metadata, role },
         });
       } catch (e) {
-        console.error('[auth/callback] failed to set pending role:', e?.message);
-        // Lanjut aja, jangan block user
+        console.error('[auth/callback] failed to set role:', e?.message);
+      }
+      // Auto-link ke master tour_leaders berdasarkan email (kalau ada)
+      if (role === 'tour_leader' && user.email) {
+        try {
+          await supabase
+            .from('tour_leaders')
+            .update({ user_id: user.id })
+            .ilike('email', user.email)
+            .is('user_id', null);
+        } catch {}
       }
     }
 
-    // Redirect ke dashboard (atau next kalau ada)
-    return NextResponse.redirect(`${origin}${next}`);
+    // Redirect sesuai role — TL langsung ke portal TL
+    const dest = role === 'tour_leader' ? '/tl' : next;
+    return NextResponse.redirect(`${origin}${dest}`);
   } catch (e) {
     console.error('[auth/callback] unexpected error:', e?.message);
     return NextResponse.redirect(

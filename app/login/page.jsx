@@ -43,8 +43,28 @@ export default function LoginPage() {
       return;
     }
 
-    // Login berhasil → redirect
-    router.push('/dashboard');
+    // Login berhasil → role otomatis dari akun (tanpa pilih role lagi)
+    const u = data?.user;
+    let role = u?.user_metadata?.role || u?.app_metadata?.role || null;
+    if (!role && u) {
+      // Fallback: role dari tabel users (di-set owner), lalu simpan ke metadata
+      const { data: profile } = await supabase
+        .from('users').select('role').eq('id', u.id).maybeSingle();
+      const map = { tl: 'tour_leader', finance: 'ops', team: 'ops' };
+      role = map[profile?.role] || profile?.role || null;
+      if (role) {
+        await supabase.auth.updateUser({ data: { ...u.user_metadata, role } });
+      }
+    }
+
+    if (!role || role === 'pending') {
+      await supabase.auth.signOut();
+      setError('Akun kamu belum diberi role. Hubungi owner untuk diaktifkan.');
+      setLoading(false);
+      return;
+    }
+
+    router.push(role === 'tour_leader' ? '/tl' : '/dashboard');
     router.refresh();
   }
 
