@@ -205,60 +205,74 @@ export default function RoomlistPanel({ trip, passengers = [], customers = [] })
         </div>
       </div>
 
-      {/* ASSIGN TABLE (collapsible) */}
+      {/* EDIT ROOM MATE — per kolom kamar (auto dari master trip, bisa diedit) */}
       {showAssign && (
         <div className="px-5 py-3 border-b border-slate-200 bg-white">
-          <p className="text-xs font-bold text-slate-700 uppercase mb-2">🛏 Assign / Re-assign Room Type per Peserta:</p>
-          <div className="max-h-96 overflow-auto border border-slate-200 rounded">
-            <table className="w-full text-xs">
-              <thead className="bg-slate-100 sticky top-0">
-                <tr className="text-left">
-                  <th className="px-2 py-1">Nama</th>
-                  <th className="px-2 py-1">Gender</th>
-                  <th className="px-2 py-1">Family</th>
-                  <th className="px-2 py-1">Room Type</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activePassengers.map((p) => {
-                  const c = custMap[p.customer_id];
-                  const g = normalizeGender(p);
-                  return (
-                    <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50">
-                      <td className="px-2 py-1">{c?.name || `#${p.id}`}</td>
-                      <td className="px-2 py-1">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
-                          g === 'M' ? 'bg-blue-100 text-blue-800' :
-                          g === 'F' ? 'bg-pink-100 text-pink-800' :
-                          'bg-slate-200 text-slate-600'
-                        }`}>
-                          {g === 'M' ? 'Cowok' : g === 'F' ? 'Cewok' : '?'}
+          <p className="text-xs font-bold text-slate-700 uppercase mb-1">🛏 Room Mate per Kamar</p>
+          <p className="text-[10px] text-slate-500 mb-3">
+            Otomatis disusun dari room type di master trip — double dengan double, segender, family sekamar.
+            Mau pindah orang? Ganti room type-nya di bawah, kamar tersusun ulang otomatis.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[480px] overflow-auto">
+            {rooms.map((r) => (
+              <div
+                key={r.room_no}
+                className={`border rounded-lg p-3 ${
+                  r.needs_upgrade ? 'border-red-300 bg-red-50' :
+                  r.is_family ? 'border-pink-200 bg-pink-50/40' : 'border-slate-200 bg-slate-50/60'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[11px] font-bold text-slate-700">
+                    Room {r.room_no} · {(r.room_type || '?').toUpperCase()}
+                  </p>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                    r.is_family ? 'bg-pink-100 text-pink-700' :
+                    r.gender === 'M' ? 'bg-blue-100 text-blue-700' :
+                    r.gender === 'F' ? 'bg-pink-100 text-pink-700' : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {r.is_family ? '👨‍👩‍👧 FAMILY' : r.gender === 'M' ? 'COWOK' : r.gender === 'F' ? 'CEWOK' : '?'}
+                  </span>
+                </div>
+                <ul className="space-y-1.5">
+                  {r.pax.map((p) => {
+                    const c = custMap[p.customer_id];
+                    const g = normalizeGender({ ...p, gender: p.gender || p.sex || c?.gender || c?.sex });
+                    return (
+                      <li key={p.id} className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded px-2 py-1">
+                        <span className="text-[11px] text-slate-800 truncate">
+                          {c?.name || `#${p.id}`}
+                          {g !== '?' && <span className="ml-1 text-[9px] text-slate-400">({g === 'M' ? 'L' : 'P'})</span>}
                         </span>
-                      </td>
-                      <td className="px-2 py-1 text-[10px] text-slate-500">
-                        {p.family_group_id ? String(p.family_group_id).slice(0, 6) : '—'}
-                      </td>
-                      <td className="px-2 py-1">
                         <select
                           defaultValue={p.room_type || ''}
                           disabled={pending}
                           onChange={(e) => handleAssignRoom(p.id, e.target.value)}
-                          className="px-2 py-0.5 border border-slate-300 rounded text-xs"
+                          className="px-1.5 py-0.5 border border-slate-300 rounded text-[10px] shrink-0"
+                          title="Ganti room type — kamar tersusun ulang otomatis"
                         >
                           <option value="">— Belum —</option>
                           {ROOM_TYPES.map((rt) => (
                             <option key={rt.key} value={rt.key}>{rt.label} ({rt.capacity})</option>
                           ))}
                         </select>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </li>
+                    );
+                  })}
+                  {r.pax.length < r.capacity && !r.is_family && (
+                    <li className="text-[10px] text-slate-400 italic px-2 py-1 border border-dashed border-slate-300 rounded">
+                      + {r.capacity - r.pax.length} slot kosong
+                    </li>
+                  )}
+                </ul>
+                {r.needs_upgrade && (
+                  <p className="mt-2 text-[10px] font-semibold text-red-700">🔔 {r.upgrade_note}</p>
+                )}
+              </div>
+            ))}
           </div>
           <p className="text-[10px] text-slate-500 mt-2">
-            ℹ Setelah assign, roomlist akan otomatis ke-regenerate. Refresh page kalau perlu.
+            ℹ Sinkron dengan master trip — perubahan room type langsung menyusun ulang kamar & ikut ke tab Final Roomlist saat Sync.
           </p>
         </div>
       )}
