@@ -52,7 +52,7 @@ export default function BackupSheetPanel({ tripId, initialStatus = null }) {
     try {
       const s = await getSheetStatus(tripId);
       if (!s) {
-        setStatus({ has_sheet: false, sa_email: 'unknown' });
+        setStatus({ has_sheet: false, sa_email: 'teone-sheet-bot@zinc-wares-498208-s4.iam.gserviceaccount.com' });
         setLoadError('Server action gak return data — kemungkinan env Google Sheets belum di-set');
         return;
       }
@@ -60,7 +60,7 @@ export default function BackupSheetPanel({ tripId, initialStatus = null }) {
     } catch (e) {
       const errMsg = e?.message || String(e);
       console.error('[BackupSheetPanel] getSheetStatus error:', errMsg);
-      setStatus({ has_sheet: false, sa_email: 'error' });
+      setStatus({ has_sheet: false, sa_email: 'teone-sheet-bot@zinc-wares-498208-s4.iam.gserviceaccount.com' });
       setLoadError(errMsg);
     }
   }
@@ -255,7 +255,7 @@ export default function BackupSheetPanel({ tripId, initialStatus = null }) {
                     <li>Klik tombol <b>Share</b> (kanan atas)</li>
                     <li>Tambah email service account ini sebagai <b>Editor</b>:
                       <div className="mt-1 p-1.5 bg-white rounded font-mono break-all border border-blue-300">
-                        {status.sa_email || '(belum di-set)'}
+                        {status.sa_email || 'teone-sheet-bot@zinc-wares-498208-s4.iam.gserviceaccount.com'}
                       </div>
                     </li>
                     <li>Klik <b>Send</b></li>
