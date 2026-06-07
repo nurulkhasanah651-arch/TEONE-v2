@@ -7,6 +7,19 @@ import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
+async function fetchEmployees(supabase) {
+  try {
+    const { data } = await supabase
+      .from('employees')
+      .select('id, full_name, email')
+      .eq('status', 'active')
+      .order('full_name');
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
 async function fetchTourLeaders(supabase) {
   try {
     const { data } = await supabase
@@ -34,9 +47,10 @@ async function fetchPnrInventory(supabase) {
 
 export default async function NewTripPage() {
   const supabase = createClient();
-  const [tourLeaders, pnrInventory] = await Promise.all([
+  const [tourLeaders, pnrInventory, employees] = await Promise.all([
     fetchTourLeaders(supabase),
     fetchPnrInventory(supabase),
+    fetchEmployees(supabase),
   ]);
 
   return (
@@ -53,6 +67,7 @@ export default async function NewTripPage() {
           submitLabel="Buat Trip"
           tourLeaders={tourLeaders}
           pnrInventory={pnrInventory}
+          employees={employees}
         />
       </div>
     </div>

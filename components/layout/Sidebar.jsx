@@ -10,22 +10,22 @@ import { createClient } from '@/lib/supabase/client';
 import { resolveBrandCodeBrowser, BRAND_UI } from '@/lib/brand-shared';
 
 const NAV = [
-  { href: '/dashboard',       label: 'Dashboard',    icon: '◆',  roles: ['owner', 'manager', 'cs', 'ops'] },
-  { href: '/trips',           label: 'Master Trip',  icon: '✈',  roles: ['owner', 'manager', 'cs', 'ops'] },
-  { href: '/cs',              label: 'CS Daily',     icon: '☎',  roles: ['owner', 'manager', 'cs', 'ops'] },
-  { href: '/quotations',      label: 'Penawaran AI', icon: '💰', roles: ['owner', 'manager', 'cs', 'ops'] },
-  { href: '/ads',             label: 'Ads Manager',  icon: '📢', roles: ['owner', 'manager', 'cs', 'ops'] },
-  { href: '/finance',         label: 'Finance',      icon: '$',  roles: ['owner', 'manager', 'ops'] },
+  { href: '/dashboard',       label: 'Dashboard',    icon: '◆',  roles: ['pic', 'owner', 'manager', 'cs', 'ops'] },
+  { href: '/trips',           label: 'Master Trip',  icon: '✈',  roles: ['pic', 'owner', 'manager', 'cs', 'ops'] },
+  { href: '/cs',              label: 'CS Daily',     icon: '☎',  roles: ['pic', 'owner', 'manager', 'cs', 'ops'] },
+  { href: '/quotations',      label: 'Penawaran AI', icon: '💰', roles: ['pic', 'owner', 'manager', 'cs', 'ops'] },
+  { href: '/ads',             label: 'Ads Manager',  icon: '📢', roles: ['pic', 'owner', 'manager', 'cs', 'ops'] },
+  { href: '/finance',         label: 'Finance',      icon: '$',  roles: ['pic', 'owner', 'manager', 'ops'] },
   { href: '/accounting',      label: 'Accounting',   icon: '📊', roles: ['owner', 'manager'] },
   { href: '/hr',              label: 'HR',           icon: '🧑', roles: ['owner', 'manager'] },
-  { href: '/invoices',        label: 'Invoices',     icon: '🧾', roles: ['owner', 'manager', 'ops'] },
-  { href: '/refunds',         label: 'Refunds',      icon: '💸', roles: ['owner', 'manager', 'cs', 'ops'] },
-  { href: '/visa',            label: 'Visa',         icon: '🛂', roles: ['owner', 'manager', 'cs', 'ops'] },
-  { href: '/passport-manage', label: 'Passport AI',  icon: '🤖', roles: ['owner', 'manager', 'cs', 'ops'] },
-  { href: '/tl',              label: 'Portal TL',    icon: '👤', roles: ['owner', 'manager', 'cs', 'ops', 'tour_leader'] },
-  { href: '/tl-master',       label: 'Master TL',    icon: '👥', roles: ['owner', 'manager'] },
-  { href: '/tasks',           label: 'To-Do List',   icon: '✅', roles: ['owner', 'manager', 'cs', 'ops', 'tour_leader'] },
-  { href: '/chat',            label: 'Chat Tim',     icon: '💬', roles: ['owner', 'manager', 'cs', 'ops', 'tour_leader'] },
+  { href: '/invoices',        label: 'Invoices',     icon: '🧾', roles: ['pic', 'owner', 'manager', 'ops'] },
+  { href: '/refunds',         label: 'Refunds',      icon: '💸', roles: ['pic', 'owner', 'manager', 'cs', 'ops'] },
+  { href: '/visa',            label: 'Visa',         icon: '🛂', roles: ['pic', 'owner', 'manager', 'cs', 'ops'] },
+  { href: '/passport-manage', label: 'Passport AI',  icon: '🤖', roles: ['pic', 'owner', 'manager', 'cs', 'ops'] },
+  { href: '/tl',              label: 'Portal TL',    icon: '👤', roles: ['pic', 'owner', 'manager', 'cs', 'ops', 'tour_leader'] },
+  { href: '/tl-master',       label: 'Master TL',    icon: '👥', roles: ['pic', 'owner', 'manager'] },
+  { href: '/tasks',           label: 'To-Do List',   icon: '✅', roles: ['pic', 'owner', 'manager', 'cs', 'ops', 'tour_leader'] },
+  { href: '/chat',            label: 'Chat Tim',     icon: '💬', roles: ['pic', 'owner', 'manager', 'cs', 'ops', 'tour_leader'] },
 ];
 
 export default function Sidebar() {
@@ -37,12 +37,15 @@ export default function Sidebar() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      const r =
-        user?.user_metadata?.role ||
-        user?.app_metadata?.role ||
-        'pending';
-      setRole(r);
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      let r = user?.user_metadata?.role || user?.app_metadata?.role || null;
+      if (!r && user) {
+        // Fallback: role dari tabel users (mis. role 'pic' di-set owner)
+        const { data: u } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle();
+        const map = { tl: 'tour_leader', finance: 'ops', team: 'ops' };
+        r = map[u?.role] || u?.role || 'pending';
+      }
+      setRole(r || 'pending');
       setLoading(false);
     });
   }, []);

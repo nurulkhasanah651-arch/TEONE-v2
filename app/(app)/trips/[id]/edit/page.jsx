@@ -9,6 +9,19 @@ import { updateTrip } from '../../actions';
 
 export const dynamic = 'force-dynamic';
 
+async function fetchEmployees(supabase) {
+  try {
+    const { data } = await supabase
+      .from('employees')
+      .select('id, full_name, email')
+      .eq('status', 'active')
+      .order('full_name');
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
 async function fetchTourLeaders(supabase) {
   try {
     const { data } = await supabase
@@ -43,9 +56,10 @@ export default async function EditTripPage({ params }) {
     notFound();
   }
 
-  const [tourLeaders, pnrInventory] = await Promise.all([
+  const [tourLeaders, pnrInventory, employees] = await Promise.all([
     fetchTourLeaders(supabase),
     fetchPnrInventory(supabase),
+    fetchEmployees(supabase),
   ]);
 
   const updateThisTrip = updateTrip.bind(null, id);
@@ -67,6 +81,7 @@ export default async function EditTripPage({ params }) {
           submitLabel="Update Trip"
           tourLeaders={tourLeaders}
           pnrInventory={pnrInventory}
+          employees={employees}
         />
       </div>
 

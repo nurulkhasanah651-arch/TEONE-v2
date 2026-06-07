@@ -40,6 +40,7 @@ function parseTripFields(formData) {
     name: formData.get('name'),
     destination: formData.get('destination') || null,
     pic: formData.get('pic') || null,
+    pic_email: formData.get('pic_email') || null,
     tl_id,
     tl_name: formData.get('tl_name') || null,
     ticket: formData.get('ticket') || 'FIT',

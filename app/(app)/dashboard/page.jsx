@@ -48,8 +48,27 @@ export default async function DashboardPage() {
     supabase.from('ads_entries').select('*').eq('date', today),
   ]);
 
-  const trips = tripsRes.data || [];
-  const allPax = allPaxRes.data || [];
+  let trips = tripsRes.data || [];
+  let allPax = allPaxRes.data || [];
+
+  // Role PIC: dashboard hanya menampilkan trip yang di-assign ke dia
+  let dbRole = role;
+  let dbName = '';
+  {
+    const { data: u } = await supabase.from('users').select('role, name').eq('id', user?.id).maybeSingle();
+    if (u?.role === 'pic') dbRole = 'pic';
+    dbName = u?.name || '';
+  }
+  if (dbRole === 'pic') {
+    const email = (user?.email || '').toLowerCase();
+    const nm = dbName.toLowerCase();
+    trips = trips.filter((t) =>
+      (t.pic_email && t.pic_email.toLowerCase() === email) ||
+      (t.pic && nm && t.pic.toLowerCase() === nm)
+    );
+    const myTripIds = new Set(trips.map((t) => t.id));
+    allPax = allPax.filter((p) => myTripIds.has(p.trip_id));
+  }
   const csToday = csTodayRes.data || [];
   const dailyLeads = dailyLeadsRes.data;
   const adsToday = adsTodayRes.data || [];

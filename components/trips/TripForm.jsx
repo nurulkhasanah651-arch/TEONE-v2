@@ -28,7 +28,7 @@ function parseRupiah(s) {
   return String(s).replace(/[^0-9]/g, '');
 }
 
-export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan Trip', tourLeaders = [], pnrInventory = [] }) {
+export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan Trip', tourLeaders = [], pnrInventory = [], employees = [] }) {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const [departure, setDeparture] = useState(initial.departure || '');
@@ -231,7 +231,26 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
             </select>
           </Field>
           <Field label="PIC (CS Officer)">
-            <input name="pic" defaultValue={initial.pic || ''} className={inputCls} placeholder="Nama PIC" />
+            {Array.isArray(employees) && employees.length > 0 ? (
+              <select
+                name="pic"
+                defaultValue={initial.pic || ''}
+                className={inputCls}
+                onChange={(e) => {
+                  const emp = employees.find((x) => x.full_name === e.target.value);
+                  const hidden = document.getElementById('pic_email_hidden');
+                  if (hidden) hidden.value = emp?.email || '';
+                }}
+              >
+                <option value="">— Pilih PIC dari karyawan —</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.full_name}>{emp.full_name}{emp.email ? ` (${emp.email})` : ''}</option>
+                ))}
+              </select>
+            ) : (
+              <input name="pic" defaultValue={initial.pic || ''} className={inputCls} placeholder="Nama PIC" />
+            )}
+            <input type="hidden" id="pic_email_hidden" name="pic_email" defaultValue={initial.pic_email || ''} />
           </Field>
           <div className="md:col-span-2">
             <Field label="Tour Leader" hint="Pilih dari master TL atau input manual">

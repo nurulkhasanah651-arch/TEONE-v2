@@ -16,7 +16,13 @@ export default async function AppLayout({ children }) {
     redirect('/login');
   }
 
-  const role = getRoleFromUser(user);
+  let role = getRoleFromUser(user);
+  if (!role) {
+    // Fallback: role dari tabel users (mis. 'pic' yang di-set owner)
+    const { data: u } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle();
+    const map = { tl: 'tour_leader', finance: 'ops', team: 'ops' };
+    role = map[u?.role] || u?.role || null;
+  }
 
   // Belum punya role → kirim ke role picker
   if (!role || role === 'pending') {
