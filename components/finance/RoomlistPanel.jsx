@@ -96,7 +96,7 @@ export default function RoomlistPanel({ trip, passengers = [], customers = [] })
             row.push('');
           }
         }
-        row.push(r.pax.length < r.capacity ? `Kurang ${r.capacity - r.pax.length} pax` : '');
+        row.push(r.needs_upgrade ? (r.upgrade_note || 'NEED UPGRADE ROOM') : (r.pax.length < r.capacity ? `Kurang ${r.capacity - r.pax.length} pax` : ''));
         aoa.push(row);
       }
       const dataEndIdx = aoa.length - 1;
@@ -268,6 +268,17 @@ export default function RoomlistPanel({ trip, passengers = [], customers = [] })
         <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
           🏠 Roomlist ({rooms.length} rooms)
         </p>
+        {summary.need_upgrade_rooms > 0 && (
+          <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-xs font-bold text-red-700">
+              🔔 NEED UPGRADE ROOM — {summary.need_upgrade_rooms} kamar bermasalah
+            </p>
+            <p className="text-[11px] text-red-600 mt-1">
+              Ada peserta tanpa roommate segender / gender belum diisi / room type belum ditulis di master file.
+              Cek kolom Note di bawah, lalu upgrade room atau lengkapi datanya.
+            </p>
+          </div>
+        )}
         {rooms.length === 0 ? (
           <div className="p-8 text-center text-slate-500 bg-slate-50 rounded-lg">
             <p className="text-sm">Belum ada room. Assign room_type peserta dulu.</p>
@@ -336,11 +347,15 @@ export default function RoomlistPanel({ trip, passengers = [], customers = [] })
                         </ul>
                       </td>
                       <td className="px-3 py-2">
-                        {isUnderfilled && (
+                        {r.needs_upgrade ? (
+                          <span className="text-[10px] text-red-700 font-semibold">
+                            🔔 {r.upgrade_note || 'NEED UPGRADE ROOM'}
+                          </span>
+                        ) : isUnderfilled ? (
                           <span className="text-[10px] text-amber-700 font-semibold">
                             ⚠ Kurang {r.capacity - r.pax.length} pax
                           </span>
-                        )}
+                        ) : null}
                       </td>
                     </tr>
                   );
