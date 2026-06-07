@@ -15,6 +15,7 @@ const NAV = [
   { href: '/cs',              label: 'CS Daily',     icon: '☎',  roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
   { href: '/quotations',      label: 'Penawaran AI', icon: '💰', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
   { href: '/ads',             label: 'Ads Manager',  icon: '📢', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
+  { href: '/content',         label: 'Konten',       icon: '📱', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
   { href: '/finance',         label: 'Finance',      icon: '$',  roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
   { href: '/accounting',      label: 'Accounting',   icon: '📊', roles: ['owner', 'accounting'] },
   { href: '/hr',              label: 'HR',           icon: '🧑', roles: ['owner', 'accounting'] },
