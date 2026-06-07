@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/server';
 import { greeting, fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 import { mainExpectedPerPassenger } from '@/lib/utils/price-breakdown';
 import { getRoleFromUser, filterNavByRole } from '@/lib/utils/roles';
+import { getBrandCode } from '@/lib/brand';
+import { BRAND_UI } from '@/lib/brand-shared';
 
 export const dynamic = 'force-dynamic';
 
@@ -117,7 +119,7 @@ export default async function DashboardPage() {
     <div className="max-w-7xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-brand-700">{greeting()}, {name} 👋</h1>
-        <p className="mt-1 text-slate-600">Selamat datang kembali di TEONE — Traveling Eropa One System.</p>
+        <p className="mt-1 text-slate-600">{(BRAND_UI[getBrandCode()] || BRAND_UI.teone).welcome}</p>
       </div>
 
       {/* HERO STATS — 3 card aja */}
