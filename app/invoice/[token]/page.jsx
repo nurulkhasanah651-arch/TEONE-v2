@@ -3,7 +3,7 @@
 // Fix: section "Sudah Dibayar + Sisa" SELALU tampil walaupun breakdown kosong
 
 import { notFound } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { createPublicClient as createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 

@@ -2,7 +2,7 @@
 // TL klik link dari WA, langsung sampai sini
 
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
+import { createPublicClient as createClient } from '@/lib/supabase/server';
 import { approveTLAssignment, rejectTLAssignment } from '@/lib/actions/tl-assign';
 import { fmtDate } from '@/lib/utils/format';
 
