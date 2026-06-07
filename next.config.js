@@ -1,5 +1,12 @@
-// Round 184h: next.config.js — tambah bodySizeLimit 10mb buat upload invoice/bukti
+// R184h + R222: next.config.js — bodySizeLimit + security headers + Sentry wrap
 // Path: next.config.js (root project)
+// R222 changes:
+//   - Wrap dgn withSentryConfig (source map upload + error tracking)
+//   - Update X-Frame-Options DENY → SAMEORIGIN (biar bisa embed iframe sendiri)
+//   - Add Permissions-Policy (block camera/mic/geolocation)
+//   - HSTS extended ke 2 tahun + preload
+
+import { withSentryConfig } from '@sentry/nextjs';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -18,10 +25,11 @@ const nextConfig = {
       {
         source: '/(.*)',
         headers: [
-          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
         ],
       },
       {
@@ -46,4 +54,24 @@ const nextConfig = {
   productionBrowserSourceMaps: false,
 };
 
-export default nextConfig;
+// R222: wrap dgn Sentry buat source map upload + error tracking
+export default withSentryConfig(nextConfig, {
+  // Sentry org & project (set di env vars Vercel)
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+
+  // Silent kalau gak CI
+  silent: !process.env.CI,
+
+  // Upload source maps dari semua chunks
+  widenClientFileUpload: true,
+
+  // Hide source maps di public (cuma Sentry yg punya)
+  hideSourceMaps: true,
+
+  // Disable Sentry logger di console
+  disableLogger: true,
+
+  // Auto inject Vercel cron monitor
+  automaticVercelMonitors: true,
+});
