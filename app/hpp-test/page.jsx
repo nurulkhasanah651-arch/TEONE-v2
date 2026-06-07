@@ -3,14 +3,15 @@
 // REPLACE file yg lama
 
 import HPPTestClient from './HPPTestClient';
+import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
 function getServiceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = brandSupabaseUrl();
+  const key = brandServiceRoleKey();
   if (!url || !key) return null;
   return createServiceClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -19,7 +20,7 @@ function getServiceClient() {
 
 export default async function HPPTestPage() {
   const result = {
-    has_service_role: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    has_service_role: !!brandServiceRoleKey(),
     column_invoice_url: false,
     column_invoice_uploaded_at: false,
     column_transfer_proof_url: false,

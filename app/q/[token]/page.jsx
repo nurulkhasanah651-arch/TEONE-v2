@@ -5,6 +5,7 @@
 // Karena harus accessible publik tanpa auth middleware
 
 import { notFound } from 'next/navigation';
+import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import QuotationPreview from '@/components/quotations/QuotationPreview';
 import PreviewToolbar from '@/components/quotations/PreviewToolbar';
@@ -12,8 +13,8 @@ import PreviewToolbar from '@/components/quotations/PreviewToolbar';
 export const dynamic = 'force-dynamic';
 
 function getServiceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = brandSupabaseUrl();
+  const key = brandServiceRoleKey();
   if (!url || !key) return null;
   return createServiceClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },

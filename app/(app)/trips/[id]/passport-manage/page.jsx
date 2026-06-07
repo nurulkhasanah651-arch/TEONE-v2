@@ -6,14 +6,15 @@
 //   3. <PassportDriveSyncPanel trip={trip} /> di antara action bar & passenger list
 
 import Link from 'next/link';
+import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { redirect } from 'next/navigation';
 import PassportDriveSyncPanel from '@/components/passport/PassportDriveSyncPanel';
 
 function getServiceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = brandSupabaseUrl();
+  const key = brandServiceRoleKey();
   if (!url || !key) return null;
   return createServiceClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },

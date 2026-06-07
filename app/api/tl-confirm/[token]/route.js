@@ -3,11 +3,12 @@
 // Hindari WA/bot preview yg auto-trigger approve/reject
 
 import { createClient } from '@supabase/supabase-js';
+import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
 import { NextResponse } from 'next/server';
 
 function getServiceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = brandSupabaseUrl();
+  const key = brandServiceRoleKey();
   if (!url || !key) return null;
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },

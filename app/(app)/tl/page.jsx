@@ -2,6 +2,7 @@
 // Path: app/(app)/tl/page.jsx
 
 import Link from 'next/link';
+import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { fmtDate, daysUntil, fmtRupiah } from '@/lib/utils/format';
@@ -10,8 +11,8 @@ import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
 export const dynamic = 'force-dynamic';
 
 function getServiceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = brandSupabaseUrl();
+  const key = brandServiceRoleKey();
   if (!url || !key) return null;
   return createServiceClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },

@@ -2,6 +2,7 @@
 // Path: app/(app)/hr/payroll/[id]/entry/[entryId]/page.jsx
 
 import Link from 'next/link';
+import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
@@ -13,8 +14,8 @@ import PayslipActionsBar from '@/components/hr/PayslipActionsBar';
 export const dynamic = 'force-dynamic';
 
 function getServiceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = brandSupabaseUrl();
+  const key = brandServiceRoleKey();
   if (!url || !key) return null;
   return createServiceClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },

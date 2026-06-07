@@ -2,6 +2,7 @@
 // Vercel Cron: jalan tiap hari jam 01:00 UTC (08:00 WIB)
 
 import { NextResponse } from 'next/server';
+import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
 import { createClient } from '@supabase/supabase-js';
 import { sendH14Reminder } from '@/lib/actions/tl-assign';
 
@@ -10,8 +11,8 @@ export const runtime = 'nodejs';
 
 function adminClient() {
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    brandSupabaseUrl(),
+    brandServiceRoleKey(),
     { auth: { persistSession: false } }
   );
 }
