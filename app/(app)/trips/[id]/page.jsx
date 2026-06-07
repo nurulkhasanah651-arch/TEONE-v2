@@ -50,11 +50,17 @@ export default async function TripDetailPage({ params }) {
       .eq('trip_id', id)
       .order('joined_at', { ascending: true });
 
+    // Peserta refund / pindah trip tidak ditampilkan lagi di daftar peserta
+    // (riwayat refund ada di menu Refunds; yang pindah muncul di trip barunya)
+    const tpAktif = (tp || []).filter((p) =>
+      p.transfer_status !== 'transferred' &&
+      p.refund_status !== 'refunded' && p.refund_status !== 'partial_refund'
+    );
     if (tpErr) {
       participantsDebug = `trip_passengers error: ${tpErr.message}`;
-    } else if (tp && tp.length > 0) {
+    } else if (tpAktif.length > 0) {
       participantsDebug = ''; // sukses — tidak perlu tampil
-      const customerIds = tp.map((p) => p.customer_id).filter(Boolean);
+      const customerIds = tpAktif.map((p) => p.customer_id).filter(Boolean);
       if (customerIds.length > 0) {
         const { data: cust, error: cErr } = await supabase
           .from('customers')
@@ -62,12 +68,12 @@ export default async function TripDetailPage({ params }) {
           .in('id', customerIds);
         if (cErr) participantsDebug += ` · customers error: ${cErr.message}`;
         const cMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
-        participants = tp.map((p) => ({ ...p, customers: cMap[p.customer_id] || null }));
+        participants = tpAktif.map((p) => ({ ...p, customers: cMap[p.customer_id] || null }));
       } else {
-        participants = tp.map((p) => ({ ...p, customers: null }));
+        participants = tpAktif.map((p) => ({ ...p, customers: null }));
       }
     } else {
-      participantsDebug = `No trip_passengers for trip_id="${id}" (data: ${JSON.stringify(tp)})`;
+      participantsDebug = '';
     }
   }
 
