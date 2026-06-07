@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { resolveBrandCodeBrowser, BRAND_UI } from '@/lib/brand-shared';
 
 const NAV = [
   { href: '/dashboard',       label: 'Dashboard',    icon: '◆',  roles: ['owner', 'manager', 'cs', 'ops'] },
@@ -28,6 +29,8 @@ const NAV = [
 ];
 
 export default function Sidebar() {
+  const [brandUi, setBrandUi] = useState(BRAND_UI.teone);
+  useEffect(() => { setBrandUi(BRAND_UI[resolveBrandCodeBrowser()] || BRAND_UI.teone); }, []);
   const pathname = usePathname();
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -61,8 +64,8 @@ export default function Sidebar() {
           ✈
         </div>
         <div>
-          <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">TEONE</p>
-          <p className="text-sm font-bold text-brand-700 leading-tight mt--0.5">One System</p>
+          <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">{brandUi.label}</p>
+          <p className="text-sm font-bold text-brand-700 leading-tight mt--0.5">{brandUi.sub}</p>
         </div>
       </div>
 

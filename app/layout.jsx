@@ -1,9 +1,16 @@
 import './globals.css';
+import { headers } from 'next/headers';
+import { resolveBrandCode, BRAND_UI } from '@/lib/brand-shared';
 
-export const metadata = {
-  title: 'TEONE — Traveling Eropa One System',
-  description: 'Sistem operasi travel terpadu untuk Traveling Eropa',
-};
+export async function generateMetadata() {
+  let code = 'teone';
+  try {
+    const h = headers();
+    code = h.get('x-brand') || resolveBrandCode({ host: h.get('host') });
+  } catch {}
+  const ui = BRAND_UI[code] || BRAND_UI.teone;
+  return { title: ui.title, description: ui.description };
+}
 
 export default function RootLayout({ children }) {
   return (

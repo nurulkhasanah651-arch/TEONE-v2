@@ -77,7 +77,7 @@ export default async function PublicInvoicePage({ params }) {
   // Fetch company
   let company = {};
   try {
-    const { data } = await supabase.from('company_settings').select('*').eq('id', 1).maybeSingle();
+    const { data } = await supabase.from('brands').select('*, company_name:name, company_logo_url:logo_url').eq('id', inv.brand_id || 1).maybeSingle();
     company = data || {};
   } catch (e) { errors.push(`company: ${e.message}`); }
 
