@@ -5,11 +5,14 @@
 // TL pakai Google OAuth (Gmail personal)
 // Path: app/login/page.jsx (atau wherever login page berada)
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { resolveBrandCodeBrowser, BRAND_UI } from '@/lib/brand-shared';
 
 export default function LoginPage() {
+  const [brandUi, setBrandUi] = useState(BRAND_UI.teone);
+  useEffect(() => { setBrandUi(BRAND_UI[resolveBrandCodeBrowser()] || BRAND_UI.teone); }, []);
   const router = useRouter();
   const supabase = createClient();
 
@@ -67,11 +70,11 @@ export default function LoginPage() {
         <div className="text-center mb-6">
           <div className="inline-flex items-center gap-2 mb-2">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white flex items-center justify-center text-2xl font-bold shadow-lg">
-              ✈
+              {brandUi.icon}
             </div>
             <div className="text-left">
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">TEONE</p>
-              <p className="text-lg font-bold text-brand-700 leading-tight">One System</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{brandUi.label}</p>
+              <p className="text-lg font-bold text-brand-700 leading-tight">{brandUi.sub}</p>
             </div>
           </div>
           <p className="text-sm text-slate-600 mt-2">Travel Operations · Internal System</p>
@@ -210,7 +213,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-[10px] text-slate-400 text-center mt-6">
-          TEONE v2.0 · Travel Operations One System
+          {brandUi.footer}
         </p>
       </div>
     </div>

@@ -1,3 +1,31 @@
+
+/* ============ Multi-brand color palettes ============ */
+/* TEONE — corporate blue (default) */
+:root {
+  --brand-50: 240 247 255;
+  --brand-100: 231 241 254;
+  --brand-200: 198 224 251;
+  --brand-300: 154 199 247;
+  --brand-400: 96 165 240;
+  --brand-500: 5 112 222;
+  --brand-600: 5 96 194;
+  --brand-700: 10 37 64;
+  --brand-800: 7 32 54;
+  --brand-900: 4 22 41;
+}
+/* Khasanah Travel — orange merah bata, nuansa religi */
+[data-brand='khasanah'] {
+  --brand-50: 253 246 240;
+  --brand-100: 251 237 227;
+  --brand-200: 245 213 194;
+  --brand-300: 236 179 148;
+  --brand-400: 221 134 87;
+  --brand-500: 198 93 33;
+  --brand-600: 168 74 24;
+  --brand-700: 124 52 20;
+  --brand-800: 94 39 16;
+  --brand-900: 67 27 10;
+}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

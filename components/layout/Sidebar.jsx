@@ -61,7 +61,7 @@ export default function Sidebar() {
     <aside className="hidden md:flex md:flex-col md:w-60 md:fixed md:inset-y-0 md:bg-white md:border-r md:border-slate-200">
       <div className="flex items-center gap-3 px-5 h-16 border-b border-slate-200">
         <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 text-white flex items-center justify-center text-lg font-bold">
-          ✈
+          {brandUi.icon}
         </div>
         <div>
           <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">{brandUi.label}</p>

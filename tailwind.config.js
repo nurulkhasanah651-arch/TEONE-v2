@@ -8,17 +8,19 @@ module.exports = {
     extend: {
       colors: {
         // TEONE brand palette — corporate blue + white
+        // Multi-brand: warna dari CSS variable (lihat globals.css)
+        // TEONE = biru korporat, Khasanah = orange merah bata
         brand: {
-          50: "#F0F7FF",
-          100: "#E7F1FE",
-          200: "#C6E0FB",
-          300: "#9AC7F7",
-          400: "#60A5F0",
-          500: "#0570DE",  // primary
-          600: "#0560C2",
-          700: "#0A2540",  // dark navy
-          800: "#072036",
-          900: "#041629",
+          50: "rgb(var(--brand-50) / <alpha-value>)",
+          100: "rgb(var(--brand-100) / <alpha-value>)",
+          200: "rgb(var(--brand-200) / <alpha-value>)",
+          300: "rgb(var(--brand-300) / <alpha-value>)",
+          400: "rgb(var(--brand-400) / <alpha-value>)",
+          500: "rgb(var(--brand-500) / <alpha-value>)",
+          600: "rgb(var(--brand-600) / <alpha-value>)",
+          700: "rgb(var(--brand-700) / <alpha-value>)",
+          800: "rgb(var(--brand-800) / <alpha-value>)",
+          900: "rgb(var(--brand-900) / <alpha-value>)",
         },
         slate: {
           // standard slate, kept for neutrals
