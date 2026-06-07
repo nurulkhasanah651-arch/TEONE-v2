@@ -12,7 +12,7 @@ import { fmtRupiah, fmtDate, calcAge, passportStatus } from '@/lib/utils/format'
 import TransferPassengerButton from './TransferPassengerButton';
 import RefundPassengerButton from './RefundPassengerButton';
 
-const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Family'];
+const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Quad', 'Family'];
 
 export default function ParticipantsList(props) {
   const tripId = props?.tripId || '';
@@ -243,8 +243,8 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
       <FormSection title="Booking">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Tipe Kamar">
-            <select name="room_type" defaultValue={initial.room_type || ''} className={inputCls}>
-              <option value="">— Pilih —</option>{ROOM_TYPES.map((r) => <option key={r} value={r}>{r}</option>)}
+            <select name="room_type" defaultValue={(initial.room_type || '').toLowerCase()} className={inputCls}>
+              <option value="">— Pilih —</option>{ROOM_TYPES.map((r) => <option key={r} value={r.toLowerCase()}>{r}</option>)}
             </select>
           </Field>
           <Field label="Harga Bayar (IDR)"><input type="number" name="price_paid" defaultValue={initial.price_paid || ''} min="0" className={inputCls} placeholder="50000000" /></Field>

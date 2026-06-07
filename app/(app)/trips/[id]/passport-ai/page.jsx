@@ -21,7 +21,7 @@ const PassportUploadAI = dynamic(
   { ssr: false, loading: () => <div className="p-3 text-xs text-slate-500">Loading passport tool...</div> }
 );
 
-const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Family'];
+const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Quad', 'Family'];
 
 export default function PassportAIPage() {
   const router = useRouter();
@@ -196,9 +196,9 @@ export default function PassportAIPage() {
           <FormSection title="Booking">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label="Tipe Kamar">
-                <select value={data.room_type} onChange={(e) => upd('room_type', e.target.value)} className={inputCls}>
+                <select value={(data.room_type || '').toLowerCase()} onChange={(e) => upd('room_type', e.target.value)} className={inputCls}>
                   <option value="">— Pilih —</option>
-                  {ROOM_TYPES.map((r) => <option key={r} value={r}>{r}</option>)}
+                  {ROOM_TYPES.map((r) => <option key={r} value={r.toLowerCase()}>{r}</option>)}
                 </select>
               </Field>
               <Field label="Harga Bayar (IDR)">
