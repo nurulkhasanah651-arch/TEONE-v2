@@ -53,7 +53,7 @@ export default async function TripDetailPage({ params }) {
     if (tpErr) {
       participantsDebug = `trip_passengers error: ${tpErr.message}`;
     } else if (tp && tp.length > 0) {
-      participantsDebug = `Found ${tp.length} trip_passenger rows`;
+      participantsDebug = ''; // sukses — tidak perlu tampil
       const customerIds = tp.map((p) => p.customer_id).filter(Boolean);
       if (customerIds.length > 0) {
         const { data: cust, error: cErr } = await supabase
