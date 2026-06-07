@@ -10,11 +10,24 @@
 
 import { updateSession } from '@/lib/supabase/middleware';
 import { NextResponse } from 'next/server';
+import { resolveBrandCode, BRAND_CODES } from '@/lib/brand-shared';
 
 export async function middleware(request) {
+  // Multi-brand: tentukan brand aktif dari ?brand= (testing) > cookie > hostname
+  const queryBrand = request.nextUrl.searchParams.get('brand');
+  const cookieBrand = request.cookies.get('brand')?.value;
+  const host = request.headers.get('host') || '';
+  const brand = resolveBrandCode({ queryParam: queryBrand, cookie: cookieBrand, host });
+  request.headers.set('x-brand', brand);
+
   const response = await updateSession(request);
   if (response instanceof NextResponse) {
     response.headers.set('x-pathname', request.nextUrl.pathname);
+    response.headers.set('x-brand', brand);
+    // Simpan pilihan brand dari query param ke cookie (untuk preview/testing)
+    if (queryBrand && BRAND_CODES.includes(queryBrand) && queryBrand !== cookieBrand) {
+      response.cookies.set('brand', queryBrand, { path: '/', maxAge: 60 * 60 * 24 * 365 });
+    }
   }
   return response;
 }
