@@ -15,6 +15,7 @@ import PreDepartureChecklist from '@/components/tl/PreDepartureChecklist';
 import TLExpenseForm from '@/components/tl/TLExpenseForm';
 import FinalReportForm from '@/components/tl/FinalReportForm';
 import VendorReviewSection from '@/components/tl/VendorReviewSection';
+import TLManifestRoomlist from '@/components/tl/TLManifestRoomlist';
 // R177v2: TL payment request — OPS ONLY
 import RequestTLPaymentButtons from '@/components/tl/RequestTLPaymentButtons';
 import { requestTLPayment, getTLPaymentsForTrip } from '@/lib/actions/tl-payments';
@@ -194,6 +195,9 @@ export default async function TLTripDetailPage({ params }) {
         canEdit={isTL || isInternal}
         userEmail={userEmail}
       />
+
+      {/* Manifest & Final Roomlist — auto-connect dari master trip */}
+      <TLManifestRoomlist trip={trip} passengers={passengers} customerMap={customerMap} />
 
       {/* Passengers list */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
