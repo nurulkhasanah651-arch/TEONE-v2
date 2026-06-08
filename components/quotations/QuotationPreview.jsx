@@ -112,7 +112,7 @@ export default function QuotationPreview({ quotation, isPublic = false }) {
   const brandColor = q.brand_color || '#1e3a8a';
 
   // Group price options visually (Quad, Triple, Double, Single ditampilkan berbeda dari Child, Infant, Land Tour)
-  const prices = q.price_options || [];
+  const prices = (q.price_options || []).filter((p) => Number(p?.price) > 0);
   const featuredPrice = prices[0]; // The biggest displayed one
 
   return (
