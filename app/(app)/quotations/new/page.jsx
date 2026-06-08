@@ -18,6 +18,18 @@ const CATEGORIES = [
 export default async function NewQuotationPage({ searchParams }) {
   const sp = await searchParams;
   const fromTemplateId = sp?.from_template || '';
+  const fromRequestId = sp?.from_request || '';
+
+  let reqInfo = null;
+  if (fromRequestId) {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from('private_trip_requests')
+      .select('id, name, phone, email, destination, pax_count, duration_days, start_date, end_date')
+      .eq('id', fromRequestId)
+      .maybeSingle();
+    reqInfo = data;
+  }
 
   let templateInfo = null;
   if (fromTemplateId) {
@@ -43,6 +55,18 @@ export default async function NewQuotationPage({ searchParams }) {
         </p>
       </div>
 
+      {reqInfo && (
+        <div className="bg-emerald-50 border-2 border-emerald-300 rounded-xl p-4">
+          <p className="font-bold text-emerald-800 text-sm mb-1">💰 Dari Private Trip Request</p>
+          <p className="text-xs text-emerald-700">
+            <strong>{reqInfo.name}</strong> · {reqInfo.phone} · {reqInfo.destination || '-'} · {reqInfo.pax_count || '-'} pax
+          </p>
+          <p className="text-[11px] text-emerald-600 mt-1">
+            Nama, no WA, destinasi, pax & tanggal otomatis terisi. Status request berubah ke "Quoted".
+          </p>
+        </div>
+      )}
+
       {templateInfo && (
         <div className="bg-purple-50 border-2 border-purple-300 rounded-xl p-4">
           <p className="font-bold text-purple-800 text-sm mb-1">📚 Template Source</p>
@@ -57,13 +81,14 @@ export default async function NewQuotationPage({ searchParams }) {
 
       <form action={createQuotation} className="bg-white rounded-xl border border-slate-200 shadow-card p-6 space-y-4">
         {fromTemplateId && <input autoComplete="off" type="hidden" name="from_template_id" value={fromTemplateId} />}
+        {fromRequestId && <input autoComplete="off" type="hidden" name="from_request_id" value={fromRequestId} />}
 
         <Field label="Judul Penawaran" required>
-          <input autoComplete="off" type="text" name="title" required defaultValue={templateInfo ? `${templateInfo.title} ${new Date().getFullYear()}` : ''} placeholder="SCENIC AUTUMN CANADA" className={inputCls} />
+          <input autoComplete="off" type="text" name="title" required defaultValue={templateInfo ? `${templateInfo.title} ${new Date().getFullYear()}` : (reqInfo ? `Penawaran ${reqInfo.destination || ''} - ${reqInfo.name || ''}`.trim() : '')} placeholder="SCENIC AUTUMN CANADA" className={inputCls} />
         </Field>
 
         <Field label="Destinasi">
-          <input autoComplete="off" type="text" name="destinations" defaultValue={templateInfo?.destinations || ''} placeholder="Paris, Roma, Lucerne, Milan, Venice" className={inputCls} />
+          <input autoComplete="off" type="text" name="destinations" defaultValue={templateInfo?.destinations || reqInfo?.destination || ''} placeholder="Paris, Roma, Lucerne, Milan, Venice" className={inputCls} />
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
@@ -73,21 +98,21 @@ export default async function NewQuotationPage({ searchParams }) {
             </select>
           </Field>
           <Field label="Durasi (hari)" required>
-            <input autoComplete="off" type="number" name="duration_days" min="1" max="60" defaultValue={templateInfo?.duration_days || 9} required className={inputCls} />
+            <input autoComplete="off" type="number" name="duration_days" min="1" max="60" defaultValue={templateInfo?.duration_days || reqInfo?.duration_days || 9} required className={inputCls} />
           </Field>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Tgl Keberangkatan">
-            <input autoComplete="off" type="date" name="departure_date" className={inputCls} />
+            <input autoComplete="off" type="date" name="departure_date" defaultValue={reqInfo?.start_date || ''} className={inputCls} />
           </Field>
           <Field label="Tgl Kepulangan">
-            <input autoComplete="off" type="date" name="return_date" className={inputCls} />
+            <input autoComplete="off" type="date" name="return_date" defaultValue={reqInfo?.end_date || ''} className={inputCls} />
           </Field>
         </div>
 
         <Field label="Estimasi Peserta">
-          <input autoComplete="off" type="number" name="pax_count" min="0" defaultValue="0" className={inputCls} />
+          <input autoComplete="off" type="number" name="pax_count" min="0" defaultValue={reqInfo?.pax_count || 0} className={inputCls} />
         </Field>
 
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">

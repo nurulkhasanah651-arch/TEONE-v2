@@ -5,6 +5,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   updatePrivateTripRequest,
   addQuickReply,
@@ -104,6 +105,20 @@ export default function PrivateTripActions({ request }) {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Buat Penawaran langsung dari request ini */}
+        <div className="pt-4 border-t border-slate-100">
+          <label className="text-xs font-bold text-slate-700 block mb-1.5 uppercase">📝 Penawaran</label>
+          <Link
+            href={`/quotations/new?from_request=${request.id}`}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded hover:bg-emerald-700"
+          >
+            💰 Buat Penawaran dari Request Ini
+          </Link>
+          <p className="text-[10px] text-slate-500 mt-1">
+            Data (nama, no WA, destinasi, pax, tanggal) otomatis terisi. Status berubah ke "Quoted".
+          </p>
         </div>
 
         {/* Quick Reply */}

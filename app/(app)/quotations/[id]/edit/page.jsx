@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import QuotationForm from '@/components/quotations/QuotationForm';
+import QuotationCalcAndWa from '@/components/quotations/QuotationCalcAndWa';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,10 @@ export default async function EditQuotationPage({ params }) {
     .maybeSingle();
 
   if (error || !quotation) notFound();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const role = user?.user_metadata?.role || user?.app_metadata?.role || null;
+  const canSeeProfit = ['owner', 'accounting', 'manager', 'ops'].includes(role);
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">
@@ -48,6 +53,8 @@ export default async function EditQuotationPage({ params }) {
       </div>
 
       <QuotationForm quotation={quotation} />
+
+      <QuotationCalcAndWa quotation={quotation} canSeeProfit={canSeeProfit} />
     </div>
   );
 }
