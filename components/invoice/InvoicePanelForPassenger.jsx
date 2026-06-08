@@ -34,16 +34,38 @@ const STATUS_BADGE = {
 };
 
 // R206: Helper — generate MILESTONE_OPTIONS dinamis dari paymentTemplate
-function buildMilestoneOptions(paymentTemplate) {
-  // Ambil semua P keys dari template (P1, P2, ..., P10, dst), sorted by angka
-  const templatePKeys = Object.keys(paymentTemplate || {})
+function buildMilestoneOptions(paymentTemplate, priceBreakdown = {}) {
+  const tpl = paymentTemplate || {};
+  // P keys (P1, P2, ...) urut angka
+  const templatePKeys = Object.keys(tpl)
     .filter((k) => /^P\d+$/.test(k))
     .sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
-
-  // Fallback ke P1-P3 kalau template kosong
   const pKeys = templatePKeys.length > 0 ? templatePKeys : ['P1', 'P2', 'P3'];
 
-  return ['DP', ...pKeys, 'Pelunasan', 'Visa', 'Asuransi', 'Custom'];
+  const standard = ['DP', ...pKeys, 'Pelunasan', 'Visa', 'Asuransi'];
+  const seen = new Set(standard.map((x) => x.toLowerCase()));
+
+  // Custom milestone bernama bebas dari template (selain DP/P*/standar)
+  const customFromTemplate = Object.keys(tpl).filter((k) => {
+    if (/^P\d+$/.test(k)) return false;
+    if (seen.has(k.toLowerCase())) return false;
+    if (!(Number(tpl[k]) > 0)) return false;
+    seen.add(k.toLowerCase());
+    return true;
+  });
+
+  // Custom add-on dari price breakdown (_custom: [{name, price}])
+  const customFromBreakdown = [];
+  const customs = Array.isArray(priceBreakdown?._custom) ? priceBreakdown._custom : [];
+  for (const c of customs) {
+    if (!c?.name) continue;
+    if (seen.has(c.name.toLowerCase())) continue;
+    if (!(Number(c.price) > 0)) continue;
+    seen.add(c.name.toLowerCase());
+    customFromBreakdown.push(c.name);
+  }
+
+  return [...standard, ...customFromTemplate, ...customFromBreakdown, 'Custom'];
 }
 
 export default function InvoicePanelForPassenger({
@@ -72,7 +94,7 @@ export default function InvoicePanelForPassenger({
   const [perPaxAmounts, setPerPaxAmounts] = useState({});
 
   // R206: MILESTONE_OPTIONS dinamis berdasarkan paymentTemplate
-  const MILESTONE_OPTIONS = buildMilestoneOptions(paymentTemplate);
+  const MILESTONE_OPTIONS = buildMilestoneOptions(paymentTemplate, priceBreakdown);
 
   const isFamilyHead = !!(familyGroup && passenger?.is_family_head);
   const familyMemberCount = familyMembers?.length || 0;
