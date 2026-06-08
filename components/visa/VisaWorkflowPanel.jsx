@@ -403,7 +403,7 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
     startTransition(async () => {
       const r = await requestVisaCostToFinance(p.id, type, Number(amount), null, `${type} ${c.name}`);
       if (r?.error) { showMsg(r.error, 'error'); return; }
-      showMsg(`✓ HPP item dibuat. ${r.message}`);
+      showMsg(`✓ ${r.message}`);
       router.refresh();
     });
   }
@@ -520,14 +520,14 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
               </div>
 
               <div className="p-3 bg-amber-50 rounded border border-amber-200">
-                <p className="text-xs font-bold text-amber-800 uppercase mb-2">💰 Cost & Request DP</p>
+                <p className="text-xs font-bold text-amber-800 uppercase mb-2">💰 Cost & Request Bayar ke Accounting</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] font-semibold text-slate-600 block">🔬 Biometrik (Rp)</label>
                     <div className="flex gap-1">
                       <input autoComplete="off" type="number" value={biometricCost} onChange={(e) => setBiometricCost(e.target.value)} className="flex-1 px-2 py-1 border border-slate-300 rounded text-sm font-mono" />
                       <button type="button" onClick={() => handleSaveCost('biometric')} disabled={pending} className="px-2 py-1 bg-slate-500 text-white text-xs rounded">💾</button>
-                      <button type="button" onClick={() => handleRequestDP('biometric')} disabled={pending} className="px-2 py-1 bg-amber-500 text-white text-xs rounded">💰</button>
+                      <button type="button" title="Request bayar biometrik ke Accounting (masuk HPP)" onClick={() => handleRequestDP('biometric')} disabled={pending} className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs rounded">💰 Request</button>
                     </div>
                   </div>
                   <div>
@@ -535,7 +535,7 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                     <div className="flex gap-1">
                       <input autoComplete="off" type="number" value={visaCost} onChange={(e) => setVisaCost(e.target.value)} className="flex-1 px-2 py-1 border border-slate-300 rounded text-sm font-mono" />
                       <button type="button" onClick={() => handleSaveCost('visa')} disabled={pending} className="px-2 py-1 bg-slate-500 text-white text-xs rounded">💾</button>
-                      <button type="button" onClick={() => handleRequestDP('visa')} disabled={pending} className="px-2 py-1 bg-amber-500 text-white text-xs rounded">💰</button>
+                      <button type="button" title="Request bayar visa ke Accounting (masuk HPP)" onClick={() => handleRequestDP('visa')} disabled={pending} className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs rounded">💰 Request</button>
                     </div>
                   </div>
                 </div>
