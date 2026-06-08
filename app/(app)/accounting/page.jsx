@@ -128,6 +128,9 @@ export default async function AccountingDashboard({ searchParams }) {
   for (const p of payments) autoCashInAll += Number(p.amount || 0);
   let autoCashOutAll = 0;
   for (const it of hppLunas) {
+    // Deposit/HPP yang berasal dari PNR inventory sudah diinput manual sebagai
+    // cash out → jangan dihitung lagi di sini biar tidak dobel (tetap tampil di HPP cashflow).
+    if (it.pnr_id) continue;
     const paid = Number(it.dp_paid) || 0;
     autoCashOutAll += paid > 0 ? paid : Number(it.total_amount || 0);
   }
@@ -175,6 +178,9 @@ export default async function AccountingDashboard({ searchParams }) {
   }
   const todayStr = new Date().toISOString().slice(0, 10);
   for (const it of hppLunas) {
+    // Item dari PNR inventory: deposit sudah dicatat manual → jangan tampil sebagai
+    // cash out otomatis (hindari dobel). Tetap muncul di HPP cashflow per-trip.
+    if (it.pnr_id) continue;
     const dpPaid = Number(it.dp_paid) || 0;
     const amount = dpPaid > 0 ? dpPaid : Number(it.total_amount || 0);
     if (amount <= 0) continue;
