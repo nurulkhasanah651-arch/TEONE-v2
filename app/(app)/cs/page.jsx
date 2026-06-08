@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/server';
 import LeadsQuickForm from '@/components/cs/LeadsQuickForm';
 import LeadsHistoryTable from '@/components/cs/LeadsHistoryTable';
 import ClosingHistoryTable from '@/components/cs/ClosingHistoryTable';
+import CsRecapPanel from '@/components/cs/CsRecapPanel';
+import { getCsRecapGroup } from '@/lib/actions/cs-recap';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +33,8 @@ export default async function CSPage() {
     supabase.from('cs_daily_leads').select('*').eq('tanggal', today).maybeSingle(),
     supabase.from('trip_passengers').select('*, trips(name, kode_trip), customers(*)').order('joined_at', { ascending: false }),
   ]);
+
+  const recapGroup = await getCsRecapGroup().catch(() => ({ group: '' }));
 
   const allUpdates = updatesRes.data || [];
   const allLeads = leadsRes.data || [];
@@ -69,6 +73,8 @@ export default async function CSPage() {
           bg="bg-purple-50"
         />
       </div>
+
+      <CsRecapPanel initialGroup={recapGroup?.group || ''} />
 
       {/* === LEADS HARIAN === */}
       <section className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
