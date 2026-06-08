@@ -269,7 +269,7 @@ export default function RoomlistPanel({ trip, passengers = [], customers = [] })
                     {ROOM_TYPES.map((rt) => <option key={rt.key} value={rt.key}>{rt.label} ({rt.capacity})</option>)}
                   </select>
                   <label className="flex items-center gap-1 text-[9px] font-bold text-pink-600 cursor-pointer shrink-0">
-                    <input type="checkbox" checked={r.is_family} disabled={isFinal}
+                    <input autoComplete="off" type="checkbox" checked={r.is_family} disabled={isFinal}
                       onChange={(e) => setRoomField(roomIdx, 'is_family', e.target.checked)} />
                     FAM
                   </label>
@@ -277,7 +277,7 @@ export default function RoomlistPanel({ trip, passengers = [], customers = [] })
                     <button onClick={() => removeRoom(roomIdx)} className="text-red-500 text-xs font-bold" title="Hapus room kosong">✕</button>
                   )}
                 </div>
-                <input
+                <input autoComplete="off"
                   value={r.label}
                   disabled={isFinal}
                   onChange={(e) => setRoomField(roomIdx, 'label', e.target.value)}
@@ -322,7 +322,7 @@ export default function RoomlistPanel({ trip, passengers = [], customers = [] })
                 </ul>
                 {!isFinal && (
                   <div className="mt-2 flex gap-1">
-                    <input
+                    <input autoComplete="off"
                       value={newNames[roomIdx] || ''}
                       onChange={(e) => setNewNames((n) => ({ ...n, [roomIdx]: e.target.value }))}
                       onKeyDown={(e) => e.key === 'Enter' && addManual(roomIdx)}

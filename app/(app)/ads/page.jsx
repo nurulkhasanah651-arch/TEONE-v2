@@ -255,7 +255,7 @@ export default async function AdsManagerPage({ searchParams }) {
       <div className="flex items-center gap-2">
         <span className="text-sm font-semibold text-slate-700">Bulan:</span>
         <form action="/ads" method="get" className="flex items-center gap-2">
-          <input type="month" name="month" defaultValue={filterMonth} className="px-3 py-1.5 border border-slate-300 rounded text-sm" />
+          <input autoComplete="off" type="month" name="month" defaultValue={filterMonth} className="px-3 py-1.5 border border-slate-300 rounded text-sm" />
           <button type="submit" className="px-3 py-1.5 bg-brand-500 text-white text-sm font-semibold rounded">Filter</button>
         </form>
       </div>

@@ -119,7 +119,7 @@ export default function VisaWorkflowConfig({ trip }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">PDF Syarat URL</label>
-              <input
+              <input autoComplete="off"
                 type="url"
                 value={form.visa_pdf_syarat_url}
                 onChange={(e) => setForm((f) => ({ ...f, visa_pdf_syarat_url: e.target.value }))}
@@ -129,7 +129,7 @@ export default function VisaWorkflowConfig({ trip }) {
             </div>
             <div>
               <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">PDF Template Dokumen URL</label>
-              <input
+              <input autoComplete="off"
                 type="url"
                 value={form.visa_pdf_template_url}
                 onChange={(e) => setForm((f) => ({ ...f, visa_pdf_template_url: e.target.value }))}
@@ -141,7 +141,7 @@ export default function VisaWorkflowConfig({ trip }) {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <label className="flex items-center gap-2 cursor-pointer p-2 bg-slate-50 rounded">
-              <input
+              <input autoComplete="off"
                 type="checkbox"
                 checked={form.visa_needs_biometric}
                 onChange={(e) => setForm((f) => ({ ...f, visa_needs_biometric: e.target.checked }))}
@@ -149,7 +149,7 @@ export default function VisaWorkflowConfig({ trip }) {
               <span className="text-xs font-semibold text-slate-700">🔬 Perlu Biometrik</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer p-2 bg-slate-50 rounded">
-              <input
+              <input autoComplete="off"
                 type="checkbox"
                 checked={form.visa_needs_physical_doc}
                 onChange={(e) => setForm((f) => ({ ...f, visa_needs_physical_doc: e.target.checked }))}
@@ -158,7 +158,7 @@ export default function VisaWorkflowConfig({ trip }) {
             </label>
             <div>
               <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Default Biometrik (Rp/pax)</label>
-              <input
+              <input autoComplete="off"
                 type="number"
                 value={form.visa_default_biometric_cost}
                 onChange={(e) => setForm((f) => ({ ...f, visa_default_biometric_cost: e.target.value }))}
@@ -167,7 +167,7 @@ export default function VisaWorkflowConfig({ trip }) {
             </div>
             <div>
               <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Default Visa (Rp/pax)</label>
-              <input
+              <input autoComplete="off"
                 type="number"
                 value={form.visa_default_visa_cost}
                 onChange={(e) => setForm((f) => ({ ...f, visa_default_visa_cost: e.target.value }))}
@@ -179,7 +179,7 @@ export default function VisaWorkflowConfig({ trip }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Lokasi Biometrik</label>
-              <input
+              <input autoComplete="off"
                 type="text"
                 value={form.visa_biometric_location}
                 onChange={(e) => setForm((f) => ({ ...f, visa_biometric_location: e.target.value }))}
@@ -189,7 +189,7 @@ export default function VisaWorkflowConfig({ trip }) {
             </div>
             <div>
               <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Deadline Dokumen</label>
-              <input
+              <input autoComplete="off"
                 type="date"
                 value={form.visa_deadline_doc}
                 onChange={(e) => setForm((f) => ({ ...f, visa_deadline_doc: e.target.value }))}
@@ -200,7 +200,7 @@ export default function VisaWorkflowConfig({ trip }) {
 
           <div>
             <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Alamat Pengiriman Dokumen (kantor TE)</label>
-            <textarea
+            <textarea autoComplete="off"
               value={form.visa_pickup_address}
               onChange={(e) => setForm((f) => ({ ...f, visa_pickup_address: e.target.value }))}
               rows="4"

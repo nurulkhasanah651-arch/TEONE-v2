@@ -70,7 +70,7 @@ export default function LeadsQuickForm({ initial = {}, mode = 'add', onCancel })
 
   return (
     <form action={handleSubmit} className="border border-brand-200 rounded-xl p-4 bg-brand-50/30 space-y-3">
-      <input type="hidden" name="tanggal" value={tanggal} />
+      <input autoComplete="off" type="hidden" name="tanggal" value={tanggal} />
 
       <div className="flex items-center justify-between flex-wrap gap-2">
         <p className="text-xs font-bold text-brand-700 uppercase tracking-wider">
@@ -89,7 +89,7 @@ export default function LeadsQuickForm({ initial = {}, mode = 'add', onCancel })
       {mode === 'add' && (
         <label className="block">
           <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Tanggal</span>
-          <input
+          <input autoComplete="off"
             type="date"
             value={tanggal}
             max={today}
@@ -125,7 +125,7 @@ export default function LeadsQuickForm({ initial = {}, mode = 'add', onCancel })
         <span className="text-xl font-bold text-brand-700">{total}</span>
       </div>
 
-      <input
+      <input autoComplete="off"
         type="text"
         name="notes"
         value={notes}
@@ -147,7 +147,7 @@ function NumberInput({ label, name, value, onChange, color = '' }) {
   return (
     <label className="block">
       <span className="text-xs font-semibold text-slate-700 block mb-0.5">{label}</span>
-      <input
+      <input autoComplete="off"
         type="number"
         name={name}
         value={value}

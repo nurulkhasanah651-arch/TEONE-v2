@@ -143,7 +143,7 @@ export default function TransferPassengerButton({ passenger, allTrips = [] }) {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Alasan Pindah (opsional)</label>
-                <textarea
+                <textarea autoComplete="off"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="Contoh: Peserta minta pindah karena jadwal bentrok"
@@ -155,7 +155,7 @@ export default function TransferPassengerButton({ passenger, allTrips = [] }) {
 
               {hasFamily && (
                 <label className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg cursor-pointer">
-                  <input
+                  <input autoComplete="off"
                     type="checkbox"
                     checked={transferFamily}
                     onChange={(e) => setTransferFamily(e.target.checked)}
@@ -170,7 +170,7 @@ export default function TransferPassengerButton({ passenger, allTrips = [] }) {
               )}
 
               <label className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg cursor-pointer">
-                <input
+                <input autoComplete="off"
                   type="checkbox"
                   checked={cancelUnpaidInvoices}
                   onChange={(e) => setCancelUnpaidInvoices(e.target.checked)}

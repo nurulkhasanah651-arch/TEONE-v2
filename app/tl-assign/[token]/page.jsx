@@ -177,7 +177,7 @@ function RejectForm({ token, trip }) {
 
         <label className="block">
           <span className="text-sm font-bold text-slate-700">Alasan reject (opsional)</span>
-          <textarea
+          <textarea autoComplete="off"
             name="note"
             rows="3"
             placeholder="Misal: tanggal bentrok dengan trip lain, sakit, dll"

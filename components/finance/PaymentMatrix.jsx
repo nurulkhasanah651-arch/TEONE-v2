@@ -228,7 +228,7 @@ export default function PaymentMatrix({
                       return (
                         <td key={m.key} className={`px-1 py-2 text-center ${cellBg}`}>
                           {isEditing ? (
-                            <input
+                            <input autoComplete="off"
                               type="number"
                               defaultValue={payment?.amount || 0} min="0" autoFocus
                               onBlur={(e) => handleSaveAmount(payment.id, e.target.value)}
@@ -313,7 +313,7 @@ export default function PaymentMatrix({
                                   <span className="text-xs font-semibold text-green-700 min-w-24">{fmtRupiah(py.amount)}</span>
                                   <div className="flex-1">
                                     {isEditingThisNote ? (
-                                      <input
+                                      <input autoComplete="off"
                                         type="text"
                                         defaultValue={py.notes || ''}
                                         autoFocus

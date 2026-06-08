@@ -107,7 +107,7 @@ export default function VisaWorkflowPanel({ trip, passengers = [] }) {
             <button type="button" onClick={clearAll} className="text-[11px] font-semibold px-2 py-0.5 bg-slate-200 hover:bg-slate-300 rounded">✕ Kosong</button>
           </div>
           <label className="flex items-center gap-1 text-xs cursor-pointer">
-            <input type="checkbox" checked={bulkFamilyAware} onChange={(e) => setBulkFamilyAware(e.target.checked)} />
+            <input autoComplete="off" type="checkbox" checked={bulkFamilyAware} onChange={(e) => setBulkFamilyAware(e.target.checked)} />
             <span className="font-semibold text-blue-700">👨‍👩 Family-aware</span>
           </label>
         </div>
@@ -122,7 +122,7 @@ export default function VisaWorkflowPanel({ trip, passengers = [] }) {
           </div>
           {bulkTemplate === 'doc_kurang' && (
             <div className="flex-1 min-w-[200px]">
-              <input type="text" value={bulkCustomDokKurang} onChange={(e) => setBulkCustomDokKurang(e.target.value)} placeholder="Dokumen kurang" className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm" />
+              <input autoComplete="off" type="text" value={bulkCustomDokKurang} onChange={(e) => setBulkCustomDokKurang(e.target.value)} placeholder="Dokumen kurang" className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm" />
             </div>
           )}
           {/* R215q — Klik buka preview dulu (BUKAN langsung send) */}
@@ -484,7 +484,7 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
   return (
     <div className="p-4 hover:bg-slate-50">
       <div className="flex items-start gap-3">
-        <input type="checkbox" checked={isSelected} onChange={onToggleSelect} className="mt-1 w-4 h-4 accent-blue-600" />
+        <input autoComplete="off" type="checkbox" checked={isSelected} onChange={onToggleSelect} className="mt-1 w-4 h-4 accent-blue-600" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2 flex-wrap">
@@ -514,7 +514,7 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
               <div className="p-3 bg-indigo-50 rounded border border-indigo-200">
                 <p className="text-xs font-bold text-indigo-800 uppercase mb-1">⏰ Jam Biometrik</p>
                 <div className="flex gap-2 items-center">
-                  <input type="time" value={biometricTime} onChange={(e) => setBiometricTime(e.target.value)} className="px-3 py-1.5 border border-slate-300 rounded text-sm" />
+                  <input autoComplete="off" type="time" value={biometricTime} onChange={(e) => setBiometricTime(e.target.value)} className="px-3 py-1.5 border border-slate-300 rounded text-sm" />
                   <button type="button" onClick={handleSaveBiometricTime} disabled={pending} className="px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold rounded">💾</button>
                 </div>
               </div>
@@ -525,7 +525,7 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                   <div>
                     <label className="text-[10px] font-semibold text-slate-600 block">🔬 Biometrik (Rp)</label>
                     <div className="flex gap-1">
-                      <input type="number" value={biometricCost} onChange={(e) => setBiometricCost(e.target.value)} className="flex-1 px-2 py-1 border border-slate-300 rounded text-sm font-mono" />
+                      <input autoComplete="off" type="number" value={biometricCost} onChange={(e) => setBiometricCost(e.target.value)} className="flex-1 px-2 py-1 border border-slate-300 rounded text-sm font-mono" />
                       <button type="button" onClick={() => handleSaveCost('biometric')} disabled={pending} className="px-2 py-1 bg-slate-500 text-white text-xs rounded">💾</button>
                       <button type="button" onClick={() => handleRequestDP('biometric')} disabled={pending} className="px-2 py-1 bg-amber-500 text-white text-xs rounded">💰</button>
                     </div>
@@ -533,7 +533,7 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                   <div>
                     <label className="text-[10px] font-semibold text-slate-600 block">🛂 Visa (Rp)</label>
                     <div className="flex gap-1">
-                      <input type="number" value={visaCost} onChange={(e) => setVisaCost(e.target.value)} className="flex-1 px-2 py-1 border border-slate-300 rounded text-sm font-mono" />
+                      <input autoComplete="off" type="number" value={visaCost} onChange={(e) => setVisaCost(e.target.value)} className="flex-1 px-2 py-1 border border-slate-300 rounded text-sm font-mono" />
                       <button type="button" onClick={() => handleSaveCost('visa')} disabled={pending} className="px-2 py-1 bg-slate-500 text-white text-xs rounded">💾</button>
                       <button type="button" onClick={() => handleRequestDP('visa')} disabled={pending} className="px-2 py-1 bg-amber-500 text-white text-xs rounded">💰</button>
                     </div>
@@ -550,7 +550,7 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                     </select>
                   </div>
                   {singleTemplate === 'doc_kurang' && (
-                    <input type="text" placeholder="Doc kurang" value={singleCustomVars.list_dokumen_kurang || ''} onChange={(e) => setSingleCustomVars({ list_dokumen_kurang: e.target.value })} className="flex-1 min-w-[200px] px-2 py-1 border border-slate-300 rounded text-sm" />
+                    <input autoComplete="off" type="text" placeholder="Doc kurang" value={singleCustomVars.list_dokumen_kurang || ''} onChange={(e) => setSingleCustomVars({ list_dokumen_kurang: e.target.value })} className="flex-1 min-w-[200px] px-2 py-1 border border-slate-300 rounded text-sm" />
                   )}
                   <button type="button" onClick={handleSendSingle} disabled={pending} className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded">📨 Send</button>
                 </div>
@@ -577,12 +577,12 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                 {showUploadResult && (
                   <div className="space-y-2">
                     <div className="grid grid-cols-2 gap-2">
-                      <label className="flex items-center gap-1 cursor-pointer"><input type="radio" checked={resultType === 'approved'} onChange={() => setResultType('approved')} /><span className="text-xs font-semibold text-emerald-800">✅ Approved</span></label>
-                      <label className="flex items-center gap-1 cursor-pointer"><input type="radio" checked={resultType === 'rejected'} onChange={() => setResultType('rejected')} /><span className="text-xs font-semibold text-red-800">❌ Rejected</span></label>
+                      <label className="flex items-center gap-1 cursor-pointer"><input autoComplete="off" type="radio" checked={resultType === 'approved'} onChange={() => setResultType('approved')} /><span className="text-xs font-semibold text-emerald-800">✅ Approved</span></label>
+                      <label className="flex items-center gap-1 cursor-pointer"><input autoComplete="off" type="radio" checked={resultType === 'rejected'} onChange={() => setResultType('rejected')} /><span className="text-xs font-semibold text-red-800">❌ Rejected</span></label>
                     </div>
                     <div className="p-2 bg-white rounded border border-emerald-300">
                       <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">📤 Upload File (max 10MB)</label>
-                      <input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" onChange={handleFileUpload} disabled={uploading} className="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-emerald-200 file:text-emerald-800 file:font-bold" />
+                      <input autoComplete="off" ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" onChange={handleFileUpload} disabled={uploading} className="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-emerald-200 file:text-emerald-800 file:font-bold" />
                       {uploading && <p className="text-[10px] text-amber-700 mt-1">⏳ Uploading...</p>}
                       {uploadedFileUrl && !uploading && (
                         <div className="mt-1 flex items-center gap-2">
@@ -594,8 +594,8 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                     {resultType === 'approved' && (
                       <>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                          <input type="date" value={resultValidFrom} onChange={(e) => setResultValidFrom(e.target.value)} className="px-2 py-1 border border-slate-300 rounded text-sm" />
-                          <input type="date" value={resultValidUntil} onChange={(e) => setResultValidUntil(e.target.value)} className="px-2 py-1 border border-slate-300 rounded text-sm" />
+                          <input autoComplete="off" type="date" value={resultValidFrom} onChange={(e) => setResultValidFrom(e.target.value)} className="px-2 py-1 border border-slate-300 rounded text-sm" />
+                          <input autoComplete="off" type="date" value={resultValidUntil} onChange={(e) => setResultValidUntil(e.target.value)} className="px-2 py-1 border border-slate-300 rounded text-sm" />
                           <select value={resultEntryType} onChange={(e) => setResultEntryType(e.target.value)} className="px-2 py-1 border border-slate-300 rounded text-sm bg-white">
                             <option value="single">Single Entry</option>
                             <option value="multiple">Multiple Entry</option>
@@ -606,24 +606,24 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                           <div className="space-y-1">
                             {RETURN_METHODS.map((m) => (
                               <label key={m.value} className="flex items-start gap-2 cursor-pointer p-1.5 bg-white rounded">
-                                <input type="radio" checked={resultReturnMethod === m.value} onChange={() => setResultReturnMethod(m.value)} className="mt-0.5" />
+                                <input autoComplete="off" type="radio" checked={resultReturnMethod === m.value} onChange={() => setResultReturnMethod(m.value)} className="mt-0.5" />
                                 <div><p className="text-xs font-bold text-slate-800">{m.label}</p><p className="text-[10px] text-slate-500">{m.desc}</p></div>
                               </label>
                             ))}
                           </div>
                           {resultReturnMethod === 'kurir' && (
                             <div className="grid grid-cols-2 gap-2 mt-2">
-                              <input type="text" placeholder="Kurir" value={resultReturnKurir} onChange={(e) => setResultReturnKurir(e.target.value)} className="px-2 py-1 border border-slate-300 rounded text-sm" />
-                              <input type="text" placeholder="No Resi" value={resultReturnResi} onChange={(e) => setResultReturnResi(e.target.value)} className="px-2 py-1 border border-slate-300 rounded text-sm" />
+                              <input autoComplete="off" type="text" placeholder="Kurir" value={resultReturnKurir} onChange={(e) => setResultReturnKurir(e.target.value)} className="px-2 py-1 border border-slate-300 rounded text-sm" />
+                              <input autoComplete="off" type="text" placeholder="No Resi" value={resultReturnResi} onChange={(e) => setResultReturnResi(e.target.value)} className="px-2 py-1 border border-slate-300 rounded text-sm" />
                             </div>
                           )}
                         </div>
                       </>
                     )}
                     {resultType === 'rejected' && (
-                      <textarea value={resultRejReason} onChange={(e) => setResultRejReason(e.target.value)} placeholder="Alasan penolakan" rows="2" className="w-full px-2 py-1 border border-slate-300 rounded text-sm" />
+                      <textarea autoComplete="off" value={resultRejReason} onChange={(e) => setResultRejReason(e.target.value)} placeholder="Alasan penolakan" rows="2" className="w-full px-2 py-1 border border-slate-300 rounded text-sm" />
                     )}
-                    <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={autoSendWA} onChange={(e) => setAutoSendWA(e.target.checked)} /><span className="text-xs font-semibold">📨 Auto-send WA + foto attached</span></label>
+                    <label className="flex items-center gap-2 cursor-pointer"><input autoComplete="off" type="checkbox" checked={autoSendWA} onChange={(e) => setAutoSendWA(e.target.checked)} /><span className="text-xs font-semibold">📨 Auto-send WA + foto attached</span></label>
                     <button type="button" onClick={handleSaveResult} disabled={pending || uploading} className="w-full px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-bold rounded">
                       {pending ? '⏳' : '💾 Simpan' + (autoSendWA ? ' + Send WA' : '')}
                     </button>

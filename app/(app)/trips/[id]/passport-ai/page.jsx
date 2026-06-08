@@ -144,16 +144,16 @@ export default function PassportAIPage() {
           <FormSection title="Data Pribadi">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label="Nama Depan" required>
-                <input value={data.first_name} onChange={(e) => upd('first_name', e.target.value)} required className={inputCls} />
+                <input autoComplete="off" value={data.first_name} onChange={(e) => upd('first_name', e.target.value)} required className={inputCls} />
               </Field>
               <Field label="Nama Belakang">
-                <input value={data.last_name} onChange={(e) => upd('last_name', e.target.value)} className={inputCls} />
+                <input autoComplete="off" value={data.last_name} onChange={(e) => upd('last_name', e.target.value)} className={inputCls} />
               </Field>
               <Field label="Tempat Lahir">
-                <input value={data.city} onChange={(e) => upd('city', e.target.value)} className={inputCls} placeholder="Jakarta, Surabaya, dll" />
+                <input autoComplete="off" value={data.city} onChange={(e) => upd('city', e.target.value)} className={inputCls} placeholder="Jakarta, Surabaya, dll" />
               </Field>
               <Field label="Tanggal Lahir">
-                <input type="date" value={data.birthday} onChange={(e) => upd('birthday', e.target.value)} className={inputCls} />
+                <input autoComplete="off" type="date" value={data.birthday} onChange={(e) => upd('birthday', e.target.value)} className={inputCls} />
               </Field>
               <Field label="Gender">
                 <select value={data.gender} onChange={(e) => upd('gender', e.target.value)} className={inputCls}>
@@ -163,13 +163,13 @@ export default function PassportAIPage() {
                 </select>
               </Field>
               <Field label="No HP / WA">
-                <input value={data.phone} onChange={(e) => upd('phone', e.target.value)} className={inputCls} placeholder="08xx..." />
+                <input autoComplete="off" value={data.phone} onChange={(e) => upd('phone', e.target.value)} className={inputCls} placeholder="08xx..." />
               </Field>
               <Field label="Email" className="md:col-span-2">
-                <input type="email" value={data.email} onChange={(e) => upd('email', e.target.value)} className={inputCls} placeholder="user@email.com" />
+                <input autoComplete="off" type="email" value={data.email} onChange={(e) => upd('email', e.target.value)} className={inputCls} placeholder="user@email.com" />
               </Field>
               <Field label="Nationality" className="md:col-span-2">
-                <input value={data.nationality} onChange={(e) => upd('nationality', e.target.value)} className={inputCls} placeholder="INDONESIA" />
+                <input autoComplete="off" value={data.nationality} onChange={(e) => upd('nationality', e.target.value)} className={inputCls} placeholder="INDONESIA" />
               </Field>
             </div>
           </FormSection>
@@ -178,16 +178,16 @@ export default function PassportAIPage() {
           <FormSection title="Data Passport">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label="No Passport">
-                <input value={data.passport_no} onChange={(e) => upd('passport_no', e.target.value)} className={inputCls} placeholder="A1234567" />
+                <input autoComplete="off" value={data.passport_no} onChange={(e) => upd('passport_no', e.target.value)} className={inputCls} placeholder="A1234567" />
               </Field>
               <Field label="Diterbitkan di">
-                <input value={data.passport_issued_at} onChange={(e) => upd('passport_issued_at', e.target.value)} className={inputCls} placeholder="Jakarta, Imigrasi Kelas I, dll" />
+                <input autoComplete="off" value={data.passport_issued_at} onChange={(e) => upd('passport_issued_at', e.target.value)} className={inputCls} placeholder="Jakarta, Imigrasi Kelas I, dll" />
               </Field>
               <Field label="Tanggal Issue">
-                <input type="date" value={data.passport_issued_date} onChange={(e) => upd('passport_issued_date', e.target.value)} className={inputCls} />
+                <input autoComplete="off" type="date" value={data.passport_issued_date} onChange={(e) => upd('passport_issued_date', e.target.value)} className={inputCls} />
               </Field>
               <Field label="Tanggal Expiry">
-                <input type="date" value={data.passport_expiry} onChange={(e) => upd('passport_expiry', e.target.value)} className={inputCls} />
+                <input autoComplete="off" type="date" value={data.passport_expiry} onChange={(e) => upd('passport_expiry', e.target.value)} className={inputCls} />
               </Field>
             </div>
           </FormSection>
@@ -202,7 +202,7 @@ export default function PassportAIPage() {
                 </select>
               </Field>
               <Field label="Harga Bayar (IDR)">
-                <input type="number" value={data.price_paid} onChange={(e) => upd('price_paid', e.target.value)} min="0" className={inputCls} placeholder="50000000" />
+                <input autoComplete="off" type="number" value={data.price_paid} onChange={(e) => upd('price_paid', e.target.value)} min="0" className={inputCls} placeholder="50000000" />
               </Field>
             </div>
           </FormSection>

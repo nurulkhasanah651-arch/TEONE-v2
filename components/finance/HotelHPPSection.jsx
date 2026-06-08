@@ -339,7 +339,7 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
             <div className="grid grid-cols-3 gap-2">
               <div>
                 <label className="text-[10px] font-semibold text-slate-600 block">USD → IDR</label>
-                <input
+                <input autoComplete="off"
                   type="number"
                   value={kurs.kurs_usd}
                   onChange={(e) => setKurs((k) => ({ ...k, kurs_usd: Number(e.target.value) }))}
@@ -348,7 +348,7 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
               </div>
               <div>
                 <label className="text-[10px] font-semibold text-slate-600 block">EUR → IDR</label>
-                <input
+                <input autoComplete="off"
                   type="number"
                   value={kurs.kurs_eur}
                   onChange={(e) => setKurs((k) => ({ ...k, kurs_eur: Number(e.target.value) }))}
@@ -357,7 +357,7 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
               </div>
               <div>
                 <label className="text-[10px] font-semibold text-slate-600 block">SAR → IDR</label>
-                <input
+                <input autoComplete="off"
                   type="number"
                   value={kurs.kurs_sar}
                   onChange={(e) => setKurs((k) => ({ ...k, kurs_sar: Number(e.target.value) }))}
@@ -422,7 +422,7 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
               Nama Hotel <span className="text-red-500">*</span>
               {!hotelNameValid && <span className="text-red-500 ml-1">(wajib)</span>}
             </label>
-            <input
+            <input autoComplete="off"
               type="text"
               value={form.hotel_name}
               onChange={(e) => setForm((f) => ({ ...f, hotel_name: e.target.value }))}
@@ -432,7 +432,7 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
           </div>
           <div>
             <label className="text-[10px] font-semibold text-slate-600 block uppercase">Vendor (opsional)</label>
-            <input
+            <input autoComplete="off"
               type="text"
               value={form.vendor_name}
               onChange={(e) => setForm((f) => ({ ...f, vendor_name: e.target.value }))}
@@ -464,7 +464,7 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
                   Pax di Room ini <span className="text-red-500">*</span>
                   <span className="text-amber-600 ml-1">(auto: {counts[form.room_type] || 0})</span>
                 </label>
-                <input
+                <input autoComplete="off"
                   type="number"
                   value={form.pax_in_room}
                   min="1"
@@ -480,7 +480,7 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
                   Jumlah Peserta <span className="text-red-500">*</span>
                   <span className="text-amber-600 ml-1">(auto: {activePassengers.length} aktif)</span>
                 </label>
-                <input
+                <input autoComplete="off"
                   type="number"
                   value={form.pax_count}
                   min="1"
@@ -504,7 +504,7 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
           </div>
           <div>
             <label className="text-[10px] font-semibold text-slate-600 block uppercase">Kurs ({form.currency})</label>
-            <input
+            <input autoComplete="off"
               type="number"
               value={currentKurs}
               disabled
@@ -519,7 +519,7 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
               <label className="text-[10px] font-semibold text-slate-600 block uppercase">
                 Harga per Room ({form.currency}) <span className="text-red-500">*</span>
               </label>
-              <input
+              <input autoComplete="off"
                 type="number"
                 value={form.price_per_room}
                 onChange={(e) => setForm((f) => ({ ...f, price_per_room: Number(e.target.value) }))}
@@ -533,7 +533,7 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
               <label className="text-[10px] font-semibold text-slate-600 block uppercase">
                 Harga per Pax ({form.currency}) <span className="text-red-500">*</span>
               </label>
-              <input
+              <input autoComplete="off"
                 type="number"
                 value={form.price_per_pax}
                 onChange={(e) => setForm((f) => ({ ...f, price_per_pax: Number(e.target.value) }))}
@@ -559,7 +559,7 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
               Jumlah Malam
               {form.price_mode === 'total_stay' && <span className="text-slate-400 ml-1">(N/A)</span>}
             </label>
-            <input
+            <input autoComplete="off"
               type="number"
               value={form.nights}
               onChange={(e) => setForm((f) => ({ ...f, nights: Number(e.target.value) }))}
@@ -570,7 +570,7 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
           </div>
           <div>
             <label className="text-[10px] font-semibold text-slate-600 block uppercase">Category HPP</label>
-            <input
+            <input autoComplete="off"
               type="text"
               value={form.category}
               onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
@@ -582,7 +582,7 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
 
         <div>
           <label className="text-[10px] font-semibold text-slate-600 block uppercase">Notes (opsional)</label>
-          <input
+          <input autoComplete="off"
             type="text"
             value={form.notes}
             onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}

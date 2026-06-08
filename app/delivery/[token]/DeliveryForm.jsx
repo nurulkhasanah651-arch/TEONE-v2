@@ -85,7 +85,7 @@ export default function DeliveryForm({ token, passenger, customer, trip }) {
     <form onSubmit={handleSubmit} style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
       <Field label="Nama Penerima" required>
-        <input
+        <input autoComplete="off"
           type="text"
           required
           value={form.recipient}
@@ -96,7 +96,7 @@ export default function DeliveryForm({ token, passenger, customer, trip }) {
       </Field>
 
       <Field label="No. HP / WhatsApp Penerima" required>
-        <input
+        <input autoComplete="off"
           type="tel"
           required
           value={form.phone}
@@ -107,7 +107,7 @@ export default function DeliveryForm({ token, passenger, customer, trip }) {
       </Field>
 
       <Field label="Email (opsional)">
-        <input
+        <input autoComplete="off"
           type="email"
           value={form.email}
           onChange={(e) => upd('email', e.target.value)}
@@ -117,7 +117,7 @@ export default function DeliveryForm({ token, passenger, customer, trip }) {
       </Field>
 
       <Field label="Alamat (Jalan, Nomor, RT/RW)" required>
-        <textarea
+        <textarea autoComplete="off"
           required
           rows={2}
           value={form.street}
@@ -129,7 +129,7 @@ export default function DeliveryForm({ token, passenger, customer, trip }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <Field label="Kelurahan" required>
-          <input
+          <input autoComplete="off"
             type="text"
             required
             value={form.kelurahan}
@@ -138,7 +138,7 @@ export default function DeliveryForm({ token, passenger, customer, trip }) {
           />
         </Field>
         <Field label="Kecamatan" required>
-          <input
+          <input autoComplete="off"
             type="text"
             required
             value={form.kecamatan}
@@ -150,7 +150,7 @@ export default function DeliveryForm({ token, passenger, customer, trip }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <Field label="Kota / Kabupaten" required>
-          <input
+          <input autoComplete="off"
             type="text"
             required
             value={form.kota}
@@ -160,7 +160,7 @@ export default function DeliveryForm({ token, passenger, customer, trip }) {
           />
         </Field>
         <Field label="Provinsi" required>
-          <input
+          <input autoComplete="off"
             type="text"
             required
             value={form.provinsi}
@@ -172,7 +172,7 @@ export default function DeliveryForm({ token, passenger, customer, trip }) {
       </div>
 
       <Field label="Kode Pos" required>
-        <input
+        <input autoComplete="off"
           type="text"
           required
           inputMode="numeric"
@@ -186,7 +186,7 @@ export default function DeliveryForm({ token, passenger, customer, trip }) {
       </Field>
 
       <Field label="Catatan / Patokan (opsional)">
-        <textarea
+        <textarea autoComplete="off"
           rows={2}
           value={form.notes}
           onChange={(e) => upd('notes', e.target.value)}

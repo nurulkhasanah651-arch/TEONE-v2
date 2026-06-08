@@ -119,7 +119,7 @@ export default function PaymentProofForm({ token, expectedAmount }) {
       <div>
         <label className="block">
           <span className="text-xs font-semibold text-slate-700 block mb-1">Jumlah yang Ditransfer (Rp)</span>
-          <input
+          <input autoComplete="off"
             type="text"
             inputMode="numeric"
             value={fmtRupiah(amount)}
@@ -133,7 +133,7 @@ export default function PaymentProofForm({ token, expectedAmount }) {
       <div className="grid grid-cols-2 gap-2">
         <label className="block">
           <span className="text-xs font-semibold text-slate-700 block mb-1">Tanggal Transfer</span>
-          <input
+          <input autoComplete="off"
             type="date"
             value={paymentDate}
             onChange={(e) => setPaymentDate(e.target.value)}
@@ -159,7 +159,7 @@ export default function PaymentProofForm({ token, expectedAmount }) {
       <div>
         <label className="block">
           <span className="text-xs font-semibold text-slate-700 block mb-1">Bukti Transfer (foto/screenshot)</span>
-          <input
+          <input autoComplete="off"
             type="file"
             accept="image/*,.pdf"
             onChange={(e) => handleFileUpload(e.target.files?.[0])}
@@ -176,7 +176,7 @@ export default function PaymentProofForm({ token, expectedAmount }) {
       <div>
         <label className="block">
           <span className="text-xs font-semibold text-slate-700 block mb-1">Catatan (Opsional)</span>
-          <input
+          <input autoComplete="off"
             type="text"
             value={note}
             onChange={(e) => setNote(e.target.value)}

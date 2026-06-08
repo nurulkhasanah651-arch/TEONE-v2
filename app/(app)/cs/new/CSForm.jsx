@@ -129,7 +129,7 @@ export default function CSForm({ trips }) {
 
   return (
     <form action={handleSubmit} className="space-y-5">
-      <input type="hidden" name="participants" value={participantsJson} />
+      <input autoComplete="off" type="hidden" name="participants" value={participantsJson} />
 
       <Field label="Trip" required>
         <select name="trip_id" required value={tripId} onChange={(e) => setTripId(e.target.value)} className={inputCls}>
@@ -141,7 +141,7 @@ export default function CSForm({ trips }) {
       </Field>
 
       <Field label="Tanggal Closing" required hint="Default hari ini. Dipakai untuk hitung 'Days to Close' per peserta.">
-        <input
+        <input autoComplete="off"
           type="date"
           name="tanggal"
           value={tanggalClosing}
@@ -167,7 +167,7 @@ export default function CSForm({ trips }) {
             <SourceField label="🔍 Google" name="from_ads_google" value={sources.ads_google} onChange={(v) => setSources((s) => ({ ...s, ads_google: v }))} />
             <SourceField label="🎵 TikTok" name="from_ads_tiktok" value={sources.ads_tiktok} onChange={(v) => setSources((s) => ({ ...s, ads_tiktok: v }))} />
           </div>
-          <input type="hidden" name="closing_ads" value={sources.ads_meta + sources.ads_google + sources.ads_tiktok} />
+          <input autoComplete="off" type="hidden" name="closing_ads" value={sources.ads_meta + sources.ads_google + sources.ads_tiktok} />
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
@@ -273,7 +273,7 @@ export default function CSForm({ trips }) {
                     </label>
                     <label className="block col-span-2">
                       <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Harga Bayar Override (opsional)</span>
-                      <input type="number" value={p.price_paid} min="0" onChange={(e) => updParticipant(i, 'price_paid', e.target.value)} className={miniInput} placeholder="Auto dari breakdown kalau kosong" />
+                      <input autoComplete="off" type="number" value={p.price_paid} min="0" onChange={(e) => updParticipant(i, 'price_paid', e.target.value)} className={miniInput} placeholder="Auto dari breakdown kalau kosong" />
                     </label>
                   </div>
 
@@ -287,7 +287,7 @@ export default function CSForm({ trips }) {
                         <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">
                           Berapa hari dari chat pertama sampai closing?
                         </span>
-                        <input
+                        <input autoComplete="off"
                           type="number"
                           min="0"
                           max="365"
@@ -331,7 +331,7 @@ export default function CSForm({ trips }) {
                           (Isi sama dengan peserta lain untuk masuk family yang sama)
                         </span>
                       </span>
-                      <input
+                      <input autoComplete="off"
                         type="text"
                         value={p.family_name || ''}
                         onChange={(e) => updParticipant(i, 'family_name', e.target.value)}
@@ -356,7 +356,7 @@ export default function CSForm({ trips }) {
                     <div className="grid grid-cols-3 gap-2">
                       <label className="block">
                         <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">Nominal DP (Rp)</span>
-                        <input
+                        <input autoComplete="off"
                           type="text"
                           inputMode="numeric"
                           value={fmtInput(p.dp_amount)}
@@ -367,7 +367,7 @@ export default function CSForm({ trips }) {
                       </label>
                       <label className="block">
                         <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">Tgl Bayar</span>
-                        <input
+                        <input autoComplete="off"
                           type="date"
                           value={p.dp_date || new Date().toISOString().slice(0, 10)}
                           max={new Date().toISOString().slice(0, 10)}
@@ -469,11 +469,11 @@ export default function CSForm({ trips }) {
       </Section>
 
       <Field label="Total Leads Organik Hari Ini" hint="Leads yang BUKAN dari ads (organik IG, WA, referral)">
-        <input type="number" name="jumlah_leads" defaultValue="0" min="0" className={inputCls} />
+        <input autoComplete="off" type="number" name="jumlah_leads" defaultValue="0" min="0" className={inputCls} />
       </Field>
 
       <Field label="Catatan (opsional)">
-        <textarea name="notes" rows="3" className={inputCls + ' resize-none'} placeholder="Hal penting hari ini..." />
+        <textarea autoComplete="off" name="notes" rows="3" className={inputCls + ' resize-none'} placeholder="Hal penting hari ini..." />
       </Field>
 
       {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium whitespace-pre-wrap">{error}</div>}
@@ -489,7 +489,7 @@ function SourceField({ label, name, value, onChange }) {
   return (
     <label className="block">
       <span className="text-xs font-semibold text-slate-700 block mb-1">{label}</span>
-      <input type="number" name={name} value={value} onChange={(e) => onChange(parseInt(e.target.value) || 0)} onFocus={(e) => e.target.select()} min="0" className={inputCls} />
+      <input autoComplete="off" type="number" name={name} value={value} onChange={(e) => onChange(parseInt(e.target.value) || 0)} onFocus={(e) => e.target.select()} min="0" className={inputCls} />
     </label>
   );
 }
@@ -498,7 +498,7 @@ function PaxInput({ label, value, onChange, type = 'text' }) {
   return (
     <label className="block">
       <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">{label}</span>
-      <input type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} className={miniInput} />
+      <input autoComplete="off" type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} className={miniInput} />
     </label>
   );
 }

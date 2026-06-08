@@ -168,7 +168,7 @@ export default function PayslipForm({ entry, action, markPaidAction }) {
           </div>
         )}
 
-        <input
+        <input autoComplete="off"
           ref={fileInputRef}
           type="file"
           accept="image/*,.pdf"
@@ -187,12 +187,12 @@ export default function PayslipForm({ entry, action, markPaidAction }) {
               <Field label="Other Earnings"><NumberInput name="other_earnings" value={form.other_earnings} onChange={(v) => upd('other_earnings', v)} /></Field>
             </div>
             {/* Hidden inputs for non-applicable fields */}
-            <input type="hidden" name="base_salary" value={form.base_salary} />
-            <input type="hidden" name="transport_allowance" value={form.transport_allowance} />
-            <input type="hidden" name="meal_allowance" value={form.meal_allowance} />
-            <input type="hidden" name="overtime" value={form.overtime} />
-            <input type="hidden" name="trip_count" value={form.trip_count} />
-            <input type="hidden" name="freelance_earnings" value={form.freelance_earnings} />
+            <input autoComplete="off" type="hidden" name="base_salary" value={form.base_salary} />
+            <input autoComplete="off" type="hidden" name="transport_allowance" value={form.transport_allowance} />
+            <input autoComplete="off" type="hidden" name="meal_allowance" value={form.meal_allowance} />
+            <input autoComplete="off" type="hidden" name="overtime" value={form.overtime} />
+            <input autoComplete="off" type="hidden" name="trip_count" value={form.trip_count} />
+            <input autoComplete="off" type="hidden" name="freelance_earnings" value={form.freelance_earnings} />
           </Section>
         ) : (
           <Section title="⬆ Earnings (Penghasilan)">
@@ -204,9 +204,9 @@ export default function PayslipForm({ entry, action, markPaidAction }) {
               <Field label="Overtime / Lembur"><NumberInput name="overtime" value={form.overtime} onChange={(v) => upd('overtime', v)} /></Field>
               <Field label="Other Earnings"><NumberInput name="other_earnings" value={form.other_earnings} onChange={(v) => upd('other_earnings', v)} /></Field>
             </div>
-            <input type="hidden" name="per_trip_earnings" value={form.per_trip_earnings} />
-            <input type="hidden" name="trip_count" value={form.trip_count} />
-            <input type="hidden" name="freelance_earnings" value={form.freelance_earnings} />
+            <input autoComplete="off" type="hidden" name="per_trip_earnings" value={form.per_trip_earnings} />
+            <input autoComplete="off" type="hidden" name="trip_count" value={form.trip_count} />
+            <input autoComplete="off" type="hidden" name="freelance_earnings" value={form.freelance_earnings} />
           </Section>
         )}
 
@@ -243,7 +243,7 @@ export default function PayslipForm({ entry, action, markPaidAction }) {
         </div>
 
         <Field label="Catatan slip">
-          <textarea name="notes" rows="2" value={form.notes} onChange={(e) => upd('notes', e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm resize-y" />
+          <textarea autoComplete="off" name="notes" rows="2" value={form.notes} onChange={(e) => upd('notes', e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm resize-y" />
         </Field>
 
         {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>}
@@ -261,7 +261,7 @@ export default function PayslipForm({ entry, action, markPaidAction }) {
 
 function NumberInput({ name, value, onChange }) {
   return (
-    <input
+    <input autoComplete="off"
       type="text"
       name={name}
       inputMode="numeric"

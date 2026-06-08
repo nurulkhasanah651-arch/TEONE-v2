@@ -43,7 +43,7 @@ export default function DeleteTripButton({ tripId, tripName, tripCode }) {
         Trip + semua data terkait (peserta, finance, accounting entries linked) tidak bisa dipulihkan.
         Ketik kode trip <strong>{codeExpected}</strong> untuk konfirmasi:
       </p>
-      <input
+      <input autoComplete="off"
         type="text"
         value={confirmText}
         onChange={(e) => setConfirmText(e.target.value)}

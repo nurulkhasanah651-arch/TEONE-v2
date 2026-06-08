@@ -141,7 +141,7 @@ export default function AccountingSheetPanel({ initialStatus = null }) {
 
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">URL Google Sheet:</label>
-              <input
+              <input autoComplete="off"
                 type="text"
                 value={linkUrl}
                 onChange={(e) => setLinkUrl(e.target.value)}

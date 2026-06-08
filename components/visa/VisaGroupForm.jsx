@@ -56,10 +56,10 @@ export default function VisaGroupForm({ trip, template = [] }) {
         <form action={handleGroupSave} className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Field label="Negara Tujuan Visa">
-              <input name="visa_country" defaultValue={trip.visa_country || ''} className={inputCls} placeholder="Schengen, UK, Japan, dll" />
+              <input autoComplete="off" name="visa_country" defaultValue={trip.visa_country || ''} className={inputCls} placeholder="Schengen, UK, Japan, dll" />
             </Field>
             <Field label="Catatan Group">
-              <input name="visa_notes" defaultValue={trip.visa_notes || ''} className={inputCls} placeholder="Catatan untuk semua peserta group ini..." />
+              <input autoComplete="off" name="visa_notes" defaultValue={trip.visa_notes || ''} className={inputCls} placeholder="Catatan untuk semua peserta group ini..." />
             </Field>
           </div>
           <button type="submit" disabled={pending} className="px-4 py-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white text-sm font-semibold rounded-lg">
@@ -97,7 +97,7 @@ export default function VisaGroupForm({ trip, template = [] }) {
           )}
 
           <div className="flex gap-2">
-            <input
+            <input autoComplete="off"
               type="text"
               value={newDocName}
               onChange={(e) => setNewDocName(e.target.value)}

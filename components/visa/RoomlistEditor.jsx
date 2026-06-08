@@ -134,14 +134,14 @@ export default function RoomlistEditor({ tripId, tripCode, passengers = [] }) {
                       </div>
                       {isEditing && (
                         <div className="mt-2 space-y-1.5 p-2 bg-slate-50 rounded">
-                          <input
+                          <input autoComplete="off"
                             type="text"
                             value={editVal}
                             onChange={(e) => setEditVal(e.target.value)}
                             placeholder="Room (misal: Quad-01)"
                             className="w-full px-2 py-1 border border-slate-300 rounded text-xs"
                           />
-                          <input
+                          <input autoComplete="off"
                             type="text"
                             value={editNotes}
                             onChange={(e) => setEditNotes(e.target.value)}

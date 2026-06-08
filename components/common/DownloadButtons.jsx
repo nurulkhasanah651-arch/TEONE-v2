@@ -435,7 +435,7 @@ export default function DownloadButtons({
                       key={col.key}
                       className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 rounded cursor-pointer"
                     >
-                      <input
+                      <input autoComplete="off"
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleKey(col.key)}

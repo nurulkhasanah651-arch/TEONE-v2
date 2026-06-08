@@ -121,10 +121,10 @@ export default function EditCSForm({ update, existingParticipants = [] }) {
 
   return (
     <form action={handleSubmit} className="space-y-5">
-      <input type="hidden" name="trip_id" value={u.trip_id} />
+      <input autoComplete="off" type="hidden" name="trip_id" value={u.trip_id} />
 
       <Field label="Tanggal" required>
-        <input type="date" name="tanggal" defaultValue={u.tanggal} required className={inputCls} />
+        <input autoComplete="off" type="date" name="tanggal" defaultValue={u.tanggal} required className={inputCls} />
       </Field>
 
       <Section title="Closing per Sumber (Organic)">
@@ -146,11 +146,11 @@ export default function EditCSForm({ update, existingParticipants = [] }) {
       </Section>
 
       <Field label="Total Leads (untuk trip ini)">
-        <input type="number" name="jumlah_leads" defaultValue={u.jumlah_leads || 0} min="0" className={inputCls} />
+        <input autoComplete="off" type="number" name="jumlah_leads" defaultValue={u.jumlah_leads || 0} min="0" className={inputCls} />
       </Field>
 
       <Field label="Catatan">
-        <textarea name="notes" defaultValue={u.notes || ''} rows="3" className={inputCls + ' resize-none'} />
+        <textarea autoComplete="off" name="notes" defaultValue={u.notes || ''} rows="3" className={inputCls + ' resize-none'} />
       </Field>
 
       {/* ===== PESERTA EXISTING ===== */}
@@ -255,7 +255,7 @@ export default function EditCSForm({ update, existingParticipants = [] }) {
                     </label>
                     <label className="block col-span-2">
                       <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Harga Bayar (IDR)</span>
-                      <input type="number" value={p.price_paid} min="0" onChange={(e) => updRow(i, 'price_paid', e.target.value)} className={miniInput} placeholder="50000000" />
+                      <input autoComplete="off" type="number" value={p.price_paid} min="0" onChange={(e) => updRow(i, 'price_paid', e.target.value)} className={miniInput} placeholder="50000000" />
                     </label>
                   </div>
 
@@ -271,7 +271,7 @@ export default function EditCSForm({ update, existingParticipants = [] }) {
                           (Isi sama dengan peserta lain untuk masuk family yang sama)
                         </span>
                       </span>
-                      <input
+                      <input autoComplete="off"
                         type="text"
                         value={p.family_name || ''}
                         onChange={(e) => updRow(i, 'family_name', e.target.value)}
@@ -296,7 +296,7 @@ export default function EditCSForm({ update, existingParticipants = [] }) {
                     <div className="grid grid-cols-3 gap-2">
                       <label className="block">
                         <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">Nominal DP (Rp)</span>
-                        <input
+                        <input autoComplete="off"
                           type="text"
                           inputMode="numeric"
                           value={fmtInput(p.dp_amount)}
@@ -307,7 +307,7 @@ export default function EditCSForm({ update, existingParticipants = [] }) {
                       </label>
                       <label className="block">
                         <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">Tgl Bayar</span>
-                        <input
+                        <input autoComplete="off"
                           type="date"
                           value={p.dp_date || new Date().toISOString().slice(0, 10)}
                           max={new Date().toISOString().slice(0, 10)}
@@ -370,7 +370,7 @@ export default function EditCSForm({ update, existingParticipants = [] }) {
         )}
       </Section>
 
-      <input type="hidden" name="participants" value={newJson} />
+      <input autoComplete="off" type="hidden" name="participants" value={newJson} />
 
       {info && <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 font-medium">{info}</div>}
       {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium whitespace-pre-wrap">{error}</div>}
@@ -410,7 +410,7 @@ function NumberField({ label, name, initial }) {
   return (
     <label className="block">
       <span className="text-xs font-semibold text-slate-700 block mb-1">{label}</span>
-      <input type="number" name={name} defaultValue={initial || 0} onFocus={(e) => e.target.select()} min="0" className={inputCls} />
+      <input autoComplete="off" type="number" name={name} defaultValue={initial || 0} onFocus={(e) => e.target.select()} min="0" className={inputCls} />
     </label>
   );
 }
@@ -419,7 +419,7 @@ function Mini({ label, value, onChange, type = 'text' }) {
   return (
     <label className="block">
       <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">{label}</span>
-      <input type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} className={miniInput} />
+      <input autoComplete="off" type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} className={miniInput} />
     </label>
   );
 }

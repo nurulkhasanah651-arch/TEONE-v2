@@ -173,7 +173,7 @@ export default function VisaTemplateEditor({ trip }) {
                   </button>
                 )}
               </div>
-              <textarea
+              <textarea autoComplete="off"
                 value={editText}
                 onChange={(e) => setEditText(e.target.value)}
                 rows="20"

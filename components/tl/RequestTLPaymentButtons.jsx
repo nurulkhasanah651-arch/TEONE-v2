@@ -133,7 +133,7 @@ export default function RequestTLPaymentButtons({
               <span className="text-xs font-semibold text-slate-700">
                 Total Fee Trip (Rp) <span className="text-slate-400 font-normal">— basis 70/30 split</span>
               </span>
-              <input
+              <input autoComplete="off"
                 type="text"
                 inputMode="numeric"
                 value={fmtIDRNum(totalFee)}
@@ -152,7 +152,7 @@ export default function RequestTLPaymentButtons({
               <span className="text-xs font-semibold text-slate-700">
                 ATAU Nominal Termin (Rp) <span className="text-slate-400 font-normal">— override</span>
               </span>
-              <input
+              <input autoComplete="off"
                 type="text"
                 inputMode="numeric"
                 value={fmtIDRNum(customAmount)}
@@ -176,7 +176,7 @@ export default function RequestTLPaymentButtons({
 
           <label className="block">
             <span className="text-xs font-semibold text-slate-700">Catatan untuk HR (opsional)</span>
-            <textarea
+            <textarea autoComplete="off"
               rows="2"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}

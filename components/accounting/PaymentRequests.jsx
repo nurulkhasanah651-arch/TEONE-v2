@@ -194,7 +194,7 @@ export default function PaymentRequests({ requests = [], accounts = [], trips = 
 
             <label className="block">
               <span className="text-xs font-bold text-slate-700 block mb-1">Tanggal Transfer <span className="text-red-500">*</span></span>
-              <input
+              <input autoComplete="off"
                 type="date"
                 name="transfer_date"
                 defaultValue={today}
@@ -220,7 +220,7 @@ export default function PaymentRequests({ requests = [], accounts = [], trips = 
               <span className="text-xs font-bold text-slate-700 block mb-1">
                 📥 Upload Bukti Transfer {approving.transfer_proof_url ? '(replace)' : '(opsional)'}
               </span>
-              <input
+              <input autoComplete="off"
                 ref={proofFileRef}
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png,.webp"
@@ -264,7 +264,7 @@ export default function PaymentRequests({ requests = [], accounts = [], trips = 
             <p className="text-sm text-slate-600">Termin: <strong>{getPhaseLabel(rejecting)} {fmtRupiah(getRequestAmount(rejecting))}</strong></p>
             <label className="block">
               <span className="text-xs font-bold text-slate-700 block mb-1">Alasan Reject</span>
-              <textarea
+              <textarea autoComplete="off"
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 rows="3"

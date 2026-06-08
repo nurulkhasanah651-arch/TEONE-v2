@@ -148,7 +148,7 @@ export default function FileUploadInput({
       )}
 
       {/* HIDDEN INPUT — must be inside render but separate from clickable area */}
-      <input
+      <input autoComplete="off"
         ref={inputRef}
         type="file"
         accept={accept}

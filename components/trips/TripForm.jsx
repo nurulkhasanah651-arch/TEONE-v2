@@ -92,13 +92,13 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
       <Section title="Info Dasar">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Kode Trip" hint="Contoh: KARANG-2026">
-            <input name="kode_trip" defaultValue={initial.kode_trip || ''} className={inputCls} />
+            <input autoComplete="off" name="kode_trip" defaultValue={initial.kode_trip || ''} className={inputCls} />
           </Field>
           <Field label="Nama Trip" required>
-            <input name="name" defaultValue={initial.name || ''} required className={inputCls} placeholder="KARANG 14 Hari" />
+            <input autoComplete="off" name="name" defaultValue={initial.name || ''} required className={inputCls} placeholder="KARANG 14 Hari" />
           </Field>
           <Field label="Tujuan">
-            <input name="destination" defaultValue={initial.destination || ''} className={inputCls} placeholder="Eropa, Jepang, dll" />
+            <input autoComplete="off" name="destination" defaultValue={initial.destination || ''} className={inputCls} placeholder="Eropa, Jepang, dll" />
           </Field>
           <Field label="Tipe Tiket">
             <select name="ticket" defaultValue={initial.ticket || 'FIT'} className={inputCls}>
@@ -122,10 +122,10 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="PNR">
-              <input name="pnr" defaultValue={initial.pnr || ''} className={inputCls} placeholder="ABC123" />
+              <input autoComplete="off" name="pnr" defaultValue={initial.pnr || ''} className={inputCls} placeholder="ABC123" />
             </Field>
             <Field label="Route">
-              <input name="route" defaultValue={initial.route || ''} className={inputCls} placeholder="CGK-DOH-CDG" />
+              <input autoComplete="off" name="route" defaultValue={initial.route || ''} className={inputCls} placeholder="CGK-DOH-CDG" />
             </Field>
           </div>
         )}
@@ -135,19 +135,19 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
       <Section title="Tanggal">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Field label="Tanggal Publish" hint="Kapan trip mulai diiklankan">
-            <input type="date" name="publish_date" defaultValue={initial.publish_date || ''} className={inputCls} />
+            <input autoComplete="off" type="date" name="publish_date" defaultValue={initial.publish_date || ''} className={inputCls} />
           </Field>
           <Field label="Keberangkatan">
-            <input type="date" name="departure" value={departure} onChange={(e) => setDeparture(e.target.value)} className={inputCls} />
+            <input autoComplete="off" type="date" name="departure" value={departure} onChange={(e) => setDeparture(e.target.value)} className={inputCls} />
           </Field>
           <Field label="Kepulangan">
-            <input type="date" name="arrival" defaultValue={initial.arrival || ''} className={inputCls} />
+            <input autoComplete="off" type="date" name="arrival" defaultValue={initial.arrival || ''} className={inputCls} />
           </Field>
           <Field label="Deadline Tutup Booking" hint="Auto = departure − 45 hari (bisa override)">
-            <input type="date" name="deadline_close" value={deadlineClose} onChange={(e) => setDeadlineClose(e.target.value)} className={inputCls} />
+            <input autoComplete="off" type="date" name="deadline_close" value={deadlineClose} onChange={(e) => setDeadlineClose(e.target.value)} className={inputCls} />
           </Field>
           <Field label="Tgl Closed Selling" hint="Auto-set saat status → Closed Selling">
-            <input type="date" name="closed_at" value={closedAt} onChange={(e) => setClosedAt(e.target.value)} className={inputCls} />
+            <input autoComplete="off" type="date" name="closed_at" value={closedAt} onChange={(e) => setClosedAt(e.target.value)} className={inputCls} />
           </Field>
         </div>
       </Section>
@@ -155,7 +155,7 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
       {/* Capacity */}
       <Section title="Kapasitas">
         <Field label="Quota (jumlah seat)" hint="Total kursi yang dijual. Harga di-set per tipe di section di bawah.">
-          <input type="number" name="quota" defaultValue={initial.quota || ''} min="0" className={inputCls} placeholder="20" />
+          <input autoComplete="off" type="number" name="quota" defaultValue={initial.quota || ''} min="0" className={inputCls} placeholder="20" />
         </Field>
       </Section>
 
@@ -202,8 +202,8 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
               </div>
             )}
             <div className="flex gap-2">
-              <input type="text" value={newCustomName} onChange={(e) => setNewCustomName(e.target.value)} placeholder="Nama item custom" className="flex-1 px-2 py-1.5 border border-slate-300 rounded text-sm" />
-              <input
+              <input autoComplete="off" type="text" value={newCustomName} onChange={(e) => setNewCustomName(e.target.value)} placeholder="Nama item custom" className="flex-1 px-2 py-1.5 border border-slate-300 rounded text-sm" />
+              <input autoComplete="off"
                 type="text"
                 inputMode="numeric"
                 value={formatRupiah(newCustomPrice)}
@@ -248,16 +248,16 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
                 ))}
               </select>
             ) : (
-              <input name="pic" defaultValue={initial.pic || ''} className={inputCls} placeholder="Nama PIC" />
+              <input autoComplete="off" name="pic" defaultValue={initial.pic || ''} className={inputCls} placeholder="Nama PIC" />
             )}
-            <input type="hidden" id="pic_email_hidden" name="pic_email" defaultValue={initial.pic_email || ''} />
+            <input autoComplete="off" type="hidden" id="pic_email_hidden" name="pic_email" defaultValue={initial.pic_email || ''} />
           </Field>
           <div className="md:col-span-2">
             <Field label="Tour Leader" hint="Pilih dari master TL atau input manual">
               {TLPicker ? (
                 <TLPicker tourLeaders={tourLeaders} initialTlId={initial.tl_id || null} initialTlName={initial.tl_name || ''} />
               ) : (
-                <input name="tl_name" defaultValue={initial.tl_name || ''} className={inputCls} placeholder="Nama TL" />
+                <input autoComplete="off" name="tl_name" defaultValue={initial.tl_name || ''} className={inputCls} placeholder="Nama TL" />
               )}
             </Field>
 
@@ -344,7 +344,7 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
 
       <Section title="Catatan">
         <Field label="Catatan (opsional)">
-          <textarea name="notes" defaultValue={initial.notes || ''} rows="3" className={inputCls + ' resize-none'} />
+          <textarea autoComplete="off" name="notes" defaultValue={initial.notes || ''} rows="3" className={inputCls + ' resize-none'} />
         </Field>
       </Section>
 
@@ -375,7 +375,7 @@ function PriceField({ icon, label, value, onChange }) {
       <span className="text-xs font-semibold text-slate-700 block mb-1">{icon} {label}</span>
       <div className="relative">
         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">Rp</span>
-        <input
+        <input autoComplete="off"
           type="text"
           inputMode="numeric"
           value={display}

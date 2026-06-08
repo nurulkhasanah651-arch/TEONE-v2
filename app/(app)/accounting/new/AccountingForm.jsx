@@ -59,11 +59,11 @@ export default function AccountingForm({ trips = [], accounts = [], hppItems = [
         <span className="text-sm font-semibold text-slate-700 block mb-2">Tipe</span>
         <div className="flex gap-2">
           <label className="flex-1 cursor-pointer">
-            <input type="radio" name="type" value="in" checked={type === 'in'} onChange={() => setType('in')} className="sr-only" />
+            <input autoComplete="off" type="radio" name="type" value="in" checked={type === 'in'} onChange={() => setType('in')} className="sr-only" />
             <div className={`p-3 text-center rounded-lg border-2 font-bold transition-colors ${type === 'in' ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-slate-300 text-slate-700 hover:border-green-300'}`}>⬆ Cash IN</div>
           </label>
           <label className="flex-1 cursor-pointer">
-            <input type="radio" name="type" value="out" checked={type === 'out'} onChange={() => setType('out')} className="sr-only" />
+            <input autoComplete="off" type="radio" name="type" value="out" checked={type === 'out'} onChange={() => setType('out')} className="sr-only" />
             <div className={`p-3 text-center rounded-lg border-2 font-bold transition-colors ${type === 'out' ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-slate-300 text-slate-700 hover:border-amber-300'}`}>⬇ Cash OUT</div>
           </label>
         </div>
@@ -116,7 +116,7 @@ export default function AccountingForm({ trips = [], accounts = [], hppItems = [
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Field label="Jumlah (IDR)" required>
-          <input
+          <input autoComplete="off"
             type="number"
             name="amount"
             min="1"
@@ -129,7 +129,7 @@ export default function AccountingForm({ trips = [], accounts = [], hppItems = [
           />
         </Field>
         <Field label="Tanggal" required>
-          <input type="date" name="date" defaultValue={today} required className={inputCls} />
+          <input autoComplete="off" type="date" name="date" defaultValue={today} required className={inputCls} />
         </Field>
         <Field label="Akun (Bank/Kas)" required hint={accounts.length === 0 ? <Link href="/accounting/accounts/new" className="text-brand-600 hover:underline font-semibold">Tambah akun dulu →</Link> : 'Pilih sumber/tujuan dana'}>
           <select name="account_id" required={accounts.length > 0} disabled={accounts.length === 0} className={inputCls}>
@@ -146,7 +146,7 @@ export default function AccountingForm({ trips = [], accounts = [], hppItems = [
       </div>
 
       <Field label="Keterangan" required>
-        <textarea
+        <textarea autoComplete="off"
           name="description"
           required
           rows="2"

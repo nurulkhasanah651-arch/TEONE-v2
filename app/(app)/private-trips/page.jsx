@@ -162,7 +162,7 @@ export default async function PrivateTripsListPage({ searchParams }) {
             <FilterChip href="/private-trips?status=all" active={statusFilter === 'all'} label="📋 Semua" />
           </div>
           <div className="flex-1 min-w-[200px]">
-            <input
+            <input autoComplete="off"
               type="text"
               name="search"
               defaultValue={search}

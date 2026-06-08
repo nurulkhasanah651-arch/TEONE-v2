@@ -80,7 +80,7 @@ export default function PnrPicker({ pnrInventory = [], initialPnr = '', initialR
 
       {/* Manual mode */}
       {mode === 'manual' && (
-        <input
+        <input autoComplete="off"
           type="text"
           value={pnr}
           onChange={(e) => setPnr(e.target.value.toUpperCase())}
@@ -92,7 +92,7 @@ export default function PnrPicker({ pnrInventory = [], initialPnr = '', initialR
       {/* Route — selalu visible, bisa di-override */}
       <div>
         <span className="text-[11px] font-semibold text-slate-600 block mb-0.5">Route (auto dari inventory, bisa edit)</span>
-        <input
+        <input autoComplete="off"
           type="text"
           value={route}
           onChange={(e) => setRoute(e.target.value)}
@@ -102,8 +102,8 @@ export default function PnrPicker({ pnrInventory = [], initialPnr = '', initialR
       </div>
 
       {/* Hidden inputs untuk form submit */}
-      <input type="hidden" name="pnr" value={pnr} />
-      <input type="hidden" name="route" value={route} />
+      <input autoComplete="off" type="hidden" name="pnr" value={pnr} />
+      <input autoComplete="off" type="hidden" name="route" value={route} />
     </div>
   );
 }

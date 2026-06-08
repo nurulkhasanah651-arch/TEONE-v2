@@ -289,7 +289,7 @@ export default async function CashflowListPage({ searchParams }) {
             <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-1">
               📅 Bulan (YYYY-MM):
             </label>
-            <input
+            <input autoComplete="off"
               type="month"
               name="month"
               defaultValue={filterMonth}

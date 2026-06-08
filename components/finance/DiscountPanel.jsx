@@ -69,7 +69,7 @@ export default function DiscountPanel({ passenger, customerName }) {
       </div>
 
       <div className="flex items-center gap-2">
-        <input
+        <input autoComplete="off"
           type="text"
           inputMode="numeric"
           value={fmtInput(draft)}

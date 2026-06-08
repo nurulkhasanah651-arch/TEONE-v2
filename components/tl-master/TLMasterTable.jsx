@@ -79,7 +79,7 @@ export default function TLMasterTable({ tourLeaders = [] }) {
           <h3 className="font-bold text-brand-700">+ Tambah Tour Leader Baru</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Field label="Nama Lengkap" required>
-              <input name="name" required className={inputCls} placeholder="Misal: Budi Santoso" />
+              <input autoComplete="off" name="name" required className={inputCls} placeholder="Misal: Budi Santoso" />
             </Field>
             <Field label="Tipe">
               <select name="type" className={inputCls}>
@@ -88,14 +88,14 @@ export default function TLMasterTable({ tourLeaders = [] }) {
               </select>
             </Field>
             <Field label="Email">
-              <input type="email" name="email" className={inputCls} placeholder="budi@example.com" />
+              <input autoComplete="off" type="email" name="email" className={inputCls} placeholder="budi@example.com" />
             </Field>
             <Field label="No HP/WhatsApp">
-              <input name="phone" className={inputCls} placeholder="081234567890" />
+              <input autoComplete="off" name="phone" className={inputCls} placeholder="081234567890" />
             </Field>
           </div>
           <Field label="Catatan">
-            <textarea name="notes" rows="2" className={inputCls + ' resize-none'} placeholder="Pengalaman, area spesialisasi, dll" />
+            <textarea autoComplete="off" name="notes" rows="2" className={inputCls + ' resize-none'} placeholder="Pengalaman, area spesialisasi, dll" />
           </Field>
           <div className="flex gap-2 justify-end">
             <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded font-semibold">Batal</button>
@@ -121,17 +121,17 @@ export default function TLMasterTable({ tourLeaders = [] }) {
                 {editingId === tl.id ? (
                   <form action={handleUpdate} className="space-y-2">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      <input name="name" defaultValue={editData?.name || ''} required placeholder="Nama" className={inputCls} />
+                      <input autoComplete="off" name="name" defaultValue={editData?.name || ''} required placeholder="Nama" className={inputCls} />
                       <select name="type" defaultValue={editData?.type || 'inhouse'} className={inputCls}>
                         <option value="inhouse">Inhouse</option>
                         <option value="freelance">Freelance</option>
                       </select>
-                      <input type="email" name="email" defaultValue={editData?.email || ''} placeholder="Email" className={inputCls} />
-                      <input name="phone" defaultValue={editData?.phone || ''} placeholder="HP" className={inputCls} />
+                      <input autoComplete="off" type="email" name="email" defaultValue={editData?.email || ''} placeholder="Email" className={inputCls} />
+                      <input autoComplete="off" name="phone" defaultValue={editData?.phone || ''} placeholder="HP" className={inputCls} />
                     </div>
-                    <input name="notes" defaultValue={editData?.notes || ''} placeholder="Catatan" className={inputCls} />
+                    <input autoComplete="off" name="notes" defaultValue={editData?.notes || ''} placeholder="Catatan" className={inputCls} />
                     <label className="flex items-center gap-2 text-xs text-slate-600">
-                      <input type="checkbox" name="active" defaultChecked={editData?.active !== false} />
+                      <input autoComplete="off" type="checkbox" name="active" defaultChecked={editData?.active !== false} />
                       Aktif (bisa di-assign ke trip)
                     </label>
                     <div className="flex gap-2 justify-end">

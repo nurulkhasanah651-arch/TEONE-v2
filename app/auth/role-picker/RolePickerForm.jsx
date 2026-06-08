@@ -142,7 +142,7 @@ export default function RolePickerForm({ userEmail }) {
 
         <label className="block">
           <span className="text-xs font-bold text-slate-700 block mb-1">Password Role</span>
-          <input
+          <input autoComplete="off"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -179,7 +179,7 @@ export default function RolePickerForm({ userEmail }) {
 
         <label className="block">
           <span className="text-xs font-bold text-slate-700 block mb-1">Nama Lengkap <span className="text-red-500">*</span></span>
-          <input
+          <input autoComplete="off"
             type="text"
             name="name"
             required
@@ -190,7 +190,7 @@ export default function RolePickerForm({ userEmail }) {
 
         <label className="block">
           <span className="text-xs font-bold text-slate-700 block mb-1">Email <span className="text-red-500">*</span></span>
-          <input
+          <input autoComplete="off"
             type="email"
             name="email"
             required
@@ -203,7 +203,7 @@ export default function RolePickerForm({ userEmail }) {
 
         <label className="block">
           <span className="text-xs font-bold text-slate-700 block mb-1">No HP / WhatsApp <span className="text-red-500">*</span></span>
-          <input
+          <input autoComplete="off"
             type="tel"
             name="phone"
             required

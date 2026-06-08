@@ -221,7 +221,7 @@ export default function ChatBox({
             <div ref={publicEndRef} />
           </div>
           <form action={handleSendPublic} className="p-3 border-t border-slate-200 flex gap-2">
-            <input
+            <input autoComplete="off"
               id="public-msg-input"
               name="content"
               required
@@ -297,7 +297,7 @@ export default function ChatBox({
                   <div ref={personalEndRef} />
                 </div>
                 <form action={handleSendPersonal} className="p-3 border-t border-slate-200 flex gap-2">
-                  <input
+                  <input autoComplete="off"
                     id="personal-msg-input"
                     name="content"
                     required

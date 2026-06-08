@@ -70,13 +70,13 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
       <Section title="PNR & Rute">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="PNR Code" required>
-            <input name="pnr" defaultValue={initial.pnr || ''} required className={inputCls} placeholder="ABC123" />
+            <input autoComplete="off" name="pnr" defaultValue={initial.pnr || ''} required className={inputCls} placeholder="ABC123" />
           </Field>
           <Field label="Vendor / Maskapai">
-            <input name="vendor" defaultValue={initial.vendor || ''} className={inputCls} placeholder="Garuda, Emirates, Qatar, dll" />
+            <input autoComplete="off" name="vendor" defaultValue={initial.vendor || ''} className={inputCls} placeholder="Garuda, Emirates, Qatar, dll" />
           </Field>
           <Field label="Rute" className="md:col-span-2">
-            <input
+            <input autoComplete="off"
               name="route"
               defaultValue={initial.route || (Array.isArray(initial.routes) ? initial.routes.join(' / ') : '')}
               className={inputCls}
@@ -84,10 +84,10 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
             />
           </Field>
           <Field label="Tanggal Keberangkatan">
-            <input type="date" name="departure_date" defaultValue={initial.departure_date || ''} className={inputCls} />
+            <input autoComplete="off" type="date" name="departure_date" defaultValue={initial.departure_date || ''} className={inputCls} />
           </Field>
           <Field label="Jumlah Seat">
-            <input
+            <input autoComplete="off"
               type="number"
               min="0"
               value={seats}
@@ -102,7 +102,7 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
       <Section title="Harga & Deposit">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Harga Tiket per Seat (Rp)">
-            <input
+            <input autoComplete="off"
               type="text"
               inputMode="numeric"
               value={fmtRupiah(ticketPrice)}
@@ -113,7 +113,7 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
             />
           </Field>
           <Field label="Total Cost (auto)" hint={`${seatsNum} seat × ${fmtRupiah(ticketPrice) || 0}`}>
-            <input
+            <input autoComplete="off"
               value={'Rp ' + totalCost.toLocaleString('id-ID')}
               disabled
               className={inputCls + ' bg-slate-100 font-bold'}
@@ -121,7 +121,7 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
           </Field>
 
           <Field label="Jumlah Deposit / DP (Rp)" className="md:col-span-2">
-            <input
+            <input autoComplete="off"
               type="text"
               inputMode="numeric"
               value={fmtRupiah(deposit)}
@@ -140,7 +140,7 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
             className="md:col-span-2"
           >
             <div className="flex gap-2 items-center">
-              <input
+              <input autoComplete="off"
                 type="text"
                 inputMode="numeric"
                 value={fmtRupiah(payoffAmount)}
@@ -161,16 +161,16 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
           </Field>
 
           <Field label="Tanggal Pelunasan">
-            <input type="date" name="payoff_date" defaultValue={initial.payoff_date || ''} className={inputCls} />
+            <input autoComplete="off" type="date" name="payoff_date" defaultValue={initial.payoff_date || ''} className={inputCls} />
           </Field>
           <Field label="Deadline Pelunasan" hint="Tanggal terakhir yang harus dilunasi">
-            <input type="date" name="payoff_due_date" defaultValue={initial.payoff_due_date || ''} className={inputCls} />
+            <input autoComplete="off" type="date" name="payoff_due_date" defaultValue={initial.payoff_due_date || ''} className={inputCls} />
           </Field>
         </div>
       </Section>
 
       <Field label="Catatan (opsional)">
-        <textarea name="notes" defaultValue={initial.vendor_notes || initial.notes || ''} rows="3" className={inputCls + ' resize-none'} placeholder="Catatan tambahan tentang PNR ini..." />
+        <textarea autoComplete="off" name="notes" defaultValue={initial.vendor_notes || initial.notes || ''} rows="3" className={inputCls + ' resize-none'} placeholder="Catatan tambahan tentang PNR ini..." />
       </Field>
 
       {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium">{error}</div>}

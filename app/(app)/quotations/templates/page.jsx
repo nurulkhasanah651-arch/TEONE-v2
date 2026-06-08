@@ -78,7 +78,7 @@ export default async function TemplatesPage() {
                     {t.duration_days && <p>🗓 {t.duration_days} hari</p>}
                   </div>
                   <form action={`/quotations/new?from_template=${t.id}`} method="GET">
-                    <input type="hidden" name="from_template" value={t.id} />
+                    <input autoComplete="off" type="hidden" name="from_template" value={t.id} />
                     <button type="submit" className="w-full px-3 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded">
                       ✨ Use Template
                     </button>

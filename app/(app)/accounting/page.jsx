@@ -371,11 +371,11 @@ export default async function AccountingDashboard({ searchParams }) {
         </div>
 
         <form action="/accounting" method="get" className="mt-3 flex items-center gap-2 flex-wrap">
-          <input type="hidden" name="period" value="custom" />
+          <input autoComplete="off" type="hidden" name="period" value="custom" />
           <label className="text-[11px] font-bold text-slate-700">Custom:</label>
-          <input type="date" name="from" defaultValue={customFrom || from} className="px-2 py-1 border border-slate-300 rounded text-xs" />
+          <input autoComplete="off" type="date" name="from" defaultValue={customFrom || from} className="px-2 py-1 border border-slate-300 rounded text-xs" />
           <span className="text-xs text-slate-500">s/d</span>
-          <input type="date" name="to" defaultValue={customTo || to} className="px-2 py-1 border border-slate-300 rounded text-xs" />
+          <input autoComplete="off" type="date" name="to" defaultValue={customTo || to} className="px-2 py-1 border border-slate-300 rounded text-xs" />
           <button type="submit" className="px-3 py-1 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded">
             Apply
           </button>
@@ -499,17 +499,17 @@ export default async function AccountingDashboard({ searchParams }) {
 
         {/* Search + Category dropdown */}
         <form action="/accounting" method="get" className="flex flex-wrap gap-2 items-end pt-2 border-t border-amber-100">
-          {period && <input type="hidden" name="period" value={period} />}
-          {customFrom && <input type="hidden" name="from" value={customFrom} />}
-          {customTo && <input type="hidden" name="to" value={customTo} />}
-          {filterType && filterType !== 'all' && <input type="hidden" name="type" value={filterType} />}
-          {filterSource && filterSource !== 'all' && <input type="hidden" name="source" value={filterSource} />}
+          {period && <input autoComplete="off" type="hidden" name="period" value={period} />}
+          {customFrom && <input autoComplete="off" type="hidden" name="from" value={customFrom} />}
+          {customTo && <input autoComplete="off" type="hidden" name="to" value={customTo} />}
+          {filterType && filterType !== 'all' && <input autoComplete="off" type="hidden" name="type" value={filterType} />}
+          {filterSource && filterSource !== 'all' && <input autoComplete="off" type="hidden" name="source" value={filterSource} />}
 
           <div className="flex-1 min-w-[220px]">
             <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-1">
               🔎 Cari (peserta / vendor / kode trip / kategori):
             </label>
-            <input
+            <input autoComplete="off"
               type="text"
               name="q"
               defaultValue={q}

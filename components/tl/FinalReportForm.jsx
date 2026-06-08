@@ -123,7 +123,7 @@ export default function FinalReportForm({
             {/* DOKUMENTASI TRIP — TETAP LINK (folder Google Drive berisi foto/video banyak) */}
             <div className="p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
               <Field label="📸 Link Dokumentasi Trip (folder Google Drive foto/video)">
-                <input
+                <input autoComplete="off"
                   type="url"
                   value={documentationLink}
                   onChange={(e) => setDocumentationLink(e.target.value)}
@@ -168,7 +168,7 @@ export default function FinalReportForm({
             </div>
 
             <Field label="✨ Highlights / Hal Positif">
-              <textarea
+              <textarea autoComplete="off"
                 value={highlights}
                 onChange={(e) => setHighlights(e.target.value)}
                 rows={3}
@@ -178,7 +178,7 @@ export default function FinalReportForm({
             </Field>
 
             <Field label="⚠ Issues / Masalah Yang Dihadapi">
-              <textarea
+              <textarea autoComplete="off"
                 value={issuesEncountered}
                 onChange={(e) => setIssuesEncountered(e.target.value)}
                 rows={3}
@@ -188,7 +188,7 @@ export default function FinalReportForm({
             </Field>
 
             <Field label="💡 Saran / Improvement untuk Trip Depan">
-              <textarea
+              <textarea autoComplete="off"
                 value={suggestions}
                 onChange={(e) => setSuggestions(e.target.value)}
                 rows={3}
@@ -256,7 +256,7 @@ export default function FinalReportForm({
             {canReview && report?.submitted && (
               <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
                 <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">🧑‍💼 Ops Review</p>
-                <textarea
+                <textarea autoComplete="off"
                   value={opsNotes}
                   onChange={(e) => setOpsNotes(e.target.value)}
                   rows={2}

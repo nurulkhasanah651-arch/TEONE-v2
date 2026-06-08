@@ -705,7 +705,7 @@ export default function DeliverySection({
                       </label>
                       <label className="block">
                         <span className="text-[11px] text-slate-700 block mb-0.5">No. Resi</span>
-                        <input type="text" value={resi} onChange={(e) => setResi(e.target.value)}
+                        <input autoComplete="off" type="text" value={resi} onChange={(e) => setResi(e.target.value)}
                           placeholder="Contoh: JNE1234567890"
                           className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm bg-white" />
                       </label>
@@ -713,7 +713,7 @@ export default function DeliverySection({
                         <span className="text-[11px] text-slate-700 block mb-0.5">
                           💰 Ongkir{isHead ? ' Family' : ''} (Rp) <span className="text-slate-400">opsional</span>
                         </span>
-                        <input
+                        <input autoComplete="off"
                           type="text"
                           inputMode="numeric"
                           value={fmtInput(ongkir)}
@@ -832,7 +832,7 @@ export default function DeliverySection({
                             ✅ <b>Ongkir{isHead ? ' family' : ''} sudah dibayar</b> ({fmtRupiah(ongkirInfo.amount)}) — Invoice {ongkirInfo.invoice_no} · {fmtDate(ongkirInfo.paid_at)}
                           </p>
                         )}
-                        <textarea
+                        <textarea autoComplete="off"
                           value={internalNotes}
                           onChange={(e) => setNotesDraft({ ...notesDraft, [p.id]: e.target.value })}
                           placeholder="Catatan internal (mis: 'Diambil sendiri', 'Belum punya alamat tetap', dll)"

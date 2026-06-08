@@ -213,29 +213,29 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
     <form action={onSubmit} className="space-y-4">
       <FormSection title="Data Pribadi">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Field label="Nama Depan" required><input name="first_name" defaultValue={initial.first_name || ''} required className={inputCls} /></Field>
-          <Field label="Nama Belakang"><input name="last_name" defaultValue={initial.last_name || ''} className={inputCls} /></Field>
-          <Field label="Tempat Lahir"><input name="city" defaultValue={initial.city || ''} className={inputCls} placeholder="Jakarta, Surabaya, dll" /></Field>
+          <Field label="Nama Depan" required><input autoComplete="off" name="first_name" defaultValue={initial.first_name || ''} required className={inputCls} /></Field>
+          <Field label="Nama Belakang"><input autoComplete="off" name="last_name" defaultValue={initial.last_name || ''} className={inputCls} /></Field>
+          <Field label="Tempat Lahir"><input autoComplete="off" name="city" defaultValue={initial.city || ''} className={inputCls} placeholder="Jakarta, Surabaya, dll" /></Field>
           <Field label="Tanggal Lahir" hint={age != null ? `Umur: ${age} tahun` : ''}>
-            <input type="date" name="birthday" value={birthday} onChange={(e) => setBirthday(e.target.value)} className={inputCls} />
+            <input autoComplete="off" type="date" name="birthday" value={birthday} onChange={(e) => setBirthday(e.target.value)} className={inputCls} />
           </Field>
           <Field label="Gender">
             <select name="gender" defaultValue={initial.gender || ''} className={inputCls}>
               <option value="">— Pilih —</option><option value="L">Laki-laki</option><option value="P">Perempuan</option>
             </select>
           </Field>
-          <Field label="No HP / WA"><input name="phone" defaultValue={initial.phone || ''} className={inputCls} placeholder="08xx..." /></Field>
-          <Field label="Email" className="md:col-span-2"><input type="email" name="email" defaultValue={initial.email || ''} className={inputCls} placeholder="user@email.com" /></Field>
+          <Field label="No HP / WA"><input autoComplete="off" name="phone" defaultValue={initial.phone || ''} className={inputCls} placeholder="08xx..." /></Field>
+          <Field label="Email" className="md:col-span-2"><input autoComplete="off" type="email" name="email" defaultValue={initial.email || ''} className={inputCls} placeholder="user@email.com" /></Field>
         </div>
       </FormSection>
 
       <FormSection title="Data Passport">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Field label="No Passport"><input name="passport_no" defaultValue={initial.passport_no || ''} className={inputCls} placeholder="A1234567" /></Field>
-          <Field label="Diterbitkan di"><input name="passport_issued_at" defaultValue={initial.passport_issued_at || ''} className={inputCls} placeholder="Jakarta, Imigrasi Kelas I, dll" /></Field>
-          <Field label="Tanggal Issue"><input type="date" name="passport_issued_date" defaultValue={initial.passport_issued_date || ''} className={inputCls} /></Field>
+          <Field label="No Passport"><input autoComplete="off" name="passport_no" defaultValue={initial.passport_no || ''} className={inputCls} placeholder="A1234567" /></Field>
+          <Field label="Diterbitkan di"><input autoComplete="off" name="passport_issued_at" defaultValue={initial.passport_issued_at || ''} className={inputCls} placeholder="Jakarta, Imigrasi Kelas I, dll" /></Field>
+          <Field label="Tanggal Issue"><input autoComplete="off" type="date" name="passport_issued_date" defaultValue={initial.passport_issued_date || ''} className={inputCls} /></Field>
           <Field label="Tanggal Expiry" hint={ppStatus ? `Status: ${ppStatus.label}` : ''} hintColor={ppStatus?.color}>
-            <input type="date" name="passport_expiry" value={expiry} onChange={(e) => setExpiry(e.target.value)} className={inputCls} />
+            <input autoComplete="off" type="date" name="passport_expiry" value={expiry} onChange={(e) => setExpiry(e.target.value)} className={inputCls} />
           </Field>
         </div>
       </FormSection>
@@ -247,7 +247,7 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
               <option value="">— Pilih —</option>{ROOM_TYPES.map((r) => <option key={r} value={r.toLowerCase()}>{r}</option>)}
             </select>
           </Field>
-          <Field label="Harga Bayar (IDR)"><input type="number" name="price_paid" defaultValue={initial.price_paid || ''} min="0" className={inputCls} placeholder="50000000" /></Field>
+          <Field label="Harga Bayar (IDR)"><input autoComplete="off" type="number" name="price_paid" defaultValue={initial.price_paid || ''} min="0" className={inputCls} placeholder="50000000" /></Field>
         </div>
       </FormSection>
 

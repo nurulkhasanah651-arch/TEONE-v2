@@ -107,8 +107,8 @@ export default function TasksBox({ currentUserId, members = [], myTasks = [], as
       {showForm && (
         <form action={handleCreate} className="bg-white border-2 border-amber-300 rounded-xl p-5 space-y-3">
           <h3 className="font-bold text-amber-800">+ Buat Tugas Baru</h3>
-          <input name="title" required placeholder="Judul tugas (mis: Follow up peserta KARANG)" className={inputCls} />
-          <textarea name="description" rows="2" placeholder="Detail (opsional)" className={inputCls + ' resize-none'} />
+          <input autoComplete="off" name="title" required placeholder="Judul tugas (mis: Follow up peserta KARANG)" className={inputCls} />
+          <textarea autoComplete="off" name="description" rows="2" placeholder="Detail (opsional)" className={inputCls + ' resize-none'} />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <label className="block">
               <span className="text-xs font-bold text-slate-700 block mb-1">Assign ke <span className="text-red-500">*</span></span>
@@ -121,7 +121,7 @@ export default function TasksBox({ currentUserId, members = [], myTasks = [], as
             </label>
             <label className="block">
               <span className="text-xs font-bold text-slate-700 block mb-1">Deadline</span>
-              <input type="date" name="deadline" className={inputCls} />
+              <input autoComplete="off" type="date" name="deadline" className={inputCls} />
             </label>
             <label className="block">
               <span className="text-xs font-bold text-slate-700 block mb-1">Prioritas</span>
@@ -287,7 +287,7 @@ function TaskRow({ task: t, currentUserId, iAmAssignee, showAssignerAndAssignee,
           {/* Mark done form */}
           {isMarkingDone && (
             <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded space-y-2">
-              <input
+              <input autoComplete="off"
                 value={doneNote}
                 onChange={(e) => setDoneNote(e.target.value)}
                 placeholder="Catatan saat selesai (opsional)"

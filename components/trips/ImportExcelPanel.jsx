@@ -158,7 +158,7 @@ export default function ImportExcelPanel({ tripId, trip }) {
 
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">Pilih file Excel:</label>
-                  <input
+                  <input autoComplete="off"
                     ref={fileInputRef}
                     type="file"
                     accept=".xlsx,.xls"

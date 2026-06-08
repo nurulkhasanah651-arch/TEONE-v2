@@ -172,7 +172,7 @@ export default function ReimbursementPanel({
             <Field label="Nominal (IDR)" required>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">Rp</span>
-                <input
+                <input autoComplete="off"
                   type="text"
                   value={amount}
                   onChange={(e) => setAmount(formatNum(parseNum(e.target.value)))}
@@ -182,10 +182,10 @@ export default function ReimbursementPanel({
               </div>
             </Field>
             <Field label="Tanggal Pengeluaran">
-              <input type="date" value={spentAt} onChange={(e) => setSpentAt(e.target.value)} className={inputCls} />
+              <input autoComplete="off" type="date" value={spentAt} onChange={(e) => setSpentAt(e.target.value)} className={inputCls} />
             </Field>
             <Field label="Deskripsi" required>
-              <input
+              <input autoComplete="off"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Contoh: Taksi dari airport ke hotel di Paris"
@@ -210,7 +210,7 @@ export default function ReimbursementPanel({
           </div>
 
           <Field label="Catatan tambahan">
-            <textarea
+            <textarea autoComplete="off"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}

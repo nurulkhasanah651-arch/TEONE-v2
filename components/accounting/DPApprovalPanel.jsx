@@ -376,7 +376,7 @@ export default function DPApprovalPanel({
 
                     {isReject && (
                       <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded">
-                        <input
+                        <input autoComplete="off"
                           type="text"
                           value={rejectReason}
                           onChange={(e) => setRejectReason(e.target.value)}

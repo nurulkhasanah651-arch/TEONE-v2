@@ -108,7 +108,7 @@ export default function VisaDriveSyncPanel({ trip }) {
 
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">URL/ID Folder Drive:</label>
-              <input
+              <input autoComplete="off"
                 type="text"
                 value={folderInput}
                 onChange={(e) => setFolderInput(e.target.value)}

@@ -96,38 +96,38 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan' 
       <Section title="👤 Identitas">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Nama Lengkap" required>
-            <input type="text" name="full_name" value={form.full_name} onChange={(e) => upd('full_name', e.target.value)} required className={inputCls} />
+            <input autoComplete="off" type="text" name="full_name" value={form.full_name} onChange={(e) => upd('full_name', e.target.value)} required className={inputCls} />
           </Field>
           <Field label="Nickname (panggilan)">
-            <input type="text" name="nickname" value={form.nickname} onChange={(e) => upd('nickname', e.target.value)} className={inputCls} />
+            <input autoComplete="off" type="text" name="nickname" value={form.nickname} onChange={(e) => upd('nickname', e.target.value)} className={inputCls} />
           </Field>
           <Field label="Email">
-            <input type="email" name="email" value={form.email} onChange={(e) => upd('email', e.target.value)} className={inputCls} />
+            <input autoComplete="off" type="email" name="email" value={form.email} onChange={(e) => upd('email', e.target.value)} className={inputCls} />
           </Field>
           <Field label="No. HP / WA">
-            <input type="text" name="phone" value={form.phone} onChange={(e) => upd('phone', e.target.value)} placeholder="08xx..." className={inputCls} />
+            <input autoComplete="off" type="text" name="phone" value={form.phone} onChange={(e) => upd('phone', e.target.value)} placeholder="08xx..." className={inputCls} />
           </Field>
           <Field label="WhatsApp (kalau beda dari HP)">
-            <input type="text" name="whatsapp" value={form.whatsapp} onChange={(e) => upd('whatsapp', e.target.value)} className={inputCls} />
+            <input autoComplete="off" type="text" name="whatsapp" value={form.whatsapp} onChange={(e) => upd('whatsapp', e.target.value)} className={inputCls} />
           </Field>
           <Field label="Kontak Darurat">
-            <input type="text" name="emergency_contact" value={form.emergency_contact} onChange={(e) => upd('emergency_contact', e.target.value)} placeholder="Nama + nomor" className={inputCls} />
+            <input autoComplete="off" type="text" name="emergency_contact" value={form.emergency_contact} onChange={(e) => upd('emergency_contact', e.target.value)} placeholder="Nama + nomor" className={inputCls} />
           </Field>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="No. KTP">
-            <input type="text" name="ktp_number" value={form.ktp_number} onChange={(e) => upd('ktp_number', e.target.value)} className={inputCls} />
+            <input autoComplete="off" type="text" name="ktp_number" value={form.ktp_number} onChange={(e) => upd('ktp_number', e.target.value)} className={inputCls} />
           </Field>
           <Field label="NPWP">
-            <input type="text" name="npwp_number" value={form.npwp_number} onChange={(e) => upd('npwp_number', e.target.value)} className={inputCls} />
+            <input autoComplete="off" type="text" name="npwp_number" value={form.npwp_number} onChange={(e) => upd('npwp_number', e.target.value)} className={inputCls} />
           </Field>
         </div>
         <Field label="Alamat">
-          <textarea name="address" rows="2" value={form.address} onChange={(e) => upd('address', e.target.value)} className={inputCls + ' resize-y'} />
+          <textarea autoComplete="off" name="address" rows="2" value={form.address} onChange={(e) => upd('address', e.target.value)} className={inputCls + ' resize-y'} />
         </Field>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Field label="Tgl Lahir">
-            <input type="date" name="birth_date" value={form.birth_date} onChange={(e) => upd('birth_date', e.target.value)} className={inputCls} />
+            <input autoComplete="off" type="date" name="birth_date" value={form.birth_date} onChange={(e) => upd('birth_date', e.target.value)} className={inputCls} />
           </Field>
           <Field label="Gender">
             <select name="gender" value={form.gender} onChange={(e) => upd('gender', e.target.value)} className={inputCls}>
@@ -183,7 +183,7 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan' 
             </p>
           </div>
         )}
-        {!showTLSubtype && <input type="hidden" name="tl_subtype" value={form.tl_subtype} />}
+        {!showTLSubtype && <input autoComplete="off" type="hidden" name="tl_subtype" value={form.tl_subtype} />}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Field label="Role">
@@ -193,18 +193,18 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan' 
             </select>
           </Field>
           <Field label="Department">
-            <input type="text" name="department" value={form.department} onChange={(e) => upd('department', e.target.value)} placeholder="Operations / Sales / Finance / Marketing" className={inputCls} />
+            <input autoComplete="off" type="text" name="department" value={form.department} onChange={(e) => upd('department', e.target.value)} placeholder="Operations / Sales / Finance / Marketing" className={inputCls} />
           </Field>
           <Field label="Jabatan">
-            <input type="text" name="position" value={form.position} onChange={(e) => upd('position', e.target.value)} placeholder="Senior CS / Tour Leader Eropa / dll" className={inputCls} />
+            <input autoComplete="off" type="text" name="position" value={form.position} onChange={(e) => upd('position', e.target.value)} placeholder="Senior CS / Tour Leader Eropa / dll" className={inputCls} />
           </Field>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Tgl Mulai Kerja">
-            <input type="date" name="start_date" value={form.start_date} onChange={(e) => upd('start_date', e.target.value)} className={inputCls} />
+            <input autoComplete="off" type="date" name="start_date" value={form.start_date} onChange={(e) => upd('start_date', e.target.value)} className={inputCls} />
           </Field>
           <Field label="Tgl Berakhir (kontrak)">
-            <input type="date" name="end_date" value={form.end_date} onChange={(e) => upd('end_date', e.target.value)} className={inputCls} />
+            <input autoComplete="off" type="date" name="end_date" value={form.end_date} onChange={(e) => upd('end_date', e.target.value)} className={inputCls} />
           </Field>
         </div>
       </Section>
@@ -216,19 +216,19 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan' 
             <p className="text-xs text-slate-500 italic">Gaji bulanan + tunjangan + potongan BPJS</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <Field label="Gaji Pokok (Rp/bulan)">
-                <input type="text" inputMode="numeric" name="base_salary" value={fmtIDR(form.base_salary)} onChange={(e) => upd('base_salary', parseNum(e.target.value))} className={inputCls} />
+                <input autoComplete="off" type="text" inputMode="numeric" name="base_salary" value={fmtIDR(form.base_salary)} onChange={(e) => upd('base_salary', parseNum(e.target.value))} className={inputCls} />
               </Field>
               <Field label="Tunjangan Transport">
-                <input type="text" inputMode="numeric" name="transport_allowance" value={fmtIDR(form.transport_allowance)} onChange={(e) => upd('transport_allowance', parseNum(e.target.value))} className={inputCls} />
+                <input autoComplete="off" type="text" inputMode="numeric" name="transport_allowance" value={fmtIDR(form.transport_allowance)} onChange={(e) => upd('transport_allowance', parseNum(e.target.value))} className={inputCls} />
               </Field>
               <Field label="Uang Makan">
-                <input type="text" inputMode="numeric" name="meal_allowance" value={fmtIDR(form.meal_allowance)} onChange={(e) => upd('meal_allowance', parseNum(e.target.value))} className={inputCls} />
+                <input autoComplete="off" type="text" inputMode="numeric" name="meal_allowance" value={fmtIDR(form.meal_allowance)} onChange={(e) => upd('meal_allowance', parseNum(e.target.value))} className={inputCls} />
               </Field>
               <Field label="BPJS Kesehatan (potongan/bulan)">
-                <input type="text" inputMode="numeric" name="bpjs_kesehatan_amount" value={fmtIDR(form.bpjs_kesehatan_amount)} onChange={(e) => upd('bpjs_kesehatan_amount', parseNum(e.target.value))} className={inputCls} />
+                <input autoComplete="off" type="text" inputMode="numeric" name="bpjs_kesehatan_amount" value={fmtIDR(form.bpjs_kesehatan_amount)} onChange={(e) => upd('bpjs_kesehatan_amount', parseNum(e.target.value))} className={inputCls} />
               </Field>
               <Field label="BPJS Ketenagakerjaan (potongan/bulan)">
-                <input type="text" inputMode="numeric" name="bpjs_ketenagakerjaan_amount" value={fmtIDR(form.bpjs_ketenagakerjaan_amount)} onChange={(e) => upd('bpjs_ketenagakerjaan_amount', parseNum(e.target.value))} className={inputCls} />
+                <input autoComplete="off" type="text" inputMode="numeric" name="bpjs_ketenagakerjaan_amount" value={fmtIDR(form.bpjs_ketenagakerjaan_amount)} onChange={(e) => upd('bpjs_ketenagakerjaan_amount', parseNum(e.target.value))} className={inputCls} />
               </Field>
             </div>
           </>
@@ -237,7 +237,7 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan' 
           <>
             <p className="text-xs text-slate-500 italic">Tour Leader dibayar per-trip — fee × jumlah trip yg dikerjakan</p>
             <Field label="Fee per Trip (Rp)">
-              <input type="text" inputMode="numeric" name="per_trip_fee" value={fmtIDR(form.per_trip_fee)} onChange={(e) => upd('per_trip_fee', parseNum(e.target.value))} className={inputCls} />
+              <input autoComplete="off" type="text" inputMode="numeric" name="per_trip_fee" value={fmtIDR(form.per_trip_fee)} onChange={(e) => upd('per_trip_fee', parseNum(e.target.value))} className={inputCls} />
             </Field>
             {form.tl_subtype === 'inhouse' && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -246,10 +246,10 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan' 
                 </p>
                 <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                   <Field label="Gaji Pokok (Rp/bulan, opsional)">
-                    <input type="text" inputMode="numeric" name="base_salary" value={fmtIDR(form.base_salary)} onChange={(e) => upd('base_salary', parseNum(e.target.value))} className={inputCls} />
+                    <input autoComplete="off" type="text" inputMode="numeric" name="base_salary" value={fmtIDR(form.base_salary)} onChange={(e) => upd('base_salary', parseNum(e.target.value))} className={inputCls} />
                   </Field>
                   <Field label="Tunjangan Transport (opsional)">
-                    <input type="text" inputMode="numeric" name="transport_allowance" value={fmtIDR(form.transport_allowance)} onChange={(e) => upd('transport_allowance', parseNum(e.target.value))} className={inputCls} />
+                    <input autoComplete="off" type="text" inputMode="numeric" name="transport_allowance" value={fmtIDR(form.transport_allowance)} onChange={(e) => upd('transport_allowance', parseNum(e.target.value))} className={inputCls} />
                   </Field>
                 </div>
               </div>
@@ -260,42 +260,42 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan' 
           <>
             <p className="text-xs text-slate-500 italic">Freelance dibayar per jam — hourly rate × jam kerja tiap bulan</p>
             <Field label="Hourly Rate (Rp/jam)">
-              <input type="text" inputMode="numeric" name="hourly_rate" value={fmtIDR(form.hourly_rate)} onChange={(e) => upd('hourly_rate', parseNum(e.target.value))} className={inputCls} />
+              <input autoComplete="off" type="text" inputMode="numeric" name="hourly_rate" value={fmtIDR(form.hourly_rate)} onChange={(e) => upd('hourly_rate', parseNum(e.target.value))} className={inputCls} />
             </Field>
           </>
         )}
         {/* Hidden inputs untuk field yg gak visible (biar tetep terkirim) */}
         {!showMonthly && !(showPerTrip && form.tl_subtype === 'inhouse') && (
           <>
-            <input type="hidden" name="base_salary" value={form.base_salary} />
-            <input type="hidden" name="transport_allowance" value={form.transport_allowance} />
-            <input type="hidden" name="meal_allowance" value={form.meal_allowance} />
-            <input type="hidden" name="bpjs_kesehatan_amount" value={form.bpjs_kesehatan_amount} />
-            <input type="hidden" name="bpjs_ketenagakerjaan_amount" value={form.bpjs_ketenagakerjaan_amount} />
+            <input autoComplete="off" type="hidden" name="base_salary" value={form.base_salary} />
+            <input autoComplete="off" type="hidden" name="transport_allowance" value={form.transport_allowance} />
+            <input autoComplete="off" type="hidden" name="meal_allowance" value={form.meal_allowance} />
+            <input autoComplete="off" type="hidden" name="bpjs_kesehatan_amount" value={form.bpjs_kesehatan_amount} />
+            <input autoComplete="off" type="hidden" name="bpjs_ketenagakerjaan_amount" value={form.bpjs_ketenagakerjaan_amount} />
           </>
         )}
         {showPerTrip && form.tl_subtype === 'inhouse' && (
           <>
-            <input type="hidden" name="meal_allowance" value={form.meal_allowance} />
-            <input type="hidden" name="bpjs_kesehatan_amount" value={form.bpjs_kesehatan_amount} />
-            <input type="hidden" name="bpjs_ketenagakerjaan_amount" value={form.bpjs_ketenagakerjaan_amount} />
+            <input autoComplete="off" type="hidden" name="meal_allowance" value={form.meal_allowance} />
+            <input autoComplete="off" type="hidden" name="bpjs_kesehatan_amount" value={form.bpjs_kesehatan_amount} />
+            <input autoComplete="off" type="hidden" name="bpjs_ketenagakerjaan_amount" value={form.bpjs_ketenagakerjaan_amount} />
           </>
         )}
-        {!showPerTrip && <input type="hidden" name="per_trip_fee" value={form.per_trip_fee} />}
-        {!showHourly && <input type="hidden" name="hourly_rate" value={form.hourly_rate} />}
+        {!showPerTrip && <input autoComplete="off" type="hidden" name="per_trip_fee" value={form.per_trip_fee} />}
+        {!showHourly && <input autoComplete="off" type="hidden" name="hourly_rate" value={form.hourly_rate} />}
       </Section>
 
       {/* BANK */}
       <Section title="🏦 Rekening Bank (untuk transfer gaji)">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Field label="Nama Bank">
-            <input type="text" name="bank_name" value={form.bank_name} onChange={(e) => upd('bank_name', e.target.value)} placeholder="BCA / Mandiri / BRI" className={inputCls} />
+            <input autoComplete="off" type="text" name="bank_name" value={form.bank_name} onChange={(e) => upd('bank_name', e.target.value)} placeholder="BCA / Mandiri / BRI" className={inputCls} />
           </Field>
           <Field label="No. Rekening">
-            <input type="text" name="bank_account_number" value={form.bank_account_number} onChange={(e) => upd('bank_account_number', e.target.value)} className={inputCls} />
+            <input autoComplete="off" type="text" name="bank_account_number" value={form.bank_account_number} onChange={(e) => upd('bank_account_number', e.target.value)} className={inputCls} />
           </Field>
           <Field label="Atas Nama">
-            <input type="text" name="bank_account_holder" value={form.bank_account_holder} onChange={(e) => upd('bank_account_holder', e.target.value)} className={inputCls} />
+            <input autoComplete="off" type="text" name="bank_account_holder" value={form.bank_account_holder} onChange={(e) => upd('bank_account_holder', e.target.value)} className={inputCls} />
           </Field>
         </div>
       </Section>
@@ -303,10 +303,10 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan' 
       {/* AVATAR + NOTES */}
       <Section title="📝 Lainnya">
         <Field label="Avatar URL (opsional)">
-          <input type="text" name="avatar_url" value={form.avatar_url} onChange={(e) => upd('avatar_url', e.target.value)} placeholder="https://..." className={inputCls} />
+          <input autoComplete="off" type="text" name="avatar_url" value={form.avatar_url} onChange={(e) => upd('avatar_url', e.target.value)} placeholder="https://..." className={inputCls} />
         </Field>
         <Field label="Catatan">
-          <textarea name="notes" rows="3" value={form.notes} onChange={(e) => upd('notes', e.target.value)} className={inputCls + ' resize-y'} />
+          <textarea autoComplete="off" name="notes" rows="3" value={form.notes} onChange={(e) => upd('notes', e.target.value)} className={inputCls + ' resize-y'} />
         </Field>
       </Section>
 

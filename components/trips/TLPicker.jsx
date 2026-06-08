@@ -53,7 +53,7 @@ export default function TLPicker({ tourLeaders = [], initialTlId, initialTlName 
           ))}
         </select>
       ) : (
-        <input
+        <input autoComplete="off"
           type="text"
           value={manualName}
           onChange={(e) => setManualName(e.target.value)}
@@ -63,8 +63,8 @@ export default function TLPicker({ tourLeaders = [], initialTlId, initialTlName 
       )}
 
       {/* Hidden inputs untuk form submission */}
-      <input type="hidden" name="tl_id" value={mode === 'master' ? selectedId : ''} />
-      <input type="hidden" name="tl_name" value={mode === 'master'
+      <input autoComplete="off" type="hidden" name="tl_id" value={mode === 'master' ? selectedId : ''} />
+      <input autoComplete="off" type="hidden" name="tl_name" value={mode === 'master'
         ? (activeList.find((t) => String(t.id) === String(selectedId))?.name || '')
         : manualName}
       />

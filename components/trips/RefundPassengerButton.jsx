@@ -195,7 +195,7 @@ export default function RefundPassengerButton({ passenger }) {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Detail Alasan (opsional)</label>
-                <textarea
+                <textarea autoComplete="off"
                   value={reasonDetail}
                   onChange={(e) => setReasonDetail(e.target.value)}
                   placeholder="Contoh: Visa Schengen ditolak tgl 15 Mei karena dokumen kurang"
@@ -211,7 +211,7 @@ export default function RefundPassengerButton({ passenger }) {
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">Rp</span>
-                  <input
+                  <input autoComplete="off"
                     type="text"
                     value={refundAmountStr}
                     onChange={(e) => setRefundAmountStr(formatNum(parseNum(e.target.value)))}
@@ -284,21 +284,21 @@ export default function RefundPassengerButton({ passenger }) {
               {refundMethod === 'transfer' && (
                 <div className="space-y-2 p-3 bg-blue-50/50 border border-blue-200 rounded-lg">
                   <p className="text-xs font-bold text-blue-800">Detail Rekening Tujuan:</p>
-                  <input
+                  <input autoComplete="off"
                     type="text"
                     value={bankName}
                     onChange={(e) => setBankName(e.target.value)}
                     placeholder="Nama Bank (BCA / Mandiri / dll)"
                     className="w-full text-xs px-3 py-2 border border-slate-300 rounded"
                   />
-                  <input
+                  <input autoComplete="off"
                     type="text"
                     value={accountNo}
                     onChange={(e) => setAccountNo(e.target.value)}
                     placeholder="Nomor Rekening"
                     className="w-full text-xs px-3 py-2 border border-slate-300 rounded font-mono"
                   />
-                  <input
+                  <input autoComplete="off"
                     type="text"
                     value={accountName}
                     onChange={(e) => setAccountName(e.target.value)}
@@ -310,7 +310,7 @@ export default function RefundPassengerButton({ passenger }) {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Catatan (opsional)</label>
-                <textarea
+                <textarea autoComplete="off"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={2}

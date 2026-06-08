@@ -164,7 +164,7 @@ export default function FamilyGroupManager({ tripId, passengers = [], familyGrou
 
           <label className="block">
             <span className="text-xs font-semibold text-slate-700 block mb-1">Nama Family</span>
-            <input
+            <input autoComplete="off"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -220,7 +220,7 @@ export default function FamilyGroupManager({ tripId, passengers = [], familyGrou
                           checked ? 'bg-indigo-100' : 'hover:bg-slate-50'
                         }`}
                       >
-                        <input
+                        <input autoComplete="off"
                           type="checkbox"
                           checked={checked}
                           onChange={() => toggleMember(p.id)}
@@ -281,7 +281,7 @@ export default function FamilyGroupManager({ tripId, passengers = [], familyGrou
                     <p className="text-xs font-bold text-amber-800">✎ Edit Family</p>
                     <label className="block">
                       <span className="text-[11px] font-semibold text-slate-700">Nama</span>
-                      <input
+                      <input autoComplete="off"
                         type="text"
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}

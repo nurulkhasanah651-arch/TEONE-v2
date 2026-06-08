@@ -130,7 +130,7 @@ export default async function TLPaymentHistoryPage(props) {
               <option key={t.id} value={t.id}>{t.full_name}</option>
             ))}
           </select>
-          <input type="hidden" name="year" value={yearStr} />
+          <input autoComplete="off" type="hidden" name="year" value={yearStr} />
           <button type="submit" className="text-xs px-2 py-1 bg-slate-200 hover:bg-slate-300 rounded">Apply</button>
         </form>
       </div>

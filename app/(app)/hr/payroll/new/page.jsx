@@ -57,7 +57,7 @@ export default async function NewPayrollPage() {
         </div>
         <label className="block">
           <span className="text-sm font-semibold text-slate-700 block mb-1">Catatan (opsional)</span>
-          <textarea name="notes" rows="2" placeholder="Misal: 'Payroll dengan THR Lebaran'" className={inputCls + ' resize-y'} />
+          <textarea autoComplete="off" name="notes" rows="2" placeholder="Misal: 'Payroll dengan THR Lebaran'" className={inputCls + ' resize-y'} />
         </label>
 
         <div className="flex gap-3 justify-end pt-2 border-t border-slate-200">

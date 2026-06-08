@@ -194,7 +194,7 @@ function ChecklistSection({ trip, pending, startTransition, refresh }) {
       </div>
 
       <div className="flex gap-2 pt-2 border-t border-slate-200">
-        <input
+        <input autoComplete="off"
           type="text"
           value={newItem}
           onChange={(e) => setNewItem(e.target.value)}
@@ -250,7 +250,7 @@ function PettyCashSection({ trip, tripId, expenses, pettyCash, totalExpense, sis
           <p className="text-[11px] text-slate-500 font-semibold uppercase">Saldo Awal</p>
           {editingPetty ? (
             <form action={(fd) => { handleSetPettyCash(fd.get('amount')); }} className="mt-1 flex gap-1">
-              <input type="number" name="amount" defaultValue={pettyCash} min="0" autoFocus className="flex-1 px-2 py-1 border border-brand-500 rounded text-sm" />
+              <input autoComplete="off" type="number" name="amount" defaultValue={pettyCash} min="0" autoFocus className="flex-1 px-2 py-1 border border-brand-500 rounded text-sm" />
               <button type="submit" className="text-xs bg-brand-500 text-white px-2 rounded">✓</button>
             </form>
           ) : (
@@ -276,15 +276,15 @@ function PettyCashSection({ trip, tripId, expenses, pettyCash, totalExpense, sis
       <form action={handleAddExpense} className="bg-white rounded-xl border border-slate-200 shadow-card p-5 space-y-3">
         <h3 className="font-bold text-brand-700">💵 Tambah Expense TL</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-          <input type="date" name="date" defaultValue={new Date().toISOString().slice(0,10)} required className="px-2 py-1.5 border border-slate-300 rounded text-sm" />
+          <input autoComplete="off" type="date" name="date" defaultValue={new Date().toISOString().slice(0,10)} required className="px-2 py-1.5 border border-slate-300 rounded text-sm" />
           <select name="category" required className="px-2 py-1.5 border border-slate-300 rounded text-sm">
             <option value="">Kategori...</option>
             {TL_EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          <input type="number" name="amount" min="1" required placeholder="Nominal" className="px-2 py-1.5 border border-slate-300 rounded text-sm" />
-          <input type="text" name="description" required placeholder="Keterangan..." className="px-2 py-1.5 border border-slate-300 rounded text-sm" />
+          <input autoComplete="off" type="number" name="amount" min="1" required placeholder="Nominal" className="px-2 py-1.5 border border-slate-300 rounded text-sm" />
+          <input autoComplete="off" type="text" name="description" required placeholder="Keterangan..." className="px-2 py-1.5 border border-slate-300 rounded text-sm" />
         </div>
-        <input type="text" name="photo_url" placeholder="Link foto bukti (opsional, paste URL Google Drive/Photos)" className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm" />
+        <input autoComplete="off" type="text" name="photo_url" placeholder="Link foto bukti (opsional, paste URL Google Drive/Photos)" className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm" />
         <button type="submit" disabled={pending} className="w-full md:w-auto px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded disabled:opacity-50">
           + Tambah Expense
         </button>
@@ -349,10 +349,10 @@ function GmapsSection({ tripId, reviews, pending, startTransition, refresh }) {
         <h3 className="font-bold text-brand-700">⭐ Tambah Bukti Review GMaps 5★</h3>
         <p className="text-xs text-slate-500">Input nama peserta yang sudah review + link screenshot bukti (paste link Google Drive/Photo).</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          <input type="text" name="passenger_name" placeholder="Nama peserta yang review..." className="px-2 py-1.5 border border-slate-300 rounded text-sm" />
-          <input type="text" name="photo_url" placeholder="Link screenshot bukti..." className="px-2 py-1.5 border border-slate-300 rounded text-sm" />
+          <input autoComplete="off" type="text" name="passenger_name" placeholder="Nama peserta yang review..." className="px-2 py-1.5 border border-slate-300 rounded text-sm" />
+          <input autoComplete="off" type="text" name="photo_url" placeholder="Link screenshot bukti..." className="px-2 py-1.5 border border-slate-300 rounded text-sm" />
         </div>
-        <input type="text" name="notes" placeholder="Catatan (opsional)" className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm" />
+        <input autoComplete="off" type="text" name="notes" placeholder="Catatan (opsional)" className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm" />
         <button type="submit" disabled={pending} className="w-full md:w-auto px-5 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded disabled:opacity-50">
           + Tambah Bukti Review
         </button>
@@ -414,7 +414,7 @@ function VendorSection({ tripId, reviews, pending, startTransition, refresh }) {
             <option value="">Jenis vendor...</option>
             {VENDOR_TYPES.map((v) => <option key={v.value} value={v.value}>{v.icon} {v.label}</option>)}
           </select>
-          <input type="text" name="vendor_name" required placeholder="Nama vendor..." className="px-2 py-1.5 border border-slate-300 rounded text-sm" />
+          <input autoComplete="off" type="text" name="vendor_name" required placeholder="Nama vendor..." className="px-2 py-1.5 border border-slate-300 rounded text-sm" />
           <select name="rating" required className="px-2 py-1.5 border border-slate-300 rounded text-sm">
             <option value="">Rating...</option>
             <option value="5">★★★★★ Sangat Baik</option>
@@ -424,7 +424,7 @@ function VendorSection({ tripId, reviews, pending, startTransition, refresh }) {
             <option value="1">★☆☆☆☆ Buruk</option>
           </select>
         </div>
-        <textarea name="notes" rows="2" placeholder="Catatan (kelebihan/kekurangan vendor)..." className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm resize-none" />
+        <textarea autoComplete="off" name="notes" rows="2" placeholder="Catatan (kelebihan/kekurangan vendor)..." className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm resize-none" />
         <button type="submit" disabled={pending} className="w-full md:w-auto px-5 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-semibold rounded disabled:opacity-50">
           + Tambah Review Vendor
         </button>
@@ -481,7 +481,7 @@ function DocLinkSection({ trip, tripId, pending, startTransition, refresh }) {
       <h3 className="font-bold text-brand-700">📸 Link Dokumentasi Trip</h3>
       <p className="text-xs text-slate-500">Paste link Google Drive / Dropbox folder yang berisi foto & video dokumentasi trip. TL bisa upload ke link ini.</p>
       <div className="flex gap-2">
-        <input
+        <input autoComplete="off"
           type="url"
           value={url}
           onChange={(e) => setUrl(e.target.value)}

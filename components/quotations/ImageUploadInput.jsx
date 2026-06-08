@@ -94,7 +94,7 @@ export default function ImageUploadInput({ value, onChange, label = 'Upload Imag
       )}
 
       <div className="flex items-center gap-2">
-        <input
+        <input autoComplete="off"
           ref={inputRef}
           type="file"
           accept={accept}

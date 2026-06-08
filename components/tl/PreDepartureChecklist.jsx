@@ -116,7 +116,7 @@ export default function PreDepartureChecklist({ tripId, checklist = {}, canEdit 
       <div className="px-5 pb-5">
         <label className="block">
           <span className="text-xs font-bold text-slate-700 block mb-1">📝 Catatan Pre-Departure</span>
-          <textarea
+          <textarea autoComplete="off"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             onBlur={handleSaveNotes}

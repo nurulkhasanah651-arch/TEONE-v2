@@ -124,21 +124,21 @@ export default function PaymentTimeline({ passenger, tripId, payments = [] }) {
               </select>
             </Field>
             <Field label="Jumlah (IDR)" required>
-              <input type="number" name="amount" min="0" required onFocus={(e) => e.target.select()} className={miniInput} />
+              <input autoComplete="off" type="number" name="amount" min="0" required onFocus={(e) => e.target.select()} className={miniInput} />
             </Field>
             {type === 'Custom' && (
               <Field label="Label Custom" className="col-span-2">
-                <input name="label" className={miniInput} placeholder="Contoh: Tambahan Optional, Late Fee, dll" />
+                <input autoComplete="off" name="label" className={miniInput} placeholder="Contoh: Tambahan Optional, Late Fee, dll" />
               </Field>
             )}
             <Field label="Tanggal Bayar">
-              <input type="date" name="paid_at" className={miniInput} />
+              <input autoComplete="off" type="date" name="paid_at" className={miniInput} />
             </Field>
             <Field label="Due Date (opsional)">
-              <input type="date" name="due_at" className={miniInput} />
+              <input autoComplete="off" type="date" name="due_at" className={miniInput} />
             </Field>
             <Field label="Catatan" className="col-span-2">
-              <input name="notes" className={miniInput} placeholder="(opsional)" />
+              <input autoComplete="off" name="notes" className={miniInput} placeholder="(opsional)" />
             </Field>
           </div>
 

@@ -204,7 +204,7 @@ export default function QuotationForm({ quotation }) {
         <div className="bg-green-50 border-2 border-green-300 rounded-xl p-3 text-xs">
           <p className="font-bold text-green-800 mb-1">🔗 Public Link:</p>
           <div className="flex items-center gap-2">
-            <input type="text" readOnly value={publicUrl} className="flex-1 px-2 py-1 bg-white border border-green-200 rounded text-xs font-mono" onFocus={(e) => e.target.select()} />
+            <input autoComplete="off" type="text" readOnly value={publicUrl} className="flex-1 px-2 py-1 bg-white border border-green-200 rounded text-xs font-mono" onFocus={(e) => e.target.select()} />
             <button type="button" onClick={() => { navigator.clipboard.writeText(publicUrl); setSuccess('Link copied!'); }} className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white font-semibold rounded">📋 Copy</button>
           </div>
         </div>
@@ -225,25 +225,25 @@ export default function QuotationForm({ quotation }) {
 
         <Section title="📋 Info Dasar">
           <Field label="Judul" required>
-            <input type="text" name="title" required value={form.title} onChange={(e) => upd('title', e.target.value)} className={inputCls} />
+            <input autoComplete="off" type="text" name="title" required value={form.title} onChange={(e) => upd('title', e.target.value)} className={inputCls} />
           </Field>
           <Field label="Subtitle">
-            <input type="text" name="subtitle" value={form.subtitle} onChange={(e) => upd('subtitle', e.target.value)} placeholder="FREE VISA CANADA (HOLDING VISA USA)" className={inputCls} />
+            <input autoComplete="off" type="text" name="subtitle" value={form.subtitle} onChange={(e) => upd('subtitle', e.target.value)} placeholder="FREE VISA CANADA (HOLDING VISA USA)" className={inputCls} />
           </Field>
           <Field label="Tagline">
-            <input type="text" name="tagline" value={form.tagline} onChange={(e) => upd('tagline', e.target.value)} className={inputCls} />
+            <input autoComplete="off" type="text" name="tagline" value={form.tagline} onChange={(e) => upd('tagline', e.target.value)} className={inputCls} />
           </Field>
           <Field label="Destinasi">
-            <input type="text" name="destinations" value={form.destinations} onChange={(e) => upd('destinations', e.target.value)} className={inputCls} />
+            <input autoComplete="off" type="text" name="destinations" value={form.destinations} onChange={(e) => upd('destinations', e.target.value)} className={inputCls} />
           </Field>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Field label="Kategori"><select name="category" value={form.category} onChange={(e) => upd('category', e.target.value)} className={inputCls}>{CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</select></Field>
-            <Field label="Durasi (hari)"><input type="number" name="duration_days" min="1" max="60" value={form.duration_days} onChange={(e) => upd('duration_days', parseInt(e.target.value) || 1)} className={inputCls} /></Field>
-            <Field label="Tgl Berangkat"><input type="date" name="departure_date" value={form.departure_date} onChange={(e) => upd('departure_date', e.target.value)} className={inputCls} /></Field>
-            <Field label="Tgl Pulang"><input type="date" name="return_date" value={form.return_date} onChange={(e) => upd('return_date', e.target.value)} className={inputCls} /></Field>
+            <Field label="Durasi (hari)"><input autoComplete="off" type="number" name="duration_days" min="1" max="60" value={form.duration_days} onChange={(e) => upd('duration_days', parseInt(e.target.value) || 1)} className={inputCls} /></Field>
+            <Field label="Tgl Berangkat"><input autoComplete="off" type="date" name="departure_date" value={form.departure_date} onChange={(e) => upd('departure_date', e.target.value)} className={inputCls} /></Field>
+            <Field label="Tgl Pulang"><input autoComplete="off" type="date" name="return_date" value={form.return_date} onChange={(e) => upd('return_date', e.target.value)} className={inputCls} /></Field>
           </div>
           <Field label="Description">
-            <textarea name="description" rows="4" value={form.description} onChange={(e) => upd('description', e.target.value)} className={inputCls + ' resize-y'} />
+            <textarea autoComplete="off" name="description" rows="4" value={form.description} onChange={(e) => upd('description', e.target.value)} className={inputCls + ' resize-y'} />
           </Field>
         </Section>
 
@@ -254,7 +254,7 @@ export default function QuotationForm({ quotation }) {
           </Field>
           <div className="grid grid-cols-2 gap-3 mt-3">
             <Field label="Brand Color">
-              <input type="color" name="brand_color" value={form.brand_color} onChange={(e) => upd('brand_color', e.target.value)} className="w-full h-10 border border-slate-300 rounded cursor-pointer" />
+              <input autoComplete="off" type="color" name="brand_color" value={form.brand_color} onChange={(e) => upd('brand_color', e.target.value)} className="w-full h-10 border border-slate-300 rounded cursor-pointer" />
             </Field>
             <Field label="Logo Agency">
               <ImageUploadInput value={form.agency_logo_url} onChange={(url) => upd('agency_logo_url', url)} label="Upload Logo" maxSizeMB={2} />
@@ -267,19 +267,19 @@ export default function QuotationForm({ quotation }) {
           {priceOptions.map((p, i) => (
             <div key={i} className="grid grid-cols-12 gap-2 items-end">
               <div className="col-span-4"><span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Tipe</span>
-                <input type="text" value={p.label || ''} onChange={(e) => { const next = [...priceOptions]; next[i] = { ...p, label: e.target.value }; setPriceOptions(next); }} className={miniInput} />
+                <input autoComplete="off" type="text" value={p.label || ''} onChange={(e) => { const next = [...priceOptions]; next[i] = { ...p, label: e.target.value }; setPriceOptions(next); }} className={miniInput} />
               </div>
               <div className="col-span-3"><span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Harga (Rp)</span>
-                <input type="text" inputMode="numeric" value={fmtIDR(p.price)} onChange={(e) => { const next = [...priceOptions]; next[i] = { ...p, price: parseNum(e.target.value) }; setPriceOptions(next); }} placeholder="37.900.000" className={miniInput} />
+                <input autoComplete="off" type="text" inputMode="numeric" value={fmtIDR(p.price)} onChange={(e) => { const next = [...priceOptions]; next[i] = { ...p, price: parseNum(e.target.value) }; setPriceOptions(next); }} placeholder="37.900.000" className={miniInput} />
               </div>
               <div className="col-span-4"><span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Note</span>
-                <input type="text" value={p.note || ''} onChange={(e) => { const next = [...priceOptions]; next[i] = { ...p, note: e.target.value }; setPriceOptions(next); }} className={miniInput} />
+                <input autoComplete="off" type="text" value={p.note || ''} onChange={(e) => { const next = [...priceOptions]; next[i] = { ...p, note: e.target.value }; setPriceOptions(next); }} className={miniInput} />
               </div>
               <div className="col-span-1"><button type="button" onClick={() => setPriceOptions(priceOptions.filter((_, idx) => idx !== i))} className="w-full px-2 py-1 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold rounded">✕</button></div>
             </div>
           ))}
           <button type="button" onClick={() => setPriceOptions([...priceOptions, { label: '', price: 0, note: '' }])} className="w-full py-2 border-2 border-dashed border-brand-300 hover:border-brand-500 text-brand-600 text-xs font-semibold rounded">+ Tambah Opsi</button>
-          <div className="mt-3"><Field label="DP (Rp)"><input type="text" inputMode="numeric" name="dp_amount" value={fmtIDR(form.dp_amount)} onChange={(e) => upd('dp_amount', parseNum(e.target.value))} className={inputCls} /></Field></div>
+          <div className="mt-3"><Field label="DP (Rp)"><input autoComplete="off" type="text" inputMode="numeric" name="dp_amount" value={fmtIDR(form.dp_amount)} onChange={(e) => upd('dp_amount', parseNum(e.target.value))} className={inputCls} /></Field></div>
         </Section>
 
         {/* ===== CICILAN ===== */}
@@ -287,13 +287,13 @@ export default function QuotationForm({ quotation }) {
           {paymentSchedule.map((p, i) => (
             <div key={i} className="grid grid-cols-12 gap-2 items-end">
               <div className="col-span-4"><span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Label</span>
-                <input type="text" value={p.label || ''} onChange={(e) => { const next = [...paymentSchedule]; next[i] = { ...p, label: e.target.value }; setPaymentSchedule(next); }} className={miniInput} />
+                <input autoComplete="off" type="text" value={p.label || ''} onChange={(e) => { const next = [...paymentSchedule]; next[i] = { ...p, label: e.target.value }; setPaymentSchedule(next); }} className={miniInput} />
               </div>
               <div className="col-span-4"><span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Tanggal</span>
-                <input type="text" value={p.date || ''} onChange={(e) => { const next = [...paymentSchedule]; next[i] = { ...p, date: e.target.value }; setPaymentSchedule(next); }} className={miniInput} />
+                <input autoComplete="off" type="text" value={p.date || ''} onChange={(e) => { const next = [...paymentSchedule]; next[i] = { ...p, date: e.target.value }; setPaymentSchedule(next); }} className={miniInput} />
               </div>
               <div className="col-span-3"><span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Jumlah</span>
-                <input type="text" value={typeof p.amount === 'number' ? fmtIDR(p.amount) : (p.amount || '')} onChange={(e) => {
+                <input autoComplete="off" type="text" value={typeof p.amount === 'number' ? fmtIDR(p.amount) : (p.amount || '')} onChange={(e) => {
                   const v = e.target.value; const numericVal = parseNum(v); const next = [...paymentSchedule];
                   if (v.toUpperCase().includes('PELUNAS') || (numericVal === '' && v)) { next[i] = { ...p, amount: v }; }
                   else { next[i] = { ...p, amount: numericVal === '' ? '' : parseInt(numericVal) }; }
@@ -304,15 +304,15 @@ export default function QuotationForm({ quotation }) {
             </div>
           ))}
           <button type="button" onClick={() => setPaymentSchedule([...paymentSchedule, { label: '', date: '', amount: 0 }])} className="w-full py-2 border-2 border-dashed border-brand-300 hover:border-brand-500 text-brand-600 text-xs font-semibold rounded">+ Tambah Cicilan</button>
-          <div className="mt-3"><Field label="Bank Info"><input type="text" name="bank_info" value={form.bank_info} onChange={(e) => upd('bank_info', e.target.value)} className={inputCls} /></Field></div>
+          <div className="mt-3"><Field label="Bank Info"><input autoComplete="off" type="text" name="bank_info" value={form.bank_info} onChange={(e) => upd('bank_info', e.target.value)} className={inputCls} /></Field></div>
         </Section>
 
         {/* ===== HIGHLIGHTS ===== */}
         <Section title="⭐ Highlights">
           {highlights.map((h, i) => (
             <div key={i} className="flex items-center gap-2">
-              <input type="text" value={h.icon || ''} onChange={(e) => { const next = [...highlights]; next[i] = { ...h, icon: e.target.value }; setHighlights(next); }} className="w-16 px-2 py-1 border border-slate-300 rounded text-center text-lg" />
-              <input type="text" value={h.text || ''} onChange={(e) => { const next = [...highlights]; next[i] = { ...h, text: e.target.value }; setHighlights(next); }} className="flex-1 px-2 py-1 border border-slate-300 rounded text-sm" />
+              <input autoComplete="off" type="text" value={h.icon || ''} onChange={(e) => { const next = [...highlights]; next[i] = { ...h, icon: e.target.value }; setHighlights(next); }} className="w-16 px-2 py-1 border border-slate-300 rounded text-center text-lg" />
+              <input autoComplete="off" type="text" value={h.text || ''} onChange={(e) => { const next = [...highlights]; next[i] = { ...h, text: e.target.value }; setHighlights(next); }} className="flex-1 px-2 py-1 border border-slate-300 rounded text-sm" />
               <button type="button" onClick={() => setHighlights(highlights.filter((_, idx) => idx !== i))} className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold rounded">✕</button>
             </div>
           ))}
@@ -326,7 +326,7 @@ export default function QuotationForm({ quotation }) {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 flex-1">
                   <span className="px-2 py-1 bg-brand-100 text-brand-700 text-xs font-bold rounded">Hari {it.day || i + 1}</span>
-                  <input type="text" value={it.title || ''} onChange={(e) => { const next = [...itinerary]; next[i] = { ...it, title: e.target.value }; setItinerary(next); }} className="flex-1 px-2 py-1 border border-slate-300 rounded text-sm font-bold" />
+                  <input autoComplete="off" type="text" value={it.title || ''} onChange={(e) => { const next = [...itinerary]; next[i] = { ...it, title: e.target.value }; setItinerary(next); }} className="flex-1 px-2 py-1 border border-slate-300 rounded text-sm font-bold" />
                 </div>
                 <button type="button" onClick={() => setItinerary(itinerary.filter((_, idx) => idx !== i))} className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold rounded">✕</button>
               </div>
@@ -334,7 +334,7 @@ export default function QuotationForm({ quotation }) {
                 {(it.activities || []).map((act, j) => (
                   <div key={j} className="flex items-center gap-2">
                     <span className="text-slate-400">•</span>
-                    <input type="text" value={act} onChange={(e) => { const next = [...itinerary]; const acts = [...(it.activities || [])]; acts[j] = e.target.value; next[i] = { ...it, activities: acts }; setItinerary(next); }} className="flex-1 px-2 py-1 border border-slate-300 rounded text-xs" />
+                    <input autoComplete="off" type="text" value={act} onChange={(e) => { const next = [...itinerary]; const acts = [...(it.activities || [])]; acts[j] = e.target.value; next[i] = { ...it, activities: acts }; setItinerary(next); }} className="flex-1 px-2 py-1 border border-slate-300 rounded text-xs" />
                     <button type="button" onClick={() => { const next = [...itinerary]; const acts = (it.activities || []).filter((_, idx) => idx !== j); next[i] = { ...it, activities: acts }; setItinerary(next); }} className="text-xs text-red-600 hover:bg-red-50 px-1.5 py-0.5 rounded">✕</button>
                   </div>
                 ))}
@@ -350,7 +350,7 @@ export default function QuotationForm({ quotation }) {
             {inclusions.map((it, i) => (
               <div key={i} className="flex items-center gap-2">
                 <span className="text-green-600">✓</span>
-                <input type="text" value={it} onChange={(e) => { const next = [...inclusions]; next[i] = e.target.value; setInclusions(next); }} className="flex-1 px-2 py-1 border border-slate-300 rounded text-xs" />
+                <input autoComplete="off" type="text" value={it} onChange={(e) => { const next = [...inclusions]; next[i] = e.target.value; setInclusions(next); }} className="flex-1 px-2 py-1 border border-slate-300 rounded text-xs" />
                 <button type="button" onClick={() => setInclusions(inclusions.filter((_, idx) => idx !== i))} className="text-xs text-red-600 hover:bg-red-50 px-1.5 py-0.5 rounded">✕</button>
               </div>
             ))}
@@ -360,7 +360,7 @@ export default function QuotationForm({ quotation }) {
             {exclusions.map((it, i) => (
               <div key={i} className="flex items-center gap-2">
                 <span className="text-red-600">✗</span>
-                <input type="text" value={it} onChange={(e) => { const next = [...exclusions]; next[i] = e.target.value; setExclusions(next); }} className="flex-1 px-2 py-1 border border-slate-300 rounded text-xs" />
+                <input autoComplete="off" type="text" value={it} onChange={(e) => { const next = [...exclusions]; next[i] = e.target.value; setExclusions(next); }} className="flex-1 px-2 py-1 border border-slate-300 rounded text-xs" />
                 <button type="button" onClick={() => setExclusions(exclusions.filter((_, idx) => idx !== i))} className="text-xs text-red-600 hover:bg-red-50 px-1.5 py-0.5 rounded">✕</button>
               </div>
             ))}
@@ -371,7 +371,7 @@ export default function QuotationForm({ quotation }) {
         <Section title="🛂 Syarat Visa (AI)">
           <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
             <label className="flex items-center gap-2 text-xs">
-              <input type="checkbox" checked={form.show_visa_requirements} onChange={(e) => upd('show_visa_requirements', e.target.checked)} />
+              <input autoComplete="off" type="checkbox" checked={form.show_visa_requirements} onChange={(e) => upd('show_visa_requirements', e.target.checked)} />
               <span>Tampilkan di preview</span>
             </label>
             <button type="button" onClick={handleAIVisaOnly} disabled={visaAiLoading || pending} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg shadow-card">
@@ -386,7 +386,7 @@ export default function QuotationForm({ quotation }) {
           ) : visaReqs.map((it, i) => (
             <div key={i} className="flex items-start gap-2">
               <span className="text-slate-500 text-xs mt-1">{i + 1}.</span>
-              <textarea value={it} onChange={(e) => { const next = [...visaReqs]; next[i] = e.target.value; setVisaReqs(next); }} rows="2" className="flex-1 px-2 py-1 border border-slate-300 rounded text-xs resize-y" />
+              <textarea autoComplete="off" value={it} onChange={(e) => { const next = [...visaReqs]; next[i] = e.target.value; setVisaReqs(next); }} rows="2" className="flex-1 px-2 py-1 border border-slate-300 rounded text-xs resize-y" />
               <button type="button" onClick={() => setVisaReqs(visaReqs.filter((_, idx) => idx !== i))} className="text-xs text-red-600 hover:bg-red-50 px-1.5 py-0.5 rounded mt-1">✕</button>
             </div>
           ))}
@@ -395,23 +395,23 @@ export default function QuotationForm({ quotation }) {
 
         <Section title="📋 S&K Standard">
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.show_terms} onChange={(e) => upd('show_terms', e.target.checked)} />
+            <input autoComplete="off" type="checkbox" checked={form.show_terms} onChange={(e) => upd('show_terms', e.target.checked)} />
             <span>Tampilkan S&K 8 pasal di preview</span>
           </label>
         </Section>
 
         <Section title="📞 Kontak">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <Field label="Nama CS"><input type="text" name="contact_name" value={form.contact_name} onChange={(e) => upd('contact_name', e.target.value)} className={inputCls} /></Field>
-            <Field label="No. WhatsApp"><input type="text" name="contact_wa" value={form.contact_wa} onChange={(e) => upd('contact_wa', e.target.value)} className={inputCls} /></Field>
-            <Field label="Email"><input type="email" name="contact_email" value={form.contact_email} onChange={(e) => upd('contact_email', e.target.value)} className={inputCls} /></Field>
+            <Field label="Nama CS"><input autoComplete="off" type="text" name="contact_name" value={form.contact_name} onChange={(e) => upd('contact_name', e.target.value)} className={inputCls} /></Field>
+            <Field label="No. WhatsApp"><input autoComplete="off" type="text" name="contact_wa" value={form.contact_wa} onChange={(e) => upd('contact_wa', e.target.value)} className={inputCls} /></Field>
+            <Field label="Email"><input autoComplete="off" type="email" name="contact_email" value={form.contact_email} onChange={(e) => upd('contact_email', e.target.value)} className={inputCls} /></Field>
           </div>
-          <Field label="Catatan"><textarea name="notes" rows="3" value={form.notes} onChange={(e) => upd('notes', e.target.value)} className={inputCls + ' resize-y'} /></Field>
+          <Field label="Catatan"><textarea autoComplete="off" name="notes" rows="3" value={form.notes} onChange={(e) => upd('notes', e.target.value)} className={inputCls + ' resize-y'} /></Field>
         </Section>
 
-        <input type="hidden" name="title" value={form.title} />
-        <input type="hidden" name="show_visa_requirements" value={form.show_visa_requirements ? '1' : '0'} />
-        <input type="hidden" name="show_terms" value={form.show_terms ? '1' : '0'} />
+        <input autoComplete="off" type="hidden" name="title" value={form.title} />
+        <input autoComplete="off" type="hidden" name="show_visa_requirements" value={form.show_visa_requirements ? '1' : '0'} />
+        <input autoComplete="off" type="hidden" name="show_terms" value={form.show_terms ? '1' : '0'} />
 
         {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 whitespace-pre-wrap">{error}</div>}
         {success && <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">{success}</div>}

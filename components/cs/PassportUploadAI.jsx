@@ -218,7 +218,7 @@ function PField({ label, value, onChange, placeholder = '', type = 'text', class
   return (
     <label className={`block ${className}`}>
       <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">{label}</span>
-      <input
+      <input autoComplete="off"
         type={type}
         value={value || ''}
         onChange={(e) => onChange?.(e.target.value)}

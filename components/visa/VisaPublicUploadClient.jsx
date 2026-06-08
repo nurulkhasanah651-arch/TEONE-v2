@@ -218,7 +218,7 @@ function DocUploadRow({ docName, uploaded, isUploading, isDeleting, onUpload, on
         <div className="flex gap-2">
           {!isComplete ? (
             <>
-              <input
+              <input autoComplete="off"
                 ref={fileRef}
                 type="file"
                 accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.pdf"
@@ -236,7 +236,7 @@ function DocUploadRow({ docName, uploaded, isUploading, isDeleting, onUpload, on
             </>
           ) : (
             <>
-              <input
+              <input autoComplete="off"
                 ref={fileRef}
                 type="file"
                 accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.pdf"

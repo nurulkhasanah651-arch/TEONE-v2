@@ -258,7 +258,7 @@ export default function HPPDocumentBar({
             )}
           </div>
         </div>
-        <input
+        <input autoComplete="off"
           ref={invoiceRef}
           type="file"
           accept={ACCEPT_ALL}
@@ -329,7 +329,7 @@ export default function HPPDocumentBar({
             )}
           </div>
         </div>
-        <input
+        <input autoComplete="off"
           ref={proofRef}
           type="file"
           accept={ACCEPT_ALL}

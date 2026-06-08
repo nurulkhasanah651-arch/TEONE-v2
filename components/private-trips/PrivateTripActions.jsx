@@ -109,7 +109,7 @@ export default function PrivateTripActions({ request }) {
         {/* Quick Reply */}
         <div className="pt-4 border-t border-slate-100">
           <label className="text-xs font-bold text-slate-700 block mb-1.5 uppercase">💬 Quick Reply / Note</label>
-          <textarea
+          <textarea autoComplete="off"
             value={reply}
             onChange={(e) => setReply(e.target.value)}
             placeholder="Contoh: Sudah call jam 14:00, mau dikirim itinerary draft Korea. Follow up besok."
@@ -132,7 +132,7 @@ export default function PrivateTripActions({ request }) {
         <div className="pt-4 border-t border-slate-100">
           <label className="text-xs font-bold text-slate-700 block mb-1.5 uppercase">👤 Assign to (Email / Nama)</label>
           <div className="flex gap-2">
-            <input
+            <input autoComplete="off"
               type="text"
               value={assignTo}
               onChange={(e) => setAssignTo(e.target.value)}
@@ -152,7 +152,7 @@ export default function PrivateTripActions({ request }) {
         {/* Internal Notes */}
         <div className="pt-4 border-t border-slate-100">
           <label className="text-xs font-bold text-slate-700 block mb-1.5 uppercase">📝 Internal Notes (Cuma Tim)</label>
-          <textarea
+          <textarea autoComplete="off"
             value={internalNotes}
             onChange={(e) => setInternalNotes(e.target.value)}
             placeholder="Customer alumni 2024, dulu pernah trip Bali. Sensitive ke harga, kasih opsi land tour aja."

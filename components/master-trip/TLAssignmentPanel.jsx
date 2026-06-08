@@ -66,7 +66,7 @@ export default function TLAssignmentPanel({ trip }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">Nama TL</label>
-          <input
+          <input autoComplete="off"
             type="text"
             value={tlName}
             onChange={(e) => setTlName(e.target.value)}
@@ -79,7 +79,7 @@ export default function TLAssignmentPanel({ trip }) {
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Nomor WA TL <span className="text-red-500">*</span>
           </label>
-          <input
+          <input autoComplete="off"
             type="tel"
             value={tlPhone}
             onChange={(e) => setTlPhone(e.target.value)}

@@ -56,14 +56,14 @@ export default async function NewQuotationPage({ searchParams }) {
       )}
 
       <form action={createQuotation} className="bg-white rounded-xl border border-slate-200 shadow-card p-6 space-y-4">
-        {fromTemplateId && <input type="hidden" name="from_template_id" value={fromTemplateId} />}
+        {fromTemplateId && <input autoComplete="off" type="hidden" name="from_template_id" value={fromTemplateId} />}
 
         <Field label="Judul Penawaran" required>
-          <input type="text" name="title" required defaultValue={templateInfo ? `${templateInfo.title} ${new Date().getFullYear()}` : ''} placeholder="SCENIC AUTUMN CANADA" className={inputCls} />
+          <input autoComplete="off" type="text" name="title" required defaultValue={templateInfo ? `${templateInfo.title} ${new Date().getFullYear()}` : ''} placeholder="SCENIC AUTUMN CANADA" className={inputCls} />
         </Field>
 
         <Field label="Destinasi">
-          <input type="text" name="destinations" defaultValue={templateInfo?.destinations || ''} placeholder="Paris, Roma, Lucerne, Milan, Venice" className={inputCls} />
+          <input autoComplete="off" type="text" name="destinations" defaultValue={templateInfo?.destinations || ''} placeholder="Paris, Roma, Lucerne, Milan, Venice" className={inputCls} />
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
@@ -73,21 +73,21 @@ export default async function NewQuotationPage({ searchParams }) {
             </select>
           </Field>
           <Field label="Durasi (hari)" required>
-            <input type="number" name="duration_days" min="1" max="60" defaultValue={templateInfo?.duration_days || 9} required className={inputCls} />
+            <input autoComplete="off" type="number" name="duration_days" min="1" max="60" defaultValue={templateInfo?.duration_days || 9} required className={inputCls} />
           </Field>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Tgl Keberangkatan">
-            <input type="date" name="departure_date" className={inputCls} />
+            <input autoComplete="off" type="date" name="departure_date" className={inputCls} />
           </Field>
           <Field label="Tgl Kepulangan">
-            <input type="date" name="return_date" className={inputCls} />
+            <input autoComplete="off" type="date" name="return_date" className={inputCls} />
           </Field>
         </div>
 
         <Field label="Estimasi Peserta">
-          <input type="number" name="pax_count" min="0" defaultValue="0" className={inputCls} />
+          <input autoComplete="off" type="number" name="pax_count" min="0" defaultValue="0" className={inputCls} />
         </Field>
 
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">

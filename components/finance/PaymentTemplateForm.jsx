@@ -205,7 +205,7 @@ export default function PaymentTemplateForm({ tripId, template = {} }) {
               </span>
               <div className="relative">
                 <span className="absolute left-2 top-1.5 text-xs text-slate-400">Rp</span>
-                <input
+                <input autoComplete="off"
                   type="number"
                   name={`tpl_${m.key}`}
                   value={stdValues[m.key] || ''}
@@ -252,14 +252,14 @@ export default function PaymentTemplateForm({ tripId, template = {} }) {
         <div className="space-y-2 mb-4">
           {customItems.map((c, i) => (
             <div key={c.key} className="flex gap-2 items-center">
-              <input
+              <input autoComplete="off"
                 type="text" value={c.label} onChange={(e) => updCustom(i, 'label', e.target.value)}
                 placeholder="Nama item (contoh: Tipping)"
                 className="flex-1 px-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-brand-500 focus:border-brand-500 outline-none bg-white"
               />
               <div className="relative w-40">
                 <span className="absolute left-2 top-1.5 text-xs text-slate-400">Rp</span>
-                <input
+                <input autoComplete="off"
                   type="number" value={c.amount || ''} onChange={(e) => updCustom(i, 'amount', parseInt(e.target.value) || 0)}
                   onFocus={(e) => e.target.select()} min="0" placeholder="0"
                   className="w-full pl-7 pr-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-brand-500 focus:border-brand-500 outline-none bg-white"

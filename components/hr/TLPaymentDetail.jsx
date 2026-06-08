@@ -462,7 +462,7 @@ export default function TLPaymentDetail({
             <form action={handleApprove} className="bg-white rounded-lg p-3 border border-green-200 space-y-2">
               <label className="block">
                 <span className="text-xs font-bold text-green-700">CATATAN APPROVAL (opsional)</span>
-                <textarea name="approval_notes" rows="2"
+                <textarea autoComplete="off" name="approval_notes" rows="2"
                   className="mt-1 w-full px-2 py-1 border border-slate-300 rounded text-xs" />
               </label>
               <button type="submit" disabled={pending}
@@ -476,7 +476,7 @@ export default function TLPaymentDetail({
             <form action={handleReject} className="bg-white rounded-lg p-3 border border-red-200 space-y-2">
               <label className="block">
                 <span className="text-xs font-bold text-red-700">ALASAN REJECT (wajib)</span>
-                <textarea name="reject_reason" rows="2" required
+                <textarea autoComplete="off" name="reject_reason" rows="2" required
                   placeholder="Misal: trip belum selesai, fee belum di-set, dll"
                   className="mt-1 w-full px-2 py-1 border border-slate-300 rounded text-xs" />
               </label>
@@ -538,7 +538,7 @@ export default function TLPaymentDetail({
           ) : (
             <form action={handleMarkFinalReport} className="mt-3 space-y-2">
               <p className="text-sm text-amber-900">⏳ Final 30% Mark Paid akan ter-unlock setelah Final Report di-submit.</p>
-              <textarea name="final_report_notes" rows="2"
+              <textarea autoComplete="off" name="final_report_notes" rows="2"
                 placeholder="Catatan (opsional)"
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
               <button type="submit" disabled={pending}
@@ -556,7 +556,7 @@ export default function TLPaymentDetail({
           <p className="text-xs font-bold uppercase text-brand-700">💰 Transfer & Mark Paid</p>
           <form action={handleMarkPaid} className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
             <Field label="Nominal Dibayar">
-              <input type="text" inputMode="numeric" name="paid_amount" defaultValue={fmtIDRNum(payment.amount)} className={inputCls} />
+              <input autoComplete="off" type="text" inputMode="numeric" name="paid_amount" defaultValue={fmtIDRNum(payment.amount)} className={inputCls} />
             </Field>
             <Field label="Metode">
               <select name="payment_method" defaultValue="transfer" className={inputCls}>
@@ -567,7 +567,7 @@ export default function TLPaymentDetail({
             </Field>
             <div className="md:col-span-2">
               <Field label="Catatan">
-                <textarea name="notes" rows="2" className={inputCls + ' resize-y'} />
+                <textarea autoComplete="off" name="notes" rows="2" className={inputCls + ' resize-y'} />
               </Field>
             </div>
             <div className="md:col-span-2 flex items-center gap-2">
@@ -613,7 +613,7 @@ export default function TLPaymentDetail({
           </div>
         ) : (
           <form onSubmit={handleUpload} className="mt-3 flex items-center gap-2 flex-wrap">
-            <input ref={fileRef} type="file" accept="image/*,application/pdf" className="text-xs" />
+            <input autoComplete="off" ref={fileRef} type="file" accept="image/*,application/pdf" className="text-xs" />
             <button type="submit" disabled={pending} className="px-4 py-1.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white text-xs font-semibold rounded">
               {pending ? 'Uploading...' : 'Upload Bukti'}
             </button>

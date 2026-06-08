@@ -19,7 +19,7 @@ export default function AccountForm({ initial = {}, onSubmit, submitLabel = 'Sim
   return (
     <form action={handleSubmit} className="space-y-5">
       <Field label="Nama Akun" required>
-        <input name="name" defaultValue={initial.name || ''} required className={inputCls} placeholder="Bank Mandiri Operasional" />
+        <input autoComplete="off" name="name" defaultValue={initial.name || ''} required className={inputCls} placeholder="Bank Mandiri Operasional" />
       </Field>
 
       <Field label="Tipe Akun" required>
@@ -32,15 +32,15 @@ export default function AccountForm({ initial = {}, onSubmit, submitLabel = 'Sim
       </Field>
 
       <Field label="No. Rekening / Identifier (opsional)">
-        <input name="account_number" defaultValue={initial.account_number || ''} className={inputCls} placeholder="1234567890" />
+        <input autoComplete="off" name="account_number" defaultValue={initial.account_number || ''} className={inputCls} placeholder="1234567890" />
       </Field>
 
       <Field label="Saldo Awal (IDR)" hint="Saldo saat akun pertama kali ditambahkan ke sistem">
-        <input type="number" name="starting_balance" defaultValue={initial.starting_balance || 0} min="0" className={inputCls} />
+        <input autoComplete="off" type="number" name="starting_balance" defaultValue={initial.starting_balance || 0} min="0" className={inputCls} />
       </Field>
 
       <Field label="Catatan (opsional)">
-        <textarea name="notes" defaultValue={initial.notes || ''} rows="2" className={inputCls + ' resize-none'} placeholder="Catatan tentang akun ini..." />
+        <textarea autoComplete="off" name="notes" defaultValue={initial.notes || ''} rows="2" className={inputCls + ' resize-none'} placeholder="Catatan tentang akun ini..." />
       </Field>
 
       {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium">{error}</div>}

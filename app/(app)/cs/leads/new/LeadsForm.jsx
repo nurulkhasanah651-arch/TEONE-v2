@@ -25,7 +25,7 @@ export default function LeadsForm({ initial = {} }) {
   return (
     <form action={handleSubmit} className="space-y-5">
       <Field label="Tanggal" required>
-        <input type="date" name="tanggal" defaultValue={initial.tanggal} required className={inputCls} />
+        <input autoComplete="off" type="date" name="tanggal" defaultValue={initial.tanggal} required className={inputCls} />
       </Field>
 
       <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
@@ -44,7 +44,7 @@ export default function LeadsForm({ initial = {} }) {
       </div>
 
       <Field label="Catatan (opsional)">
-        <textarea name="notes" defaultValue={initial.notes || ''} rows="2" className={inputCls + ' resize-none'} placeholder="Hal penting tentang leads hari ini..." />
+        <textarea autoComplete="off" name="notes" defaultValue={initial.notes || ''} rows="2" className={inputCls + ' resize-none'} placeholder="Hal penting tentang leads hari ini..." />
       </Field>
 
       {error && (
@@ -68,7 +68,7 @@ function NumberInput({ label, name, value, onChange }) {
   return (
     <label className="block">
       <span className="text-xs font-semibold text-slate-700 block mb-1">{label}</span>
-      <input
+      <input autoComplete="off"
         type="number"
         name={name}
         value={value}

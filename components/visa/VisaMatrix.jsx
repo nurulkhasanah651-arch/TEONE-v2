@@ -227,7 +227,7 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
                     <span className="text-xs font-bold text-brand-700 uppercase tracking-wider block mb-1">
                       Tanggal Biometrik {needsBiometricSchedule && <span className="text-orange-700">⚠</span>}
                     </span>
-                    <input
+                    <input autoComplete="off"
                       type="date"
                       defaultValue={biometricDate || ''}
                       onBlur={(e) => handleBiometricChange(p.id, e.target.value)}
@@ -260,7 +260,7 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
                           <div className="flex-1 min-w-0">
                             <p className={`text-xs font-semibold ${isPaid ? 'text-green-700' : 'text-slate-700'}`}>{doc}</p>
                             {isEditingThis ? (
-                              <input
+                              <input autoComplete="off"
                                 type="text"
                                 defaultValue={docData?.notes || ''}
                                 autoFocus
@@ -294,7 +294,7 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
 
                 <div>
                   <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-1">Catatan Visa untuk Peserta Ini</p>
-                  <textarea
+                  <textarea autoComplete="off"
                     defaultValue={p.visa_personal_notes || ''}
                     onBlur={(e) => handlePersonalNoteSave(p.id, e.target.value)}
                     rows="2"

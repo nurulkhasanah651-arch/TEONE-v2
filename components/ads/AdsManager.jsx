@@ -48,23 +48,23 @@ export default function AdsManager({ entries = [], trips = [] }) {
         <form action={handleAdd} className="p-4 bg-amber-50 border-b border-amber-200 space-y-3">
           <h3 className="text-sm font-bold text-amber-800">+ Input Spend Iklan</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <input type="date" name="date" defaultValue={new Date().toISOString().slice(0,10)} required className={inputCls} />
+            <input autoComplete="off" type="date" name="date" defaultValue={new Date().toISOString().slice(0,10)} required className={inputCls} />
             <select name="platform" required className={inputCls}>
               {PLATFORMS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
-            <input type="number" name="spend" required min="0" placeholder="Spend (IDR)" className={inputCls} />
-            <input type="number" name="leads" min="0" defaultValue="0" placeholder="Leads dapat" className={inputCls} />
+            <input autoComplete="off" type="number" name="spend" required min="0" placeholder="Spend (IDR)" className={inputCls} />
+            <input autoComplete="off" type="number" name="leads" min="0" defaultValue="0" placeholder="Leads dapat" className={inputCls} />
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            <input type="text" name="campaign_name" placeholder="Nama campaign (opsional)" className={inputCls} />
-            <input type="number" name="impressions" min="0" placeholder="Impressions" className={inputCls} />
-            <input type="number" name="clicks" min="0" placeholder="Clicks" className={inputCls} />
+            <input autoComplete="off" type="text" name="campaign_name" placeholder="Nama campaign (opsional)" className={inputCls} />
+            <input autoComplete="off" type="number" name="impressions" min="0" placeholder="Impressions" className={inputCls} />
+            <input autoComplete="off" type="number" name="clicks" min="0" placeholder="Clicks" className={inputCls} />
           </div>
           <select name="trip_id" className={inputCls}>
             <option value="">— Trip terkait (opsional, kalau campaign specific) —</option>
             {trips.map((t) => <option key={t.id} value={t.id}>{t.kode_trip || `#${t.id}`} — {t.name}</option>)}
           </select>
-          <input type="text" name="notes" placeholder="Catatan (opsional)" className={inputCls} />
+          <input autoComplete="off" type="text" name="notes" placeholder="Catatan (opsional)" className={inputCls} />
           <div className="flex gap-2 justify-end">
             <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded">Batal</button>
             <button type="submit" disabled={pending} className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded disabled:opacity-50">

@@ -86,7 +86,7 @@ export default function FinanceItemForm({ tripId, type, paxCount = 0 }) {
 
   return (
     <form action={handleSubmit} className="space-y-3 border border-brand-200 rounded-xl p-4 bg-brand-50/30">
-      <input type="hidden" name="type" value={type} />
+      <input autoComplete="off" type="hidden" name="type" value={type} />
 
       <div className="flex items-center justify-between">
         <p className="text-xs font-bold text-brand-700 uppercase tracking-wider">
@@ -108,7 +108,7 @@ export default function FinanceItemForm({ tripId, type, paxCount = 0 }) {
         </Field>
 
         <Field label="Basic Fare (per unit)">
-          <input
+          <input autoComplete="off"
             type="text"
             inputMode="numeric"
             value={fmtIDR(basicFare)}
@@ -124,7 +124,7 @@ export default function FinanceItemForm({ tripId, type, paxCount = 0 }) {
           hint={paxCount > 0 ? `Default = ${paxCount} pax aktif. Bisa custom.` : 'Jumlah unit/pax'}
         >
           <div className="flex gap-1">
-            <input
+            <input autoComplete="off"
               type="number"
               min="0"
               value={qty}
@@ -144,7 +144,7 @@ export default function FinanceItemForm({ tripId, type, paxCount = 0 }) {
         </Field>
 
         <Field label="Total Amount" hint="Auto = fare × qty. Bisa override.">
-          <input
+          <input autoComplete="off"
             type="text"
             inputMode="numeric"
             value={fmtIDR(totalOverride)}
@@ -156,13 +156,13 @@ export default function FinanceItemForm({ tripId, type, paxCount = 0 }) {
         </Field>
 
         <Field label="Notes">
-          <input name="notes" className={inputCls} placeholder="(opsional)" />
+          <input autoComplete="off" name="notes" className={inputCls} placeholder="(opsional)" />
         </Field>
 
         {type === 'hpp' && (
           <>
             <Field label="Vendor Name" className="md:col-span-2">
-              <input name="vendor_name" className={inputCls} placeholder="Nama vendor/maskapai/hotel" />
+              <input autoComplete="off" name="vendor_name" className={inputCls} placeholder="Nama vendor/maskapai/hotel" />
             </Field>
           </>
         )}
@@ -189,7 +189,7 @@ export default function FinanceItemForm({ tripId, type, paxCount = 0 }) {
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold text-purple-700 uppercase tracking-wider">💰 Skema Pembayaran</p>
             <label className="flex items-center gap-1.5 cursor-pointer">
-              <input
+              <input autoComplete="off"
                 type="checkbox"
                 checked={skipDeposit}
                 onChange={(e) => setSkipDeposit(e.target.checked)}
@@ -202,7 +202,7 @@ export default function FinanceItemForm({ tripId, type, paxCount = 0 }) {
           {!skipDeposit && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label="Nominal Deposit (Rp)" hint="DP yg akan di-request ke Finance">
-                <input
+                <input autoComplete="off"
                   type="text"
                   inputMode="numeric"
                   value={fmtIDR(depositPlanned)}
@@ -213,7 +213,7 @@ export default function FinanceItemForm({ tripId, type, paxCount = 0 }) {
               </Field>
 
               <Field label="Sisa Pelunasan (Auto)" hint="Total − Deposit">
-                <input
+                <input autoComplete="off"
                   type="text"
                   value={'Rp ' + pelunasanAuto.toLocaleString('id-ID')}
                   readOnly
@@ -222,7 +222,7 @@ export default function FinanceItemForm({ tripId, type, paxCount = 0 }) {
               </Field>
 
               <Field label="Deadline Deposit (opsional)" hint="Tgl batas bayar DP">
-                <input
+                <input autoComplete="off"
                   type="date"
                   value={deadlineDeposit}
                   onChange={(e) => setDeadlineDeposit(e.target.value)}
@@ -231,7 +231,7 @@ export default function FinanceItemForm({ tripId, type, paxCount = 0 }) {
               </Field>
 
               <Field label="Deadline Pelunasan" hint="Tgl harus lunas. Lewat = warning.">
-                <input
+                <input autoComplete="off"
                   type="date"
                   value={deadlinePelunasan}
                   onChange={(e) => setDeadlinePelunasan(e.target.value)}
@@ -244,7 +244,7 @@ export default function FinanceItemForm({ tripId, type, paxCount = 0 }) {
           {skipDeposit && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label="Deadline Pelunasan" hint="Tgl harus lunas. Lewat = warning.">
-                <input
+                <input autoComplete="off"
                   type="date"
                   value={deadlinePelunasan}
                   onChange={(e) => setDeadlinePelunasan(e.target.value)}

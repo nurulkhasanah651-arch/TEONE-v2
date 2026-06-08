@@ -144,7 +144,7 @@ export default function PaymentChecklistTable({ trips = [] }) {
           </div>
           <div>
             <label className="text-xs font-bold text-slate-600 uppercase block mb-1">🔍 Cari Trip</label>
-            <input
+            <input autoComplete="off"
               type="text"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}

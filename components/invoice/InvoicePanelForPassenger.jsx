@@ -465,7 +465,7 @@ export default function InvoicePanelForPassenger({
                 {milestone === 'Custom' && (
                   <label className="block">
                     <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">Nama Custom</span>
-                    <input type="text" value={customMilestone} onChange={(e) => setCustomMilestone(e.target.value)}
+                    <input autoComplete="off" type="text" value={customMilestone} onChange={(e) => setCustomMilestone(e.target.value)}
                       placeholder="e.g. Tour Optional" className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white" />
                   </label>
                 )}
@@ -473,7 +473,7 @@ export default function InvoicePanelForPassenger({
                 {!isFamilyMode && (
                   <label className="block">
                     <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">Jumlah (Rp)</span>
-                    <input type="text" inputMode="numeric"
+                    <input autoComplete="off" type="text" inputMode="numeric"
                       value={fmtInput(amount)}
                       onChange={(e) => setAmount(parseInput(e.target.value))}
                       placeholder="5.000.000"
@@ -494,13 +494,13 @@ export default function InvoicePanelForPassenger({
                 {mode === 'invoice' || mode === 'family_invoice' ? (
                   <label className="block">
                     <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">Due Date</span>
-                    <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
+                    <input autoComplete="off" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
                       className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white" />
                   </label>
                 ) : (
                   <label className="block">
                     <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">Tanggal Bayar</span>
-                    <input type="date" value={paymentDate} max={new Date().toISOString().slice(0, 10)}
+                    <input autoComplete="off" type="date" value={paymentDate} max={new Date().toISOString().slice(0, 10)}
                       onChange={(e) => setPaymentDate(e.target.value)}
                       className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white" />
                   </label>
@@ -510,7 +510,7 @@ export default function InvoicePanelForPassenger({
               {isFamilyMode && (
                 <div className="border border-indigo-200 rounded p-2 bg-indigo-50/30 space-y-2">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={customPerPax}
+                    <input autoComplete="off" type="checkbox" checked={customPerPax}
                       onChange={(e) => {
                         setCustomPerPax(e.target.checked);
                         if (e.target.checked) {
@@ -536,7 +536,7 @@ export default function InvoicePanelForPassenger({
                       <span className="text-[10px] font-semibold text-slate-700 block mb-0.5">
                         Jumlah PER PAX (Rp) — auto × {familyMemberCount}
                       </span>
-                      <input type="text" inputMode="numeric" value={fmtInput(amountPerPax)}
+                      <input autoComplete="off" type="text" inputMode="numeric" value={fmtInput(amountPerPax)}
                         onChange={(e) => setAmountPerPax(parseInput(e.target.value))}
                         placeholder="5.000.000"
                         className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white" />
@@ -571,7 +571,7 @@ export default function InvoicePanelForPassenger({
                                   <span className="ml-1 text-[10px] text-amber-700">· sisa {fmtRupiah(paxSisa)}</span>
                                 )}
                               </span>
-                              <input type="text" inputMode="numeric"
+                              <input autoComplete="off" type="text" inputMode="numeric"
                                 value={fmtInput(perPaxAmounts[m.id] || '')}
                                 onChange={(e) => setPerPaxAmount(m.id, e.target.value)}
                                 placeholder="0"

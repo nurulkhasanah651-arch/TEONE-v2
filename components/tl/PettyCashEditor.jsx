@@ -112,7 +112,7 @@ export default function PettyCashEditor({ tripId, current, canEdit = false, user
             <Field label="Nominal Petty Cash (IDR)">
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">Rp</span>
-                <input
+                <input autoComplete="off"
                   type="text"
                   value={allocated}
                   onChange={(e) => setAllocated(formatNum(parseNum(e.target.value)))}
@@ -122,7 +122,7 @@ export default function PettyCashEditor({ tripId, current, canEdit = false, user
               </div>
             </Field>
             <Field label="Catatan">
-              <textarea
+              <textarea autoComplete="off"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
@@ -190,7 +190,7 @@ export default function PettyCashEditor({ tripId, current, canEdit = false, user
                 <Field label="Nominal Refund (IDR)" required>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">Rp</span>
-                    <input
+                    <input autoComplete="off"
                       type="text"
                       value={refundAmount}
                       onChange={(e) => setRefundAmount(formatNum(parseNum(e.target.value)))}
@@ -213,7 +213,7 @@ export default function PettyCashEditor({ tripId, current, canEdit = false, user
                 </div>
 
                 <Field label="Catatan">
-                  <textarea
+                  <textarea autoComplete="off"
                     value={refundNotes}
                     onChange={(e) => setRefundNotes(e.target.value)}
                     rows={2}

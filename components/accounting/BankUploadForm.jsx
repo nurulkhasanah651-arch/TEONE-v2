@@ -85,7 +85,7 @@ export default function BankUploadForm() {
         </p>
       </div>
 
-      <input
+      <input autoComplete="off"
         type="file"
         accept=".csv,.txt,text/csv"
         onChange={handleFileChange}

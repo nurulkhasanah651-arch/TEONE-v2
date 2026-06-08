@@ -316,7 +316,7 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           <div>
             <label className="text-[10px] font-bold text-slate-600 uppercase block mb-0.5">Component *</label>
-            <input
+            <input autoComplete="off"
               type="text"
               value={editForm.component}
               onChange={(e) => handleEditChange('component', e.target.value)}
@@ -325,7 +325,7 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
           </div>
           <div>
             <label className="text-[10px] font-bold text-slate-600 uppercase block mb-0.5">Vendor</label>
-            <input
+            <input autoComplete="off"
               type="text"
               value={editForm.vendor_name}
               onChange={(e) => handleEditChange('vendor_name', e.target.value)}
@@ -334,7 +334,7 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
           </div>
           <div>
             <label className="text-[10px] font-bold text-slate-600 uppercase block mb-0.5">Category</label>
-            <input
+            <input autoComplete="off"
               type="text"
               value={editForm.category}
               onChange={(e) => handleEditChange('category', e.target.value)}
@@ -364,7 +364,7 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div>
               <label className="text-[10px] text-slate-500 block mb-0.5">Qty</label>
-              <input
+              <input autoComplete="off"
                 type="number"
                 value={editForm.qty}
                 onChange={(e) => handleEditChange('qty', e.target.value)}
@@ -373,7 +373,7 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
             </div>
             <div>
               <label className="text-[10px] text-slate-500 block mb-0.5">Basic Fare (per unit)</label>
-              <input
+              <input autoComplete="off"
                 type="text"
                 inputMode="numeric"
                 value={fmtInput(editForm.basic_fare)}
@@ -385,7 +385,7 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
               <label className="text-[10px] text-slate-500 block mb-0.5">
                 Total Amount {autoCalcTotal && <span className="text-amber-600">(auto)</span>}
               </label>
-              <input
+              <input autoComplete="off"
                 type="text"
                 inputMode="numeric"
                 value={fmtInput(editForm.total_amount)}
@@ -415,7 +415,7 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
           <label className="text-[10px] font-bold text-slate-600 uppercase block mb-0.5">
             DP Paid (yg sudah dibayar)
           </label>
-          <input
+          <input autoComplete="off"
             type="text"
             inputMode="numeric"
             value={fmtInput(editForm.dp_paid)}
@@ -430,7 +430,7 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
         {/* Notes */}
         <div>
           <label className="text-[10px] font-bold text-slate-600 uppercase block mb-0.5">Notes</label>
-          <textarea
+          <textarea autoComplete="off"
             value={editForm.notes}
             onChange={(e) => handleEditChange('notes', e.target.value)}
             rows="2"
@@ -647,7 +647,7 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
             <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">
               Jumlah (Rp) {reqPhase === 'deposit' && <span className="text-amber-700">(input manual)</span>}
             </span>
-            <input
+            <input autoComplete="off"
               type="text"
               inputMode="numeric"
               value={fmtInput(reqAmount)}
@@ -658,7 +658,7 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
           </label>
           <label className="block">
             <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Catatan (Opsional)</span>
-            <input
+            <input autoComplete="off"
               type="text"
               value={reqNote}
               onChange={(e) => setReqNote(e.target.value)}
@@ -671,7 +671,7 @@ export default function FinanceItemRow({ item, tripId, isFinance = false }) {
             <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">
               📎 Upload Invoice {i.invoice_url ? '(replace)' : '(opsional)'}
             </span>
-            <input
+            <input autoComplete="off"
               ref={invoiceFileRef}
               type="file"
               accept=".pdf,.jpg,.jpeg,.png,.webp"

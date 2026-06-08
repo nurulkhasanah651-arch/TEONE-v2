@@ -192,7 +192,7 @@ function PostForm({ post, trips, campaigns, onClose }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <label className="block md:col-span-2">
               <span className="text-xs font-bold text-slate-600">Judul konten *</span>
-              <input name="title" defaultValue={post?.title || ''} required placeholder="cth: Teaser umroh Ramadhan batch 3"
+              <input autoComplete="off" name="title" defaultValue={post?.title || ''} required placeholder="cth: Teaser umroh Ramadhan batch 3"
                 className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
             </label>
             <label className="block">
@@ -205,7 +205,7 @@ function PostForm({ post, trips, campaigns, onClose }) {
             </label>
             <label className="block">
               <span className="text-xs font-bold text-slate-600">Campaign (Ads Manager)</span>
-              <input name="campaign_name" defaultValue={post?.campaign_name || ''} list="campaign-list" placeholder="nama campaign"
+              <input autoComplete="off" name="campaign_name" defaultValue={post?.campaign_name || ''} list="campaign-list" placeholder="nama campaign"
                 className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
               <datalist id="campaign-list">{campaigns.map((c) => <option key={c} value={c} />)}</datalist>
             </label>
@@ -219,7 +219,7 @@ function PostForm({ post, trips, campaigns, onClose }) {
             </label>
             <label className="block">
               <span className="text-xs font-bold text-slate-600">Tanggal tayang</span>
-              <input type="date" name="scheduled_date" defaultValue={post?.scheduled_date || ''}
+              <input autoComplete="off" type="date" name="scheduled_date" defaultValue={post?.scheduled_date || ''}
                 className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
             </label>
             <label className="block">
@@ -231,12 +231,12 @@ function PostForm({ post, trips, campaigns, onClose }) {
             </label>
             <label className="block">
               <span className="text-xs font-bold text-slate-600">PJ / Assignee</span>
-              <input name="assignee" defaultValue={post?.assignee || ''} placeholder="nama penanggung jawab"
+              <input autoComplete="off" name="assignee" defaultValue={post?.assignee || ''} placeholder="nama penanggung jawab"
                 className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
             </label>
             <label className="block md:col-span-2">
               <span className="text-xs font-bold text-slate-600">Link post IG (kalau sudah tayang)</span>
-              <input name="ig_permalink" defaultValue={post?.ig_permalink || ''} placeholder="https://www.instagram.com/p/..."
+              <input autoComplete="off" name="ig_permalink" defaultValue={post?.ig_permalink || ''} placeholder="https://www.instagram.com/p/..."
                 className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
             </label>
           </div>
@@ -250,7 +250,7 @@ function PostForm({ post, trips, campaigns, onClose }) {
                 {aiPending ? 'Membuat…' : 'Generate dari data trip'}
               </button>
             </div>
-            <input value={aiExtra} onChange={(e) => setAiExtra(e.target.value)}
+            <input autoComplete="off" value={aiExtra} onChange={(e) => setAiExtra(e.target.value)}
               placeholder="catatan gaya/angle (opsional): cth fokus promo early bird"
               className="w-full px-3 py-2 border border-purple-200 rounded-lg text-xs bg-white" />
             {aiResult?.ide_visual && (
@@ -262,7 +262,7 @@ function PostForm({ post, trips, campaigns, onClose }) {
 
           <label className="block">
             <span className="text-xs font-bold text-slate-600">Caption</span>
-            <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={7}
+            <textarea autoComplete="off" value={caption} onChange={(e) => setCaption(e.target.value)} rows={7}
               placeholder="Caption Instagram…" className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
           </label>
           {/* Performa manual (diisi dari IG Insights) */}
@@ -270,21 +270,21 @@ function PostForm({ post, trips, campaigns, onClose }) {
             <span className="text-xs font-bold text-slate-600">📊 Performa (isi manual dari Instagram Insights)</span>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               <label className="block"><span className="text-[11px] text-slate-500">❤️ Likes</span>
-                <input name="ig_likes" type="number" min="0" defaultValue={post?.ig_likes ?? ''} className="w-full mt-0.5 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" /></label>
+                <input autoComplete="off" name="ig_likes" type="number" min="0" defaultValue={post?.ig_likes ?? ''} className="w-full mt-0.5 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" /></label>
               <label className="block"><span className="text-[11px] text-slate-500">💬 Komentar</span>
-                <input name="ig_comments" type="number" min="0" defaultValue={post?.ig_comments ?? ''} className="w-full mt-0.5 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" /></label>
+                <input autoComplete="off" name="ig_comments" type="number" min="0" defaultValue={post?.ig_comments ?? ''} className="w-full mt-0.5 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" /></label>
               <label className="block"><span className="text-[11px] text-slate-500">👁 Reach</span>
-                <input name="ig_reach" type="number" min="0" defaultValue={post?.ig_reach ?? ''} className="w-full mt-0.5 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" /></label>
+                <input autoComplete="off" name="ig_reach" type="number" min="0" defaultValue={post?.ig_reach ?? ''} className="w-full mt-0.5 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" /></label>
               <label className="block"><span className="text-[11px] text-slate-500">🔖 Saves</span>
-                <input name="ig_saved" type="number" min="0" defaultValue={post?.ig_saved ?? ''} className="w-full mt-0.5 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" /></label>
+                <input autoComplete="off" name="ig_saved" type="number" min="0" defaultValue={post?.ig_saved ?? ''} className="w-full mt-0.5 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" /></label>
             </div>
             <label className="block"><span className="text-[11px] text-slate-500">Tanggal tayang aktual</span>
-              <input name="posted_date" type="date" defaultValue={post?.posted_date || ''} className="w-full mt-0.5 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" /></label>
+              <input autoComplete="off" name="posted_date" type="date" defaultValue={post?.posted_date || ''} className="w-full mt-0.5 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" /></label>
           </div>
 
           <label className="block">
             <span className="text-xs font-bold text-slate-600">Catatan internal</span>
-            <input name="notes" defaultValue={post?.notes || ''} className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+            <input autoComplete="off" name="notes" defaultValue={post?.notes || ''} className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
           </label>
 
           {error && <div className="p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">⚠ {error}</div>}
@@ -488,12 +488,12 @@ function ConnectTab({ igConnected, ig }) {
         <form onSubmit={submit} className="space-y-3">
           <label className="block">
             <span className="text-xs font-bold text-slate-600">Access Token</span>
-            <textarea name="token" rows={3} required placeholder="EAAB... (tempel token dari Graph API Explorer)"
+            <textarea autoComplete="off" name="token" rows={3} required placeholder="EAAB... (tempel token dari Graph API Explorer)"
               className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono" />
           </label>
           <label className="block">
             <span className="text-xs font-bold text-slate-600">IG User ID (opsional — otomatis dideteksi)</span>
-            <input name="ig_user_id" placeholder="kosongkan saja kalau tidak tahu"
+            <input autoComplete="off" name="ig_user_id" placeholder="kosongkan saja kalau tidak tahu"
               className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono" />
           </label>
 

@@ -182,7 +182,7 @@ export default function TripDocsSection({
             </Field>
             {category === 'other' && (
               <Field label="Nama Kategori Custom" required>
-                <input
+                <input autoComplete="off"
                   value={customCategory}
                   onChange={(e) => setCustomCategory(e.target.value)}
                   placeholder="Contoh: SOP, Cleaning Schedule, dll"
@@ -191,7 +191,7 @@ export default function TripDocsSection({
               </Field>
             )}
             <Field label="Judul Dokumen" required className={category === 'other' ? '' : 'md:col-span-1'}>
-              <input
+              <input autoComplete="off"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Contoh: Voucher Hotel Champs Elysees"
@@ -212,7 +212,7 @@ export default function TripDocsSection({
               </div>
             </div>
             <Field label="Catatan" className="md:col-span-2">
-              <input
+              <input autoComplete="off"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="(opsional)"

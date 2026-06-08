@@ -118,12 +118,12 @@ export default function TripDocuments({ tripId, documents, readOnly = false }) {
             </label>
             <label className="block">
               <span className="text-xs font-semibold text-slate-700 block mb-1">Judul / Nama Dokumen <span className="text-red-500">*</span></span>
-              <input name="title" required placeholder="Misal: Voucher Hotel Roma Day 3-5" className={inputCls} />
+              <input autoComplete="off" name="title" required placeholder="Misal: Voucher Hotel Roma Day 3-5" className={inputCls} />
             </label>
           </div>
           <label className="block">
             <span className="text-xs font-semibold text-slate-700 block mb-1">Deskripsi (opsional)</span>
-            <input name="description" placeholder="Catatan untuk TL" className={inputCls} />
+            <input autoComplete="off" name="description" placeholder="Catatan untuk TL" className={inputCls} />
           </label>
 
           <div className="flex gap-2 text-xs">
@@ -137,7 +137,7 @@ export default function TripDocuments({ tripId, documents, readOnly = false }) {
 
           {uploadMode === 'file' && (
             <div>
-              <input
+              <input autoComplete="off"
                 type="file"
                 onChange={(e) => handleFileUpload(e.target.files?.[0])}
                 disabled={uploading}
@@ -158,7 +158,7 @@ export default function TripDocuments({ tripId, documents, readOnly = false }) {
           {uploadMode === 'url' && (
             <label className="block">
               <span className="text-xs font-semibold text-slate-700 block mb-1">URL Dokumen</span>
-              <input
+              <input autoComplete="off"
                 name="file_url"
                 type="url"
                 required

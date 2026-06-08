@@ -116,7 +116,7 @@ export default function VendorReviewSection({ tripId, reviews = [], canEdit = tr
               </select>
             </Field>
             <Field label="Nama Vendor" required>
-              <input
+              <input autoComplete="off"
                 value={vendorName}
                 onChange={(e) => setVendorName(e.target.value)}
                 placeholder="Contoh: Hotel ABC / Restaurant XYZ"
@@ -124,7 +124,7 @@ export default function VendorReviewSection({ tripId, reviews = [], canEdit = tr
               />
             </Field>
             <Field label="Lokasi (Kota, Negara)" className="md:col-span-2">
-              <input
+              <input autoComplete="off"
                 value={cityCountry}
                 onChange={(e) => setCityCountry(e.target.value)}
                 placeholder="Contoh: Paris, France"
@@ -162,15 +162,15 @@ export default function VendorReviewSection({ tripId, reviews = [], canEdit = tr
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Field label="✓ Pros (kelebihan)">
-              <textarea value={pros} onChange={(e) => setPros(e.target.value)} rows={3} className={`${inputCls} resize-none`} placeholder="Hal positif..." />
+              <textarea autoComplete="off" value={pros} onChange={(e) => setPros(e.target.value)} rows={3} className={`${inputCls} resize-none`} placeholder="Hal positif..." />
             </Field>
             <Field label="✗ Cons (kekurangan)">
-              <textarea value={cons} onChange={(e) => setCons(e.target.value)} rows={3} className={`${inputCls} resize-none`} placeholder="Hal yang kurang..." />
+              <textarea autoComplete="off" value={cons} onChange={(e) => setCons(e.target.value)} rows={3} className={`${inputCls} resize-none`} placeholder="Hal yang kurang..." />
             </Field>
           </div>
 
           <Field label="Catatan tambahan">
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={`${inputCls} resize-none`} />
+            <textarea autoComplete="off" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={`${inputCls} resize-none`} />
           </Field>
 
           {error && <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">⚠ {error}</div>}
