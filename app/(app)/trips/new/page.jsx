@@ -9,12 +9,19 @@ export const dynamic = 'force-dynamic';
 
 async function fetchEmployees(supabase) {
   try {
+    // PIC dipilih dari akun yang sudah login (tabel users), bukan data karyawan.
+    // Hanya role internal yang relevan jadi PIC.
     const { data } = await supabase
-      .from('employees')
-      .select('id, full_name, email')
-      .eq('status', 'active')
-      .order('full_name');
-    return Array.isArray(data) ? data : [];
+      .from('users')
+      .select('id, name, email, role')
+      .in('role', ['pic', 'ops', 'cs', 'manager', 'team', 'finance', 'owner'])
+      .order('name');
+    return (Array.isArray(data) ? data : []).map((u) => ({
+      id: u.id,
+      full_name: u.name || (u.email ? u.email.split('@')[0] : 'User'),
+      email: u.email,
+      role: u.role,
+    }));
   } catch {
     return [];
   }

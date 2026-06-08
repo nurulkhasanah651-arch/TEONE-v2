@@ -244,7 +244,7 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
               >
                 <option value="">— Pilih PIC dari karyawan —</option>
                 {employees.map((emp) => (
-                  <option key={emp.id} value={emp.full_name}>{emp.full_name}{emp.email ? ` (${emp.email})` : ''}</option>
+                  <option key={emp.id} value={emp.full_name}>{emp.full_name}{emp.role ? ` · ${emp.role}` : ''}{emp.email ? ` (${emp.email})` : ''}</option>
                 ))}
               </select>
             ) : (
