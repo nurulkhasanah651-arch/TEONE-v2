@@ -13,6 +13,7 @@ export default function TransferPassengerButton({ passenger, allTrips = [] }) {
   const [reason, setReason] = useState('');
   const [transferFamily, setTransferFamily] = useState(false);
   const [cancelUnpaidInvoices, setCancelUnpaidInvoices] = useState(true);
+  const [forfeitAmount, setForfeitAmount] = useState('');
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
 
@@ -49,6 +50,7 @@ export default function TransferPassengerButton({ passenger, allTrips = [] }) {
         reason: reason.trim(),
         transferFamily,
         cancelUnpaidInvoices,
+        forfeitAmount: Number(String(forfeitAmount).replace(/[^0-9]/g, '')) || 0,
       });
       if (r?.error) {
         setError(r.error);
@@ -151,6 +153,23 @@ export default function TransferPassengerButton({ passenger, allTrips = [] }) {
                   className="w-full text-sm px-3 py-2 border border-slate-300 rounded-lg resize-none"
                   disabled={pending}
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Biaya Dihanguskan (opsional)</label>
+                <input autoComplete="off" type="text" inputMode="numeric"
+                  value={forfeitAmount}
+                  onChange={(e) => {
+                    const n = e.target.value.replace(/[^0-9]/g, '');
+                    setForfeitAmount(n ? Number(n).toLocaleString('id-ID') : '');
+                  }}
+                  placeholder="0"
+                  className="w-full text-sm px-3 py-2 border border-slate-300 rounded-lg font-mono"
+                  disabled={pending}
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Sebagian biaya yang <strong>tidak ikut pindah</strong> (denda). Nilai ini ditahan sebagai income trip lama, sisanya jadi kredit di trip baru.
+                </p>
               </div>
 
               {hasFamily && (
