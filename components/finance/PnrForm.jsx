@@ -16,10 +16,13 @@ function parseRupiah(s) {
   return String(s).replace(/[^0-9]/g, '');
 }
 
-export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan PNR' }) {
+export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan PNR', trips = [] }) {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
 
+  const [ticketType, setTicketType] = useState(initial.ticket_type === 'fit' ? 'fit' : 'group');
+  const [fitTotal, setFitTotal] = useState(String(initial.total_amount || 0));
+  const [fitTripId, setFitTripId] = useState(initial.trip_id || '');
   const [seats, setSeats] = useState(String(initial.seats || initial.pax || 0));
   const [ticketPrice, setTicketPrice] = useState(String(initial.ticket_price || initial.price_per_pax || 0));
   const [deposit, setDeposit] = useState(String(initial.deposit_total || 0));
@@ -48,6 +51,13 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
     formData.set('ticket_price', String(priceNum));
     formData.set('deposit_total', String(depositNum));
     formData.set('payoff_amount', String(parseInt(payoffAmount) || 0));
+    formData.set('ticket_type', ticketType);
+    if (ticketType === 'fit') {
+      formData.set('total_amount', String(parseInt(parseRupiah(fitTotal)) || 0));
+      formData.set('trip_id', fitTripId || '');
+      if (!fitTripId) { setError('Tiket FIT wajib disambungkan ke trip. Pilih trip dulu.'); setPending(false); return; }
+      if (!(parseInt(parseRupiah(fitTotal)) > 0)) { setError('Harga total tiket FIT wajib diisi.'); setPending(false); return; }
+    }
     const result = await onSubmit(formData);
     if (result?.error) {
       setError(result.error);
@@ -67,6 +77,38 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
 
   return (
     <form action={handleSubmit} className="space-y-5">
+      {/* Tipe tiket: Group (PNR) atau FIT */}
+      <div className="flex gap-2 p-1 bg-slate-100 rounded-lg">
+        <button type="button" onClick={() => setTicketType('group')}
+          className={`flex-1 py-2 text-sm font-bold rounded-md transition ${ticketType === 'group' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500'}`}>
+          ✈ Tiket Group (PNR)
+        </button>
+        <button type="button" onClick={() => setTicketType('fit')}
+          className={`flex-1 py-2 text-sm font-bold rounded-md transition ${ticketType === 'fit' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500'}`}>
+          🎫 Tiket FIT
+        </button>
+      </div>
+
+      {ticketType === 'fit' && (
+        <Section title="Tiket FIT — Sambung ke Trip">
+          <Field label="Sambungkan ke Trip" required className="md:col-span-2"
+            hint="Tiket FIT dibeli setelah trip dibuat — pilih trip tujuannya.">
+            <select value={fitTripId} onChange={(e) => setFitTripId(e.target.value)} className={inputCls}>
+              <option value="">— Pilih trip —</option>
+              {trips.map((t) => (
+                <option key={t.id} value={t.id}>{t.kode_trip || t.id} — {t.name}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Harga Total Tiket (Rp)" required className="md:col-span-2"
+            hint="Total yang sudah dibayar. Masuk ke HPP cashflow trip, TIDAK masuk lagi ke cash out accounting (dianggap sudah diinput manual).">
+            <input autoComplete="off" type="text" inputMode="numeric"
+              value={fmtRupiah(fitTotal)} onChange={(e) => setFitTotal(parseRupiah(e.target.value))}
+              className={inputCls} placeholder="cth: 12.500.000" />
+          </Field>
+        </Section>
+      )}
+
       <Section title="PNR & Rute">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="PNR Code" required>
@@ -99,7 +141,7 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
         </div>
       </Section>
 
-      <Section title="Harga & Deposit">
+      {ticketType === 'group' && <Section title="Harga & Deposit">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Harga Tiket per Seat (Rp)">
             <input autoComplete="off"
@@ -167,7 +209,7 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
             <input autoComplete="off" type="date" name="payoff_due_date" defaultValue={initial.payoff_due_date || ''} className={inputCls} />
           </Field>
         </div>
-      </Section>
+      </Section>}
 
       <Field label="Catatan (opsional)">
         <textarea autoComplete="off" name="notes" defaultValue={initial.vendor_notes || initial.notes || ''} rows="3" className={inputCls + ' resize-none'} placeholder="Catatan tambahan tentang PNR ini..." />

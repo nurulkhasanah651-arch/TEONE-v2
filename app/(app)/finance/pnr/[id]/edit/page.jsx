@@ -11,6 +11,11 @@ export default async function EditPnrPage({ params }) {
 
   if (error || !pnr) notFound();
 
+  const { data: trips } = await supabase
+    .from('trips').select('id, kode_trip, name, departure, status')
+    .order('departure', { ascending: false, nullsFirst: false });
+  const activeTrips = (trips || []).filter((t) => t.status !== 'completed' && t.status !== 'cancelled');
+
   const updateThisPnr = updatePnr.bind(null, id);
 
   return (
@@ -25,7 +30,7 @@ export default async function EditPnrPage({ params }) {
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-6">
-        <PnrForm initial={pnr} onSubmit={updateThisPnr} submitLabel="Update PNR" />
+        <PnrForm initial={pnr} onSubmit={updateThisPnr} submitLabel="Update PNR" trips={activeTrips} />
       </div>
     </div>
   );
