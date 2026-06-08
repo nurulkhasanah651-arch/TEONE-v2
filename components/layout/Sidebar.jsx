@@ -20,6 +20,7 @@ const NAV = [
   { href: '/finance',         label: 'Finance',      icon: '$',  roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
   { href: '/accounting',      label: 'Accounting',   icon: '📊', roles: ['owner', 'accounting'] },
   { href: '/hr',              label: 'HR',           icon: '🧑', roles: ['owner', 'accounting'] },
+  { href: '/hr/attendance',   label: 'Absensi',      icon: '🕐', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
   { href: '/invoices',        label: 'Invoices',     icon: '🧾', roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
   { href: '/refunds',         label: 'Refunds',      icon: '💸', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
   { href: '/visa',            label: 'Visa',         icon: '🛂', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },

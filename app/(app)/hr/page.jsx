@@ -128,17 +128,17 @@ export default async function HRDashboardPage() {
           <p className="text-xs text-slate-500 mt-0.5">List semua TL · {tlCount} aktif</p>
         </Link>
 
-        <div className="block bg-slate-50 rounded-xl border border-slate-200 p-5 opacity-50">
+        <Link href="/hr/attendance" className="block bg-white rounded-xl border border-slate-200 shadow-card hover:shadow-card-hover transition-all p-5">
           <div className="text-3xl mb-2">🕐</div>
-          <p className="font-bold text-slate-500">Absensi</p>
-          <p className="text-xs text-slate-400 mt-0.5">🔜 Coming Soon (R177)</p>
-        </div>
+          <p className="font-bold text-brand-700">Absensi</p>
+          <p className="text-xs text-slate-400 mt-0.5">Check-in/out & rekap kehadiran</p>
+        </Link>
 
-        <div className="block bg-slate-50 rounded-xl border border-slate-200 p-5 opacity-50">
+        <Link href="/hr/kpi" className="block bg-white rounded-xl border border-slate-200 shadow-card hover:shadow-card-hover transition-all p-5">
           <div className="text-3xl mb-2">🎯</div>
-          <p className="font-bold text-slate-500">KPI</p>
-          <p className="text-xs text-slate-400 mt-0.5">🔜 Coming Soon (R178)</p>
-        </div>
+          <p className="font-bold text-brand-700">KPI</p>
+          <p className="text-xs text-slate-400 mt-0.5">Target & realisasi per karyawan</p>
+        </Link>
       </div>
 
       {/* QUICK ACTIONS */}
