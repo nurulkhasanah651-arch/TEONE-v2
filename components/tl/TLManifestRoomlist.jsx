@@ -44,10 +44,63 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
 
   const isSavedFinal = Array.isArray(trip?.final_roomlist?.rooms) && trip.final_roomlist.rooms.length > 0;
 
+  async function downloadExcel() {
+    try {
+      const XLSX = await import('xlsx');
+      const wb = XLSX.utils.book_new();
+
+      // Sheet Manifest
+      const manifestAoa = [
+        [`MANIFEST — ${trip?.name || ''}`],
+        [`${fmtDate(trip?.departure)} s/d ${fmtDate(trip?.return_date || trip?.arrival)}`],
+        [''],
+        ['No.', 'Nama', 'L/P', 'No. Paspor', 'Tgl Lahir', 'Exp Paspor', 'No. HP'],
+        ...passengers.map((p, idx) => {
+          const c = customerMap[p.customer_id] || {};
+          const g = normalizeGender({ gender: p.gender || p.sex || c.gender || c.sex });
+          return [
+            idx + 1,
+            c.name || '',
+            g === 'M' ? 'L' : g === 'F' ? 'P' : '',
+            c.passport_no || c.passport_number || '',
+            fmtDate(c.birthday || c.dob),
+            fmtDate(c.passport_expiry),
+            c.phone || c.whatsapp || '',
+          ];
+        }),
+      ];
+      const wsM = XLSX.utils.aoa_to_sheet(manifestAoa);
+      wsM['!cols'] = [{ wch: 5 }, { wch: 26 }, { wch: 5 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 16 }];
+      XLSX.utils.book_append_sheet(wb, wsM, 'Manifest');
+
+      // Sheet Roomlist
+      const roomAoa = [
+        [`ROOMLIST — ${trip?.name || ''}`],
+        [''],
+        ['Room#', 'Type', 'Family', 'Label', 'Pax 1', 'Pax 2', 'Pax 3', 'Pax 4', 'Note'],
+        ...rooms.map((r) => {
+          const names = [0, 1, 2, 3].map((i) => {
+            const m = r.members[i];
+            return m ? `${m.name}${m.gender && m.gender !== '?' ? ` (${m.gender === 'M' ? 'L' : 'P'})` : ''}` : '';
+          });
+          return [r.room_no, (r.room_type || '').toUpperCase(), r.is_family ? 'YA' : '', r.label || '', ...names, r.note || ''];
+        }),
+      ];
+      const wsR = XLSX.utils.aoa_to_sheet(roomAoa);
+      wsR['!cols'] = [{ wch: 7 }, { wch: 10 }, { wch: 7 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 28 }];
+      XLSX.utils.book_append_sheet(wb, wsR, 'Roomlist');
+
+      XLSX.writeFile(wb, `Manifest-Roomlist - ${trip?.kode_trip || trip?.name || 'trip'}.xlsx`);
+    } catch (e) {
+      alert('Gagal download: ' + (e?.message || e));
+    }
+  }
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
         <h2 className="font-bold text-brand-700 flex-1">📋 Manifest & Roomlist</h2>
+        <button onClick={downloadExcel} className="px-3 py-1 rounded font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white">📥 Download</button>
         <div className="flex gap-1 text-xs">
           <button
             onClick={() => setTab('manifest')}
