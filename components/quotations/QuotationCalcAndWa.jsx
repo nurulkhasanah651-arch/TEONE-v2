@@ -31,10 +31,14 @@ export default function QuotationCalcAndWa({ quotation, canSeeProfit }) {
   function sendWa() {
     setMsg(null);
     startTransition(async () => {
-      const r = await sendQuotationWa(quotation.id, waPhone);
-      if (r?.error) { setMsg({ type: 'error', text: r.error }); return; }
-      setMsg({ type: 'ok', text: `Penawaran terkirim via WhatsApp ke ${r.sentTo}` });
-      router.refresh();
+      try {
+        const r = await sendQuotationWa(quotation.id, waPhone);
+        if (r?.error) { setMsg({ type: 'error', text: r.error }); return; }
+        setMsg({ type: 'ok', text: `Penawaran terkirim via WhatsApp ke ${r.sentTo}` });
+        router.refresh();
+      } catch (e) {
+        setMsg({ type: 'error', text: 'Gagal kirim WA: ' + (e?.message || 'error') });
+      }
     });
   }
 
@@ -70,14 +74,18 @@ export default function QuotationCalcAndWa({ quotation, canSeeProfit }) {
   function saveCosts() {
     setMsg(null);
     startTransition(async () => {
-      const r = await saveQuotationCosts(quotation.id, {
-        cost_breakdown: rows.filter((x) => x.label || x.amount),
-        cost_mode: 'per_pax',
-        selling_price_for_calc: sellPrice,
-      });
-      if (r?.error) { setMsg({ type: 'error', text: r.error }); return; }
-      setMsg({ type: 'ok', text: 'Perhitungan tersimpan' });
-      router.refresh();
+      try {
+        const r = await saveQuotationCosts(quotation.id, {
+          cost_breakdown: rows.filter((x) => x.label || x.amount),
+          cost_mode: 'per_pax',
+          selling_price_for_calc: sellPrice,
+        });
+        if (r?.error) { setMsg({ type: 'error', text: r.error }); return; }
+        setMsg({ type: 'ok', text: 'Perhitungan tersimpan' });
+        router.refresh();
+      } catch (e) {
+        setMsg({ type: 'error', text: 'Gagal menyimpan: ' + (e?.message || 'error') });
+      }
     });
   }
 
