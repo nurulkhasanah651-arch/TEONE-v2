@@ -265,6 +265,23 @@ function PostForm({ post, trips, campaigns, onClose }) {
             <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={7}
               placeholder="Caption Instagram…" className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
           </label>
+          {/* Performa manual (diisi dari IG Insights) */}
+          <div className="border border-slate-200 rounded-xl p-3 space-y-2">
+            <span className="text-xs font-bold text-slate-600">📊 Performa (isi manual dari Instagram Insights)</span>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <label className="block"><span className="text-[11px] text-slate-500">❤️ Likes</span>
+                <input name="ig_likes" type="number" min="0" defaultValue={post?.ig_likes ?? ''} className="w-full mt-0.5 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" /></label>
+              <label className="block"><span className="text-[11px] text-slate-500">💬 Komentar</span>
+                <input name="ig_comments" type="number" min="0" defaultValue={post?.ig_comments ?? ''} className="w-full mt-0.5 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" /></label>
+              <label className="block"><span className="text-[11px] text-slate-500">👁 Reach</span>
+                <input name="ig_reach" type="number" min="0" defaultValue={post?.ig_reach ?? ''} className="w-full mt-0.5 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" /></label>
+              <label className="block"><span className="text-[11px] text-slate-500">🔖 Saves</span>
+                <input name="ig_saved" type="number" min="0" defaultValue={post?.ig_saved ?? ''} className="w-full mt-0.5 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" /></label>
+            </div>
+            <label className="block"><span className="text-[11px] text-slate-500">Tanggal tayang aktual</span>
+              <input name="posted_date" type="date" defaultValue={post?.posted_date || ''} className="w-full mt-0.5 px-2 py-1.5 border border-slate-300 rounded-lg text-sm" /></label>
+          </div>
+
           <label className="block">
             <span className="text-xs font-bold text-slate-600">Catatan internal</span>
             <input name="notes" defaultValue={post?.notes || ''} className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
@@ -293,13 +310,7 @@ function IgTab({ ig, igFetchedAt, posts, campaignStats, onRefresh, pending }) {
   const [, startTransition] = useTransition();
 
   if (!ig) {
-    return (
-      <div className="bg-white border border-slate-200 rounded-xl p-10 text-center space-y-2">
-        <p className="text-3xl">📈</p>
-        <p className="text-sm font-bold text-slate-700">Instagram belum terhubung</p>
-        <p className="text-xs text-slate-500">Buka tab <b>⚙️ Koneksi</b> untuk menghubungkan akun IG Business kamu.</p>
-      </div>
-    );
+    return <ManualPerformance posts={posts} campaignStats={campaignStats} />;
   }
 
   const media = ig.media || [];
@@ -499,6 +510,89 @@ function ConnectTab({ igConnected, ig }) {
           💡 Token dari Graph API Explorer berumur pendek (±1-2 jam). Untuk token panjang (60 hari), buka <b>Tools → Access Token Debugger</b> → klik <b>Extend Access Token</b>, lalu tempel token hasil extend di sini. Hanya owner/manager yang bisa mengubah koneksi.
         </p>
       </div>
+    </div>
+  );
+}
+
+
+// ═══════════════ PERFORMA MANUAL (saat IG belum terhubung) ═══════════════
+
+function ManualPerformance({ posts, campaignStats }) {
+  const withMetrics = posts.filter((p) => p.ig_likes != null || p.ig_comments != null || p.ig_reach != null || p.ig_saved != null);
+  const totals = withMetrics.reduce((a, p) => ({
+    likes: a.likes + (p.ig_likes || 0),
+    comments: a.comments + (p.ig_comments || 0),
+    reach: a.reach + (p.ig_reach || 0),
+    saved: a.saved + (p.ig_saved || 0),
+  }), { likes: 0, comments: 0, reach: 0, saved: 0 });
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+        📊 <b>Mode manual.</b> Instagram API belum terhubung — angka di sini diisi tangan dari Instagram Insights lewat tombol ✏️ Edit di tiap konten (kolom Performa). Begitu koneksi IG resmi aktif di tab ⚙️ Koneksi, data akan otomatis.
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[['❤️ Total Likes', totals.likes], ['💬 Total Komentar', totals.comments], ['👁 Total Reach', totals.reach], ['🔖 Total Saves', totals.saved]].map(([label, val]) => (
+          <div key={label} className="bg-white border border-slate-200 rounded-xl p-4">
+            <p className="text-[11px] text-slate-500 font-bold uppercase">{label}</p>
+            <p className="text-2xl font-bold text-slate-800 mt-1">{fmtNum(val)}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">Performa per Konten</div>
+        {withMetrics.length === 0 ? (
+          <p className="px-4 py-8 text-center text-xs text-slate-400">Belum ada konten dengan angka performa. Edit konten di tab 📅 Kalender, isi bagian 📊 Performa.</p>
+        ) : (
+          <table className="w-full text-xs">
+            <thead><tr className="text-left text-slate-500 border-b border-slate-100">
+              <th className="px-4 py-2">Konten</th><th className="px-2 py-2">Campaign</th>
+              <th className="px-2 py-2">❤️</th><th className="px-2 py-2">💬</th><th className="px-2 py-2">👁</th><th className="px-2 py-2">🔖</th>
+            </tr></thead>
+            <tbody>
+              {withMetrics.map((p) => (
+                <tr key={p.id} className="border-b border-slate-50">
+                  <td className="px-4 py-2 font-bold text-slate-700">{p.title}</td>
+                  <td className="px-2 py-2 text-slate-500">{p.campaign_name || '—'}</td>
+                  <td className="px-2 py-2">{fmtNum(p.ig_likes)}</td>
+                  <td className="px-2 py-2">{fmtNum(p.ig_comments)}</td>
+                  <td className="px-2 py-2">{fmtNum(p.ig_reach)}</td>
+                  <td className="px-2 py-2">{fmtNum(p.ig_saved)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Campaign × Konten (manual) */}
+      {Object.keys(campaignStats).length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+          <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">📢 Campaign × Konten</div>
+          <table className="w-full text-xs">
+            <thead><tr className="text-left text-slate-500 border-b border-slate-100">
+              <th className="px-4 py-2">Campaign</th><th className="px-2 py-2">Spend</th><th className="px-2 py-2">Leads</th><th className="px-2 py-2">Konten</th><th className="px-2 py-2">Engagement</th>
+            </tr></thead>
+            <tbody>
+              {Object.entries(campaignStats).map(([name, st]) => {
+                const linked = posts.filter((p) => p.campaign_name === name);
+                const eng = linked.reduce((a, p) => a + (p.ig_likes || 0) + (p.ig_comments || 0), 0);
+                return (
+                  <tr key={name} className="border-b border-slate-50">
+                    <td className="px-4 py-2 font-bold text-slate-700">{name}</td>
+                    <td className="px-2 py-2">{fmtRp(st.spend)}</td>
+                    <td className="px-2 py-2">{fmtNum(st.leads)}</td>
+                    <td className="px-2 py-2">{linked.length}</td>
+                    <td className="px-2 py-2">{fmtNum(eng)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
