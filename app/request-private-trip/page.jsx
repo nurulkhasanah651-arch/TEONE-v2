@@ -4,7 +4,7 @@
 // Path: app/request-private-trip/page.jsx
 // URL: teone.dev/request-private-trip
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { submitPrivateTripRequest } from '@/lib/actions/private-trip-request';
 
@@ -27,7 +27,7 @@ const ACCOMMODATION_TYPES = [
   { value: 'flexible', label: '🤝 Fleksibel / Sesuai Saran Tim' },
 ];
 
-export default function RequestPrivateTripPage() {
+function RequestPrivateTripForm() {
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [done, setDone] = useState(false);
@@ -279,3 +279,11 @@ function Field({ label, required, children }) {
 }
 
 const inputCls = 'w-full px-3 py-2.5 border-2 border-slate-200 rounded-lg text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none bg-white transition';
+
+export default function RequestPrivateTripPage() {
+  return (
+    <Suspense fallback={null}>
+      <RequestPrivateTripForm />
+    </Suspense>
+  );
+}
