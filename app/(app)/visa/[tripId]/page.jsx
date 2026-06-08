@@ -20,6 +20,7 @@ import VisaTemplateEditor from '@/components/visa/VisaTemplateEditor';
 import VisaDocsDownloadPanel from '@/components/visa/VisaDocsDownloadPanel';
 // R215t — Drive sync
 import VisaDriveSyncPanel from '@/components/visa/VisaDriveSyncPanel';
+import ManifestDownloadButton from '@/components/common/ManifestDownloadButton';
 // R215s — auto-mark uploads as viewed
 import { markTripUploadsAsViewed } from '@/lib/actions/visa-mark-viewed';
 
@@ -167,6 +168,10 @@ export default async function VisaTripPage({ params }) {
 
       {/* R215o — Template Editor (CS edit template WA) */}
       <VisaTemplateEditor trip={trip} />
+
+      <div className="flex justify-end">
+        <ManifestDownloadButton tripId={tripId} />
+      </div>
 
       {/* R215t — Google Drive Sync (auto upload ke Drive folder per peserta) */}
       <VisaDriveSyncPanel trip={trip} />

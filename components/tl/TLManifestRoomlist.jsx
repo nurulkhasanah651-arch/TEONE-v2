@@ -5,6 +5,7 @@
 // kalau belum ada → auto-generate dari room type + gender + family.
 import { useMemo, useState } from 'react';
 import { generateRoomlist, normalizeGender } from '@/lib/utils/roomlist';
+import { calcAge } from '@/lib/utils/format';
 
 function fmtDate(s) {
   if (!s) return '—';
@@ -54,23 +55,28 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
         [`MANIFEST — ${trip?.name || ''}`],
         [`${fmtDate(trip?.departure)} s/d ${fmtDate(trip?.return_date || trip?.arrival)}`],
         [''],
-        ['No.', 'Nama', 'L/P', 'No. Paspor', 'Tgl Lahir', 'Exp Paspor', 'No. HP'],
+        ['No.', 'First Name', 'Last Name', 'Gender', 'Tempat Lahir', 'Tgl Lahir', 'Umur', 'No. Paspor', 'Tgl Issue', 'Issuing Office', 'Tgl Expired', 'No. HP'],
         ...passengers.map((p, idx) => {
           const c = customerMap[p.customer_id] || {};
           const g = normalizeGender({ gender: p.gender || p.sex || c.gender || c.sex });
+          const first = c.first_name || (c.name ? c.name.split(' ')[0] : '');
+          const last = c.surname || c.last_name || (c.name ? c.name.split(' ').slice(1).join(' ') : '');
+          const birth = c.birthday || c.dob || c.date_of_birth;
           return [
-            idx + 1,
-            c.name || '',
+            idx + 1, first, last,
             g === 'M' ? 'L' : g === 'F' ? 'P' : '',
+            c.place_of_birth || c.city || '',
+            fmtDate(birth), calcAge(birth) ?? '',
             c.passport_no || c.passport_number || '',
-            fmtDate(c.birthday || c.dob),
-            fmtDate(c.passport_expiry),
+            fmtDate(c.passport_issued_date || c.issue_date),
+            c.passport_issued_at || c.issuing_office || '',
+            fmtDate(c.passport_expiry || c.expiry_date),
             c.phone || c.whatsapp || '',
           ];
         }),
       ];
       const wsM = XLSX.utils.aoa_to_sheet(manifestAoa);
-      wsM['!cols'] = [{ wch: 5 }, { wch: 26 }, { wch: 5 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 16 }];
+      wsM['!cols'] = [{ wch: 5 }, { wch: 18 }, { wch: 18 }, { wch: 7 }, { wch: 16 }, { wch: 13 }, { wch: 6 }, { wch: 18 }, { wch: 13 }, { wch: 18 }, { wch: 13 }, { wch: 16 }];
       XLSX.utils.book_append_sheet(wb, wsM, 'Manifest');
 
       // Sheet Roomlist
@@ -119,32 +125,43 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
             <thead className="bg-slate-50 border-b border-slate-200 text-left text-[11px] font-bold text-slate-600 uppercase">
               <tr>
                 <th className="px-3 py-2">#</th>
-                <th className="px-3 py-2">Nama</th>
+                <th className="px-3 py-2">First Name</th>
+                <th className="px-3 py-2">Last Name</th>
                 <th className="px-3 py-2">L/P</th>
-                <th className="px-3 py-2">No. Paspor</th>
+                <th className="px-3 py-2">Tempat Lahir</th>
                 <th className="px-3 py-2">Tgl Lahir</th>
-                <th className="px-3 py-2">Exp Paspor</th>
-                <th className="px-3 py-2">No. HP</th>
+                <th className="px-3 py-2">Umur</th>
+                <th className="px-3 py-2">No. Paspor</th>
+                <th className="px-3 py-2">Issue</th>
+                <th className="px-3 py-2">Office</th>
+                <th className="px-3 py-2">Expired</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {passengers.map((p, idx) => {
                 const c = customerMap[p.customer_id] || {};
                 const g = normalizeGender({ gender: p.gender || p.sex || c.gender || c.sex });
+                const first = c.first_name || (c.name ? c.name.split(' ')[0] : '');
+                const last = c.surname || c.last_name || (c.name ? c.name.split(' ').slice(1).join(' ') : '');
+                const birth = c.birthday || c.dob || c.date_of_birth;
                 return (
                   <tr key={p.id}>
                     <td className="px-3 py-2 text-slate-400">{idx + 1}</td>
-                    <td className="px-3 py-2 font-semibold text-slate-800">{c.name || '—'}</td>
+                    <td className="px-3 py-2 font-semibold text-slate-800">{first || '—'}</td>
+                    <td className="px-3 py-2 font-semibold text-slate-800">{last || '—'}</td>
                     <td className="px-3 py-2">{g === 'M' ? 'L' : g === 'F' ? 'P' : '—'}</td>
+                    <td className="px-3 py-2">{c.place_of_birth || c.city || '—'}</td>
+                    <td className="px-3 py-2">{fmtDate(birth)}</td>
+                    <td className="px-3 py-2">{calcAge(birth) ?? '—'}</td>
                     <td className="px-3 py-2 font-mono">{c.passport_no || c.passport_number || '—'}</td>
-                    <td className="px-3 py-2">{fmtDate(c.birthday || c.dob)}</td>
-                    <td className="px-3 py-2">{fmtDate(c.passport_expiry)}</td>
-                    <td className="px-3 py-2 text-slate-500">{c.phone || c.whatsapp || '—'}</td>
+                    <td className="px-3 py-2">{fmtDate(c.passport_issued_date || c.issue_date)}</td>
+                    <td className="px-3 py-2">{c.passport_issued_at || c.issuing_office || '—'}</td>
+                    <td className="px-3 py-2">{fmtDate(c.passport_expiry || c.expiry_date)}</td>
                   </tr>
                 );
               })}
               {passengers.length === 0 && (
-                <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-500">Belum ada peserta.</td></tr>
+                <tr><td colSpan={11} className="px-3 py-6 text-center text-slate-500">Belum ada peserta.</td></tr>
               )}
             </tbody>
           </table>
