@@ -45,6 +45,9 @@ export default function PnrRow({ pnr }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-mono font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded">{pnr.pnr}</span>
+            {pnr.ticket_type === 'fit'
+              ? <span className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-bold">🎫 FIT</span>
+              : <span className="text-xs px-2 py-0.5 rounded bg-sky-100 text-sky-700 font-bold">✈ GROUP</span>}
             {pnr.vendor && <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">{pnr.vendor}</span>}
             {pnr.trip_id && (
               <Link href={`/trips/${pnr.trip_id}`} className="text-xs px-2 py-0.5 rounded bg-green-50 text-green-700 hover:bg-green-100 font-semibold">
@@ -58,16 +61,23 @@ export default function PnrRow({ pnr }) {
           </div>
           <p className="mt-1.5 text-sm font-semibold text-slate-800">{pnr.route || '—'}</p>
           <p className="text-xs text-slate-500 mt-0.5">
-            {pnr.departure_date && `Berangkat ${fmtDate(pnr.departure_date)} · `}
-            {pnr.seats > 0 && `${pnr.seats} seat · `}
-            {pnr.ticket_price > 0 && `${fmtRupiah(pnr.ticket_price)}/seat`}
+            {pnr.departure_date && `Berangkat ${fmtDate(pnr.departure_date)}`}
+            {pnr.ticket_type !== 'fit' && pnr.seats > 0 && ` · ${pnr.seats} seat`}
+            {pnr.ticket_type !== 'fit' && pnr.ticket_price > 0 && ` · ${fmtRupiah(pnr.ticket_price)}/seat`}
           </p>
-          <div className="mt-2 flex flex-wrap gap-3 text-xs">
-            <span className="text-amber-700"><span className="font-semibold">DP:</span> {fmtRupiah(pnr.deposit_total || 0)}{pnr.deposit_date ? ` (${fmtDate(pnr.deposit_date)})` : ''}</span>
-            <span className="text-green-700"><span className="font-semibold">Pelunasan:</span> {fmtRupiah(pnr.payoff_amount || 0)}{pnr.payoff_date ? ` (${fmtDate(pnr.payoff_date)})` : ''}</span>
-            <span className={balance > 0 ? 'text-red-700' : 'text-blue-700'}><span className="font-semibold">Sisa:</span> {fmtRupiah(balance)}</span>
-            {pnr.payoff_due_date && <span className="text-slate-700"><span className="font-semibold">Deadline:</span> {fmtDate(pnr.payoff_due_date)}</span>}
-          </div>
+          {pnr.ticket_type === 'fit' ? (
+            <div className="mt-2 flex flex-wrap gap-3 text-xs">
+              <span className="text-purple-700 font-semibold">Harga Total: {fmtRupiah(pnr.total_amount || 0)}</span>
+              <span className="text-blue-700">✓ Lunas (input manual) · masuk HPP, bukan cash out</span>
+            </div>
+          ) : (
+            <div className="mt-2 flex flex-wrap gap-3 text-xs">
+              <span className="text-amber-700"><span className="font-semibold">DP:</span> {fmtRupiah(pnr.deposit_total || 0)}{pnr.deposit_date ? ` (${fmtDate(pnr.deposit_date)})` : ''}</span>
+              <span className="text-green-700"><span className="font-semibold">Pelunasan:</span> {fmtRupiah(pnr.payoff_amount || 0)}{pnr.payoff_date ? ` (${fmtDate(pnr.payoff_date)})` : ''}</span>
+              <span className={balance > 0 ? 'text-red-700' : 'text-blue-700'}><span className="font-semibold">Sisa:</span> {fmtRupiah(balance)}</span>
+              {pnr.payoff_due_date && <span className="text-slate-700"><span className="font-semibold">Deadline:</span> {fmtDate(pnr.payoff_due_date)}</span>}
+            </div>
+          )}
           {pnr.vendor_notes && <p className="mt-1 text-xs italic text-slate-500">📝 {pnr.vendor_notes}</p>}
         </div>
         <div className="flex gap-1.5 flex-wrap">
@@ -78,11 +88,11 @@ export default function PnrRow({ pnr }) {
             <button onClick={handleUnlink} disabled={pending} className="text-xs px-2.5 py-1 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 font-semibold transition-colors disabled:opacity-50">
               🔓 Unlink
             </button>
-          ) : (
+          ) : pnr.ticket_type !== 'fit' ? (
             <button onClick={handleConvert} disabled={pending} className="text-xs px-2.5 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold transition-colors disabled:opacity-50">
               → Convert to Trip
             </button>
-          )}
+          ) : null}
           <button onClick={handleDelete} disabled={pending} className="text-xs px-2.5 py-1 rounded bg-red-50 text-red-700 hover:bg-red-100 font-semibold transition-colors disabled:opacity-50">
             🗑
           </button>

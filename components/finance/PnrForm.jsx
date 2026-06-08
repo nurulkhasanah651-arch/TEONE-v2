@@ -23,6 +23,7 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
   const [ticketType, setTicketType] = useState(initial.ticket_type === 'fit' ? 'fit' : 'group');
   const [fitTotal, setFitTotal] = useState(String(initial.total_amount || 0));
   const [fitTripId, setFitTripId] = useState(initial.trip_id || '');
+  const [groupTripId, setGroupTripId] = useState(initial.ticket_type === 'fit' ? '' : (initial.trip_id || ''));
   const [seats, setSeats] = useState(String(initial.seats || initial.pax || 0));
   const [ticketPrice, setTicketPrice] = useState(String(initial.ticket_price || initial.price_per_pax || 0));
   const [deposit, setDeposit] = useState(String(initial.deposit_total || 0));
@@ -52,6 +53,9 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
     formData.set('deposit_total', String(depositNum));
     formData.set('payoff_amount', String(parseInt(payoffAmount) || 0));
     formData.set('ticket_type', ticketType);
+    if (ticketType === 'group') {
+      formData.set('trip_id', groupTripId || '');
+    }
     if (ticketType === 'fit') {
       formData.set('total_amount', String(parseInt(parseRupiah(fitTotal)) || 0));
       formData.set('trip_id', fitTripId || '');
@@ -207,6 +211,15 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
           </Field>
           <Field label="Deadline Pelunasan" hint="Tanggal terakhir yang harus dilunasi">
             <input autoComplete="off" type="date" name="payoff_due_date" defaultValue={initial.payoff_due_date || ''} className={inputCls} />
+          </Field>
+          <Field label="Sambungkan ke Trip (opsional)" className="md:col-span-2"
+            hint="Kosongkan kalau mau jadikan trip baru lewat 'Convert'. Pilih trip kalau PNR ini nempel ke trip yang sudah ada (satu trip bisa beberapa PNR + FIT).">
+            <select value={groupTripId} onChange={(e) => setGroupTripId(e.target.value)} className={inputCls}>
+              <option value="">— Tidak disambung (convert nanti) —</option>
+              {trips.map((t) => (
+                <option key={t.id} value={t.id}>{t.kode_trip || t.id} — {t.name}</option>
+              ))}
+            </select>
           </Field>
         </div>
       </Section>}

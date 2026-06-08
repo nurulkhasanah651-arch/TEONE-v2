@@ -35,6 +35,8 @@ export default async function PnrListPage() {
   const totalPayoff = (pnrs || []).reduce((s, p) => s + (p.payoff_amount || 0), 0);
   const unlinked = (pnrs || []).filter((p) => !p.trip_id).length;
   const linked = (pnrs || []).filter((p) => p.trip_id).length;
+  const groupCount = (pnrs || []).filter((p) => p.ticket_type !== 'fit').length;
+  const fitCount = (pnrs || []).filter((p) => p.ticket_type === 'fit').length;
 
   // R156: prep rows untuk download
   const fmtMoney = (v) => `Rp ${Number(v || 0).toLocaleString('id-ID')}`;
@@ -108,8 +110,9 @@ export default async function PnrListPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Total PNR" value={(pnrs || []).length} color="text-brand-700" bg="bg-brand-50" />
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <StatCard label="✈ Group (PNR)" value={groupCount} color="text-sky-700" bg="bg-sky-50" />
+        <StatCard label="🎫 FIT" value={fitCount} color="text-purple-700" bg="bg-purple-50" />
         <StatCard label="Linked to Trip" value={linked} color="text-green-700" bg="bg-green-50" />
         <StatCard label="Total Deposit" value={fmtRupiah(totalDeposit)} color="text-amber-700" bg="bg-amber-50" small />
         <StatCard label="Total Pelunasan" value={fmtRupiah(totalPayoff)} color="text-blue-700" bg="bg-blue-50" small />
