@@ -229,6 +229,7 @@ export default function ChatBox({
               placeholder="Ketik pesan ke semua tim..."
               className="flex-1 px-3 py-2 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-brand-500 outline-none"
             />
+            <EmojiButton targetId="public-msg-input" />
             <button type="submit" disabled={pending} className="px-5 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded disabled:opacity-50">
               {pending ? '...' : 'Kirim'}
             </button>
@@ -305,6 +306,7 @@ export default function ChatBox({
                     placeholder={`Pesan ke ${dmRecipient?.name || 'user'}...`}
                     className="flex-1 px-3 py-2 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-brand-500 outline-none"
                   />
+                  <EmojiButton targetId="personal-msg-input" />
                   <button type="submit" disabled={pending} className="px-5 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded disabled:opacity-50">
                     {pending ? '...' : 'Kirim'}
                   </button>
@@ -341,3 +343,42 @@ function MessageBubble({ message, isMine }) {
     </div>
   );
 }
+
+// Emoji picker sederhana untuk input chat
+const CHAT_EMOJIS = ['😀','😁','😂','🤣','😊','😍','😘','😎','🤗','🤔','😅','😇','🙂','😉','😋','😌','😴','🤤','😭','😢','😡','😤','🥺','😳','🙄','😬','🤭','🤝','🙏','👍','👎','👌','👏','🙌','💪','✌️','🤞','👋','💯','🔥','✨','⭐','🎉','🎊','❤️','🧡','💛','💚','💙','💜','🤍','💔','✅','❌','⚠️','📌','📍','🕋','✈️','🧳','💰','💸','🤲','☪️','🌙'];
+
+function EmojiButton({ targetId }) {
+  const [open, setOpen] = useState(false);
+  function insert(em) {
+    const el = document.getElementById(targetId);
+    if (el) {
+      const start = el.selectionStart ?? el.value.length;
+      const end = el.selectionEnd ?? el.value.length;
+      el.value = el.value.slice(0, start) + em + el.value.slice(end);
+      const pos = start + em.length;
+      el.focus();
+      try { el.setSelectionRange(pos, pos); } catch {}
+    }
+    setOpen(false);
+  }
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        className="px-2 py-2 text-lg rounded hover:bg-slate-100" title="Emoji" aria-label="Emoji">
+        😊
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute bottom-12 right-0 z-20 bg-white border border-slate-200 rounded-lg shadow-lg p-2 w-64 max-h-48 overflow-y-auto grid grid-cols-8 gap-1">
+            {CHAT_EMOJIS.map((em) => (
+              <button key={em} type="button" onClick={() => insert(em)}
+                className="text-xl hover:bg-slate-100 rounded p-0.5">{em}</button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
