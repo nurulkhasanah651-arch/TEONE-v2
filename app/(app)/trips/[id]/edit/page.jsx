@@ -16,7 +16,7 @@ async function fetchEmployees(supabase) {
     const { data } = await supabase
       .from('users')
       .select('id, name, email, role')
-      .in('role', ['pic', 'ops', 'cs', 'manager', 'team', 'finance', 'owner'])
+      .not('role', 'in', '(tl,tour_leader,pending)')
       .order('name');
     return (Array.isArray(data) ? data : []).map((u) => ({
       id: u.id,
