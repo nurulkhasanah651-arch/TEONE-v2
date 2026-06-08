@@ -1,6 +1,6 @@
 'use client';
 
-// Round 173 SAFE: Sidebar — kembali ke versi stabil R164 + cuma tambah 1 entry HR
+// Round 173 SAFE + R224: Sidebar — tambah Private Trip Request menu
 // Path: components/layout/Sidebar.jsx
 
 import { useEffect, useState } from 'react';
@@ -13,6 +13,7 @@ const NAV = [
   { href: '/dashboard',       label: 'Dashboard',    icon: '◆',  roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
   { href: '/trips',           label: 'Master Trip',  icon: '✈',  roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
   { href: '/cs',              label: 'CS Daily',     icon: '☎',  roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
+  { href: '/private-trips',   label: 'Private Trip Req', icon: '📨', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] }, // R224 NEW
   { href: '/quotations',      label: 'Penawaran AI', icon: '💰', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
   { href: '/ads',             label: 'Ads Manager',  icon: '📢', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
   { href: '/content',         label: 'Konten',       icon: '📱', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
@@ -41,7 +42,6 @@ export default function Sidebar() {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       let r = user?.user_metadata?.role || user?.app_metadata?.role || null;
       if (!r && user) {
-        // Fallback: role dari tabel users (mis. role 'pic' di-set owner)
         const { data: u } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle();
         const map = { tl: 'tour_leader', finance: 'ops', team: 'ops' };
         r = map[u?.role] || u?.role || 'pending';
