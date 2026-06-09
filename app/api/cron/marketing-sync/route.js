@@ -38,9 +38,8 @@ function dbClient(brand) {
 async function writeAds(brand, rows, errors) {
   const c = dbClient(brand);
   if (!c) { errors.push(`${brand}: supabase env kurang`); return 0; }
-  const minDate = rows.reduce((m, r) => (r.date < m ? r.date : m), '9999-12-31');
-  // hapus hasil sync sebelumnya untuk rentang ini (selalu jalan, biar yg pindah brand kebersihkan)
-  await c.db.from('ads_entries').delete().eq('created_by', 'windsor-sync').gte('date', minDate === '9999-12-31' ? '2000-01-01' : minDate);
+  // Hapus SEMUA baris windsor-sync brand ini dulu (bersihkan yg pindah brand / stale), lalu isi ulang
+  await c.db.from('ads_entries').delete().eq('created_by', 'windsor-sync');
   if (!rows.length) return 0;
   const payload = rows.map((r) => ({
     date: r.date, platform: 'meta', campaign_name: r.campaign_name,
