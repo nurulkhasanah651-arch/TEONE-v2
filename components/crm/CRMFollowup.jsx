@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition, useEffect } from 'react';
-import { getFollowupLists, getBroadcastRecipients, sendCrmBroadcast } from '@/lib/actions/crm';
+import { getFollowupLists, getBroadcastRecipients, sendCrmBroadcast, sendCustomerWA } from '@/lib/actions/crm';
 
 function fmtDate(s) { if (!s) return '—'; try { return new Date(s).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }); } catch { return s; } }
 function waLink(phone, text) {
@@ -59,6 +59,15 @@ export default function CRMFollowup({ brandName = 'kami', sources = [], openTrip
       const r = await sendCrmBroadcast(recipients, bcMsg);
       if (r?.error) { setMsg({ t: r.error, e: true }); return; }
       setMsg({ t: `Terkirim ${r.sent}/${r.total} (gagal ${r.failed})` });
+    });
+  }
+
+  function sendFonnteOne(phone, text) {
+    if (!phone) { setMsg({ t: 'Nomor HP kosong', e: true }); return; }
+    startTransition(async () => {
+      const r = await sendCustomerWA(phone, text);
+      if (r?.error) setMsg({ t: 'Gagal kirim Fonnte: ' + r.error, e: true });
+      else setMsg({ t: 'Terkirim via Fonnte ✓' });
     });
   }
 
@@ -134,7 +143,12 @@ export default function CRMFollowup({ brandName = 'kami', sources = [], openTrip
             {lists.birthdays.length === 0 ? <p className="text-sm text-slate-500 text-center py-4">Tidak ada yang ulang tahun bulan ini.</p> : lists.birthdays.map((c) => (
               <div key={c.id} className="flex items-center justify-between gap-2 p-2 border border-slate-100 rounded">
                 <div><p className="text-sm font-semibold text-slate-800">{c.name}</p><p className="text-xs text-slate-500">🎂 {fmtDate(c.birthday)} · {c.phone || '—'}</p></div>
-                {c.phone && <a href={waLink(c.phone, `Halo ${c.name}, selamat ulang tahun! 🎉 Semoga sehat selalu & dimudahkan rezekinya. Salam hangat, ${brandName} 🙏`)} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded">💬 Ucapkan</a>}
+                {c.phone && (() => { const t = `Halo ${c.name}, selamat ulang tahun! 🎉 Semoga sehat selalu & dimudahkan rezekinya. Salam hangat, ${brandName} 🙏`; return (
+                  <div className="flex gap-1 shrink-0">
+                    <button onClick={() => sendFonnteOne(c.phone, t)} disabled={pending} className="px-2.5 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded">📲 Fonnte</button>
+                    <a href={waLink(c.phone, t)} target="_blank" rel="noreferrer" className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded">💬 Manual</a>
+                  </div>
+                ); })()}
               </div>
             ))}
           </div>
@@ -145,7 +159,12 @@ export default function CRMFollowup({ brandName = 'kami', sources = [], openTrip
             {lists.passportExpiring.length === 0 ? <p className="text-sm text-slate-500 text-center py-4">Tidak ada paspor yang akan expired dalam 6 bulan.</p> : lists.passportExpiring.map((c) => (
               <div key={c.id} className="flex items-center justify-between gap-2 p-2 border border-slate-100 rounded">
                 <div><p className="text-sm font-semibold text-slate-800">{c.name}</p><p className="text-xs text-slate-500">🛂 {c.passport_no || '—'} · Exp: <span className="text-red-600 font-semibold">{fmtDate(c.passport_expiry)}</span></p></div>
-                {c.phone && <a href={waLink(c.phone, `Halo ${c.name}, kami ingatkan paspor Anda (${c.passport_no || ''}) akan kedaluwarsa pada ${fmtDate(c.passport_expiry)}. Mohon segera perpanjang agar tidak mengganggu rencana perjalanan. Terima kasih 🙏 — ${brandName}`)} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded">💬 Reminder</a>}
+                {c.phone && (() => { const t = `Halo ${c.name}, kami ingatkan paspor Anda (${c.passport_no || ''}) akan kedaluwarsa pada ${fmtDate(c.passport_expiry)}. Mohon segera perpanjang agar tidak mengganggu rencana perjalanan. Terima kasih 🙏 — ${brandName}`; return (
+                  <div className="flex gap-1 shrink-0">
+                    <button onClick={() => sendFonnteOne(c.phone, t)} disabled={pending} className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded">📲 Fonnte</button>
+                    <a href={waLink(c.phone, t)} target="_blank" rel="noreferrer" className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded">💬 Manual</a>
+                  </div>
+                ); })()}
               </div>
             ))}
           </div>
