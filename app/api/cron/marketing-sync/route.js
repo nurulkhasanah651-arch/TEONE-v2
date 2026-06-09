@@ -89,7 +89,7 @@ export async function GET(request) {
   const cronSecret = process.env.CRON_SECRET;
   const windsorKey = process.env.WINDSOR_API_KEY;
   const ok = !cronSecret || provided === cronSecret || (windsorKey && provided === windsorKey);
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
 
   const onlyBrand = url.searchParams.get('brand'); // 'teone' | 'khasanah'
   const only = url.searchParams.get('only');       // 'ads' | 'ig'
@@ -128,5 +128,8 @@ export async function GET(request) {
     }));
   }
 
-  return NextResponse.json({ ok: true, synced_at: new Date().toISOString(), results: out, errors });
+  return NextResponse.json(
+    { ok: true, synced_at: new Date().toISOString(), results: out, errors },
+    { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+  );
 }
