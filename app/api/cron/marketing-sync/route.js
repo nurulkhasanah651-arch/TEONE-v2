@@ -96,7 +96,7 @@ export async function GET(request) {
   const errors = [];
   const out = { teone: { ads_rows: 0, active_ads: 0, ig_media: 0 }, khasanah: { ads_rows: 0, active_ads: 0, ig_media: 0 } };
 
-  // ── ADS: tarik sekali, partisi per campaign, tulis ke tiap brand ──
+  // ── ADS (ads_entries) ──
   if (!only || only === 'ads') {
     try {
       const all = await fetchMetaAdsAll(META_AD_ACCOUNTS, 'last_7d');
@@ -106,17 +106,20 @@ export async function GET(request) {
         if (onlyBrand && brand !== onlyBrand) continue;
         out[brand].ads_rows = await writeAds(brand, part[brand], errors);
       }
-      // Iklan aktif (creative) → active_ads
-      try {
-        const activeAll = await fetchActiveAds(META_AD_ACCOUNTS, 'last_7d');
-        const ap = { teone: [], khasanah: [] };
-        for (const a of activeAll) ap[brandForCampaign(a.campaign_name)].push(a);
-        for (const brand of ['teone', 'khasanah']) {
-          if (onlyBrand && brand !== onlyBrand) continue;
-          out[brand].active_ads = await writeActiveAds(brand, ap[brand], errors);
-        }
-      } catch (e) { errors.push('active_ads: ' + (e?.message || 'err')); }
     } catch (e) { errors.push('meta: ' + (e?.message || 'err')); }
+  }
+
+  // ── IKLAN AKTIF (active_ads) ── (terpisah, bisa di-scope ?only=activeads)
+  if (!only || only === 'activeads') {
+    try {
+      const activeAll = await fetchActiveAds(META_AD_ACCOUNTS, 'last_7d');
+      const ap = { teone: [], khasanah: [] };
+      for (const a of activeAll) ap[brandForCampaign(a.campaign_name)].push(a);
+      for (const brand of ['teone', 'khasanah']) {
+        if (onlyBrand && brand !== onlyBrand) continue;
+        out[brand].active_ads = await writeActiveAds(brand, ap[brand], errors);
+      }
+    } catch (e) { errors.push('active_ads: ' + (e?.message || 'err')); }
   }
 
   // ── IG: per brand (paralel) ──
