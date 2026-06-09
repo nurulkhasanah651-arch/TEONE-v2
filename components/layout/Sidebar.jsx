@@ -12,6 +12,7 @@ import { resolveBrandCodeBrowser, BRAND_UI } from '@/lib/brand-shared';
 const NAV = [
   { href: '/dashboard',       label: 'Dashboard',    icon: '◆',  roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
   { href: '/trips',           label: 'Master Trip',  icon: '✈',  roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
+  { href: '/crm',             label: 'CRM Customer', icon: '👥', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
   { href: '/cs',              label: 'CS Daily',     icon: '☎',  roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
   { href: '/private-trips',   label: 'Private Trip Req', icon: '📨', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] }, // R224 NEW
   { href: '/quotations',      label: 'Penawaran AI', icon: '💰', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
