@@ -1,6 +1,8 @@
 // CRM — daftar customer + stats + filter. Data dari tabel customers (brand-aware).
 import { createClient } from '@/lib/supabase/server';
 import CRMClient from '@/components/crm/CRMClient';
+import CRMFollowup from '@/components/crm/CRMFollowup';
+import { getCurrentBrand } from '@/lib/brand';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +13,16 @@ export default async function CRMPage() {
     .select('id, name, phone, whatsapp, email, city, gender, birthday, referral_source, tags, is_blacklisted, total_trips, total_spent, first_trip_at, last_trip_at, status, created_at')
     .order('total_spent', { ascending: false })
     .limit(5000);
+
+  const { data: openTripsRaw } = await supabase
+    .from('trips')
+    .select('id, name, kode_trip, departure, harga_jual, price, status')
+    .order('departure', { ascending: true });
+  const openTrips = (openTripsRaw || []).filter((t) =>
+    !t.status || /open|prepare|selling/i.test(t.status)
+  );
+  let brandName = 'kami';
+  try { const b = await getCurrentBrand(); brandName = b?.name || 'kami'; } catch {}
 
   const list = customers || [];
   const now = new Date();
@@ -30,11 +42,16 @@ export default async function CRMPage() {
     }).length,
   };
 
+  const sources = [...new Set(list.map((c) => c.referral_source).filter(Boolean))].sort();
+
   return (
     <div className="max-w-7xl mx-auto">
       <div className="mb-4">
         <h1 className="text-3xl font-bold text-brand-700">👥 CRM Customer</h1>
         <p className="mt-1 text-slate-600">Kelola database customer — lead, repeat, VIP, riwayat & follow-up.</p>
+      </div>
+      <div className="mb-4">
+        <CRMFollowup brandName={brandName} sources={sources} openTrips={openTrips} />
       </div>
       <CRMClient customers={list} stats={stats} />
     </div>
