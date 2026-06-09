@@ -67,13 +67,15 @@ async function syncBrand(brand, cfg) {
 
 export async function GET(request) {
   const auth = request.headers.get('authorization') || '';
+  const url = new URL(request.url);
+  const provided = url.searchParams.get('secret') || (auth.startsWith('Bearer ') ? auth.slice(7) : '');
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && auth !== `Bearer ${cronSecret}`) {
-    // izinkan juga pemanggilan manual dengan ?secret= untuk tes
-    const url = new URL(request.url);
-    if (url.searchParams.get('secret') !== cronSecret) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const windsorKey = process.env.WINDSOR_API_KEY;
+  // Diizinkan kalau: belum ada CRON_SECRET (terbuka), atau cocok CRON_SECRET
+  // (dipakai Vercel cron otomatis), atau cocok WINDSOR_API_KEY (trigger manual admin).
+  const ok = !cronSecret || provided === cronSecret || (windsorKey && provided === windsorKey);
+  if (!ok) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const results = [];
