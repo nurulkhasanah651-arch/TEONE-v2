@@ -24,7 +24,7 @@ function brandDb(brand) {
   };
 }
 
-async function syncBrand(brand, cfg) {
+async function syncBrand(brand, cfg, only) {
   const { url, key, brand_id } = brandDb(brand);
   if (!url || !key) return { brand, error: 'Supabase env brand belum lengkap' };
   const db = createClient(url, key, { auth: { persistSession: false } });
@@ -32,7 +32,7 @@ async function syncBrand(brand, cfg) {
   const result = { brand, ads_rows: 0, ig_media: 0, errors: [] };
 
   // ── Meta Ads → ads_entries ──
-  try {
+  if (!only || only === 'ads') try {
     const ads = await fetchMetaAds(cfg.meta_account, 'last_30d');
     // hapus baris hasil sync sebelumnya (30 hari) agar tidak dobel
     const minDate = ads.reduce((m, r) => (r.date < m ? r.date : m), '9999-12-31');
@@ -53,7 +53,7 @@ async function syncBrand(brand, cfg) {
   } catch (e) { result.errors.push('meta: ' + (e?.message || 'err')); }
 
   // ── Instagram → ig_cache ──
-  try {
+  if (!only || only === 'ig') try {
     const overview = await fetchInstagramOverview(cfg.ig_account, 'last_30d');
     await db.from('ig_cache').upsert(
       { key: 'overview', data: overview, fetched_at: new Date().toISOString() },
@@ -78,9 +78,11 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const onlyBrand = url.searchParams.get('brand'); // 'teone' | 'khasanah'
   const results = [];
   for (const [brand, cfg] of Object.entries(WINDSOR_BRANDS)) {
-    results.push(await syncBrand(brand, cfg));
+    if (onlyBrand && brand !== onlyBrand) continue;
+    results.push(await syncBrand(brand, cfg, url.searchParams.get('only')));
   }
   return NextResponse.json({ ok: true, synced_at: new Date().toISOString(), results });
 }
