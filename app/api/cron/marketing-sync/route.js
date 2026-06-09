@@ -79,10 +79,8 @@ export async function GET(request) {
   }
 
   const onlyBrand = url.searchParams.get('brand'); // 'teone' | 'khasanah'
-  const results = [];
-  for (const [brand, cfg] of Object.entries(WINDSOR_BRANDS)) {
-    if (onlyBrand && brand !== onlyBrand) continue;
-    results.push(await syncBrand(brand, cfg, url.searchParams.get('only')));
-  }
+  const only = url.searchParams.get('only');
+  const entries = Object.entries(WINDSOR_BRANDS).filter(([b]) => !onlyBrand || b === onlyBrand);
+  const results = await Promise.all(entries.map(([brand, cfg]) => syncBrand(brand, cfg, only)));
   return NextResponse.json({ ok: true, synced_at: new Date().toISOString(), results });
 }
