@@ -1,11 +1,14 @@
 // Vercel Cron: sinkron data marketing dari Windsor.ai ke web app.
-//   - Meta Ads → ads_entries (Ads Manager)
-//   - Instagram → ig_cache (Performa IG di tab Konten)
-// Per brand: travelingeropa→teone (teone.dev), khasanahtravel→khasanah (khasanahtravel.app)
+//   - Meta Ads → ads_entries (Ads Manager) — routing per CAMPAIGN (awalan "TE" → teone)
+//   - Instagram → ig_cache (Performa IG) — per akun brand
+// teone = travelingeropa (teone.dev), khasanah = khasanahtravel (khasanahtravel.app)
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { WINDSOR_BRANDS, fetchMetaAds, fetchInstagramOverview } from '@/lib/windsor';
+import {
+  WINDSOR_BRANDS, META_AD_ACCOUNTS, brandForCampaign,
+  fetchMetaAdsAll, fetchInstagramOverview,
+} from '@/lib/windsor';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -13,9 +16,11 @@ export const maxDuration = 60;
 
 function brandDb(brand) {
   if (brand === 'khasanah') {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL_KHASANAH || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY_KHASANAH || process.env.SUPABASE_SERVICE_ROLE_KEY;
-    return { url, key, brand_id: 2 };
+    return {
+      url: process.env.NEXT_PUBLIC_SUPABASE_URL_KHASANAH || process.env.NEXT_PUBLIC_SUPABASE_URL,
+      key: process.env.SUPABASE_SERVICE_ROLE_KEY_KHASANAH || process.env.SUPABASE_SERVICE_ROLE_KEY,
+      brand_id: 2,
+    };
   }
   return {
     url: process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -23,46 +28,41 @@ function brandDb(brand) {
     brand_id: 1,
   };
 }
-
-async function syncBrand(brand, cfg, only) {
+function dbClient(brand) {
   const { url, key, brand_id } = brandDb(brand);
-  if (!url || !key) return { brand, error: 'Supabase env brand belum lengkap' };
-  const db = createClient(url, key, { auth: { persistSession: false } });
+  if (!url || !key) return null;
+  return { db: createClient(url, key, { auth: { persistSession: false } }), brand_id };
+}
 
-  const result = { brand, ads_rows: 0, ig_media: 0, errors: [] };
+// Tulis ads untuk satu brand (rows sudah dipartisi)
+async function writeAds(brand, rows, errors) {
+  const c = dbClient(brand);
+  if (!c) { errors.push(`${brand}: supabase env kurang`); return 0; }
+  const minDate = rows.reduce((m, r) => (r.date < m ? r.date : m), '9999-12-31');
+  // hapus hasil sync sebelumnya untuk rentang ini (selalu jalan, biar yg pindah brand kebersihkan)
+  await c.db.from('ads_entries').delete().eq('created_by', 'windsor-sync').gte('date', minDate === '9999-12-31' ? '2000-01-01' : minDate);
+  if (!rows.length) return 0;
+  const payload = rows.map((r) => ({
+    date: r.date, platform: 'meta', campaign_name: r.campaign_name,
+    spend: r.spend, impressions: r.impressions, clicks: r.clicks, leads: r.leads,
+    notes: 'Auto-sync Windsor', created_by: 'windsor-sync', brand_id: c.brand_id,
+  }));
+  for (let i = 0; i < payload.length; i += 200) {
+    const { error } = await c.db.from('ads_entries').insert(payload.slice(i, i + 200));
+    if (error) { errors.push(`${brand} ads insert: ${error.message}`); break; }
+  }
+  return payload.length;
+}
 
-  // ── Meta Ads → ads_entries ──
-  if (!only || only === 'ads') try {
-    const ads = await fetchMetaAds(cfg.meta_account, 'last_30d');
-    // hapus baris hasil sync sebelumnya (30 hari) agar tidak dobel
-    const minDate = ads.reduce((m, r) => (r.date < m ? r.date : m), '9999-12-31');
-    await db.from('ads_entries').delete().eq('created_by', 'windsor-sync').gte('date', minDate);
-    if (ads.length) {
-      const rows = ads.map((r) => ({
-        date: r.date, platform: 'meta', campaign_name: r.campaign_name,
-        spend: r.spend, impressions: r.impressions, clicks: r.clicks, leads: r.leads,
-        notes: 'Auto-sync Windsor', created_by: 'windsor-sync', brand_id,
-      }));
-      // insert per batch
-      for (let i = 0; i < rows.length; i += 200) {
-        const { error } = await db.from('ads_entries').insert(rows.slice(i, i + 200));
-        if (error) { result.errors.push('ads insert: ' + error.message); break; }
-      }
-      result.ads_rows = rows.length;
-    }
-  } catch (e) { result.errors.push('meta: ' + (e?.message || 'err')); }
-
-  // ── Instagram → ig_cache ──
-  if (!only || only === 'ig') try {
-    const overview = await fetchInstagramOverview(cfg.ig_account, 'last_30d');
-    await db.from('ig_cache').upsert(
-      { key: 'overview', data: overview, fetched_at: new Date().toISOString() },
-      { onConflict: 'key' }
-    );
-    result.ig_media = overview.media?.length || 0;
-  } catch (e) { result.errors.push('ig: ' + (e?.message || 'err')); }
-
-  return result;
+async function syncIg(brand, cfg, errors) {
+  const c = dbClient(brand);
+  if (!c) { errors.push(`${brand}: supabase env kurang`); return 0; }
+  const overview = await fetchInstagramOverview(cfg.ig_account, 'last_7d');
+  await c.db.from('ig_cache').upsert(
+    { key: 'overview', data: overview, fetched_at: new Date().toISOString() },
+    { onConflict: 'key' }
+  );
+  return overview.media?.length || 0;
 }
 
 export async function GET(request) {
@@ -71,16 +71,35 @@ export async function GET(request) {
   const provided = url.searchParams.get('secret') || (auth.startsWith('Bearer ') ? auth.slice(7) : '');
   const cronSecret = process.env.CRON_SECRET;
   const windsorKey = process.env.WINDSOR_API_KEY;
-  // Diizinkan kalau: belum ada CRON_SECRET (terbuka), atau cocok CRON_SECRET
-  // (dipakai Vercel cron otomatis), atau cocok WINDSOR_API_KEY (trigger manual admin).
   const ok = !cronSecret || provided === cronSecret || (windsorKey && provided === windsorKey);
-  if (!ok) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const onlyBrand = url.searchParams.get('brand'); // 'teone' | 'khasanah'
-  const only = url.searchParams.get('only');
-  const entries = Object.entries(WINDSOR_BRANDS).filter(([b]) => !onlyBrand || b === onlyBrand);
-  const results = await Promise.all(entries.map(([brand, cfg]) => syncBrand(brand, cfg, only)));
-  return NextResponse.json({ ok: true, synced_at: new Date().toISOString(), results });
+  const only = url.searchParams.get('only');       // 'ads' | 'ig'
+  const errors = [];
+  const out = { teone: { ads_rows: 0, ig_media: 0 }, khasanah: { ads_rows: 0, ig_media: 0 } };
+
+  // ── ADS: tarik sekali, partisi per campaign, tulis ke tiap brand ──
+  if (!only || only === 'ads') {
+    try {
+      const all = await fetchMetaAdsAll(META_AD_ACCOUNTS, 'last_7d');
+      const part = { teone: [], khasanah: [] };
+      for (const r of all) part[brandForCampaign(r.campaign_name)].push(r);
+      for (const brand of ['teone', 'khasanah']) {
+        if (onlyBrand && brand !== onlyBrand) continue;
+        out[brand].ads_rows = await writeAds(brand, part[brand], errors);
+      }
+    } catch (e) { errors.push('meta: ' + (e?.message || 'err')); }
+  }
+
+  // ── IG: per brand (paralel) ──
+  if (!only || only === 'ig') {
+    await Promise.all(Object.entries(WINDSOR_BRANDS).map(async ([brand, cfg]) => {
+      if (onlyBrand && brand !== onlyBrand) return;
+      try { out[brand].ig_media = await syncIg(brand, cfg, errors); }
+      catch (e) { errors.push(`${brand} ig: ${e?.message || 'err'}`); }
+    }));
+  }
+
+  return NextResponse.json({ ok: true, synced_at: new Date().toISOString(), results: out, errors });
 }
