@@ -96,8 +96,10 @@ export async function GET(request) {
   const errors = [];
   const out = { teone: { ads_rows: 0, active_ads: 0, ig_media: 0 }, khasanah: { ads_rows: 0, active_ads: 0, ig_media: 0 } };
 
+  const jobs = [];
+
   // ── ADS (ads_entries) ──
-  if (!only || only === 'ads') {
+  if (!only || only === 'ads') jobs.push((async () => {
     try {
       const all = await fetchMetaAdsAll(META_AD_ACCOUNTS, 'last_7d');
       const part = { teone: [], khasanah: [] };
@@ -107,12 +109,12 @@ export async function GET(request) {
         out[brand].ads_rows = await writeAds(brand, part[brand], errors);
       }
     } catch (e) { errors.push('meta: ' + (e?.message || 'err')); }
-  }
+  })());
 
-  // ── IKLAN AKTIF (active_ads) ── (terpisah, bisa di-scope ?only=activeads)
-  if (!only || only === 'activeads') {
+  // ── IKLAN AKTIF (active_ads) ── (?only=activeads)
+  if (!only || only === 'activeads') jobs.push((async () => {
     try {
-      const activeAll = await fetchActiveAds(META_AD_ACCOUNTS, 'last_7d');
+      const activeAll = await fetchActiveAds(META_AD_ACCOUNTS, 'last_2d');
       const ap = { teone: [], khasanah: [] };
       for (const a of activeAll) ap[brandForCampaign(a.campaign_name)].push(a);
       for (const brand of ['teone', 'khasanah']) {
@@ -120,16 +122,20 @@ export async function GET(request) {
         out[brand].active_ads = await writeActiveAds(brand, ap[brand], errors);
       }
     } catch (e) { errors.push('active_ads: ' + (e?.message || 'err')); }
+  })());
+
+  // ── IG: per brand ──
+  if (!only || only === 'ig') {
+    for (const [brand, cfg] of Object.entries(WINDSOR_BRANDS)) {
+      if (onlyBrand && brand !== onlyBrand) continue;
+      jobs.push((async () => {
+        try { out[brand].ig_media = await syncIg(brand, cfg, errors); }
+        catch (e) { errors.push(`${brand} ig: ${e?.message || 'err'}`); }
+      })());
+    }
   }
 
-  // ── IG: per brand (paralel) ──
-  if (!only || only === 'ig') {
-    await Promise.all(Object.entries(WINDSOR_BRANDS).map(async ([brand, cfg]) => {
-      if (onlyBrand && brand !== onlyBrand) return;
-      try { out[brand].ig_media = await syncIg(brand, cfg, errors); }
-      catch (e) { errors.push(`${brand} ig: ${e?.message || 'err'}`); }
-    }));
-  }
+  await Promise.all(jobs);
 
   return NextResponse.json(
     { ok: true, synced_at: new Date().toISOString(), results: out, errors },
