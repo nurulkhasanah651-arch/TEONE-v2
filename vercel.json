@@ -1,9 +1,15 @@
 {
-  "regions": ["sin1"],
+  "regions": [
+    "sin1"
+  ],
   "crons": [
     {
       "path": "/api/cron/tl-h14-reminder",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/marketing-sync",
+      "schedule": "0 2 * * *"
     }
   ]
 }
