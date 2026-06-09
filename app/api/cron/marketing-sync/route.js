@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import {
   WINDSOR_BRANDS, META_AD_ACCOUNTS, brandForCampaign,
-  fetchMetaAdsAll, fetchInstagramOverview,
+  fetchMetaAdsAll, fetchInstagramOverview, fetchActiveAds,
 } from '@/lib/windsor';
 
 export const dynamic = 'force-dynamic';
@@ -53,6 +53,24 @@ async function writeAds(brand, rows, errors) {
   return payload.length;
 }
 
+async function writeActiveAds(brand, rows, errors) {
+  const c = dbClient(brand);
+  if (!c) { errors.push(`${brand}: supabase env kurang`); return 0; }
+  await c.db.from('active_ads').delete().eq('source', 'windsor-sync');
+  if (!rows.length) return 0;
+  const payload = rows.map((r) => ({
+    brand_id: c.brand_id, ad_id: r.ad_id, ad_name: r.ad_name, campaign_name: r.campaign_name,
+    status: r.status, image_url: r.image_url, thumbnail_url: r.thumbnail_url, permalink: r.permalink,
+    spend: r.spend, impressions: r.impressions, clicks: r.clicks, leads: r.leads, ctr: r.ctr,
+    source: 'windsor-sync', fetched_at: new Date().toISOString(),
+  }));
+  for (let i = 0; i < payload.length; i += 200) {
+    const { error } = await c.db.from('active_ads').insert(payload.slice(i, i + 200));
+    if (error) { errors.push(`${brand} active_ads: ${error.message}`); break; }
+  }
+  return payload.length;
+}
+
 async function syncIg(brand, cfg, errors) {
   const c = dbClient(brand);
   if (!c) { errors.push(`${brand}: supabase env kurang`); return 0; }
@@ -76,7 +94,7 @@ export async function GET(request) {
   const onlyBrand = url.searchParams.get('brand'); // 'teone' | 'khasanah'
   const only = url.searchParams.get('only');       // 'ads' | 'ig'
   const errors = [];
-  const out = { teone: { ads_rows: 0, ig_media: 0 }, khasanah: { ads_rows: 0, ig_media: 0 } };
+  const out = { teone: { ads_rows: 0, active_ads: 0, ig_media: 0 }, khasanah: { ads_rows: 0, active_ads: 0, ig_media: 0 } };
 
   // ── ADS: tarik sekali, partisi per campaign, tulis ke tiap brand ──
   if (!only || only === 'ads') {
@@ -88,6 +106,16 @@ export async function GET(request) {
         if (onlyBrand && brand !== onlyBrand) continue;
         out[brand].ads_rows = await writeAds(brand, part[brand], errors);
       }
+      // Iklan aktif (creative) → active_ads
+      try {
+        const activeAll = await fetchActiveAds(META_AD_ACCOUNTS, 'last_7d');
+        const ap = { teone: [], khasanah: [] };
+        for (const a of activeAll) ap[brandForCampaign(a.campaign_name)].push(a);
+        for (const brand of ['teone', 'khasanah']) {
+          if (onlyBrand && brand !== onlyBrand) continue;
+          out[brand].active_ads = await writeActiveAds(brand, ap[brand], errors);
+        }
+      } catch (e) { errors.push('active_ads: ' + (e?.message || 'err')); }
     } catch (e) { errors.push('meta: ' + (e?.message || 'err')); }
   }
 

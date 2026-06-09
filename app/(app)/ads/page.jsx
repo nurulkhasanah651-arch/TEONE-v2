@@ -57,11 +57,12 @@ export default async function AdsManagerPage({ searchParams }) {
   const filterMonth = sp?.month || new Date().toISOString().slice(0, 7);
 
   const supabase = createClient();
-  const [adsEntries, csUpdates, trips, trip_passengers] = await Promise.all([
+  const [adsEntries, csUpdates, trips, trip_passengers, activeAds] = await Promise.all([
     safeQuery(supabase.from('ads_entries').select('*').order('date', { ascending: false })),
     safeQuery(supabase.from('cs_daily_updates').select('*')),
     safeQuery(supabase.from('trips').select('id, kode_trip, name, status, publish_date, closed_at, departure, sold, quota, price')),
     safeQuery(supabase.from('trip_passengers').select('id, trip_id, customer_id, price_paid, lead_source, days_to_close, closing_date')),
+    safeQuery(supabase.from('active_ads').select('*').order('spend', { ascending: false })),
   ]);
 
   const adsThisMonth = adsEntries.filter((e) => (e.date || '').startsWith(filterMonth));
@@ -613,6 +614,44 @@ export default async function AdsManagerPage({ searchParams }) {
       </div>
 
       {/* Ads entries CRUD */}
+      {activeAds.length > 0 && (
+        <section className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h2 className="font-bold text-brand-700">🟢 Iklan Aktif ({activeAds.length})</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Materi iklan yang sedang tayang — auto-sync dari Meta via Windsor (7 hari terakhir).</p>
+            </div>
+          </div>
+          <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {activeAds.map((a) => (
+              <div key={a.id} className="border border-slate-200 rounded-lg overflow-hidden flex flex-col">
+                <div className="aspect-square bg-slate-100 relative">
+                  {a.image_url || a.thumbnail_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={a.image_url || a.thumbnail_url} alt={a.ad_name || 'iklan'} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-3xl text-slate-300">🖼</div>
+                  )}
+                  <span className="absolute top-1.5 left-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-600 text-white">AKTIF</span>
+                </div>
+                <div className="p-2.5 flex-1 flex flex-col gap-1">
+                  <p className="text-xs font-bold text-slate-800 line-clamp-2" title={a.ad_name}>{a.ad_name}</p>
+                  <p className="text-[10px] text-slate-400 line-clamp-1">{a.campaign_name}</p>
+                  <div className="mt-auto grid grid-cols-3 gap-1 text-center pt-1">
+                    <div><p className="text-[9px] text-slate-400 uppercase">Spend</p><p className="text-[11px] font-bold text-slate-700">{fmtRupiah(a.spend)}</p></div>
+                    <div><p className="text-[9px] text-slate-400 uppercase">Leads</p><p className="text-[11px] font-bold text-green-700">{a.leads}</p></div>
+                    <div><p className="text-[9px] text-slate-400 uppercase">CTR</p><p className="text-[11px] font-bold text-blue-700">{a.ctr}%</p></div>
+                  </div>
+                  {a.permalink && (
+                    <a href={a.permalink} target="_blank" className="text-[11px] text-center mt-1 py-1 bg-slate-100 hover:bg-slate-200 rounded font-semibold text-slate-700">↗ Lihat post</a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <AdsManager entries={adsEntries.slice(0, 50)} trips={trips} />
     </div>
   );
