@@ -428,6 +428,19 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
       else { showMsg(`✓ Kekurangan dokumen tersimpan`); router.refresh(); }
     });
   }
+  function handleSendDocShortage() {
+    if (!docShortage || !docShortage.trim()) { showMsg('Isi kekurangan dokumen dulu', 'error'); return; }
+    startTransition(async () => {
+      // simpan dulu biar pesan ikut yg terbaru
+      const sv = await updatePassengerDocShortage(p.id, docShortage);
+      if (sv?.error) { showMsg(sv.error, 'error'); return; }
+      const r = await sendVisaWA({
+        tripId: trip.id, passengerIds: [p.id], templateKey: 'doc_kurang', customVars: {}, familyAware: false,
+      });
+      if (r?.error) showMsg(r.error, 'error');
+      else { showMsg(`✓ WA Kekurangan Dokumen terkirim ke ${c.name}`); router.refresh(); }
+    });
+  }
   function handleSendSingle() {
     startTransition(async () => {
       const r = await sendVisaWA({
@@ -539,7 +552,8 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                   placeholder={"cth:\nRekening koran 3 bulan terakhir\nSurat keterangan kerja"}
                   className="w-full px-3 py-2 border border-slate-300 rounded text-sm font-mono leading-relaxed" />
                 <div className="flex justify-end mt-1">
-                  <button type="button" onClick={handleSaveDocShortage} disabled={pending} className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded">💾 Simpan kekurangan</button>
+                  <button type="button" onClick={handleSaveDocShortage} disabled={pending} className="px-3 py-1.5 bg-slate-500 hover:bg-slate-600 text-white text-xs font-bold rounded">💾 Simpan</button>
+                  <button type="button" onClick={handleSendDocShortage} disabled={pending} className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded">📨 Simpan + Kirim WA Kekurangan</button>
                 </div>
                 <p className="text-[10px] text-rose-700 mt-1">Auto masuk ke pesan WA "Kekurangan Dokumen" peserta ini (tidak bisa di-blast — kirim per peserta).</p>
               </div>
