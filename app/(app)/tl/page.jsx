@@ -23,7 +23,7 @@ export default async function TLPortalPage() {
   const supabase = createClient();
   const serviceClient = getServiceClient() || supabase;
   const { data: { user } } = await supabase.auth.getUser();
-  const role = user?.user_metadata?.role || user?.app_metadata?.role || 'pending';
+  const role = user?.app_metadata?.role || user?.user_metadata?.role || user?.app_metadata?.role || 'pending';
   const isInternal = ['manager', 'owner', 'accounting', 'ops', 'cs', 'pic'].includes(role);
 
   // Fetch all active trips

@@ -8,7 +8,7 @@ import PlanBoard from '@/components/plan/PlanBoard';
 export default async function PlanPage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const role = user?.user_metadata?.role || null;
+  const role = user?.app_metadata?.role || user?.user_metadata?.role || null;
   const canEdit = ['owner', 'accounting', 'manager', 'ops'].includes(role);
 
   const { data: plans } = await supabase

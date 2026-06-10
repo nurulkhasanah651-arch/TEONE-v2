@@ -19,7 +19,7 @@ export default async function AttendancePage({ searchParams }) {
 
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const role = user?.user_metadata?.role || null;
+  const role = user?.app_metadata?.role || user?.user_metadata?.role || null;
   const isAdmin = ['owner', 'accounting', 'manager'].includes(role);
 
   const mine = await getMyAttendanceToday().catch(() => null);

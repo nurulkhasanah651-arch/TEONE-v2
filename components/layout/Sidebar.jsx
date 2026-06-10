@@ -43,7 +43,7 @@ export default function Sidebar() {
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      let r = user?.user_metadata?.role || user?.app_metadata?.role || null;
+      let r = user?.app_metadata?.role || user?.user_metadata?.role || user?.app_metadata?.role || null;
       if (!r && user) {
         const { data: u } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle();
         const map = { tl: 'tour_leader', finance: 'ops', team: 'ops' };

@@ -37,7 +37,7 @@ export default async function TLTripDetailPage({ params }) {
   const serviceClient = getServiceClient() || supabase;
 
   const { data: { user } } = await supabase.auth.getUser();
-  const role = user?.user_metadata?.role || user?.app_metadata?.role || 'pending';
+  const role = user?.app_metadata?.role || user?.user_metadata?.role || user?.app_metadata?.role || 'pending';
   const isInternal = ['manager', 'owner', 'ops', 'cs', 'finance', 'admin'].includes(role);
   // R177v2: Cuma Ops/Manager/Finance (+ Owner) yg boleh ajukan gaji TL. CS gak boleh.
   const canRequestTLPayment = ['ops', 'manager', 'finance', 'owner'].includes(role);

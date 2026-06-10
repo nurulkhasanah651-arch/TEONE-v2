@@ -45,7 +45,7 @@ export default function LoginPage() {
 
     // Login berhasil → role otomatis dari akun (tanpa pilih role lagi)
     const u = data?.user;
-    let role = u?.user_metadata?.role || u?.app_metadata?.role || null;
+    let role = u?.app_metadata?.role || u?.user_metadata?.role || u?.app_metadata?.role || null;
     if (!role && u) {
       // Fallback: role dari tabel users (di-set owner), lalu simpan ke metadata
       const { data: profile } = await supabase

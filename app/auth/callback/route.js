@@ -40,7 +40,7 @@ export async function GET(request) {
     }
 
     // CHECK ROLE — login via Google = Tour Leader: auto-assign & langsung ke /tl
-    let role = user.user_metadata?.role || user.app_metadata?.role || null;
+    let role = user.app_metadata?.role || user.user_metadata?.role || user.app_metadata?.role || null;
     if (!role || role === 'pending') {
       // Cek dulu kalau owner sudah set role di tabel users
       try {

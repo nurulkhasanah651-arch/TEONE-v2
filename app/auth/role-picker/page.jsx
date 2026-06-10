@@ -23,7 +23,7 @@ export default function RolePickerPage() {
         router.replace('/login');
         return;
       }
-      const currentRole = u.user_metadata?.role || u.app_metadata?.role;
+      const currentRole = u.app_metadata?.role || u.user_metadata?.role || u.app_metadata?.role;
       if (currentRole && currentRole !== 'pending') {
         router.replace('/dashboard');
         return;

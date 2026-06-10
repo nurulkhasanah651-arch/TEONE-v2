@@ -21,7 +21,7 @@ export default async function EditQuotationPage({ params }) {
   if (error || !quotation) notFound();
 
   const { data: { user } } = await supabase.auth.getUser();
-  const role = user?.user_metadata?.role || user?.app_metadata?.role || null;
+  const role = user?.app_metadata?.role || user?.user_metadata?.role || user?.app_metadata?.role || null;
   const canSeeProfit = ['owner', 'accounting', 'manager', 'ops'].includes(role);
 
   return (
