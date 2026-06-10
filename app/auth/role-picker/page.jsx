@@ -6,6 +6,7 @@
 import { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { registerAsMitra } from '@/lib/actions/mitra';
 
 export default function RolePickerPage() {
   const router = useRouter();
@@ -13,6 +14,9 @@ export default function RolePickerPage() {
   const [error, setError] = useState('');
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showMitra, setShowMitra] = useState(false);
+  const [mitraName, setMitraName] = useState('');
+  const [mitraPhone, setMitraPhone] = useState('');
 
   // Cek user saat mount
   useEffect(() => {
@@ -33,6 +37,16 @@ export default function RolePickerPage() {
     }
     checkUser();
   }, [router]);
+
+  function submitMitra() {
+    setError('');
+    startTransition(async () => {
+      const fd = new FormData(); fd.set('name', mitraName); fd.set('phone', mitraPhone);
+      const r = await registerAsMitra(fd);
+      if (r?.error) { setError(r.error); return; }
+      router.replace(r.redirect || '/mitra'); router.refresh();
+    });
+  }
 
   async function setRole(role, redirectTo = '/dashboard') {
     setError('');
@@ -145,6 +159,33 @@ export default function RolePickerPage() {
               </div>
             </div>
           </button>
+
+          {!showMitra ? (
+            <button
+              onClick={() => setShowMitra(true)}
+              disabled={pending}
+              className="w-full p-4 border-2 border-teal-300 bg-teal-50 hover:bg-teal-100 rounded-xl text-left transition-colors disabled:opacity-50"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🤝</span>
+                <div>
+                  <p className="font-bold text-teal-900">Mitra / Agen</p>
+                  <p className="text-xs text-teal-700">Lihat trip yang sedang dijual</p>
+                </div>
+              </div>
+            </button>
+          ) : (
+            <div className="p-4 border-2 border-teal-300 bg-teal-50 rounded-xl space-y-2">
+              <p className="font-bold text-teal-900 text-sm">🤝 Daftar sebagai Mitra</p>
+              <p className="text-[11px] text-teal-700">No HP harus sudah didaftarkan admin.</p>
+              <input value={mitraName} onChange={(e) => setMitraName(e.target.value)} placeholder="Nama" className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm" />
+              <input value={mitraPhone} onChange={(e) => setMitraPhone(e.target.value)} placeholder="No HP (cth 0812...)" className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm" />
+              <div className="flex gap-2">
+                <button onClick={submitMitra} disabled={pending} className="flex-1 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold rounded">Masuk sebagai Mitra</button>
+                <button onClick={() => setShowMitra(false)} disabled={pending} className="px-3 py-1.5 bg-slate-100 text-slate-600 text-sm rounded">Batal</button>
+              </div>
+            </div>
+          )}
 
           <div className="pt-3 text-center border-t border-slate-200">
             <p className="text-[10px] text-slate-400 mb-1">Bukan akun saya?</p>

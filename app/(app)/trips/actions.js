@@ -39,6 +39,7 @@ function parseTripFields(formData) {
     kode_trip: formData.get('kode_trip') || null,
     name: formData.get('name'),
     destination: formData.get('destination') || null,
+    fee_category: formData.get('fee_category') || null,
     pic: formData.get('pic') || null,
     pic_email: formData.get('pic_email') || null,
     tl_id,

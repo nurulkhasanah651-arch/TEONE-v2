@@ -94,6 +94,12 @@ export default async function TripDetailPage({ params }) {
     .eq('trip_id', id)
     .order('tanggal', { ascending: false })
     .limit(5);
+  let mitraList = [];
+  try {
+    const { data: mt } = await supabase.from('mitra').select('id, name').eq('active', true).order('name');
+    mitraList = mt || [];
+  } catch {}
+
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -191,6 +197,7 @@ export default async function TripDetailPage({ params }) {
         participants={participants || []}
         allTrips={allTrips || []}
         familyGroups={familyGroups || []}
+        mitraList={mitraList}
       />
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">

@@ -24,6 +24,7 @@ function parseParticipantFields(formData) {
     passport_expiry: formData.get('passport_expiry') || null,
     room_type: formData.get('room_type') || null,
     price_paid: parseInt(formData.get('price_paid')) || 0,
+    mitra_id: formData.get('mitra_id') ? Number(formData.get('mitra_id')) : null,
   };
 }
 
@@ -64,6 +65,7 @@ export async function addParticipant(tripId, formData) {
     customer_id: customer.id,
     room_type: f.room_type,
     price_paid: f.price_paid,
+    mitra_id: f.mitra_id,
     status: 'confirmed',
   });
 
@@ -107,6 +109,7 @@ export async function updateParticipant(tripId, passengerId, customerId, formDat
   const passengerUpdates = {
     room_type: f.room_type,
     price_paid: f.price_paid,
+    mitra_id: f.mitra_id,
   };
 
   const [cRes, pRes] = await Promise.all([

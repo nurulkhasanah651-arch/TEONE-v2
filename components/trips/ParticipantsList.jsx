@@ -19,6 +19,7 @@ export default function ParticipantsList(props) {
   const participants = Array.isArray(props?.participants) ? props.participants.filter(Boolean) : [];
   const allTrips = Array.isArray(props?.allTrips) ? props.allTrips.filter(Boolean) : [];
   const familyGroups = Array.isArray(props?.familyGroups) ? props.familyGroups.filter(Boolean) : [];
+  const mitraList = Array.isArray(props?.mitraList) ? props.mitraList.filter(Boolean) : [];
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -83,7 +84,7 @@ export default function ParticipantsList(props) {
       {showForm && (
         <div className="p-5 bg-blue-50/30 border-b border-blue-100">
           <h3 className="font-bold text-brand-700 mb-3">Tambah Peserta Baru</h3>
-          <ParticipantForm onSubmit={handleAdd} onCancel={() => { setShowForm(false); setError(''); }} pending={pending} submitLabel="Tambah Peserta" />
+          <ParticipantForm mitraList={mitraList} onSubmit={handleAdd} onCancel={() => { setShowForm(false); setError(''); }} pending={pending} submitLabel="Tambah Peserta" />
         </div>
       )}
 
@@ -119,14 +120,14 @@ export default function ParticipantsList(props) {
               return (
                 <div key={p.id || idx} className="p-5 bg-amber-50/30">
                   <h3 className="font-bold text-brand-700 mb-3">✎ Edit Peserta: {fullName}</h3>
-                  <ParticipantForm
+                  <ParticipantForm mitraList={mitraList}
                     initial={{
                       first_name: c.first_name || first, last_name: c.surname || last,
                       city: c.city, birthday: c.birthday, gender: c.gender,
                       phone: c.phone || c.whatsapp, email: c.email,
                       passport_no: c.passport_no, passport_issued_at: c.passport_issued_at,
                       passport_issued_date: c.passport_issued_date, passport_expiry: c.passport_expiry,
-                      room_type: p.room_type, price_paid: p.price_paid,
+                      room_type: p.room_type, price_paid: p.price_paid, mitra_id: p.mitra_id,
                     }}
                     onSubmit={(fd) => handleUpdate(p.id, p.customer_id, fd)}
                     onCancel={() => { setEditingId(null); setError(''); }}
@@ -203,7 +204,7 @@ export default function ParticipantsList(props) {
   );
 }
 
-function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabel = 'Simpan' }) {
+function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabel = 'Simpan', mitraList = [] }) {
   const [birthday, setBirthday] = useState(initial.birthday || '');
   const [expiry, setExpiry] = useState(initial.passport_expiry || '');
   const age = calcAge(birthday);
@@ -248,6 +249,12 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
             </select>
           </Field>
           <Field label="Harga Bayar (IDR)"><input autoComplete="off" type="number" name="price_paid" defaultValue={initial.price_paid || ''} min="0" className={inputCls} placeholder="50000000" /></Field>
+          <Field label="Closing dari Mitra (opsional)">
+            <select name="mitra_id" defaultValue={initial.mitra_id || ''} className={inputCls}>
+              <option value="">— Bukan dari mitra —</option>
+              {mitraList.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          </Field>
         </div>
       </FormSection>
 

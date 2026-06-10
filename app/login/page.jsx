@@ -64,7 +64,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push(role === 'tour_leader' ? '/tl' : '/dashboard');
+    router.push(role === 'tour_leader' ? '/tl' : role === 'mitra' ? '/mitra' : role === 'pic' ? '/dashboard' : '/dashboard');
     router.refresh();
   }
 

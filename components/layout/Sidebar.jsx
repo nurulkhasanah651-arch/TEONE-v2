@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client';
 import { resolveBrandCodeBrowser, BRAND_UI } from '@/lib/brand-shared';
 
 const NAV = [
+  { href: '/mitra',           label: 'Trip Dijual', icon: '🤝', roles: ['mitra'] },
   { href: '/dashboard',       label: 'Dashboard',    icon: '◆',  roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
   { href: '/trips',           label: 'Master Trip',  icon: '✈',  roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
   { href: '/cs',              label: 'CS Daily',     icon: '☎',  roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
@@ -29,6 +30,7 @@ const NAV = [
   { href: '/passport-manage', label: 'Passport AI',  icon: '🤖', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
   { href: '/tl',              label: 'Portal TL',    icon: '👤', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops', 'tour_leader'] },
   { href: '/tl-master',       label: 'Master TL',    icon: '👥', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
+  { href: '/mitra-master',    label: 'Master Mitra', icon: '🤝', roles: ['owner', 'accounting', 'manager', 'ops', 'cs'] },
   { href: '/tasks',           label: 'To-Do List',   icon: '✅', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops', 'tour_leader'] },
   { href: '/chat',            label: 'Chat Tim',     icon: '💬', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops', 'tour_leader'] },
 ];

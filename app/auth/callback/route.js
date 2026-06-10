@@ -49,7 +49,28 @@ export async function GET(request) {
         const map = { tl: 'tour_leader', finance: 'ops', team: 'ops' };
         role = map[profile?.role] || profile?.role || null;
       } catch {}
-      if (!role || role === 'pending') role = 'tour_leader';
+      // Cocokkan email ke master mitra → role mitra
+      if ((!role || role === 'pending') && user.email) {
+        try {
+          const { data: m } = await supabase.from('mitra').select('id').ilike('email', user.email).maybeSingle();
+          if (m) {
+            role = 'mitra';
+            await supabase.from('mitra').update({ user_id: user.id }).eq('id', m.id);
+            await supabase.from('users').upsert({ id: user.id, email: user.email, role: 'mitra' }, { onConflict: 'id' });
+          }
+        } catch {}
+      }
+      // Cocokkan email ke master tour_leaders → tour_leader
+      if ((!role || role === 'pending') && user.email) {
+        try {
+          const { data: tl } = await supabase.from('tour_leaders').select('id').ilike('email', user.email).maybeSingle();
+          if (tl) role = 'tour_leader';
+        } catch {}
+      }
+      // Belum ketemu → biarkan pilih di role-picker (TL/Mitra), jangan auto-assign
+      if (!role || role === 'pending') {
+        return NextResponse.redirect(`${origin}/auth/role-picker`);
+      }
       try {
         await supabase.auth.updateUser({
           data: { ...user.user_metadata, role },
@@ -70,7 +91,7 @@ export async function GET(request) {
     }
 
     // Redirect sesuai role — TL langsung ke portal TL
-    const dest = role === 'tour_leader' ? '/tl' : next;
+    const dest = role === 'tour_leader' ? '/tl' : role === 'mitra' ? '/mitra' : next;
     return NextResponse.redirect(`${origin}${dest}`);
   } catch (e) {
     console.error('[auth/callback] unexpected error:', e?.message);
