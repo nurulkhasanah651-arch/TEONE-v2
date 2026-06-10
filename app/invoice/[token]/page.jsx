@@ -131,12 +131,16 @@ export default async function PublicInvoicePage({ params }) {
   // RUMUS SAMA DENGAN TEMPLATE WA — satu sumber: getExpectedAndPaidForPassenger
   let expectedTotalReal = 0;
   let totalPaidReal = 0;
+  let pokokPaidReal = 0;
+  let addonPaidReal = 0;
   let sisaReal = 0;
   if (inv.trip_id && inv.passenger_id) {
     try {
       const summary = await getExpectedAndPaidForPassenger(supabase, inv.trip_id, inv.passenger_id);
       expectedTotalReal = Number(summary.expectedTotal) || 0;
       totalPaidReal = Number(summary.totalPaid) || 0;
+      pokokPaidReal = Number(summary.pokokPaid) || 0;
+      addonPaidReal = Number(summary.addonPaid) || 0;
       sisaReal = Number(summary.sisa) || 0;
     } catch (e) { errors.push(`summary: ${e.message}`); }
   } else {
@@ -304,14 +308,20 @@ export default async function PublicInvoicePage({ params }) {
           <div className="space-y-2 text-sm">
             {expectedTotalReal > 0 && (
               <div className="flex justify-between">
-                <span className="text-slate-700">Total Tagihan Trip:</span>
+                <span className="text-slate-700">Total Tagihan Pokok Trip:</span>
                 <span className="font-bold text-slate-800">{fmtRupiah(expectedTotalReal)}</span>
               </div>
             )}
             <div className="flex justify-between">
-              <span className="text-green-700 font-semibold">✅ Sudah Dibayar:</span>
-              <span className="font-bold text-green-700 text-lg">{fmtRupiah(totalPaidReal)}</span>
+              <span className="text-green-700 font-semibold">✅ Dibayar (pokok):</span>
+              <span className="font-bold text-green-700 text-lg">{fmtRupiah(pokokPaidReal)}</span>
             </div>
+            {addonPaidReal > 0 && (
+              <div className="flex justify-between">
+                <span className="text-sky-700 font-semibold">➕ Pembayaran lain (visa/ongkir/optional):</span>
+                <span className="font-bold text-sky-700">{fmtRupiah(addonPaidReal)}</span>
+              </div>
+            )}
             {participantPayments.length > 0 && (
               <div className="ml-3 text-xs text-slate-600 space-y-0.5 bg-white/50 rounded p-2">
                 {participantPayments.map((p, i) => (
@@ -327,7 +337,7 @@ export default async function PublicInvoicePage({ params }) {
             )}
             <div className={`flex justify-between pt-3 mt-2 border-t-2 ${isLunas ? 'border-green-400' : 'border-amber-400'}`}>
               <span className={`font-bold text-base ${isLunas ? 'text-green-800' : 'text-amber-800'}`}>
-                {isLunas ? '🎉 LUNAS' : '⚠ Sisa Pembayaran:'}
+                {isLunas ? '🎉 POKOK LUNAS' : '⚠ Sisa Pembayaran Pokok:'}
               </span>
               <span className={`font-bold text-2xl ${isLunas ? 'text-green-700' : 'text-amber-700'}`}>
                 {isLunas ? '✓' : fmtRupiah(sisaReal)}
