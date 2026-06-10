@@ -59,6 +59,32 @@ function roomWarning(room) {
   return null;
 }
 
+// Merge: roomlist FINAL tersimpan + peserta aktif yang BELUM ada di roomlist (peserta baru)
+function mergeSavedWithNew(saved, passengers, custMap) {
+  const base = savedToEditable(saved);
+  const inList = new Set();
+  for (const r of base) for (const m of (r.members || [])) if (m.passenger_id != null) inList.add(String(m.passenger_id));
+  const active = (passengers || []).filter((p) =>
+    p.transfer_status !== 'transferred' &&
+    p.refund_status !== 'refunded' && p.refund_status !== 'partial_refund'
+  );
+  const missing = active.filter((p) => !inList.has(String(p.id)));
+  if (missing.length > 0) {
+    base.push({
+      key: `new-pax-${Date.now()}`,
+      room_type: 'double',
+      label: '⚠ Peserta Baru (belum di-roomlist)',
+      is_family: false,
+      members: missing.map((p) => ({
+        passenger_id: p.id,
+        name: custMap[p.customer_id]?.name || `#${p.id}`,
+        gender: genderOf(p, custMap),
+      })),
+    });
+  }
+  return { rooms: base, hasMissing: missing.length > 0 };
+}
+
 export default function RoomlistPanel({ trip, passengers = [], customers = [] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -70,10 +96,16 @@ export default function RoomlistPanel({ trip, passengers = [], customers = [] })
   );
 
   const hasSaved = !!trip?.final_roomlist?.rooms;
-  const [rooms, setRooms] = useState(() =>
-    hasSaved ? savedToEditable(trip.final_roomlist) : autoToEditable(passengers, customers, custMap)
+  const initial = useMemo(
+    () => hasSaved
+      ? mergeSavedWithNew(trip.final_roomlist, passengers, custMap)
+      : { rooms: autoToEditable(passengers, customers, custMap), hasMissing: false },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
-  const [isFinal, setIsFinal] = useState(hasSaved);
+  const [rooms, setRooms] = useState(initial.rooms);
+  // kalau ada peserta baru yg belum masuk, tandai BUKAN final lagi (perlu re-save)
+  const [isFinal, setIsFinal] = useState(hasSaved && !initial.hasMissing);
   const [savedAt, setSavedAt] = useState(trip?.final_roomlist?.saved_at || null);
   const [newNames, setNewNames] = useState({});
 
