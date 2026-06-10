@@ -23,6 +23,7 @@ export default function VisaWorkflowConfig({ trip }) {
     visa_needs_biometric: trip.visa_needs_biometric !== false,
     visa_needs_physical_doc: trip.visa_needs_physical_doc !== false,
     visa_biometric_location: trip.visa_biometric_location || '',
+    visa_field_team_phone: trip.visa_field_team_phone || '',
     visa_pickup_address: trip.visa_pickup_address || '',
     visa_default_biometric_cost: trip.visa_default_biometric_cost || 0,
     visa_default_visa_cost: trip.visa_default_visa_cost || 0,
@@ -178,12 +179,12 @@ export default function VisaWorkflowConfig({ trip }) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Lokasi Biometrik</label>
+              <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Lokasi / Alamat Biometrik (VFS / TLS / Kedutaan)</label>
               <input autoComplete="off"
                 type="text"
                 value={form.visa_biometric_location}
                 onChange={(e) => setForm((f) => ({ ...f, visa_biometric_location: e.target.value }))}
-                placeholder="VFS Global Jakarta, ..."
+                placeholder="cth: VFS Global Jakarta — Jl. ... / TLScontact / Kedutaan USA Jakarta"
                 className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm"
               />
             </div>
@@ -196,6 +197,17 @@ export default function VisaWorkflowConfig({ trip }) {
                 className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">📞 Nomor WA Tim Lapangan (di lokasi biometrik)</label>
+            <input autoComplete="off"
+              type="text"
+              value={form.visa_field_team_phone}
+              onChange={(e) => setForm((f) => ({ ...f, visa_field_team_phone: e.target.value }))}
+              placeholder="cth: 0812xxxxxxx (muncul di pesan jadwal & reminder biometrik)"
+              className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm"
+            />
           </div>
 
           <div>

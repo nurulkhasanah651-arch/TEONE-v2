@@ -227,6 +227,7 @@ function BulkWAPreviewModal({ trip, passengers, selectedIds, templateKey, family
     tanggal_biometrik: samplePax?.visa_biometric_date || trip.visa_biometric_date,
     jam_biometrik: samplePax?.visa_biometric_time || null,
     lokasi_biometrik: trip.visa_biometric_location,
+    field_team_phone: trip.visa_field_team_phone,
     pickup_address: trip.visa_pickup_address,
     pdf_syarat_visa_url: trip.visa_pdf_syarat_url,
     pdf_template_dokumen_url: trip.visa_pdf_template_url,
