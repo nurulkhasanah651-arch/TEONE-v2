@@ -26,7 +26,7 @@ function fmtRp(n) {
 
 export default function ContentClient({ posts, trips, ig, igFetchedAt, igConnected, campaignStats }) {
   const router = useRouter();
-  const [tab, setTab] = useState('kalender');
+  const [tab, setTab] = useState('jadwal');
   const [pending, startTransition] = useTransition();
 
   return (
@@ -37,7 +37,7 @@ export default function ContentClient({ posts, trips, ig, igFetchedAt, igConnect
           <p className="text-xs text-slate-500">Rencanakan konten per trip & campaign, pantau performa Instagram</p>
         </div>
         <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
-          {[['kalender', '📅 Kalender'], ['ig', '📈 Performa IG'], ['koneksi', '⚙️ Koneksi']].map(([k, label]) => (
+          {[['jadwal', '🗓 Jadwal Konten'], ['kalender', '📅 Kalender'], ['ig', '📈 Performa IG'], ['koneksi', '⚙️ Koneksi']].map(([k, label]) => (
             <button key={k} onClick={() => setTab(k)}
               className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${tab === k ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
               {label}
@@ -46,6 +46,7 @@ export default function ContentClient({ posts, trips, ig, igFetchedAt, igConnect
         </div>
       </div>
 
+      {tab === 'jadwal' && <ContentScheduleTable posts={posts} trips={trips} canEdit={true} />}
       {tab === 'kalender' && <CalendarTab posts={posts} trips={trips} campaignStats={campaignStats} />}
       {tab === 'ig' && <IgTab ig={ig} igFetchedAt={igFetchedAt} posts={posts} campaignStats={campaignStats} pending={pending} onRefresh={() => startTransition(async () => { await refreshIgData(true); router.refresh(); })} />}
       {tab === 'koneksi' && <ConnectTab igConnected={igConnected} ig={ig} />}
