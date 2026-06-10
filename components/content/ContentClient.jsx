@@ -8,6 +8,7 @@ import {
   generateCaption, saveIgConnection, refreshIgData, disconnectIg, linkIgMedia,
 } from '@/lib/actions/content';
 import { resolveBrandCodeBrowser } from '@/lib/brand-shared';
+import ContentScheduleTable from './ContentScheduleTable';
 
 const STATUS_UI = {
   draft:     { label: 'Draft',     cls: 'bg-slate-100 text-slate-600' },
