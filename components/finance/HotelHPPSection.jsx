@@ -53,15 +53,21 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
 
   const counts = useMemo(() => countPaxByRoomType(activePassengers), [activePassengers]);
 
+  // R215m — default jenis kamar IKUT roomlist: ambil tipe kamar pertama yg ada pax-nya.
+  // (mis. roomlist Double → default Double, bukan Quad). Fallback 'quad' kalau semua 0.
+  const defaultRoomType = useMemo(() => {
+    const found = ROOM_TYPES.find((rt) => (counts[rt.key] || 0) > 0);
+    return found ? found.key : 'quad';
+  }, [counts]);
   // R215j — default pax_in_room minimum 1 (kalau auto-count 0, fallback ke activePassengers length atau 1)
-  const initialPaxInRoom = counts.quad > 0 ? counts.quad : (activePassengers.length || 1);
+  const initialPaxInRoom = counts[defaultRoomType] > 0 ? counts[defaultRoomType] : (activePassengers.length || 1);
 
   const [form, setForm] = useState({
     calc_mode: 'per_room',
     hotel_name: '',
     vendor_name: '',
     category: 'Hotel',
-    room_type: 'quad',
+    room_type: defaultRoomType,
     pax_in_room: initialPaxInRoom,
     price_per_room: 0,
     pax_count: activePassengers.length || 1,
@@ -87,8 +93,20 @@ export default function HotelHPPSection({ trip, passengers = [], customers = [],
     kurs_sar: trip?.kurs_sar || 4500,
   });
 
+  // R215m — kalau user BELUM pilih manual & distribusi kamar berubah, ikut roomlist
+  const [roomPickedManually, setRoomPickedManually] = useState(false);
+  useEffect(() => {
+    if (roomPickedManually) return;
+    setForm((f) => (f.room_type === defaultRoomType ? f : {
+      ...f,
+      room_type: defaultRoomType,
+      pax_in_room: counts[defaultRoomType] > 0 ? counts[defaultRoomType] : (f.pax_in_room || activePassengers.length || 1),
+    }));
+  }, [defaultRoomType]);
+
   // R215j — Saat room_type berubah, fallback chain yg robust
   function handleRoomTypeChange(newType) {
+    setRoomPickedManually(true);
     setForm((f) => ({
       ...f,
       room_type: newType,
