@@ -229,6 +229,7 @@ function BulkWAPreviewModal({ trip, passengers, selectedIds, templateKey, family
     pickup_address: trip.visa_pickup_address,
     pdf_syarat_visa_url: trip.visa_pdf_syarat_url,
     pdf_template_dokumen_url: trip.visa_pdf_template_url,
+    list_dokumen: trip.visa_doc_template,   // SINKRON dgn Template Dokumen Visa
     deadline_dokumen: deadlineDoc,
     upload_portal_url: `${siteUrl}/visa/upload/${sampleToken}`,
     return_method: samplePax?.visa_return_method || 'kurir',
