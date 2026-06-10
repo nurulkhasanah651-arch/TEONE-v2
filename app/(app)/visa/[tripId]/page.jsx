@@ -21,6 +21,7 @@ import VisaDocsDownloadPanel from '@/components/visa/VisaDocsDownloadPanel';
 // R215t — Drive sync
 import VisaDriveSyncPanel from '@/components/visa/VisaDriveSyncPanel';
 import ManifestDownloadButton from '@/components/common/ManifestDownloadButton';
+import RoomlistDownloadButton from '@/components/common/RoomlistDownloadButton';
 // R215s — auto-mark uploads as viewed
 import { markTripUploadsAsViewed } from '@/lib/actions/visa-mark-viewed';
 
@@ -151,12 +152,8 @@ export default async function VisaTripPage({ params }) {
         <p className="text-xs font-bold text-brand-700 uppercase tracking-wider">📥 Download Dokumen</p>
         <VisaPDFDownloads trip={trip} passengers={passengersWithCustomers} />
         <div className="flex flex-wrap gap-2 pt-1 border-t border-slate-100">
-          <a href={`/visa/${tripId}/manifest.csv`} download={`manifest_${trip.kode_trip || trip.id}.csv`} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-lg flex items-center gap-2">
-            📋 Manifest (CSV)
-          </a>
-          <a href={`/visa/${tripId}/roomlist.csv`} download={`roomlist_${trip.kode_trip || trip.id}.csv`} className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-semibold rounded-lg flex items-center gap-2">
-            🛏 Roomlist (CSV)
-          </a>
+          <ManifestDownloadButton tripId={tripId} label="📋 Download Manifest (Excel)" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg" />
+          <RoomlistDownloadButton tripId={tripId} label="🛏 Download Roomlist (Excel)" className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg" />
         </div>
       </div>
 
@@ -168,10 +165,6 @@ export default async function VisaTripPage({ params }) {
 
       {/* R215o — Template Editor (CS edit template WA) */}
       <VisaTemplateEditor trip={trip} />
-
-      <div className="flex justify-end">
-        <ManifestDownloadButton tripId={tripId} />
-      </div>
 
       {/* R215t — Google Drive Sync (auto upload ke Drive folder per peserta) */}
       <VisaDriveSyncPanel trip={trip} />

@@ -36,10 +36,19 @@ export default async function TripsPage() {
     const { data } = await supabase.from('trip_passengers').select('*');
     allPax = data || [];
   } catch {}
+  const isActivePax = (p) => p.transfer_status !== 'transferred'
+    && p.refund_status !== 'refunded' && p.refund_status !== 'partial_refund';
   const paxByTrip = {};
   for (const p of allPax) {
+    if (!isActivePax(p)) continue;
     if (!paxByTrip[p.trip_id]) paxByTrip[p.trip_id] = [];
     paxByTrip[p.trip_id].push(p);
+  }
+  // Sold riil = jumlah peserta aktif; sisa = quota - sold
+  for (const t of (trips || [])) {
+    const cnt = (paxByTrip[t.id] || []).length;
+    t._soldReal = cnt;
+    t._seatLeftReal = Math.max((t.quota || 0) - cnt, 0);
   }
 
   // Hero stats — semua trip (kecuali cancelled untuk revenue/seat)
@@ -48,7 +57,7 @@ export default async function TripsPage() {
   const activeTrips = safeTrips.filter((t) => t.status !== 'completed' && t.status !== 'cancelled');
   const openSelling = safeTrips.filter((t) => t.status === 'open selling').length;
   const completedCount = safeTrips.filter((t) => t.status === 'completed').length;
-  const totalSeatLeft = activeTrips.reduce((sum, t) => sum + (t.seat_left || 0), 0);
+  const totalSeatLeft = activeTrips.reduce((sum, t) => sum + (t._seatLeftReal ?? 0), 0);
 
   let totalRevenue = 0;
   if (typeof mainExpectedPerPassenger === 'function') {

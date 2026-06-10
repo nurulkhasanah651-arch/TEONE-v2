@@ -57,13 +57,13 @@ export default function TripCard({ trip }) {
       {/* Seat bar */}
       <div className="mt-3">
         <div className="flex justify-between text-xs text-slate-600 font-medium mb-1">
-          <span>Seat: {trip.sold || 0} / {trip.quota || 0}</span>
-          <span>Sisa: {trip.seat_left ?? (trip.quota - trip.sold) ?? '—'}</span>
+          <span>Seat: {trip._soldReal ?? trip.sold ?? 0} / {trip.quota || 0}</span>
+          <span>Sisa: {trip._seatLeftReal ?? trip.seat_left ?? '—'}</span>
         </div>
         <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-brand-500 to-brand-700"
-            style={{ width: `${trip.quota ? ((trip.sold || 0) / trip.quota) * 100 : 0}%` }}
+            style={{ width: `${trip.quota ? ((trip._soldReal ?? trip.sold ?? 0) / trip.quota) * 100 : 0}%` }}
           />
         </div>
       </div>

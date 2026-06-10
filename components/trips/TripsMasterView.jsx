@@ -425,8 +425,8 @@ function TripRow({ trip, pax, showStatus = false }) {
           <p className="text-xs text-slate-500">{t.departure || '—'} · {t.destination || '—'} · {pax} peserta</p>
         </div>
         <div className="text-right text-xs text-slate-500">
-          <p><span className="font-semibold">{t.sold || 0}</span> / {t.quota || 0} sold</p>
-          <p className="text-amber-700 font-semibold">Sisa: {t.seat_left ?? 0}</p>
+          <p><span className="font-semibold">{t._soldReal ?? t.sold ?? 0}</span> / {t.quota || 0} sold</p>
+          <p className="text-amber-700 font-semibold">Sisa: {t._seatLeftReal ?? t.seat_left ?? 0}</p>
         </div>
       </div>
     </Link>
