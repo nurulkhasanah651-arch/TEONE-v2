@@ -50,7 +50,8 @@ const BLANK_PAX = {
   days_to_close: '',
 };
 
-export default function CSForm({ trips }) {
+export default function CSForm({ trips, mitraList = [] }) {
+  const [mitraId, setMitraId] = useState('');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const [tripId, setTripId] = useState('');
@@ -159,6 +160,16 @@ export default function CSForm({ trips }) {
           <SourceField label="🎓 Alumni"     name="closing_alumni" value={sources.alumni}  onChange={(v) => setSources((s) => ({ ...s, alumni: v }))} />
           <SourceField label="🤝 Mitra"      name="closing_mitra"  value={sources.mitra}   onChange={(v) => setSources((s) => ({ ...s, mitra: v }))} />
         </div>
+        {sources.mitra > 0 && (
+          <div className="mt-2 p-3 bg-teal-50 border border-teal-200 rounded-lg">
+            <label className="text-xs font-bold text-teal-800 block mb-1">🤝 Closing dari mitra siapa?</label>
+            <select name="mitra_id" value={mitraId} onChange={(e) => setMitraId(e.target.value)} className={inputCls} required>
+              <option value="">— Pilih mitra —</option>
+              {mitraList.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+            <p className="text-[11px] text-teal-700 mt-1">Fee otomatis dihitung dari kategori trip × {sources.mitra} closing.</p>
+          </div>
+        )}
 
         <div className="mt-4 p-3 rounded-lg bg-indigo-50 border border-indigo-200">
           <p className="text-xs font-bold text-indigo-700 mb-2">🎯 Closing dari Iklan (Ads)</p>

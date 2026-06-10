@@ -12,6 +12,7 @@ export default async function NewCSPage() {
     .select('id, kode_trip, name, status, seat_left')
     .in('status', ['open selling', 'prepare to sell', 'closed selling', 'ongoing'])
     .order('departure', { ascending: true });
+  const { data: mitraList } = await supabase.from('mitra').select('id, name').eq('active', true).order('name');
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -22,7 +23,7 @@ export default async function NewCSPage() {
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-6">
-        <CSForm trips={trips || []} />
+        <CSForm trips={trips || []} mitraList={mitraList || []} />
       </div>
     </div>
   );

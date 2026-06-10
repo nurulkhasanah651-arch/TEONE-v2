@@ -27,6 +27,9 @@ export async function createCSUpdate(formData) {
   const jumlah_leads = parseInt(formData.get('jumlah_leads')) || 0;
   const sisa_seat = parseInt(formData.get('sisa_seat')) || 0;
   const notes = formData.get('catatan') || null;
+  const closing_mitra = parseInt(formData.get('closing_mitra')) || 0;
+  const closing_alumni = parseInt(formData.get('closing_alumni')) || 0;
+  const mitra_id = formData.get('mitra_id') ? Number(formData.get('mitra_id')) : null;
 
   if (!trip_id) return { error: 'Trip harus dipilih' };
   if (!tanggal) return { error: 'Tanggal harus diisi' };
@@ -43,6 +46,9 @@ export async function createCSUpdate(formData) {
     jumlah_leads,
     sisa_seat,
     notes,
+    closing_mitra,
+    closing_alumni,
+    mitra_id,
     updated_by,
   });
 
