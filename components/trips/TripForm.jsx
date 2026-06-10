@@ -100,11 +100,11 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
           <Field label="Tujuan">
             <input autoComplete="off" name="destination" defaultValue={initial.destination || ''} className={inputCls} placeholder="Eropa, Jepang, dll" />
           </Field>
-          <Field label="Kategori Fee Mitra" hint="Untuk hitung fee mitra per region">
-            <select name="fee_category" defaultValue={initial.fee_category || ''} className={inputCls}>
-              <option value="">— Pilih —</option>
-              {['Asia','Eropa','USA','UK','Russia','Turki','NZ','Domestik','Lainnya'].map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+          <Field label="Kategori Fee Mitra" hint="Untuk hitung fee mitra per kategori (boleh ketik custom)">
+            <input autoComplete="off" list="feeCategoryOptions" name="fee_category" defaultValue={initial.fee_category || ''} className={inputCls} placeholder="Asia / Eropa / custom…" />
+            <datalist id="feeCategoryOptions">
+              {['Asia','Eropa','USA','UK','Russia','Turki','NZ','Domestik'].map((c) => <option key={c} value={c} />)}
+            </datalist>
           </Field>
           <Field label="Tipe Tiket">
             <select name="ticket" defaultValue={initial.ticket || 'FIT'} className={inputCls}>
