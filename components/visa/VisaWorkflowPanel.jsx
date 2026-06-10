@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import {
   updatePassengerVisaCost,
   updatePassengerBiometricTime,
+  updatePassengerDocShortage,
   requestVisaCostToFinance,
   sendVisaWA,
   uploadVisaResult,
@@ -239,6 +240,8 @@ function BulkWAPreviewModal({ trip, passengers, selectedIds, templateKey, family
     return_kurir: samplePax?.visa_return_kurir,
     return_resi: samplePax?.visa_return_resi,
     rejection_reason: samplePax?.visa_rejection_reason,
+    visa_photo_url: samplePax?.visa_result_photo_url || null,
+    list_dokumen_kurang: samplePax?.visa_docs_shortage || undefined,
     ...customVars,
   };
 
@@ -374,6 +377,7 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
   const [biometricCost, setBiometricCost] = useState(p.visa_biometric_cost ?? trip.visa_default_biometric_cost ?? 0);
   const [visaCost, setVisaCost] = useState(p.visa_visa_cost ?? trip.visa_default_visa_cost ?? 0);
   const [biometricTime, setBiometricTime] = useState(p.visa_biometric_time || '');
+  const [docShortage, setDocShortage] = useState(p.visa_docs_shortage || '');
   const [singleTemplate, setSingleTemplate] = useState('doc_collection');
   const [singleCustomVars, setSingleCustomVars] = useState({});
 
@@ -413,6 +417,13 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
       const r = await updatePassengerBiometricTime(p.id, biometricTime);
       if (r?.error) showMsg(r.error, 'error');
       else { showMsg(`✓ Jam biometrik tersimpan`); router.refresh(); }
+    });
+  }
+  function handleSaveDocShortage() {
+    startTransition(async () => {
+      const r = await updatePassengerDocShortage(p.id, docShortage);
+      if (r?.error) showMsg(r.error, 'error');
+      else { showMsg(`✓ Kekurangan dokumen tersimpan`); router.refresh(); }
     });
   }
   function handleSendSingle() {
@@ -518,6 +529,17 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                   <input autoComplete="off" type="time" value={biometricTime} onChange={(e) => setBiometricTime(e.target.value)} className="px-3 py-1.5 border border-slate-300 rounded text-sm" />
                   <button type="button" onClick={handleSaveBiometricTime} disabled={pending} className="px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold rounded">💾</button>
                 </div>
+              </div>
+
+              <div className="p-3 bg-rose-50 rounded border border-rose-200">
+                <p className="text-xs font-bold text-rose-800 uppercase mb-1">⚠ Kekurangan Dokumen (per peserta, 1 per baris)</p>
+                <textarea value={docShortage} onChange={(e) => setDocShortage(e.target.value)} rows={3}
+                  placeholder={"cth:\nRekening koran 3 bulan terakhir\nSurat keterangan kerja"}
+                  className="w-full px-3 py-2 border border-slate-300 rounded text-sm font-mono leading-relaxed" />
+                <div className="flex justify-end mt-1">
+                  <button type="button" onClick={handleSaveDocShortage} disabled={pending} className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded">💾 Simpan kekurangan</button>
+                </div>
+                <p className="text-[10px] text-rose-700 mt-1">Auto masuk ke pesan WA "Kekurangan Dokumen" peserta ini (tidak bisa di-blast — kirim per peserta).</p>
               </div>
 
               <div className="p-3 bg-amber-50 rounded border border-amber-200">
