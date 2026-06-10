@@ -196,32 +196,49 @@ export default async function TLTripDetailPage({ params }) {
         userEmail={userEmail}
       />
 
-      {/* Manifest & Final Roomlist — auto-connect dari master trip */}
-      <TLManifestRoomlist trip={trip} passengers={passengers} customerMap={customerMap} />
-
-      {/* Passengers list */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-200 bg-slate-50">
-          <h2 className="font-bold text-brand-700">👥 Daftar Peserta ({passengers.length})</h2>
-        </div>
-        {passengers.length === 0 ? (
-          <p className="p-6 text-center text-sm text-slate-500">Belum ada peserta aktif.</p>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {passengers.map((p, idx) => {
-              const c = customerMap[p.customer_id] || {};
-              return (
-                <div key={p.id} className="px-5 py-2.5 flex items-center gap-3 flex-wrap">
-                  <span className="text-xs font-mono text-slate-400">#{idx + 1}</span>
-                  <p className="flex-1 font-semibold text-slate-800">{c.name || '—'}</p>
-                  {p.room_type && <span className="text-[11px] px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold">{p.room_type}</span>}
-                  {c.phone && <span className="text-xs text-slate-500">📞 {c.phone}</span>}
+      {/* Manifest, Roomlist & Daftar Peserta — TL hanya boleh akses mulai H-14 */}
+      {(() => {
+        const paxGateOpen = isInternal || (days != null && days <= 14);
+        if (!paxGateOpen) {
+          return (
+            <div className="bg-white rounded-xl border border-amber-200 shadow-card p-8 text-center">
+              <p className="text-3xl mb-2">🔒</p>
+              <p className="font-bold text-amber-800">Data peserta, manifest & roomlist tersedia mulai H-14</p>
+              <p className="text-sm text-slate-600 mt-1">
+                Akan terbuka {days != null ? `dalam ${days - 14} hari lagi` : 'menjelang keberangkatan'} (14 hari sebelum berangkat).
+                {trip.departure ? ` Keberangkatan: ${fmtDate(trip.departure)}.` : ''}
+              </p>
+            </div>
+          );
+        }
+        return (
+          <>
+            <TLManifestRoomlist trip={trip} passengers={passengers} customerMap={customerMap} />
+            <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+              <div className="px-5 py-3 border-b border-slate-200 bg-slate-50">
+                <h2 className="font-bold text-brand-700">👥 Daftar Peserta ({passengers.length})</h2>
+              </div>
+              {passengers.length === 0 ? (
+                <p className="p-6 text-center text-sm text-slate-500">Belum ada peserta aktif.</p>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {passengers.map((p, idx) => {
+                    const c = customerMap[p.customer_id] || {};
+                    return (
+                      <div key={p.id} className="px-5 py-2.5 flex items-center gap-3 flex-wrap">
+                        <span className="text-xs font-mono text-slate-400">#{idx + 1}</span>
+                        <p className="flex-1 font-semibold text-slate-800">{c.name || '—'}</p>
+                        {p.room_type && <span className="text-[11px] px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold">{p.room_type}</span>}
+                        {c.phone && <span className="text-xs text-slate-500">📞 {c.phone}</span>}
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+              )}
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
