@@ -27,7 +27,6 @@ export default function VisaWorkflowConfig({ trip }) {
     visa_default_biometric_cost: trip.visa_default_biometric_cost || 0,
     visa_default_visa_cost: trip.visa_default_visa_cost || 0,
     visa_deadline_doc: trip.visa_deadline_doc || '',
-    visa_required_docs: trip.visa_required_docs || '',
   });
 
   function showMsg(text, type = 'success') {
@@ -138,18 +137,6 @@ export default function VisaWorkflowConfig({ trip }) {
                 className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm"
               />
             </div>
-          </div>
-
-          <div>
-            <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">📋 Daftar Dokumen yang Dibutuhkan (1 per baris)</label>
-            <textarea
-              value={form.visa_required_docs}
-              onChange={(e) => setForm((f) => ({ ...f, visa_required_docs: e.target.value }))}
-              rows={6}
-              placeholder={"KTP\nKartu Keluarga\nPaspor (halaman data diri)\nPas foto terbaru (latar putih)\nRekening koran 3 bulan terakhir\nSurat keterangan kerja"}
-              className="w-full px-3 py-2 border border-slate-300 rounded text-sm font-mono leading-relaxed"
-            />
-            <p className="text-[10px] text-slate-500 mt-1">Daftar ini otomatis muncul di pesan WA Pengumpulan Dokumen (perlu/tanpa biometrik). Kosongkan untuk pakai daftar standar.</p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
