@@ -28,7 +28,6 @@ export default async function TripDetailPage({ params }) {
   const s = statusCfg(trip.status);
   const days = daysUntil(trip.departure);
   const checklist = tripChecklist(trip);
-  const revenue = (trip.price || 0) * (trip.sold || 0);
 
   let allTrips = [];
   try {
@@ -131,10 +130,8 @@ export default async function TripDetailPage({ params }) {
       <ImportExcelPanel tripId={trip.id} trip={trip} />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Seat Terjual" value={`${trip.sold || 0} / ${trip.quota || 0}`} color="text-brand-700" />
-        <StatCard label="Sisa Seat" value={trip.seat_left ?? 0} color="text-amber-700" />
-        <StatCard label="Harga / Pax" value={fmtRupiah(trip.price)} color="text-blue-700" small />
-        <StatCard label="Revenue" value={fmtRupiah(revenue)} color="text-green-700" small />
+        <StatCard label="Seat Terjual" value={`${passengers.length} / ${trip.quota || 0}`} color="text-brand-700" />
+        <StatCard label="Sisa Seat" value={Math.max((trip.quota || 0) - passengers.length, 0)} color="text-amber-700" />
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
