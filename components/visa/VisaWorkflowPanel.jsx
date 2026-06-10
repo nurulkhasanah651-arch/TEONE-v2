@@ -241,7 +241,7 @@ function BulkWAPreviewModal({ trip, passengers, selectedIds, templateKey, family
     return_kurir: samplePax?.visa_return_kurir,
     return_resi: samplePax?.visa_return_resi,
     rejection_reason: samplePax?.visa_rejection_reason,
-    visa_photo_url: samplePax?.visa_result_photo_url || null,
+    visa_photo_url: samplePax?.visa_result_photo_url ? '(link aman 7 hari — dibuat otomatis saat kirim)' : null,
     list_dokumen_kurang: samplePax?.visa_docs_shortage || undefined,
     ...customVars,
   };
@@ -384,7 +384,8 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
 
   const [showUploadResult, setShowUploadResult] = useState(false);
   const [resultType, setResultType] = useState('approved');
-  const [uploadedFileUrl, setUploadedFileUrl] = useState(p.visa_result_photo_url || '');
+  const [uploadedFileUrl, setUploadedFileUrl] = useState('');
+  const [uploadedFilePath, setUploadedFilePath] = useState(p.visa_result_photo_url || '');
   const [uploading, setUploading] = useState(false);
   const [resultValidFrom, setResultValidFrom] = useState(p.visa_valid_from || '');
   const [resultValidUntil, setResultValidUntil] = useState(p.visa_valid_until || '');
@@ -461,7 +462,7 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
       fd.append('visa_file', file);
       const r = await uploadVisaResultFile(p.id, fd);
       if (r?.error) showMsg('Upload gagal: ' + r.error, 'error');
-      else { setUploadedFileUrl(r.file_url); showMsg(`✓ File uploaded`); }
+      else { setUploadedFileUrl(r.file_url || ''); setUploadedFilePath(r.file_path || ''); showMsg(`✓ File uploaded`); }
     } catch (e) {
       showMsg('Upload error: ' + e.message, 'error');
     } finally {
@@ -470,7 +471,7 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
     }
   }
   function handleSaveResult() {
-    if (!uploadedFileUrl && !confirm('Belum upload file. Save tanpa file?')) return;
+    if (!uploadedFilePath && !confirm('Belum upload file. Save tanpa file?')) return;
     startTransition(async () => {
       const extras = {};
       if (resultType === 'approved') {
@@ -486,7 +487,7 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
       if (resultType === 'rejected' && resultRejReason) extras.rejection_reason = resultRejReason;
       if (autoSendWA) extras.auto_send_wa = true;
 
-      const r = await uploadVisaResult(p.id, uploadedFileUrl, resultType, extras);
+      const r = await uploadVisaResult(p.id, uploadedFilePath, resultType, extras);
       if (r?.error) { showMsg(r.error, 'error'); return; }
       showMsg(`✓ Hasil ${resultType}${r.wa_sent ? ' + WA sent' : ''}`);
       setShowUploadResult(false);
