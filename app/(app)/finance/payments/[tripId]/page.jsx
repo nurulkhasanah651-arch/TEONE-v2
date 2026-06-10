@@ -11,6 +11,7 @@ import PaymentTemplateForm from '@/components/finance/PaymentTemplateForm';
 import PaymentMatrix from '@/components/finance/PaymentMatrix';
 import DownloadButtons from '@/components/common/DownloadButtons';
 import DeliverySection from '@/components/checklist/DeliverySection';
+import { expectedPerPassenger } from '@/lib/utils/price-breakdown';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,7 +115,12 @@ export default async function TripPaymentsPage({ params }) {
   const pnrs = pnrRes || [];
 
   const template = (trip.payment_template && typeof trip.payment_template === 'object') ? trip.payment_template : {};
-  const totalExpected = passengers.reduce((s, p) => s + (p.price_paid || 0), 0);
+  // EXPECTED per peserta: price_paid kalau sudah diisi, kalau 0 fallback proyeksi harga kamar (SINKRON list)
+  const paxExpected = (p) => {
+    const fixed = Number(p.price_paid) || 0;
+    return fixed > 0 ? fixed : expectedPerPassenger(p, breakdown, paymentsByPassenger[p.id] || []);
+  };
+  const totalExpected = passengers.reduce((s, p) => s + paxExpected(p), 0);
   const totalPaid = Object.values(paymentsByPassenger).flat().reduce((s, p) => s + (p.amount || 0), 0);
   const progress = totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : 0;
   const templateTotal = Object.values(template).reduce((s, v) => s + (+v || 0), 0);
@@ -124,13 +130,14 @@ export default async function TripPaymentsPage({ params }) {
   const invoiceRows = passengersWithCustomers.map((p) => {
     const pays = paymentsByPassenger[p.id] || [];
     const totalBayar = pays.reduce((s, x) => s + (x.amount || 0), 0);
-    const sisa = (p.price_paid || 0) - totalBayar;
+    const expP = paxExpected(p);
+    const sisa = expP - totalBayar;
     return {
       nama: p.customers?.name || `Pax #${p.id}`,
       phone: p.customers?.phone || '-',
       email: p.customers?.email || '-',
       room_type: p.room_type || '-',
-      harga: p.price_paid || 0,
+      harga: expP,
       total_bayar: totalBayar,
       sisa: sisa,
       status: sisa <= 0 ? 'LUNAS' : totalBayar > 0 ? 'CICILAN' : 'BELUM BAYAR',

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import DownloadButtons from '@/components/common/DownloadButtons';
 import PaymentChecklistTable from '@/components/finance/PaymentChecklistTable';
+import { expectedPerPassenger } from '@/lib/utils/price-breakdown';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,9 +14,9 @@ export default async function PaymentsListPage() {
   const supabase = createClient();
 
   const [tripsRes, passengersRes, paymentsRes] = await Promise.all([
-    supabase.from('trips').select('id, kode_trip, name, status, departure, quota, sold').order('departure', { ascending: true }),
+    supabase.from('trips').select('id, kode_trip, name, status, departure, quota, sold, price_breakdown').order('departure', { ascending: true }),
     // R215y⁴: tambah transfer_status + refund_status biar bisa filter peserta aktif
-    supabase.from('trip_passengers').select('id, trip_id, price_paid, transfer_status, refund_status'),
+    supabase.from('trip_passengers').select('id, trip_id, price_paid, room_type, discount_amount, transfer_status, refund_status'),
     // R215y⁴: tambah is_transferred biar bisa exclude payment yg udah dipindah
     supabase.from('participant_payments').select('passenger_id, amount, type, is_transferred'),
   ]);
@@ -35,8 +36,17 @@ export default async function PaymentsListPage() {
   const payments = allPayments.filter((p) => p.is_transferred !== true);
 
   const paidByPassenger = {};
+  const paymentsByPax = {};
   for (const p of payments) {
     paidByPassenger[p.passenger_id] = (paidByPassenger[p.passenger_id] || 0) + (p.amount || 0);
+    if (!paymentsByPax[p.passenger_id]) paymentsByPax[p.passenger_id] = [];
+    paymentsByPax[p.passenger_id].push(p);
+  }
+
+  // Breakdown per trip (sumber SAMA dgn halaman detail & cashflow: trips.price_breakdown)
+  const breakdownByTrip = {};
+  for (const t of trips) {
+    breakdownByTrip[t.id] = (t.price_breakdown && typeof t.price_breakdown === 'object') ? t.price_breakdown : {};
   }
 
   const byTrip = {};
@@ -45,10 +55,18 @@ export default async function PaymentsListPage() {
   }
   for (const p of passengers) {
     if (!byTrip[p.trip_id]) continue;
-    byTrip[p.trip_id].expected += p.price_paid || 0;
-    byTrip[p.trip_id].paid += paidByPassenger[p.id] || 0;
+    // EXPECTED per peserta:
+    // - kalau "Harga Bayar" (price_paid) sudah diisi → pakai itu (harga deal; trip lama TIDAK berubah)
+    // - kalau kosong/0 → fallback proyeksi harga kamar master (+ addons − diskon), biar tidak 0
+    const priceFixed = Number(p.price_paid) || 0;
+    const exp = priceFixed > 0
+      ? priceFixed
+      : expectedPerPassenger(p, breakdownByTrip[p.trip_id], paymentsByPax[p.id] || []);
+    const paid = paidByPassenger[p.id] || 0;
+    byTrip[p.trip_id].expected += exp;
+    byTrip[p.trip_id].paid += paid;
     byTrip[p.trip_id].paxCount++;
-    if ((paidByPassenger[p.id] || 0) >= (p.price_paid || 0) && (p.price_paid || 0) > 0) {
+    if (exp > 0 && paid >= exp) {
       byTrip[p.trip_id].lunasCount++;
     }
   }
