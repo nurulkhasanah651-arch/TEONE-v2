@@ -130,8 +130,8 @@ export default async function TripDetailPage({ params }) {
       <ImportExcelPanel tripId={trip.id} trip={trip} />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Seat Terjual" value={`${passengers.length} / ${trip.quota || 0}`} color="text-brand-700" />
-        <StatCard label="Sisa Seat" value={Math.max((trip.quota || 0) - passengers.length, 0)} color="text-amber-700" />
+        <StatCard label="Seat Terjual" value={`${participants.length} / ${trip.quota || 0}`} color="text-brand-700" />
+        <StatCard label="Sisa Seat" value={Math.max((trip.quota || 0) - participants.length, 0)} color="text-amber-700" />
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
