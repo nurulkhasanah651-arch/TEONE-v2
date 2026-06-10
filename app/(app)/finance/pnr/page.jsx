@@ -38,6 +38,10 @@ export default async function PnrListPage() {
   const groupCount = (pnrs || []).filter((p) => p.ticket_type !== 'fit').length;
   const fitCount = (pnrs || []).filter((p) => p.ticket_type === 'fit').length;
 
+  // Pisahkan daftar: Group (PNR rombongan) vs FIT (individu)
+  const groupPnrs = (pnrs || []).filter((p) => p.ticket_type !== 'fit');
+  const fitPnrs = (pnrs || []).filter((p) => p.ticket_type === 'fit');
+
   // R156: prep rows untuk download
   const fmtMoney = (v) => `Rp ${Number(v || 0).toLocaleString('id-ID')}`;
   const downloadRows = (pnrs || []).map((p) => {
@@ -118,23 +122,53 @@ export default async function PnrListPage() {
         <StatCard label="Total Pelunasan" value={fmtRupiah(totalPayoff)} color="text-blue-700" bg="bg-blue-50" small />
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-200">
-          <h2 className="font-bold text-brand-700">Daftar PNR</h2>
-          <p className="text-xs text-slate-500 mt-0.5">{unlinked} PNR belum di-link ke trip · {linked} sudah linked</p>
-        </div>
-        {!pnrs || pnrs.length === 0 ? (
+      {(!pnrs || pnrs.length === 0) ? (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
           <div className="p-12 text-center">
             <p className="text-4xl mb-3">✈</p>
             <p className="text-lg font-bold text-slate-700">Belum ada PNR</p>
             <p className="mt-1 text-sm text-slate-500">Klik "Tambah PNR" untuk mulai.</p>
           </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {pnrs.map((p) => <PnrRow key={p.id} pnr={p} />)}
-          </div>
-        )}
+        </div>
+      ) : (
+        <>
+          <PnrSection
+            title="✈ PNR Group"
+            subtitle="Tiket rombongan / blok kursi"
+            accent="text-sky-700"
+            list={groupPnrs}
+            emptyText="Belum ada PNR group."
+          />
+          <PnrSection
+            title="🎫 FIT"
+            subtitle="Tiket individu (Free Individual Traveller)"
+            accent="text-purple-700"
+            list={fitPnrs}
+            emptyText="Belum ada tiket FIT."
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+function PnrSection({ title, subtitle, accent, list, emptyText }) {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+      <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className={`font-bold ${accent}`}>{title}</h2>
+          <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>
+        </div>
+        <span className="text-sm font-bold text-slate-500">{list.length} PNR</span>
       </div>
+      {list.length === 0 ? (
+        <div className="p-8 text-center text-sm text-slate-400">{emptyText}</div>
+      ) : (
+        <div className="divide-y divide-slate-100">
+          {list.map((p) => <PnrRow key={p.id} pnr={p} />)}
+        </div>
+      )}
     </div>
   );
 }
