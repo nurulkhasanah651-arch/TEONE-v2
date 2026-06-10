@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import { statusCfg } from '@/lib/utils/trip-status';
 import DownloadButtons from '@/components/common/DownloadButtons';
+import { computeIncomeProjection } from '@/lib/utils/price-breakdown';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,9 +38,9 @@ export default async function CashflowListPage({ searchParams }) {
   const filterYear = sp?.year || '';   // format YYYY
 
   const [tripsRes, itemsRes, passengersRes, landtourRes] = await Promise.all([
-    supabase.from('trips').select('id, kode_trip, name, status, departure, quota, sold').order('departure', { ascending: true }),
+    supabase.from('trips').select('id, kode_trip, name, status, departure, quota, sold, price_breakdown').order('departure', { ascending: true }),
     supabase.from('trip_finance_items').select('trip_id, item_type, total_amount'),
-    supabase.from('trip_passengers').select('id, trip_id, transfer_status, refund_status'),
+    supabase.from('trip_passengers').select('id, trip_id, transfer_status, refund_status, room_type, price_paid, discount_amount'),
     // R215c — fetch Landtour vendor untuk "Operated by"
     supabase.from('trip_finance_items')
       .select('trip_id, vendor_name, component, category')
@@ -67,6 +68,7 @@ export default async function CashflowListPage({ searchParams }) {
 
   const allPaxByTrip = {};
   const activePaxByTrip = {};
+  const activeRecByTrip = {};
   for (const p of allPassengers) {
     if (!allPaxByTrip[p.trip_id]) allPaxByTrip[p.trip_id] = [];
     allPaxByTrip[p.trip_id].push(p.id);
@@ -76,30 +78,44 @@ export default async function CashflowListPage({ searchParams }) {
     if (!isTransferred && !isRefunded) {
       if (!activePaxByTrip[p.trip_id]) activePaxByTrip[p.trip_id] = [];
       activePaxByTrip[p.trip_id].push(p.id);
+      if (!activeRecByTrip[p.trip_id]) activeRecByTrip[p.trip_id] = [];
+      activeRecByTrip[p.trip_id].push(p);
     }
   }
 
+  // Breakdown per trip — sumber SAMA dgn halaman detail (trips.price_breakdown)
+  const breakdownByTrip = {};
+  for (const t of trips) {
+    breakdownByTrip[t.id] = (t.price_breakdown && typeof t.price_breakdown === 'object') ? t.price_breakdown : {};
+  }
+
   const allPaxIds = Object.values(allPaxByTrip).flat();
+  // SINKRON dgn halaman detail: income = PROYEKSI dari master (room price + addons - diskon),
+  // BUKAN cash-in real. computeIncomeProjection sama persis dgn yg dipakai detail.
   const autoIncomeByTrip = {};
   if (allPaxIds.length > 0) {
     try {
       const { data: pays } = await supabase
         .from('participant_payments')
-        .select('passenger_id, amount, is_transferred')
+        .select('passenger_id, amount, is_transferred, type')
         .in('passenger_id', allPaxIds);
       const validPays = (pays || []).filter((p) => p.is_transferred !== true);
 
       const paxToTrip = {};
       for (const tid in allPaxByTrip) {
-        for (const pid of allPaxByTrip[tid]) {
-          paxToTrip[pid] = tid;
-        }
+        for (const pid of allPaxByTrip[tid]) paxToTrip[pid] = tid;
       }
-
+      const validPaysByTrip = {};
       for (const pay of validPays) {
         const tid = paxToTrip[pay.passenger_id];
         if (!tid) continue;
-        autoIncomeByTrip[tid] = (autoIncomeByTrip[tid] || 0) + Number(pay.amount || 0);
+        if (!validPaysByTrip[tid]) validPaysByTrip[tid] = [];
+        validPaysByTrip[tid].push(pay);
+      }
+      for (const t of trips) {
+        const recs = activeRecByTrip[t.id] || [];
+        const proj = computeIncomeProjection(recs, breakdownByTrip[t.id], validPaysByTrip[t.id] || []);
+        autoIncomeByTrip[t.id] = proj.total || 0;
       }
     } catch (e) {
       // defensive
@@ -209,7 +225,7 @@ export default async function CashflowListPage({ searchParams }) {
         <div>
           <Link href="/finance" className="text-sm text-brand-600 font-medium hover:underline">← Finance</Link>
           <h1 className="mt-2 text-3xl font-bold text-brand-700">Proyeksi Income per Group</h1>
-          <p className="mt-1 text-slate-600">Auto Cash In (semua payment is_transferred=false) + Manual Income + HPP.</p>
+          <p className="mt-1 text-slate-600">Auto Proyeksi Income (dari master: harga kamar + addons − diskon) + Manual Income − HPP. Sinkron dgn halaman detail trip.</p>
         </div>
         <DownloadButtons
           filename={`proyeksi-income-semua-trip-${new Date().toISOString().slice(0,10)}`}
