@@ -1,5 +1,7 @@
 // Pemakaian Claude (Anthropic Admin API). Butuh env ANTHROPIC_ADMIN_KEY.
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -19,11 +21,33 @@ export async function GET(request) {
   if (!authed(request, url)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
 
   const adminKey = process.env.ANTHROPIC_ADMIN_KEY;
+
+  // FALLBACK: kalau Admin key belum ada, pakai pencatatan internal app (claude_usage_log)
   if (!adminKey) {
-    return NextResponse.json(
-      { ok: false, configured: false, note: 'ANTHROPIC_ADMIN_KEY belum di-set di Vercel env.' },
-      { headers: { 'Cache-Control': 'no-store' } }
-    );
+    try {
+      const url = brandSupabaseUrl(); const key = brandServiceRoleKey();
+      const db = createClient(url, key, { auth: { persistSession: false } });
+      const now = new Date();
+      const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+      const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+      const [{ data: monthRows }, { data: dayRows }] = await Promise.all([
+        db.from('claude_usage_log').select('input_tokens, output_tokens, est_cost_usd, feature').gte('created_at', monthStart),
+        db.from('claude_usage_log').select('input_tokens, output_tokens, est_cost_usd').gte('created_at', dayStart),
+      ]);
+      const sum = (rows, f) => (rows || []).reduce((s, r) => s + Number(r[f] || 0), 0);
+      const byFeature = {};
+      for (const r of (monthRows || [])) byFeature[r.feature || 'unknown'] = (byFeature[r.feature || 'unknown'] || 0) + Number(r.est_cost_usd || 0);
+      return NextResponse.json({
+        ok: true, configured: false, source: 'internal-log',
+        note: 'Dari pencatatan internal app (estimasi). Untuk angka resmi Anthropic, set ANTHROPIC_ADMIN_KEY.',
+        cost_month_usd: Math.round(sum(monthRows, 'est_cost_usd') * 100) / 100,
+        tokens_today: { input: sum(dayRows, 'input_tokens'), output: sum(dayRows, 'output_tokens') },
+        tokens_month: { input: sum(monthRows, 'input_tokens'), output: sum(monthRows, 'output_tokens') },
+        cost_by_feature: byFeature,
+      }, { headers: { 'Cache-Control': 'no-store' } });
+    } catch (e) {
+      return NextResponse.json({ ok: false, configured: false, source: 'internal-log', error: e?.message || 'err' }, { headers: { 'Cache-Control': 'no-store' } });
+    }
   }
 
   const now = new Date();
