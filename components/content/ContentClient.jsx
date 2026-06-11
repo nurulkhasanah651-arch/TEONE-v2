@@ -354,6 +354,8 @@ function IgTab({ ig, igFetchedAt, posts, campaignStats, onRefresh, pending }) {
         </button>
       </div>
 
+      <TopIgMediaPerforma media={media} />
+
       {/* Grid media */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {media.map((m) => {
@@ -516,6 +518,54 @@ function ConnectTab({ igConnected, ig }) {
   );
 }
 
+
+// ═══════════════ TOP PERFORMA (IG tersambung — dari media asli) ═══════════════
+function TopIgMediaPerforma({ media }) {
+  const [period, setPeriod] = useState('week');
+  const days = period === 'week' ? 7 : period === 'month' ? 30 : null;
+  const cutoff = days ? Date.now() - days * 86400000 : null;
+  const eng = (m) => (m.like_count || 0) + (m.comments_count || 0) + (m.saved || 0);
+  const ranked = (media || [])
+    .filter((m) => { if (!cutoff) return true; if (!m.timestamp) return false; return new Date(m.timestamp).getTime() >= cutoff; })
+    .sort((a, b) => eng(b) - eng(a) || (b.reach || 0) - (a.reach || 0))
+    .slice(0, 8);
+  const periods = [['week', '7 Hari'], ['month', '30 Hari'], ['all', 'Semua']];
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="px-4 py-2 bg-gradient-to-r from-amber-50 to-pink-50 border-b border-slate-200 flex items-center justify-between gap-2 flex-wrap">
+        <span className="text-xs font-bold text-slate-700 uppercase">🏆 Top Performa Konten</span>
+        <div className="flex gap-1">
+          {periods.map(([k, l]) => (
+            <button key={k} onClick={() => setPeriod(k)} className={`px-2.5 py-1 rounded text-[11px] font-bold ${period === k ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{l}</button>
+          ))}
+        </div>
+      </div>
+      {ranked.length === 0 ? (
+        <p className="px-4 py-6 text-center text-xs text-slate-400">Belum ada post IG di periode ini.</p>
+      ) : (
+        <table className="w-full text-xs">
+          <thead><tr className="text-left text-slate-500 border-b border-slate-100">
+            <th className="px-4 py-2">#</th><th className="px-2 py-2">Konten</th><th className="px-2 py-2">Tgl</th>
+            <th className="px-2 py-2 text-right">Interaksi</th><th className="px-2 py-2 text-right">👁 Reach</th><th className="px-2 py-2"></th>
+          </tr></thead>
+          <tbody>
+            {ranked.map((m, i) => (
+              <tr key={m.id} className="border-b border-slate-50 hover:bg-slate-50">
+                <td className="px-4 py-2 font-bold text-amber-600">{i + 1}</td>
+                <td className="px-2 py-2 text-slate-700 max-w-[260px] truncate">{m.caption || `(${(m.media_type || 'post').toLowerCase()})`}</td>
+                <td className="px-2 py-2 text-slate-400">{m.timestamp ? new Date(m.timestamp).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : '—'}</td>
+                <td className="px-2 py-2 text-right font-bold text-pink-600">{fmtNum(eng(m))}</td>
+                <td className="px-2 py-2 text-right">{m.reach != null ? fmtNum(m.reach) : '—'}</td>
+                <td className="px-2 py-2">{m.permalink && <a href={m.permalink} target="_blank" className="text-brand-600 hover:underline">↗</a>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <p className="px-4 py-1.5 text-[10px] text-slate-400 border-t border-slate-100">Interaksi = likes + komentar + saves. Diambil dari post IG terbaru.</p>
+    </div>
+  );
+}
 
 // ═══════════════ TOP PERFORMA KONTEN (mingguan / bulanan) ═══════════════
 function TopContentPerforma({ posts }) {
