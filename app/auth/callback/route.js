@@ -49,6 +49,17 @@ export async function GET(request) {
         const map = { tl: 'tour_leader', finance: 'ops', team: 'ops' };
         role = map[profile?.role] || profile?.role || null;
       } catch {}
+      // Cocokkan email ke data KARYAWAN (master employees) → role karyawan (staf internal)
+      if ((!role || role === 'pending') && user.email) {
+        try {
+          const { data: emp } = await supabase
+            .from('employees').select('role, status').ilike('email', user.email).maybeSingle();
+          if (emp && emp.status !== 'inactive' && emp.role) {
+            const map2 = { tl: 'tour_leader', finance: 'ops', team: 'ops' };
+            role = map2[emp.role] || emp.role;
+          }
+        } catch {}
+      }
       // Cocokkan email ke master mitra → role mitra
       if ((!role || role === 'pending') && user.email) {
         try {
