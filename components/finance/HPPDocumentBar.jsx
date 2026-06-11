@@ -177,14 +177,14 @@ export default function HPPDocumentBar({
   }
 
   // ============ FILE INPUT HANDLERS ============
-  function onInvoiceSelect(e) {
+  async function onInvoiceSelect(e) {
     let file = e.target.files?.[0];
     file = await compressImage(file);
     if (!file) return;
     handleDirectUpload(file, 'invoice');
     if (invoiceRef.current) invoiceRef.current.value = '';
   }
-  function onProofSelect(e) {
+  async function onProofSelect(e) {
     let file = e.target.files?.[0];
     file = await compressImage(file);
     if (!file) return;
