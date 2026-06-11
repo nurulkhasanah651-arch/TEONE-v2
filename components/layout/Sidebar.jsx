@@ -1,6 +1,6 @@
 'use client';
 
-// Round 173 SAFE + R224: Sidebar — tambah Private Trip Request menu
+// Sidebar — menu dikelompokkan jadi kategori yang bisa buka-tutup (collapsible)
 // Path: components/layout/Sidebar.jsx
 
 import { useEffect, useState } from 'react';
@@ -9,30 +9,67 @@ import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { resolveBrandCodeBrowser, BRAND_UI } from '@/lib/brand-shared';
 
-const NAV = [
-  { href: '/mitra',           label: 'Trip Dijual', icon: '🤝', roles: ['mitra'] },
-  { href: '/dashboard',       label: 'Dashboard',    icon: '◆',  roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
-  { href: '/trips',           label: 'Master Trip',  icon: '✈',  roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
-  { href: '/cs',              label: 'CS Daily',     icon: '☎',  roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
-  { href: '/finance',         label: 'Finance',      icon: '$',  roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
-  { href: '/invoices',        label: 'Invoices',     icon: '🧾', roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
-  { href: '/accounting',      label: 'Accounting',   icon: '📊', roles: ['owner', 'accounting'] },
-  { href: '/visa',            label: 'Visa',         icon: '🛂', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
-  { href: '/plan',            label: 'Plan Trip',    icon: '🗺', roles: ['owner', 'accounting', 'manager', 'ops'] },
-  { href: '/crm',             label: 'CRM Customer', icon: '👥', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
-  { href: '/private-trips',   label: 'Private Trip Req', icon: '📨', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
-  { href: '/quotations',      label: 'Penawaran AI', icon: '💰', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
-  { href: '/ads',             label: 'Ads Manager',  icon: '📢', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
-  { href: '/content',         label: 'Konten',       icon: '📱', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
-  { href: '/hr',              label: 'HR',           icon: '🧑', roles: ['owner', 'accounting'] },
-  { href: '/hr/attendance',   label: 'Absensi',      icon: '🕐', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
-  { href: '/refunds',         label: 'Refunds',      icon: '💸', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
-  { href: '/passport-manage', label: 'Passport AI',  icon: '🤖', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
-  { href: '/tl',              label: 'Portal TL',    icon: '👤', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops', 'tour_leader'] },
-  { href: '/tl-master',       label: 'Master TL',    icon: '👥', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'] },
-  { href: '/mitra-master',    label: 'Master Mitra', icon: '🤝', roles: ['owner', 'accounting', 'manager', 'ops', 'cs'] },
-  { href: '/tasks',           label: 'To-Do List',   icon: '✅', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops', 'tour_leader'] },
-  { href: '/chat',            label: 'Chat Tim',     icon: '💬', roles: ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops', 'tour_leader'] },
+const ALL_ROLES = ['pic', 'owner', 'accounting', 'manager', 'cs', 'ops'];
+
+// Item flat di paling atas (di luar grup)
+const TOP = [
+  { href: '/mitra', label: 'Trip Dijual', icon: '🤝', roles: ['mitra'] },
+];
+
+// Grup menu yang bisa buka-tutup
+const GROUPS = [
+  {
+    key: 'utama',
+    label: 'Utama',
+    items: [
+      { href: '/dashboard', label: 'Dashboard',   icon: '◆', roles: ALL_ROLES },
+      { href: '/trips',      label: 'Master Trip', icon: '✈', roles: ALL_ROLES },
+      { href: '/cs',         label: 'CS Daily',    icon: '☎', roles: ALL_ROLES },
+      { href: '/visa',       label: 'Visa',        icon: '🛂', roles: ALL_ROLES },
+    ],
+  },
+  {
+    key: 'keuangan',
+    label: 'Keuangan',
+    items: [
+      { href: '/finance',    label: 'Finance',    icon: '$',  roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
+      { href: '/invoices',   label: 'Invoices',   icon: '🧾', roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
+      { href: '/accounting', label: 'Accounting', icon: '📊', roles: ['owner', 'accounting'] },
+      { href: '/refunds',    label: 'Refunds',    icon: '💸', roles: ALL_ROLES },
+    ],
+  },
+  {
+    key: 'marketing',
+    label: 'Marketing & Sales',
+    items: [
+      { href: '/crm',           label: 'CRM Customer',     icon: '👥', roles: ALL_ROLES },
+      { href: '/quotations',    label: 'Penawaran AI',     icon: '💰', roles: ALL_ROLES },
+      { href: '/private-trips', label: 'Private Trip Req', icon: '📨', roles: ALL_ROLES },
+      { href: '/plan',          label: 'Plan Trip',        icon: '🗺', roles: ['owner', 'accounting', 'manager', 'ops'] },
+      { href: '/ads',           label: 'Ads Manager',      icon: '📢', roles: ALL_ROLES },
+      { href: '/content',       label: 'Konten',           icon: '📱', roles: ALL_ROLES },
+    ],
+  },
+  {
+    key: 'tim',
+    label: 'Tim & Tour Leader',
+    items: [
+      { href: '/tl',           label: 'Portal TL',    icon: '👤', roles: [...ALL_ROLES, 'tour_leader'] },
+      { href: '/tl-master',    label: 'Master TL',    icon: '👥', roles: ALL_ROLES },
+      { href: '/mitra-master', label: 'Master Mitra', icon: '🤝', roles: ['owner', 'accounting', 'manager', 'ops', 'cs'] },
+      { href: '/tasks',        label: 'To-Do List',   icon: '✅', roles: [...ALL_ROLES, 'tour_leader'] },
+      { href: '/chat',         label: 'Chat Tim',     icon: '💬', roles: [...ALL_ROLES, 'tour_leader'] },
+      { href: '/hr/attendance', label: 'Absensi',     icon: '🕐', roles: ALL_ROLES },
+    ],
+  },
+  {
+    key: 'data',
+    label: 'Data & HR',
+    items: [
+      { href: '/hr',              label: 'HR',          icon: '🧑', roles: ['owner', 'accounting'] },
+      { href: '/passport-manage', label: 'Passport AI', icon: '🤖', roles: ALL_ROLES },
+    ],
+  },
 ];
 
 export default function Sidebar() {
@@ -41,11 +78,12 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState({}); // { groupKey: bool }
 
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      let r = user?.app_metadata?.role || user?.user_metadata?.role || user?.app_metadata?.role || null;
+      let r = user?.app_metadata?.role || user?.user_metadata?.role || null;
       if (!r && user) {
         const { data: u } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle();
         const map = { tl: 'tour_leader', finance: 'ops', team: 'ops' };
@@ -56,15 +94,51 @@ export default function Sidebar() {
     });
   }, []);
 
-  const visibleNav = NAV.filter((item) => {
-    if (!item.roles) return true;
-    if (!role) return false;
-    return item.roles.includes(role);
-  });
+  // Inisialisasi state buka-tutup: ambil dari localStorage, lalu pastikan grup aktif kebuka
+  useEffect(() => {
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem('sidebarGroups') || '{}'); } catch {}
+    const init = {};
+    GROUPS.forEach((g, i) => {
+      const hasActive = g.items.some((it) => pathname.startsWith(it.href));
+      // default: grup pertama kebuka; grup yang berisi halaman aktif selalu kebuka
+      init[g.key] = hasActive || (g.key in saved ? saved[g.key] : i === 0);
+    });
+    setOpen(init);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
-  const finalNav = role === 'tour_leader'
-    ? NAV.filter((item) => ['/tl', '/chat', '/tasks'].includes(item.href))
-    : visibleNav;
+  function toggle(key) {
+    setOpen((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      try { localStorage.setItem('sidebarGroups', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
+
+  const canSee = (item) => item.roles ? (role && item.roles.includes(role)) : true;
+
+  const linkClass = (item) => {
+    const active = pathname.startsWith(item.href);
+    return `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+      active ? 'bg-brand-100 text-brand-700' : 'text-slate-600 hover:bg-slate-100 hover:text-brand-700'
+    }`;
+  };
+
+  const NavLink = (item) => (
+    <Link key={item.href} href={item.href} className={linkClass(item)}>
+      <span className="text-base w-5 text-center">{item.icon}</span>
+      <span>{item.label}</span>
+    </Link>
+  );
+
+  // Tour leader: tampilan flat sederhana
+  const tlItems = GROUPS.flatMap((g) => g.items).filter((it) => ['/tl', '/chat', '/tasks'].includes(it.href));
+
+  const visibleTop = TOP.filter(canSee);
+  const visibleGroups = GROUPS
+    .map((g) => ({ ...g, items: g.items.filter(canSee) }))
+    .filter((g) => g.items.length > 0);
 
   return (
     <aside className="hidden md:flex md:flex-col md:w-60 md:fixed md:inset-y-0 md:bg-white md:border-r md:border-slate-200">
@@ -90,35 +164,34 @@ export default function Sidebar() {
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {loading ? (
           <div className="px-3 py-2 text-xs text-slate-400">Loading menu...</div>
-        ) : finalNav.length === 0 ? (
+        ) : role === 'tour_leader' ? (
+          tlItems.map(NavLink)
+        ) : role === 'pending' || (visibleTop.length === 0 && visibleGroups.length === 0) ? (
           <div className="px-3 py-4 text-center">
             <p className="text-xs text-slate-500 mb-2">Role kamu belum di-set.</p>
             <p className="text-[10px] text-slate-400">Hubungi Owner untuk assign role.</p>
           </div>
         ) : (
-          finalNav.map((item) => {
-            const active = pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.disabled ? '#' : item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-                  active
-                    ? 'bg-brand-100 text-brand-700'
-                    : item.disabled
-                      ? 'text-slate-400 cursor-not-allowed'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-brand-700'
-                }`}
-                onClick={(e) => item.disabled && e.preventDefault()}
-              >
-                <span className="text-base w-5 text-center">{item.icon}</span>
-                <span>{item.label}</span>
-                {item.disabled && (
-                  <span className="ml-auto text-[9px] uppercase tracking-wider bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded">soon</span>
-                )}
-              </Link>
-            );
-          })
+          <>
+            {visibleTop.map(NavLink)}
+            {visibleGroups.map((g) => {
+              const isOpen = !!open[g.key];
+              return (
+                <div key={g.key} className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => toggle(g.key)}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-brand-700 transition-colors"
+                  >
+                    <span className={`text-[9px] transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
+                    <span>{g.label}</span>
+                    <span className="ml-auto text-[9px] font-normal text-slate-300">{g.items.length}</span>
+                  </button>
+                  {isOpen && <div className="space-y-1 mt-0.5">{g.items.map(NavLink)}</div>}
+                </div>
+              );
+            })}
+          </>
         )}
       </nav>
 
