@@ -4,6 +4,7 @@
 // Path: components/hr/PayslipForm.jsx
 
 import { useState, useTransition, useRef } from 'react';
+import { compressImage } from '@/lib/utils/compress-image';
 import { useRouter } from 'next/navigation';
 import { uploadPaymentProof, deletePaymentProof, getPaymentProofSignedUrl } from '@/lib/actions/payroll';
 
@@ -73,7 +74,8 @@ export default function PayslipForm({ entry, action, markPaidAction }) {
   }
 
   async function handleFileUpload(e) {
-    const file = e.target.files?.[0];
+    let file = e.target.files?.[0];
+    file = await compressImage(file);
     if (!file) return;
 
     setError(''); setSuccess(''); setUploading(true);

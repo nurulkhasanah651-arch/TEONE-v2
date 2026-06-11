@@ -3,6 +3,7 @@
 // Round 93: Form upload bukti transfer (public, di /invoice/[token])
 
 import { useState, useTransition } from 'react';
+import { compressImage } from '@/lib/utils/compress-image';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { uploadPaymentProof } from '@/lib/actions/invoices';
@@ -32,7 +33,8 @@ export default function PaymentProofForm({ token, expectedAmount }) {
   const [uploadError, setUploadError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  async function handleFileUpload(file) {
+  async function handleFileUpload(rawFile) {
+    const file = await compressImage(rawFile);
     if (!file) return;
     setUploadError('');
     setUploading(true);

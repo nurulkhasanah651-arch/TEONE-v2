@@ -3,6 +3,7 @@
 // Round 68: tambah download attribute biar browser pasti download (bukan preview)
 
 import { useState, useTransition } from 'react';
+import { compressImage } from '@/lib/utils/compress-image';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { addTripDocument, deleteTripDocument } from '@/lib/actions/trip-docs';
@@ -21,7 +22,8 @@ export default function TripDocuments({ tripId, documents, readOnly = false }) {
   const [uploadError, setUploadError] = useState('');
   const router = useRouter();
 
-  async function handleFileUpload(file) {
+  async function handleFileUpload(rawFile) {
+    const file = await compressImage(rawFile);
     if (!file) return;
     setUploadError('');
     setUploading(true);

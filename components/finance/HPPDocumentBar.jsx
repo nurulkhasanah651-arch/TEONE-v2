@@ -7,6 +7,7 @@
 // Path: components/finance/HPPDocumentBar.jsx
 
 import { useState, useTransition, useRef, useEffect } from 'react';
+import { compressImage } from '@/lib/utils/compress-image';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -177,13 +178,15 @@ export default function HPPDocumentBar({
 
   // ============ FILE INPUT HANDLERS ============
   function onInvoiceSelect(e) {
-    const file = e.target.files?.[0];
+    let file = e.target.files?.[0];
+    file = await compressImage(file);
     if (!file) return;
     handleDirectUpload(file, 'invoice');
     if (invoiceRef.current) invoiceRef.current.value = '';
   }
   function onProofSelect(e) {
-    const file = e.target.files?.[0];
+    let file = e.target.files?.[0];
+    file = await compressImage(file);
     if (!file) return;
     handleDirectUpload(file, 'proof');
     if (proofRef.current) proofRef.current.value = '';

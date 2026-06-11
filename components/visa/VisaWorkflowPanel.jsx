@@ -5,6 +5,7 @@
 // Path: components/visa/VisaWorkflowPanel.jsx
 
 import { useState, useTransition, useRef, useMemo } from 'react';
+import { compressImage } from '@/lib/utils/compress-image';
 import { useRouter } from 'next/navigation';
 import {
   updatePassengerVisaCost,
@@ -467,8 +468,9 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
     });
   }
   async function handleFileUpload(e) {
-    const file = e.target.files?.[0];
+    let file = e.target.files?.[0];
     if (!file) return;
+    file = await compressImage(file);
     setUploading(true);
     try {
       const fd = new FormData();

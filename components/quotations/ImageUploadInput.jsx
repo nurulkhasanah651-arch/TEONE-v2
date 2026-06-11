@@ -4,6 +4,7 @@
 // Path: components/quotations/ImageUploadInput.jsx
 
 import { useState, useRef } from 'react';
+import { compressImage } from '@/lib/utils/compress-image';
 import { uploadQuotationImage } from '@/lib/actions/quotations';
 
 export default function ImageUploadInput({ value, onChange, label = 'Upload Image', accept = 'image/*', maxSizeMB = 10 }) {
@@ -12,8 +13,9 @@ export default function ImageUploadInput({ value, onChange, label = 'Upload Imag
   const [error, setError] = useState('');
 
   async function handleFileChange(e) {
-    const file = e.target.files?.[0];
+    let file = e.target.files?.[0];
     if (!file) return;
+    file = await compressImage(file);
     setError('');
 
     // Validate size client-side

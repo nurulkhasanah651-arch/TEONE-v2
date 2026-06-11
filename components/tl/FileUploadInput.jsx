@@ -4,6 +4,7 @@
 // Path: components/tl/FileUploadInput.jsx
 
 import { useState, useRef } from 'react';
+import { compressImage } from '@/lib/utils/compress-image';
 import { createClient } from '@/lib/supabase/client';
 
 const BUCKET = 'tl-uploads';
@@ -78,7 +79,8 @@ export default function FileUploadInput({
   }
 
   async function handleFileChange(e) {
-    const file = e.target.files?.[0];
+    let file = e.target.files?.[0];
+    file = await compressImage(file);
     if (!file) return;
 
     setError('');

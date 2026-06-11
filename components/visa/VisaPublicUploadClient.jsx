@@ -4,6 +4,7 @@
 // Path: components/visa/VisaPublicUploadClient.jsx
 
 import { useState, useRef } from 'react';
+import { compressImage } from '@/lib/utils/compress-image';
 import { useRouter } from 'next/navigation';
 import { uploadVisaDocByToken, deleteUploadedDocByToken } from '@/lib/actions/visa-public-upload';
 
@@ -35,8 +36,9 @@ export default function VisaPublicUploadClient({ token, passenger, trip, custome
     if (type !== 'error') setTimeout(() => setMsg(null), 5000);
   }
 
-  async function handleUpload(docName, file) {
-    if (!file) return;
+  async function handleUpload(docName, rawFile) {
+    if (!rawFile) return;
+    const file = await compressImage(rawFile);
     setUploadingDoc(docName);
     try {
       const fd = new FormData();
