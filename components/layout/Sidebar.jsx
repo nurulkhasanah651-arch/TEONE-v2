@@ -57,9 +57,6 @@ const GROUPS = [
       { href: '/tl',           label: 'Portal TL',    icon: '👤', roles: [...ALL_ROLES, 'tour_leader'] },
       { href: '/tl-master',    label: 'Master TL',    icon: '👥', roles: ALL_ROLES },
       { href: '/mitra-master', label: 'Master Mitra', icon: '🤝', roles: ['owner', 'accounting', 'manager', 'ops', 'cs'] },
-      { href: '/tasks',        label: 'To-Do List',   icon: '✅', roles: [...ALL_ROLES, 'tour_leader'] },
-      { href: '/chat',         label: 'Chat Tim',     icon: '💬', roles: [...ALL_ROLES, 'tour_leader'] },
-      { href: '/hr/attendance', label: 'Absensi',     icon: '🕐', roles: ALL_ROLES },
     ],
   },
   {

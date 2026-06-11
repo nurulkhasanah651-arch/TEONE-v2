@@ -4,11 +4,13 @@
 // Path: components/layout/HeaderClient.jsx
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { resetRole } from '@/lib/actions/user-role';
 import { ROLE_LABELS, ROLE_BADGE_COLOR } from '@/lib/utils/roles';
 import NotificationBell from './NotificationBell';
+import AttendanceButton from './AttendanceButton';
 
 export default function HeaderClient({ user, role = null, notifications = [], unreadCount = 0 }) {
   const [open, setOpen] = useState(false);
@@ -19,6 +21,7 @@ export default function HeaderClient({ user, role = null, notifications = [], un
   const initial = name.charAt(0).toUpperCase();
   const roleLabel = ROLE_LABELS[role] || role || '—';
   const roleBadge = ROLE_BADGE_COLOR[role] || 'bg-slate-100 text-slate-700';
+  const isStaff = role && role !== 'pending' && role !== 'mitra';
 
   async function logout() {
     const supabase = createClient();
@@ -41,7 +44,15 @@ export default function HeaderClient({ user, role = null, notifications = [], un
         <p className="text-xs text-slate-500 font-medium">{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
+        {isStaff && (
+          <>
+            <AttendanceButton />
+            <Link href="/tasks" title="To-Do List" className="hidden sm:flex items-center justify-center w-9 h-9 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors text-base">✅</Link>
+            <Link href="/chat" title="Chat Tim" className="hidden sm:flex items-center justify-center w-9 h-9 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors text-base">💬</Link>
+            <span className="hidden sm:block w-px h-6 bg-slate-200 mx-0.5" />
+          </>
+        )}
         {/* R183: pass currentUserId untuk realtime subscribe */}
         <NotificationBell
           notifications={notifications}
