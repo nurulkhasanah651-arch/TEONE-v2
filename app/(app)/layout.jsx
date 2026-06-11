@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 import { getRoleFromUser, canAccessPath, defaultPathForRole } from '@/lib/utils/roles';
+import { resolveAuthoritativeRole } from '@/lib/auth/authoritative-role';
 
 export default async function AppLayout({ children }) {
   const supabase = createClient();
@@ -16,15 +17,13 @@ export default async function AppLayout({ children }) {
     redirect('/login');
   }
 
-  let role = getRoleFromUser(user);
-  if (!role) {
-    // Fallback: role dari tabel users (mis. 'pic' yang di-set owner)
-    const { data: u } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle();
-    const map = { tl: 'tour_leader', finance: 'ops', team: 'ops' };
-    role = map[u?.role] || u?.role || null;
-  }
+  // GERBANG OTORITATIF: role dihitung dari data resmi (employees/tour_leaders/mitra),
+  // BUKAN dari metadata yang bisa di-set sendiri. Metadata hanya fallback bila
+  // service key tidak tersedia (cegah lockout). Tidak terdaftar → tidak ada akses.
+  const metaRole = getRoleFromUser(user);
+  const role = await resolveAuthoritativeRole(user, metaRole);
 
-  // Belum punya role → kirim ke role picker
+  // Tidak terdaftar di master mana pun → arahkan ke verifikasi (TL/Mitra via No HP)
   if (!role || role === 'pending') {
     redirect('/auth/role-picker');
   }
