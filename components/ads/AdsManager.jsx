@@ -12,6 +12,64 @@ const PLATFORMS = [
   { value: 'other',  label: '🌐 Lainnya' },
 ];
 
+function TopAdsPerforma({ entries }) {
+  const [period, setPeriod] = useState('week');
+  const days = period === 'week' ? 7 : period === 'month' ? 30 : null;
+  const cutoff = days ? Date.now() - days * 86400000 : null;
+  const inPeriod = (entries || []).filter((e) => {
+    if (!cutoff) return true;
+    if (!e.date) return false;
+    return new Date(e.date + 'T00:00:00').getTime() >= cutoff;
+  });
+  const byCamp = {};
+  for (const e of inPeriod) {
+    const k = (e.campaign_name && e.campaign_name.trim()) || '(tanpa nama campaign)';
+    if (!byCamp[k]) byCamp[k] = { name: k, spend: 0, leads: 0, impressions: 0 };
+    byCamp[k].spend += Number(e.spend) || 0;
+    byCamp[k].leads += Number(e.leads) || 0;
+    byCamp[k].impressions += Number(e.impressions) || 0;
+  }
+  const ranked = Object.values(byCamp)
+    .map((c) => ({ ...c, cpl: c.leads > 0 ? c.spend / c.leads : 0 }))
+    .sort((a, b) => b.leads - a.leads || (a.cpl || Infinity) - (b.cpl || Infinity))
+    .slice(0, 8);
+  const periods = [['week', '7 Hari'], ['month', '30 Hari'], ['all', 'Semua']];
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-4">
+      <div className="px-4 py-2 bg-gradient-to-r from-amber-50 to-emerald-50 border-b border-slate-200 flex items-center justify-between gap-2 flex-wrap">
+        <span className="text-xs font-bold text-slate-700 uppercase">🏆 Top Performa Ads (by leads)</span>
+        <div className="flex gap-1">
+          {periods.map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setPeriod(k)} className={`px-2.5 py-1 rounded text-[11px] font-bold ${period === k ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{l}</button>
+          ))}
+        </div>
+      </div>
+      {ranked.length === 0 ? (
+        <p className="px-4 py-6 text-center text-xs text-slate-400">Belum ada data ads di periode ini.</p>
+      ) : (
+        <table className="w-full text-xs">
+          <thead><tr className="text-left text-slate-500 border-b border-slate-100">
+            <th className="px-4 py-2">#</th><th className="px-2 py-2">Campaign</th>
+            <th className="px-2 py-2 text-right">Spend</th><th className="px-2 py-2 text-right">Leads</th><th className="px-2 py-2 text-right">CPL</th>
+          </tr></thead>
+          <tbody>
+            {ranked.map((c, i) => (
+              <tr key={c.name} className="border-b border-slate-50 hover:bg-slate-50">
+                <td className="px-4 py-2 font-bold text-amber-600">{i + 1}</td>
+                <td className="px-2 py-2 font-bold text-slate-700 max-w-[220px] truncate">{c.name}</td>
+                <td className="px-2 py-2 text-right text-amber-700 font-semibold">{fmtRupiah(c.spend)}</td>
+                <td className="px-2 py-2 text-right font-bold text-emerald-700">{c.leads}</td>
+                <td className="px-2 py-2 text-right">{c.cpl > 0 ? fmtRupiah(c.cpl) : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <p className="px-4 py-1.5 text-[10px] text-slate-400 border-t border-slate-100">Diurutkan dari leads terbanyak; CPL = biaya per lead (makin kecil makin bagus).</p>
+    </div>
+  );
+}
+
 export default function AdsManager({ entries = [], trips = [] }) {
   const [showForm, setShowForm] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -73,6 +131,8 @@ export default function AdsManager({ entries = [], trips = [] }) {
           </div>
         </form>
       )}
+
+      <TopAdsPerforma entries={entries} />
 
       {entries.length === 0 ? (
         <p className="p-8 text-sm text-slate-500 text-center">Belum ada entry spend iklan. Klik "+ Tambah Spend" untuk mulai tracking.</p>

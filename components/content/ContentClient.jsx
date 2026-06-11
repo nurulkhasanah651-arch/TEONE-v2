@@ -517,6 +517,61 @@ function ConnectTab({ igConnected, ig }) {
 }
 
 
+// ═══════════════ TOP PERFORMA KONTEN (mingguan / bulanan) ═══════════════
+function TopContentPerforma({ posts }) {
+  const [period, setPeriod] = useState('week');
+  const days = period === 'week' ? 7 : period === 'month' ? 30 : null;
+  const cutoff = days ? Date.now() - days * 86400000 : null;
+  const eng = (p) => (p.ig_likes || 0) + (p.ig_comments || 0) + (p.ig_saved || 0);
+  const dOf = (p) => p.posted_date || p.scheduled_date || null;
+  const ranked = (posts || [])
+    .filter((p) => eng(p) > 0 || (p.ig_reach || 0) > 0)
+    .filter((p) => {
+      if (!cutoff) return true;
+      const d = dOf(p);
+      if (!d) return false;
+      return new Date(d + 'T00:00:00').getTime() >= cutoff;
+    })
+    .sort((a, b) => eng(b) - eng(a) || (b.ig_reach || 0) - (a.ig_reach || 0))
+    .slice(0, 8);
+  const periods = [['week', '7 Hari'], ['month', '30 Hari'], ['all', 'Semua']];
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="px-4 py-2 bg-gradient-to-r from-amber-50 to-pink-50 border-b border-slate-200 flex items-center justify-between gap-2 flex-wrap">
+        <span className="text-xs font-bold text-slate-700 uppercase">🏆 Top Performa Konten</span>
+        <div className="flex gap-1">
+          {periods.map(([k, l]) => (
+            <button key={k} onClick={() => setPeriod(k)} className={`px-2.5 py-1 rounded text-[11px] font-bold ${period === k ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{l}</button>
+          ))}
+        </div>
+      </div>
+      {ranked.length === 0 ? (
+        <p className="px-4 py-6 text-center text-xs text-slate-400">Belum ada konten dengan angka performa di periode ini. Isi performa di tab 📅 Kalender (tombol ✏️ Edit).</p>
+      ) : (
+        <table className="w-full text-xs">
+          <thead><tr className="text-left text-slate-500 border-b border-slate-100">
+            <th className="px-4 py-2">#</th><th className="px-2 py-2">Konten</th><th className="px-2 py-2">Tgl</th>
+            <th className="px-2 py-2 text-right">Interaksi</th><th className="px-2 py-2 text-right">👁 Reach</th><th className="px-2 py-2"></th>
+          </tr></thead>
+          <tbody>
+            {ranked.map((p, i) => (
+              <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50">
+                <td className="px-4 py-2 font-bold text-amber-600">{i + 1}</td>
+                <td className="px-2 py-2 font-bold text-slate-700 max-w-[220px] truncate">{p.title || '—'}</td>
+                <td className="px-2 py-2 text-slate-400">{dOf(p) ? new Date(dOf(p) + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : '—'}</td>
+                <td className="px-2 py-2 text-right font-bold text-pink-600">{fmtNum(eng(p))}</td>
+                <td className="px-2 py-2 text-right">{fmtNum(p.ig_reach)}</td>
+                <td className="px-2 py-2">{p.ig_permalink && <a href={p.ig_permalink} target="_blank" className="text-brand-600 hover:underline">↗</a>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <p className="px-4 py-1.5 text-[10px] text-slate-400 border-t border-slate-100">Interaksi = likes + komentar + saves. Periode dihitung dari tanggal posting (atau jadwal).</p>
+    </div>
+  );
+}
+
 // ═══════════════ PERFORMA MANUAL (saat IG belum terhubung) ═══════════════
 
 function ManualPerformance({ posts, campaignStats }) {
@@ -533,6 +588,8 @@ function ManualPerformance({ posts, campaignStats }) {
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
         📊 <b>Mode manual.</b> Instagram API belum terhubung — angka di sini diisi tangan dari Instagram Insights lewat tombol ✏️ Edit di tiap konten (kolom Performa). Begitu koneksi IG resmi aktif di tab ⚙️ Koneksi, data akan otomatis.
       </div>
+
+      <TopContentPerforma posts={posts} />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[['❤️ Total Likes', totals.likes], ['💬 Total Komentar', totals.comments], ['👁 Total Reach', totals.reach], ['🔖 Total Saves', totals.saved]].map(([label, val]) => (
