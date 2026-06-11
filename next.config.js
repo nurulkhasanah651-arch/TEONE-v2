@@ -74,4 +74,10 @@ export default withSentryConfig(nextConfig, {
 
   // Auto inject Vercel cron monitor
   automaticVercelMonitors: true,
+
+  // Jangan gagalkan build kalau upload sourcemap ke Sentry error (mis. 504/timeout).
+  // Error tracking runtime tetap jalan; hanya upload sourcemap dilewati saat Sentry gangguan.
+  errorHandler: (err) => {
+    console.warn('[sentry] sourcemap upload dilewati (build tetap lanjut):', err?.message || err);
+  },
 });
