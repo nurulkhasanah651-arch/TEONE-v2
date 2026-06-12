@@ -7,10 +7,12 @@ import { createAccountingEntry } from '@/lib/actions/accounting';
 const CATEGORIES_IN = ['Payment Peserta', 'Investment', 'Loan', 'Refund', 'Komisi', 'Bunga Bank', 'Lainnya'];
 const CATEGORIES_OUT = ['Vendor Trip (HPP)', 'Operasional Kantor', 'Gaji', 'Marketing', 'Sewa', 'Listrik/Air', 'Internet', 'Transport', 'Lainnya'];
 
-export default function AccountingForm({ trips = [], accounts = [], hppItems = [] }) {
+export default function AccountingForm({ trips = [], accounts = [], hppItems = [], pnrs = [] }) {
   const [type, setType] = useState('in');
   const [tripId, setTripId] = useState('');
   const [linkedHpp, setLinkedHpp] = useState('');
+  const [linkedPnr, setLinkedPnr] = useState('');
+  const [pnrMode, setPnrMode] = useState('deposit');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
@@ -23,6 +25,17 @@ export default function AccountingForm({ trips = [], accounts = [], hppItems = [
     return hppItems.filter((h) => String(h.trip_id) === String(tripId));
   }, [tripId, hppItems]);
 
+  const pnrForTrip = useMemo(() => {
+    if (!tripId) return [];
+    return pnrs.filter((p) => String(p.trip_id) === String(tripId));
+  }, [tripId, pnrs]);
+  const selectedPnr = useMemo(() => pnrs.find((p) => String(p.id) === String(linkedPnr)) || null, [linkedPnr, pnrs]);
+  function pnrTotalCost(p) {
+    if (!p) return 0;
+    return p.ticket_type === 'fit' ? (Number(p.total_amount) || 0) : (Number(p.pax) || 0) * (Number(p.price_per_pax) || 0);
+  }
+  const pnrRemaining = selectedPnr ? Math.max(pnrTotalCost(selectedPnr) - (Number(selectedPnr.deposit_total) || 0), 0) : 0;
+
   // Auto-fill saat HPP item dipilih (hybrid — masih bisa di-override user)
   useEffect(() => {
     if (!linkedHpp) return;
@@ -34,9 +47,24 @@ export default function AccountingForm({ trips = [], accounts = [], hppItems = [
     setDescription(`Bayar ${item.category} - ${item.component}${vendor}`);
   }, [linkedHpp, hppItems]);
 
+  useEffect(() => {
+    if (!selectedPnr) return;
+    setCategory('Vendor Trip (HPP)');
+    const label = selectedPnr.pnr || `PNR #${selectedPnr.id}`;
+    const vend = selectedPnr.vendor || selectedPnr.airline || '';
+    if (pnrMode === 'lunas') {
+      setAmount(String(pnrRemaining || ''));
+      setDescription(`Pelunasan tiket ${label}${vend ? ` (${vend})` : ''}`);
+    } else {
+      setDescription(`Deposit tiket ${label}${vend ? ` (${vend})` : ''}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedPnr, pnrMode]);
+
   // Reset linked HPP kalau pindah trip atau ganti type ke 'in'
   useEffect(() => {
     setLinkedHpp('');
+    setLinkedPnr('');
   }, [tripId, type]);
 
   async function handleSubmit(formData) {
@@ -104,6 +132,45 @@ export default function AccountingForm({ trips = [], accounts = [], hppItems = [
             <p className="mt-2 text-xs text-amber-800 font-semibold">
               ✓ Item ini akan otomatis di-mark "lunas" di tab Finance saat kamu save.
             </p>
+          )}
+        </div>
+      )}
+
+      {type === 'out' && tripId && pnrForTrip.length > 0 && (
+        <div className="p-4 bg-sky-50 border-2 border-sky-200 rounded-lg space-y-3">
+          <Field label="✈ Link ke PNR (Deposit / Pelunasan)" hint="Pilih PNR. Cash out ini menambah deposit PNR atau melunasinya, dan auto-sync ke Finance/HPP.">
+            <select name="linked_pnr_id" value={linkedPnr} onChange={(e) => setLinkedPnr(e.target.value)} className={inputCls}>
+              <option value="">— Tidak link PNR —</option>
+              {pnrForTrip.map((p) => {
+                const tc = p.ticket_type === 'fit' ? (Number(p.total_amount) || 0) : (Number(p.pax) || 0) * (Number(p.price_per_pax) || 0);
+                const sisa = Math.max(tc - (Number(p.deposit_total) || 0), 0);
+                return (
+                  <option key={p.id} value={p.id}>
+                    {p.pnr || `#${p.id}`}{(p.vendor || p.airline) ? ` · ${p.vendor || p.airline}` : ''} — sisa Rp {sisa.toLocaleString('id-ID')}
+                  </option>
+                );
+              })}
+            </select>
+          </Field>
+          {linkedPnr && (
+            <>
+              <input type="hidden" name="pnr_mode" value={pnrMode} />
+              <div className="flex gap-2">
+                <label className="flex-1 cursor-pointer">
+                  <input type="radio" name="pnr_mode_radio" checked={pnrMode === 'deposit'} onChange={() => setPnrMode('deposit')} className="sr-only" />
+                  <div className={`p-2 text-center rounded-lg border-2 text-sm font-bold transition-colors ${pnrMode === 'deposit' ? 'bg-sky-500 border-sky-500 text-white' : 'bg-white border-slate-300 text-slate-700'}`}>Tambah Deposit</div>
+                </label>
+                <label className="flex-1 cursor-pointer">
+                  <input type="radio" name="pnr_mode_radio" checked={pnrMode === 'lunas'} onChange={() => setPnrMode('lunas')} className="sr-only" />
+                  <div className={`p-2 text-center rounded-lg border-2 text-sm font-bold transition-colors ${pnrMode === 'lunas' ? 'bg-sky-600 border-sky-600 text-white' : 'bg-white border-slate-300 text-slate-700'}`}>Lunas / Pelunasan</div>
+                </label>
+              </div>
+              <p className="text-xs text-sky-800 font-semibold">
+                {pnrMode === 'lunas'
+                  ? `✓ PNR akan ditandai LUNAS — sisa Rp ${pnrRemaining.toLocaleString('id-ID')}.`
+                  : '✓ Nominal di bawah ditambahkan ke deposit PNR (boleh di-edit).'}
+              </p>
+            </>
           )}
         </div>
       )}

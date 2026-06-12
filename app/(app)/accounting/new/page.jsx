@@ -4,7 +4,7 @@ import AccountingForm from './AccountingForm';
 
 export default async function NewAccountingPage() {
   const supabase = createClient();
-  const [tripsRes, accountsRes, hppRes] = await Promise.all([
+  const [tripsRes, accountsRes, hppRes, pnrRes] = await Promise.all([
     supabase.from('trips').select('id, kode_trip, name').order('departure', { ascending: false, nullsFirst: false }),
     supabase.from('accounts').select('id, name, type, active').order('name'),
     // Ambil HPP items yang belum lunas — buat picker di cash out
@@ -12,6 +12,9 @@ export default async function NewAccountingPage() {
       .from('trip_finance_items')
       .select('id, trip_id, category, component, total_amount, vendor_name, payment_status, notes')
       .eq('item_type', 'hpp'),
+    // PNR (flight_inventory) untuk link deposit/pelunasan di cash out
+    supabase.from('flight_inventory')
+      .select('id, trip_id, pnr, vendor, airline, ticket_type, pax, price_per_pax, total_amount, deposit_total'),
   ]);
 
   // Filter active client-side — defaults to active=true if column missing/null
@@ -33,6 +36,7 @@ export default async function NewAccountingPage() {
           trips={tripsRes.data || []}
           accounts={activeAccounts}
           hppItems={unpaidHpp}
+          pnrs={pnrRes.data || []}
         />
       </div>
     </div>
