@@ -5,6 +5,7 @@ import { storefrontConfig } from '@/lib/shop/storefront-config';
 import { REGIONS } from '@/lib/shop/regions';
 import { getLatestTrips } from '@/lib/shop/data';
 import TripCard from '@/components/shop/TripCard';
+import HeroSlider from '@/components/shop/HeroSlider';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,10 +27,7 @@ export default async function StorefrontHome() {
     <div>
       {/* HERO */}
       <section className="relative">
-        <div className="absolute inset-0">
-          <img src={cfg.heroImage} alt="" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-900/70 to-slate-900/30" />
-        </div>
+        <HeroSlider images={cfg.heroImages || (cfg.heroImage ? [cfg.heroImage] : [])} />
         <div className="relative max-w-6xl mx-auto px-4 py-24 sm:py-32">
           <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/20 border border-emerald-300/40 text-emerald-100 text-xs font-bold px-3 py-1.5">
             ⭐ {cfg.badge}
