@@ -134,6 +134,7 @@ export default async function PublicInvoicePage({ params }) {
   let pokokPaidReal = 0;
   let addonPaidReal = 0;
   let sisaReal = 0;
+  let discountReal = 0;
   if (inv.trip_id && inv.passenger_id) {
     try {
       const summary = await getExpectedAndPaidForPassenger(supabase, inv.trip_id, inv.passenger_id);
@@ -142,6 +143,7 @@ export default async function PublicInvoicePage({ params }) {
       pokokPaidReal = Number(summary.pokokPaid) || 0;
       addonPaidReal = Number(summary.addonPaid) || 0;
       sisaReal = Number(summary.sisa) || 0;
+      discountReal = Number(summary.discount) || 0;
     } catch (e) { errors.push(`summary: ${e.message}`); }
   } else {
     totalPaidReal = participantPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
@@ -159,6 +161,7 @@ export default async function PublicInvoicePage({ params }) {
   if (tips > 0) tourItems.push({ label: 'Tips', amount: tips });
   if (cityTax > 0) tourItems.push({ label: 'City Tax', amount: cityTax });
   for (const opt of optItems) tourItems.push({ label: opt.label, amount: opt.amount, detail: 'opt-in' });
+  if (discountReal > 0) tourItems.push({ label: 'Diskon', amount: -discountReal, detail: 'potongan' });
 
   // Sisa untuk invoice ini
   const totalPaidThisInvoice = (payments || [])
