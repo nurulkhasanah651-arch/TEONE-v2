@@ -117,6 +117,8 @@ export default async function CashflowDetailPage({ params }) {
   const accEntries = accRes.data || [];
   const accCashIn = accEntries.filter((e) => e.type === 'in').reduce((s, e) => s + Number(e.amount || 0), 0);
   const accCashOut = accEntries.filter((e) => e.type === 'out').reduce((s, e) => s + Number(e.amount || 0), 0);
+  const accIn = accEntries.filter((e) => e.type === 'in');
+  const accOut = accEntries.filter((e) => e.type === 'out');
 
   const totalIncomeProyeksi = manualIncome + proyeksiIncome + accCashIn;
   const totalIncomeReal = manualIncome + autoCashIn + accCashIn;
@@ -317,45 +319,7 @@ export default async function CashflowDetailPage({ params }) {
         </div>
       </div>
 
-      {accEntries.length > 0 && (
-        <div className="bg-white rounded-xl border-2 border-indigo-200 shadow-card overflow-hidden">
-          <div className="px-5 py-3 border-b bg-indigo-50 border-indigo-200 flex items-center justify-between flex-wrap gap-2">
-            <h2 className="font-bold text-indigo-800 flex items-center gap-2"><span>🧾</span> Cash Manual (Accounting)</h2>
-            <p className="text-sm font-semibold text-indigo-700">In {fmtRupiah(accCashIn)} · Out {fmtRupiah(accCashOut)}</p>
-          </div>
-          <div className="p-4 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs text-slate-500 border-b">
-                  <th className="py-1.5 pr-3">Tanggal</th>
-                  <th className="pr-3">Jenis</th>
-                  <th className="pr-3">Keterangan</th>
-                  <th className="pr-3">Kategori</th>
-                  <th className="text-right">Nominal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {accEntries.map((e, i) => (
-                  <tr key={i} className="border-b border-slate-100">
-                    <td className="py-1.5 pr-3 text-slate-600 whitespace-nowrap">{e.date || '-'}</td>
-                    <td className="pr-3">
-                      {e.type === 'in'
-                        ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700">CASH IN</span>
-                        : <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">CASH OUT</span>}
-                    </td>
-                    <td className="pr-3 text-slate-800">{e.description || '—'}</td>
-                    <td className="pr-3 text-slate-500">{e.category || '—'}</td>
-                    <td className={`text-right font-bold whitespace-nowrap ${e.type === 'in' ? 'text-green-700' : 'text-amber-700'}`}>
-                      {e.type === 'in' ? '+' : '−'}{fmtRupiah(e.amount || 0)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="mt-2 text-[11px] text-slate-400">Cash in dihitung ke Income, cash out ke HPP pada total proyeksi di atas.</p>
-          </div>
-        </div>
-      )}
+      <CashManualRows entries={accIn} kind="in" total={accCashIn} fmtRupiah={fmtRupiah} />
 
       <FinanceSection
         title="Manual Income (Vendor/Lain-lain)"
@@ -401,6 +365,49 @@ export default async function CashflowDetailPage({ params }) {
         tripName={trip.name}
         fmtMoney={fmtMoney}
       />
+
+      <CashManualRows entries={accOut} kind="out" total={accCashOut} fmtRupiah={fmtRupiah} />
+    </div>
+  );
+}
+
+function CashManualRows({ entries, kind, total, fmtRupiah }) {
+  if (!entries || entries.length === 0) return null;
+  const isIn = kind === 'in';
+  const head = isIn ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200';
+  const titleC = isIn ? 'text-green-800' : 'text-amber-800';
+  const amtC = isIn ? 'text-green-700' : 'text-amber-700';
+  return (
+    <div className="bg-white rounded-xl border-2 border-slate-200 shadow-card overflow-hidden">
+      <div className={`px-5 py-3 border-b flex items-center justify-between flex-wrap gap-2 ${head}`}>
+        <h2 className={`font-bold flex items-center gap-2 ${titleC}`}>
+          <span>{isIn ? '⬆' : '⬇'}</span> {isIn ? 'Cash In Manual (Accounting)' : 'Cash Out Manual (Accounting)'}
+        </h2>
+        <p className={`text-lg font-bold ${amtC}`}>{fmtRupiah(total)}</p>
+      </div>
+      <div className="p-4 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-xs text-slate-500 border-b">
+              <th className="py-1.5 pr-3">Tanggal</th>
+              <th className="pr-3">Keterangan</th>
+              <th className="pr-3">Kategori</th>
+              <th className="text-right">Nominal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((e, i) => (
+              <tr key={i} className="border-b border-slate-100">
+                <td className="py-1.5 pr-3 text-slate-600 whitespace-nowrap">{e.date || '-'}</td>
+                <td className="pr-3 text-slate-800">{e.description || '—'}</td>
+                <td className="pr-3 text-slate-500">{e.category || '—'}</td>
+                <td className={`text-right font-bold whitespace-nowrap ${amtC}`}>{fmtRupiah(e.amount || 0)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="mt-2 text-[11px] text-slate-400">{isIn ? 'Sudah dihitung ke Total Income proyeksi di atas.' : 'Sudah dihitung ke Total HPP di atas.'}</p>
+      </div>
     </div>
   );
 }
