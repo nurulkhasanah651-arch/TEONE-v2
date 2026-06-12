@@ -43,11 +43,12 @@ export default async function CashflowDetailPage({ params }) {
   const supabase = createClient();
 
   // R215g — pakai select('*') untuk avoid query fail karena kolom belum exist
-  const [tripRes, itemsRes, passengersRes, customersRes] = await Promise.all([
+  const [tripRes, itemsRes, passengersRes, customersRes, accRes] = await Promise.all([
     supabase.from('trips').select('*').eq('id', tripId).maybeSingle(),
     supabase.from('trip_finance_items').select('*').eq('trip_id', tripId).order('item_type').order('category'),
     supabase.from('trip_passengers').select('*').eq('trip_id', tripId),
     supabase.from('customers').select('id, name, gender, sex'),
+    supabase.from('accounting_entries').select('type, amount').eq('trip_id', tripId),
   ]);
 
   if (!tripRes.data) notFound();
@@ -112,10 +113,15 @@ export default async function CashflowDetailPage({ params }) {
 
   const manualIncome = incomeItems.reduce((s, i) => s + (i.total_amount || 0), 0);
 
-  const totalIncomeProyeksi = manualIncome + proyeksiIncome;
-  const totalIncomeReal = manualIncome + autoCashIn;
+  // Cash in/out manual dari Accounting (ke-link trip ini): in -> income, out -> HPP
+  const accEntries = accRes.data || [];
+  const accCashIn = accEntries.filter((e) => e.type === 'in').reduce((s, e) => s + Number(e.amount || 0), 0);
+  const accCashOut = accEntries.filter((e) => e.type === 'out').reduce((s, e) => s + Number(e.amount || 0), 0);
 
-  const totalHPP = hppItems.reduce((s, i) => s + (i.total_amount || 0), 0);
+  const totalIncomeProyeksi = manualIncome + proyeksiIncome + accCashIn;
+  const totalIncomeReal = manualIncome + autoCashIn + accCashIn;
+
+  const totalHPP = hppItems.reduce((s, i) => s + (i.total_amount || 0), 0) + accCashOut;
   const profitProyeksi = totalIncomeProyeksi - totalHPP;
   const profitReal = totalIncomeReal - totalHPP;
   const marginProyeksi = totalIncomeProyeksi > 0 ? Math.round((profitProyeksi / totalIncomeProyeksi) * 100) : null;
