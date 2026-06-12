@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import TripForm from '@/components/trips/TripForm';
 import TLAssignmentPanel from '@/components/master-trip/TLAssignmentPanel'; // R198: NEW
+import StorefrontPanel from '@/components/trips/StorefrontPanel';
 import { updateTrip } from '../../actions';
 
 export const dynamic = 'force-dynamic';
@@ -94,6 +95,8 @@ export default async function EditTripPage({ params }) {
 
       {/* R198: TL WA Confirmation Panel — taruh di bawah form */}
       <TLAssignmentPanel trip={trip} />
+
+      <StorefrontPanel trip={trip} />
     </div>
   );
 }
