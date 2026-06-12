@@ -10,11 +10,12 @@ export const dynamic = 'force-dynamic';
 export default async function FinancePage() {
   const supabase = createClient();
 
-  const [tripsRes, itemsRes, pnrRes, paxRes] = await Promise.all([
+  const [tripsRes, itemsRes, pnrRes, paxRes, accRes] = await Promise.all([
     supabase.from('trips').select('id, status, price_breakdown'),
     supabase.from('trip_finance_items').select('trip_id, item_type, total_amount'),
     supabase.from('flight_inventory').select('id', { count: 'exact', head: true }),
     supabase.from('trip_passengers').select('trip_id, room_type, price_paid, age_type'),
+    supabase.from('accounting_entries').select('type, amount'),
   ]);
 
   const trips = tripsRes.data || [];
@@ -25,7 +26,12 @@ export default async function FinancePage() {
 
   // Manual income/hpp dari trip_finance_items
   const manualIncome = items.filter((i) => i.item_type === 'income').reduce((s, i) => s + (Number(i.total_amount) || 0), 0);
-  const totalHPP = items.filter((i) => i.item_type === 'hpp').reduce((s, i) => s + (Number(i.total_amount) || 0), 0);
+  const hppItemsTotal = items.filter((i) => i.item_type === 'hpp').reduce((s, i) => s + (Number(i.total_amount) || 0), 0);
+  // Cash in/out manual (Accounting) ikut proyeksi: in -> income, out -> HPP
+  const accEntries = accRes.data || [];
+  const accCashIn = accEntries.filter((e) => e.type === 'in').reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const accCashOut = accEntries.filter((e) => e.type === 'out').reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const totalHPP = hppItemsTotal + accCashOut;
 
   // AUTO income projection per trip
   const paxByTrip = {};
@@ -45,7 +51,7 @@ export default async function FinancePage() {
     } catch {}
   }
 
-  const totalIncome = autoIncome + manualIncome;
+  const totalIncome = autoIncome + manualIncome + accCashIn;
   const totalProfit = totalIncome - totalHPP;
 
   return (
@@ -60,7 +66,7 @@ export default async function FinancePage() {
         <StatCard
           label="Total Income"
           value={fmtRupiah(totalIncome)}
-          sub={autoIncome > 0 ? `Auto: ${fmtRupiah(autoIncome)} + Manual: ${fmtRupiah(manualIncome)}` : 'Auto: Rp 0 + Manual: Rp 0'}
+          sub={`Auto ${fmtRupiah(autoIncome)} + Manual ${fmtRupiah(manualIncome + accCashIn)}`}
           color="text-green-700"
           bg="bg-green-50"
           small
