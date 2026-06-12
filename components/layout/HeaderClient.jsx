@@ -40,9 +40,9 @@ export default function HeaderClient({ user, role = null, notifications = [], un
   }
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-20">
+    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-3 md:px-6 sticky top-0 z-20">
       <div>
-        <p className="text-xs text-slate-500 font-medium">{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        <p className="text-xs text-slate-500 font-medium hidden xs:block sm:block truncate">{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
       </div>
 
       <div className="flex items-center gap-1.5">

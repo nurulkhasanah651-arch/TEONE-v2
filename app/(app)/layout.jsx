@@ -42,7 +42,7 @@ export default async function AppLayout({ children }) {
       <Sidebar role={role} />
       <div className="md:pl-60">
         <Header user={user} role={role} />
-        <main className="p-6">{children}</main>
+        <main className="p-3 sm:p-6">{children}</main>
       </div>
     </div>
   );

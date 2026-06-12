@@ -76,6 +76,7 @@ export default function Sidebar() {
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState({}); // { groupKey: bool }
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -102,6 +103,7 @@ export default function Sidebar() {
       init[g.key] = hasActive || (g.key in saved ? saved[g.key] : i === 0);
     });
     setOpen(init);
+    setMobileOpen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
@@ -123,23 +125,21 @@ export default function Sidebar() {
   };
 
   const NavLink = (item) => (
-    <Link key={item.href} href={item.href} className={linkClass(item)}>
+    <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)} className={linkClass(item)}>
       <span className="text-base w-5 text-center">{item.icon}</span>
       <span>{item.label}</span>
     </Link>
   );
 
-  // Tour leader: tampilan flat sederhana
   const tlItems = GROUPS.flatMap((g) => g.items).filter((it) => ['/tl', '/chat', '/tasks'].includes(it.href));
-
   const visibleTop = TOP.filter(canSee);
   const visibleGroups = GROUPS
     .map((g) => ({ ...g, items: g.items.filter(canSee) }))
     .filter((g) => g.items.length > 0);
 
-  return (
-    <aside className="hidden md:flex md:flex-col md:w-60 md:fixed md:inset-y-0 md:bg-white md:border-r md:border-slate-200">
-      <div className="flex items-center gap-3 px-5 h-16 border-b border-slate-200">
+  const panel = (
+    <>
+      <div className="flex items-center gap-3 px-5 h-16 border-b border-slate-200 shrink-0">
         <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 text-white flex items-center justify-center text-lg font-bold">
           {brandUi.icon}
         </div>
@@ -150,7 +150,7 @@ export default function Sidebar() {
       </div>
 
       {role && role !== 'pending' && (
-        <div className="px-5 py-2 border-b border-slate-100">
+        <div className="px-5 py-2 border-b border-slate-100 shrink-0">
           <p className="text-[10px] text-slate-500 uppercase tracking-wider">Role</p>
           <p className="text-xs font-bold text-brand-700 capitalize">
             {role === 'tour_leader' ? 'Tour Leader' : role}
@@ -175,11 +175,8 @@ export default function Sidebar() {
               const isOpen = !!open[g.key];
               return (
                 <div key={g.key} className="pt-1">
-                  <button
-                    type="button"
-                    onClick={() => toggle(g.key)}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-brand-700 transition-colors"
-                  >
+                  <button type="button" onClick={() => toggle(g.key)}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-brand-700 transition-colors">
                     <span className={`text-[9px] transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
                     <span>{g.label}</span>
                     <span className="ml-auto text-[9px] font-normal text-slate-300">{g.items.length}</span>
@@ -192,12 +189,37 @@ export default function Sidebar() {
         )}
       </nav>
 
-      <div className="px-5 py-3 border-t border-slate-200 text-[11px] text-slate-400 flex items-center justify-between">
-        <span className="flex items-center gap-1.5">
-          <span className="text-green-500">●</span> v2.0
-        </span>
+      <div className="px-5 py-3 border-t border-slate-200 text-[11px] text-slate-400 flex items-center justify-between shrink-0">
+        <span className="flex items-center gap-1.5"><span className="text-green-500">●</span> v2.0</span>
         <span className="font-mono">2026</span>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Hamburger — hanya tampil di HP */}
+      <button type="button" onClick={() => setMobileOpen(true)} aria-label="Buka menu"
+        className="md:hidden fixed top-2.5 left-3 z-40 w-10 h-10 rounded-lg bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-95">
+        <span className="text-lg leading-none">☰</span>
+      </button>
+
+      {/* Sidebar desktop */}
+      <aside className="hidden md:flex md:flex-col md:w-60 md:fixed md:inset-y-0 md:bg-white md:border-r md:border-slate-200">
+        {panel}
+      </aside>
+
+      {/* Drawer mobile */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+          <aside className="absolute inset-y-0 left-0 w-64 max-w-[82%] bg-white border-r border-slate-200 flex flex-col shadow-xl">
+            <button type="button" onClick={() => setMobileOpen(false)} aria-label="Tutup menu"
+              className="absolute top-3 right-3 z-10 w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500">✕</button>
+            {panel}
+          </aside>
+        </div>
+      )}
+    </>
   );
 }

@@ -38,3 +38,26 @@
     @apply bg-slate-50 text-slate-900 antialiased;
   }
 }
+
+/* ============ Mobile-friendly / anti-kepotong ============ */
+@layer base {
+  /* Cegah halaman tergeser/terpotong horizontal di HP */
+  html, body { max-width: 100%; overflow-x: hidden; }
+  /* Media tidak melebihi layar */
+  img, video { max-width: 100%; height: auto; }
+  /* Teks panjang (link/email) tidak mendorong layar melebar */
+  p, span, a, td, th, li, h1, h2, h3 { overflow-wrap: anywhere; }
+}
+
+/* Tabel jadi bisa digeser (scroll) di HP, bukan terpotong */
+@media (max-width: 767px) {
+  main table {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Elemen lebar (grid kartu) tidak memaksa lebar layar */
+  main { overflow-x: hidden; }
+}
