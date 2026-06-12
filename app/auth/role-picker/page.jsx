@@ -26,8 +26,12 @@ export default function RolePickerPage() {
       const supabase = createClient();
       const { data: { user: u } } = await supabase.auth.getUser();
       if (!u) { router.replace('/login'); return; }
-      const currentRole = u.app_metadata?.role || u.user_metadata?.role;
-      if (currentRole && currentRole !== 'pending') { router.replace('/dashboard'); return; }
+      // Hanya STAF RESMI (role di app_metadata, di-set admin) yg dialihkan ke dashboard.
+      // TL/Mitra yg metadata-nya ke-set dari percobaan sebelumnya TIDAK boleh auto-redirect —
+      // mereka harus tetap lihat form verifikasi No HP (cegah loop role-picker ↔ dashboard).
+      const STAFF = ['owner', 'accounting', 'manager', 'ops', 'cs', 'pic'];
+      const adminRole = u.app_metadata?.role;
+      if (adminRole && STAFF.includes(adminRole)) { router.replace('/dashboard'); return; }
       setUser(u);
       setLoading(false);
     }
