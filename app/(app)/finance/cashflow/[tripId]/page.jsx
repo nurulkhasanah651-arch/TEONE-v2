@@ -48,7 +48,7 @@ export default async function CashflowDetailPage({ params }) {
     supabase.from('trip_finance_items').select('*').eq('trip_id', tripId).order('item_type').order('category'),
     supabase.from('trip_passengers').select('*').eq('trip_id', tripId),
     supabase.from('customers').select('id, name, gender, sex'),
-    supabase.from('accounting_entries').select('type, amount').eq('trip_id', tripId),
+    supabase.from('accounting_entries').select('type, amount, description, category, date').eq('trip_id', tripId).order('date', { ascending: false }),
   ]);
 
   if (!tripRes.data) notFound();
@@ -316,6 +316,46 @@ export default async function CashflowDetailPage({ params }) {
           </p>
         </div>
       </div>
+
+      {accEntries.length > 0 && (
+        <div className="bg-white rounded-xl border-2 border-indigo-200 shadow-card overflow-hidden">
+          <div className="px-5 py-3 border-b bg-indigo-50 border-indigo-200 flex items-center justify-between flex-wrap gap-2">
+            <h2 className="font-bold text-indigo-800 flex items-center gap-2"><span>🧾</span> Cash Manual (Accounting)</h2>
+            <p className="text-sm font-semibold text-indigo-700">In {fmtRupiah(accCashIn)} · Out {fmtRupiah(accCashOut)}</p>
+          </div>
+          <div className="p-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-slate-500 border-b">
+                  <th className="py-1.5 pr-3">Tanggal</th>
+                  <th className="pr-3">Jenis</th>
+                  <th className="pr-3">Keterangan</th>
+                  <th className="pr-3">Kategori</th>
+                  <th className="text-right">Nominal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {accEntries.map((e, i) => (
+                  <tr key={i} className="border-b border-slate-100">
+                    <td className="py-1.5 pr-3 text-slate-600 whitespace-nowrap">{e.date || '-'}</td>
+                    <td className="pr-3">
+                      {e.type === 'in'
+                        ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700">CASH IN</span>
+                        : <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">CASH OUT</span>}
+                    </td>
+                    <td className="pr-3 text-slate-800">{e.description || '—'}</td>
+                    <td className="pr-3 text-slate-500">{e.category || '—'}</td>
+                    <td className={`text-right font-bold whitespace-nowrap ${e.type === 'in' ? 'text-green-700' : 'text-amber-700'}`}>
+                      {e.type === 'in' ? '+' : '−'}{fmtRupiah(e.amount || 0)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="mt-2 text-[11px] text-slate-400">Cash in dihitung ke Income, cash out ke HPP pada total proyeksi di atas.</p>
+          </div>
+        </div>
+      )}
 
       <FinanceSection
         title="Manual Income (Vendor/Lain-lain)"
