@@ -4,6 +4,7 @@ import { resolveBrandCode } from '@/lib/brand-shared';
 import { storefrontConfig } from '@/lib/shop/storefront-config';
 import { REGIONS } from '@/lib/shop/regions';
 import { getLatestTrips } from '@/lib/shop/data';
+import { getGoogleReviews } from '@/lib/shop/google-reviews';
 import TripCard from '@/components/shop/TripCard';
 import HeroSlider from '@/components/shop/HeroSlider';
 
@@ -22,6 +23,10 @@ export default async function StorefrontHome() {
   const code = brandCode();
   const cfg = storefrontConfig(code);
   const latest = await getLatestTrips(6);
+  const live = await getGoogleReviews(cfg.googlePlaceId);
+  const rating = live?.rating || cfg.googleRating;
+  const count = live?.count || cfg.googleCount;
+  const reviews = (live?.reviews && live.reviews.length) ? live.reviews : cfg.testimonials;
 
   return (
     <div>
@@ -122,20 +127,22 @@ export default async function StorefrontHome() {
             <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Kata Mereka</h2>
             <div className="mt-2 flex items-center gap-2 text-sm text-slate-600">
               <Stars n={5} />
-              <span className="font-bold">{cfg.googleRating}</span>
-              <span>· {cfg.googleCount} ulasan di Google</span>
+              <span className="font-bold">{rating}</span>
+              <span>· {count} ulasan di Google</span>
             </div>
           </div>
           <div className="grid md:grid-cols-3 gap-5">
-            {cfg.testimonials.map((t, i) => (
+            {reviews.map((t, i) => (
               <div key={i} className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
                 <Stars n={t.stars} />
                 <p className="mt-3 text-sm text-slate-600 leading-relaxed">“{t.text}”</p>
                 <div className="mt-4 flex items-center gap-3">
-                  <span className="w-9 h-9 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-bold">{t.name.charAt(0)}</span>
+                  {t.photo
+                    ? <img src={t.photo} alt="" className="w-9 h-9 rounded-full object-cover" />
+                    : <span className="w-9 h-9 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-bold">{t.name.charAt(0)}</span>}
                   <div>
                     <p className="text-sm font-bold text-slate-800">{t.name}</p>
-                    <p className="text-[11px] text-slate-400">Google Review</p>
+                    <p className="text-[11px] text-slate-400">{t.when ? `Google Review · ${t.when}` : 'Google Review'}</p>
                   </div>
                 </div>
               </div>
