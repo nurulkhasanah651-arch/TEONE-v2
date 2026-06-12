@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getPublishedTrip, tripSeatLeft, tripPrice } from '@/lib/shop/data';
+import { getPublishedTrip, tripSeatLeft, tripPrice, tripRoomPrices } from '@/lib/shop/data';
+import HeroSlider from '@/components/shop/HeroSlider';
 
 export const dynamic = 'force-dynamic';
 
 function fmtRp(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
 function fmtDate(d) { if (!d) return ''; try { return new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }); } catch { return d; } }
+function lines(s) { return String(s || '').split('\n').map((l) => l.trim()).filter(Boolean); }
 
 export default async function TripDetailPage({ params }) {
   const { id } = await params;
@@ -13,14 +15,18 @@ export default async function TripDetailPage({ params }) {
   if (!t) notFound();
   const seat = tripSeatLeft(t);
   const itin = Array.isArray(t.itinerary) ? t.itinerary : [];
+  const rooms = tripRoomPrices(t);
+  const gallery = Array.isArray(t.gallery_images) ? t.gallery_images : [];
+  const heroImgs = [t.cover_image_url, ...gallery].filter(Boolean);
+  const sk = lines(t.syarat_ketentuan);
+  const visa = lines(t.syarat_visa);
 
   return (
     <div>
-      {/* Hero */}
+      {/* Hero (slideshow kalau ada galeri) */}
       <div className="relative h-72 md:h-96 bg-gradient-to-br from-slate-700 to-slate-900">
-        {t.cover_image_url && <img src={t.cover_image_url} alt={t.name} className="absolute inset-0 w-full h-full object-cover" />}
-        <div className="absolute inset-0 bg-black/40" />
-        <div className="relative max-w-6xl mx-auto px-4 h-full flex flex-col justify-end pb-6 text-white">
+        {heroImgs.length > 0 && <HeroSlider images={heroImgs} overlay="bottom" />}
+        <div className="relative max-w-6xl mx-auto px-4 h-full flex flex-col justify-end pb-6 text-white z-10">
           {t.destination && <p className="text-sm font-bold uppercase tracking-wider opacity-90">{t.destination}</p>}
           <h1 className="text-3xl md:text-4xl font-extrabold">{t.name}</h1>
           <p className="mt-1 opacity-90">{fmtDate(t.departure)}{t.return_date ? ` – ${fmtDate(t.return_date)}` : ''}</p>
@@ -28,7 +34,7 @@ export default async function TripDetailPage({ params }) {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Kiri: deskripsi + itinerary */}
+        {/* Kiri */}
         <div className="lg:col-span-2 space-y-8">
           {t.highlights && (
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
@@ -74,15 +80,63 @@ export default async function TripDetailPage({ params }) {
               )}
             </div>
           )}
+
+          {/* Accordion: Syarat & Ketentuan + Syarat Visa (klik buka-tutup) */}
+          {(sk.length > 0 || visa.length > 0 || t.visa_pdf_syarat_url) && (
+            <div className="space-y-3">
+              {sk.length > 0 && (
+                <details className="group border border-slate-200 rounded-2xl overflow-hidden">
+                  <summary className="flex items-center justify-between cursor-pointer px-5 py-4 font-bold text-slate-800 select-none">
+                    <span>📋 Syarat &amp; Ketentuan</span>
+                    <span className="text-slate-400 group-open:rotate-180 transition-transform">▾</span>
+                  </summary>
+                  <ul className="px-5 pb-4 space-y-1.5">
+                    {sk.map((l, i) => <li key={i} className="text-sm text-slate-600 flex gap-2"><span className="text-slate-400">•</span>{l}</li>)}
+                  </ul>
+                </details>
+              )}
+              {(visa.length > 0 || t.visa_pdf_syarat_url) && (
+                <details className="group border border-slate-200 rounded-2xl overflow-hidden">
+                  <summary className="flex items-center justify-between cursor-pointer px-5 py-4 font-bold text-slate-800 select-none">
+                    <span>🛂 Syarat Visa</span>
+                    <span className="text-slate-400 group-open:rotate-180 transition-transform">▾</span>
+                  </summary>
+                  <div className="px-5 pb-4">
+                    <ul className="space-y-1.5">
+                      {visa.map((l, i) => <li key={i} className="text-sm text-slate-600 flex gap-2"><span className="text-slate-400">•</span>{l}</li>)}
+                    </ul>
+                    {t.visa_pdf_syarat_url && (
+                      <a href={t.visa_pdf_syarat_url} target="_blank" rel="noreferrer" className="inline-block mt-3 text-sm font-bold text-emerald-600 hover:underline">📄 Unduh syarat visa lengkap (PDF)</a>
+                    )}
+                  </div>
+                </details>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Kanan: kartu harga + CTA */}
+        {/* Kanan: kartu harga */}
         <div className="lg:col-span-1">
           <div className="sticky top-20 border border-slate-200 rounded-2xl p-5 shadow-sm">
             <p className="text-xs text-slate-500">Harga mulai</p>
             <p className="text-3xl font-extrabold text-slate-900">{fmtRp(tripPrice(t))}<span className="text-sm font-medium text-slate-500"> /pax</span></p>
             {t.dp_amount > 0 && <p className="text-sm text-emerald-700 font-semibold mt-1">Booking cukup DP {fmtRp(t.dp_amount)}</p>}
-            <div className="mt-3 text-sm text-slate-600 space-y-1">
+
+            {rooms.length > 0 && (
+              <div className="mt-3 border-t border-slate-100 pt-3">
+                <p className="text-xs font-bold text-slate-500 mb-1.5">Harga per tipe kamar</p>
+                <ul className="space-y-1">
+                  {rooms.map((r) => (
+                    <li key={r.key} className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600">{r.label}</span>
+                      <span className="font-bold text-slate-800">{fmtRp(r.price)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="mt-3 text-sm text-slate-600 space-y-1 border-t border-slate-100 pt-3">
               <p>📅 {fmtDate(t.departure)}{t.return_date ? ` – ${fmtDate(t.return_date)}` : ''}</p>
               <p className={seat > 0 ? 'text-emerald-700 font-semibold' : 'text-red-600 font-semibold'}>{seat > 0 ? `🎟 Sisa ${seat} seat` : '🚫 Seat habis'}</p>
             </div>

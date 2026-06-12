@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getPublishedTrip, tripSeatLeft, tripPrice } from '@/lib/shop/data';
+import { getPublishedTrip, tripSeatLeft, tripPrice, tripRoomPrices } from '@/lib/shop/data';
 import CheckoutForm from '@/components/shop/CheckoutForm';
 
 export const dynamic = 'force-dynamic';
@@ -32,7 +32,7 @@ export default async function CheckoutPage({ params }) {
       {seat <= 0 ? (
         <p className="mt-6 text-center text-red-600 font-bold">Maaf, seat trip ini sudah habis.</p>
       ) : (
-        <CheckoutForm trip={{ id: t.id, public_price: tripPrice(t), dp_amount: Number(t.dp_amount || 0), seat }} />
+        <CheckoutForm trip={{ id: t.id, public_price: tripPrice(t), dp_amount: Number(t.dp_amount || 0), seat, roomPrices: tripRoomPrices(t) }} />
       )}
     </div>
   );

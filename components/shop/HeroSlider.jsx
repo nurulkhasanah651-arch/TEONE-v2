@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 
-export default function HeroSlider({ images = [], interval = 5000 }) {
+export default function HeroSlider({ images = [], interval = 5000, overlay = 'left' }) {
   const [i, setI] = useState(0);
   const list = images.length ? images : [''];
   useEffect(() => {
@@ -15,7 +15,9 @@ export default function HeroSlider({ images = [], interval = 5000 }) {
         <img key={idx} src={src} alt="" aria-hidden={idx !== i}
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${idx === i ? 'opacity-100' : 'opacity-0'}`} />
       ))}
-      <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-900/70 to-slate-900/30" />
+      <div className={overlay === 'bottom'
+        ? 'absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-900/20 to-transparent'
+        : 'absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-900/70 to-slate-900/30'} />
       {list.length > 1 && (
         <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2 z-10">
           {list.map((_, idx) => (

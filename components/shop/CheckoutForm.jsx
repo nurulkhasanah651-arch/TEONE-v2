@@ -4,16 +4,18 @@ import { useRouter } from 'next/navigation';
 import { createBooking } from '@/lib/actions/shop-checkout';
 
 function fmtRp(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
-const ROOMS = ['Double', 'Twin', 'Triple', 'Single'];
 
 export default function CheckoutForm({ trip }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState('');
+  const rooms = Array.isArray(trip.roomPrices) ? trip.roomPrices : [];
   const [pax, setPax] = useState(1);
   const [payType, setPayType] = useState('dp');
+  const [room, setRoom] = useState(rooms[0]?.label || 'Double');
 
-  const unit = trip.public_price || 0;
+  const selected = rooms.find((r) => r.label === room);
+  const unit = selected ? selected.price : (trip.public_price || 0);
   const dp = trip.dp_amount || 0;
   const amount = payType === 'full' ? unit * pax : (dp > 0 ? dp * pax : Math.round(unit * 0.2) * pax);
 
@@ -42,7 +44,13 @@ export default function CheckoutForm({ trip }) {
         <label className="block"><span className="text-xs font-bold text-slate-600">Email</span>
           <input name="lead_email" type="email" placeholder="email@kamu.com" className={inp} /></label>
         <label className="block"><span className="text-xs font-bold text-slate-600">Tipe Kamar</span>
-          <select name="room_type" className={inp + ' bg-white'}>{ROOMS.map((r) => <option key={r} value={r}>{r}</option>)}</select></label>
+          {rooms.length ? (
+            <select name="room_type" value={room} onChange={(e) => setRoom(e.target.value)} className={inp + ' bg-white'}>
+              {rooms.map((r) => <option key={r.key} value={r.label}>{r.label} — {fmtRp(r.price)}</option>)}
+            </select>
+          ) : (
+            <select name="room_type" className={inp + ' bg-white'}>{['Double','Twin','Triple','Single'].map((r) => <option key={r} value={r}>{r}</option>)}</select>
+          )}</label>
       </div>
 
       <label className="block"><span className="text-xs font-bold text-slate-600">Jumlah Peserta</span>
