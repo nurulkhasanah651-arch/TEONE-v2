@@ -12,6 +12,7 @@ import PaymentRequests from '@/components/accounting/PaymentRequests';
 import DownloadButtons from '@/components/common/DownloadButtons';
 import AccountingSheetPanel from '@/components/accounting/AccountingSheetPanel';
 import TaxCalculatorCoretax from '@/components/accounting/TaxCalculatorCoretax';
+import TaxAnnualPanel from '@/components/accounting/TaxAnnualPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -354,6 +355,8 @@ export default async function AccountingDashboard({ searchParams }) {
       />
 
       <AccountingSheetPanel />
+
+      <TaxAnnualPanel />
 
       <TaxCalculatorCoretax />
 
