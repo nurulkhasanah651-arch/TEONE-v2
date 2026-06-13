@@ -110,18 +110,18 @@ export default async function StorefrontHome() {
 
       {/* PRIVATE / CUSTOM TRIP */}
       <section className="max-w-6xl mx-auto px-4 py-12 sm:py-14">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-purple-600 to-fuchsia-600 px-6 py-10 sm:px-12 sm:py-14 text-center sm:text-left">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-600 to-sky-500 px-6 py-10 sm:px-12 sm:py-14 text-center sm:text-left">
           <div className="relative z-10 sm:flex sm:items-center sm:justify-between sm:gap-8">
             <div className="max-w-2xl">
               <span className="inline-block text-3xl sm:text-4xl mb-2">✨</span>
               <h2 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight">Mau trip yang bener-bener kamu banget?</h2>
-              <p className="mt-3 text-indigo-100 text-sm sm:text-base leading-relaxed">
+              <p className="mt-3 text-blue-50 text-sm sm:text-base leading-relaxed">
                 Request <b>Private Trip</b> — kamu tentukan destinasi, tanggal, jumlah peserta, budget, dan itinerary.
                 Tim kami susunkan penawaran custom sesuai keinginanmu. Cocok untuk honeymoon, keluarga, rombongan kantor, atau komunitas.
               </p>
             </div>
             <div className="mt-6 sm:mt-0 shrink-0">
-              <Link href="/request-trip" className="inline-block px-7 py-3.5 rounded-full bg-white text-indigo-700 font-bold shadow-xl hover:bg-indigo-50 text-sm sm:text-base">
+              <Link href="/request-trip" className="inline-block px-7 py-3.5 rounded-full bg-white text-blue-700 font-bold shadow-xl hover:bg-blue-50 text-sm sm:text-base">
                 Buat Request Trip →
               </Link>
             </div>

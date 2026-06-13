@@ -19,7 +19,7 @@ export default async function TripListPage({ searchParams }) {
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">{activeLabel ? `Open Trip — ${activeLabel}` : 'Open Trip'}</h1>
           <p className="text-slate-500 mt-1 text-sm sm:text-base">Pilih destinasi & tanggal keberangkatanmu. Booking online, bayar aman.</p>
         </div>
-        <Link href="/request-trip" className="shrink-0 px-4 py-2 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold whitespace-nowrap">✈ Custom Trip</Link>
+        <Link href="/request-trip" className="shrink-0 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold whitespace-nowrap">✈ Custom Trip</Link>
       </div>
 
       {/* Filter region */}
