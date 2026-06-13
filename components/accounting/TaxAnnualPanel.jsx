@@ -10,6 +10,7 @@ import { getYearlyFinancials } from '@/lib/actions/tax-annual';
 
 const rp = (n) => 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
 const PKP_THRESHOLD = 4_800_000_000;
+const OMZET_31E_MAX = 50_000_000_000;
 
 export default function TaxAnnualPanel() {
   const [rows, setRows] = useState(null);
@@ -18,6 +19,7 @@ export default function TaxAnnualPanel() {
   const [includePPN, setIncludePPN] = useState(true);   // hitung kewajiban PPN walau belum PKP
   const [pphMode, setPphMode] = useState('auto');         // auto | umkm | badan
   const [includeManualIn, setIncludeManualIn] = useState(true); // kas masuk lain ikut omzet?
+  const [use31E, setUse31E] = useState(true); // fasilitas Pasal 31E (diskon 50% omzet <= 50 M)
   const [openYear, setOpenYear] = useState(null);
 
   useEffect(() => {
@@ -37,11 +39,24 @@ export default function TaxAnnualPanel() {
       const ppn = includePPN ? Math.round(omzet * 0.012) : 0;
       let pphScheme, pph;
       const useUmkm = pphMode === 'umkm' || (pphMode === 'auto' && omzet <= PKP_THRESHOLD);
-      if (useUmkm) { pphScheme = 'UMKM 0,5% × omzet'; pph = Math.round(omzet * 0.005); }
-      else { pphScheme = 'Badan 22% × laba'; pph = Math.round(Math.max(laba, 0) * 0.22); }
+      if (useUmkm) {
+        pphScheme = 'UMKM 0,5% × omzet';
+        pph = Math.round(omzet * 0.005);
+      } else {
+        const pkp = Math.max(laba, 0);
+        if (use31E && omzet > 0 && omzet <= OMZET_31E_MAX) {
+          const facShare = Math.min(PKP_THRESHOLD / omzet, 1) * pkp; // bagian dapat diskon (11%)
+          const normShare = pkp - facShare;                          // sisa (22%)
+          pph = Math.round(facShare * 0.11 + normShare * 0.22);
+          pphScheme = 'Badan (fasilitas Ps.31E: 11%/22%)';
+        } else {
+          pph = Math.round(pkp * 0.22);
+          pphScheme = 'Badan 22% × laba';
+        }
+      }
       return { ...r, omzet, beban, laba, wajibPkp, ppn, pphScheme: pphScheme, pph, total: ppn + pph };
     });
-  }, [rows, includePPN, pphMode, includeManualIn]);
+  }, [rows, includePPN, pphMode, includeManualIn, use31E]);
 
   const anyWajibPkp = calc.some((c) => c.wajibPkp);
 
@@ -67,6 +82,9 @@ export default function TaxAnnualPanel() {
         </div>
         <label className="flex items-center gap-1.5 font-semibold text-slate-600 cursor-pointer">
           <input type="checkbox" checked={includeManualIn} onChange={(e) => setIncludeManualIn(e.target.checked)} /> Kas masuk lain ikut omzet
+        </label>
+        <label className="flex items-center gap-1.5 font-semibold text-slate-600 cursor-pointer">
+          <input type="checkbox" checked={use31E} onChange={(e) => setUse31E(e.target.checked)} /> Fasilitas Pasal 31E (diskon omzet ≤ Rp50 M)
         </label>
       </div>
 
@@ -141,7 +159,7 @@ export default function TaxAnnualPanel() {
 
       <div className="text-[11px] text-slate-500 leading-relaxed bg-slate-50 rounded-lg p-3 space-y-1">
         <p>📌 <b>PPN jasa biro/agen perjalanan wisata</b> = besaran tertentu, DPP 10% × omzet → efektif <b>1,2%</b> (PMK 71/2022 jo. PMK 131/2024). Pajak masukan tidak dapat dikreditkan.</p>
-        <p>📌 <b>PPh</b>: omzet ≤ Rp4,8 M → Final UMKM 0,5% × omzet (PP 55/2022, terbatas jangka waktu); omzet &gt; Rp4,8 M → PPh Badan 22% × laba (UU 7/2021).</p>
+        <p>📌 <b>PPh</b>: omzet ≤ Rp4,8 M → Final UMKM 0,5% × omzet (PP 55/2022); omzet &gt; Rp4,8 M → PPh Badan 22% × laba. <b>Fasilitas Pasal 31E</b>: omzet ≤ Rp50 M dapat diskon 50% (tarif 11%) atas bagian laba sebanding omzet Rp4,8 M pertama.</p>
         <p>📌 Omzet/laba diambil <b>cash basis</b> (uang masuk riil) dari Real Cashflow. Pastikan "kas masuk lain" bukan modal/pinjaman.</p>
         <p className="text-amber-700">⚠ Estimasi otomatis — bukan SPT resmi & bukan nasihat pajak. Setor & lapor via Coretax DJP; konsultasikan ke konsultan pajak/AR.</p>
       </div>
