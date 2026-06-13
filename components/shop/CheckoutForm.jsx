@@ -10,21 +10,21 @@ export default function CheckoutForm({ trip }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState('');
+  const [info, setInfo] = useState('');
 
   const items = trip.priceItems || { rooms: [], specials: [] };
   const adminFee = Number(trip.adminFee || 0);
   const allItems = [...(items.rooms || []), ...(items.specials || [])];
 
-  // qty per key
   const [qty, setQty] = useState(() => {
     const init = {};
     allItems.forEach((it) => { init[it.key] = 0; });
-    if (items.rooms?.[0]) init[items.rooms[0].key] = 1; // default 1 di kamar pertama
+    if (items.rooms?.[0]) init[items.rooms[0].key] = 1;
     return init;
   });
+  const [names, setNames] = useState(['']);
   const [payType, setPayType] = useState('dp');
 
-  // akun
   const [loggedIn, setLoggedIn] = useState(false);
   const [makeAcc, setMakeAcc] = useState(true);
   const [pwd, setPwd] = useState('');
@@ -32,23 +32,28 @@ export default function CheckoutForm({ trip }) {
 
   useEffect(() => {
     (async () => {
-      try {
-        const { data } = await createClient().auth.getUser();
-        if (data?.user) { setLoggedIn(true); setMakeAcc(false); }
-      } catch { /* ignore */ }
+      try { const { data } = await createClient().auth.getUser(); if (data?.user) { setLoggedIn(true); setMakeAcc(false); } } catch {}
     })();
   }, []);
+
+  // slot per orang (urutan: kamar dulu lalu kategori khusus)
+  const slots = [];
+  allItems.forEach((it) => { for (let i = 0; i < (qty[it.key] || 0); i++) slots.push({ key: it.key, label: it.label }); });
+  const pax = slots.length;
+
+  // sinkronkan jumlah field nama dengan jumlah slot
+  const qtySig = JSON.stringify(qty);
+  useEffect(() => { setNames((prev) => slots.map((_, i) => prev[i] || '')); /* eslint-disable-next-line */ }, [qtySig]);
 
   function setItemQty(key, delta) {
     setQty((q) => {
       const next = Math.max(0, (q[key] || 0) + delta);
       const others = Object.entries(q).reduce((s, [k, v]) => s + (k === key ? 0 : v), 0);
-      if (others + next > trip.seat) return q; // jangan lewati sisa seat
+      if (others + next > trip.seat) return q;
       return { ...q, [key]: next };
     });
   }
 
-  const pax = Object.values(qty).reduce((s, v) => s + v, 0);
   const subtotalFull = allItems.reduce((s, it) => s + it.price * (qty[it.key] || 0), 0);
   const dp = Number(trip.dp_amount || 0);
   const dpBase = dp > 0 ? dp * pax : Math.round(subtotalFull * 0.2);
@@ -57,8 +62,8 @@ export default function CheckoutForm({ trip }) {
 
   function submit(e) {
     e.preventDefault();
-    setErr('');
-    if (pax < 1) { setErr('Pilih minimal 1 peserta (kamar atau kategori).'); return; }
+    setErr(''); setInfo('');
+    if (pax < 1) { setErr('Pilih minimal 1 peserta.'); return; }
     const fd = new FormData(e.target);
     const email = (fd.get('lead_email') || '').toString().trim();
     if (makeAcc && !loggedIn) {
@@ -67,20 +72,23 @@ export default function CheckoutForm({ trip }) {
       if (pwd !== pwd2) { setErr('Konfirmasi password tidak sama.'); return; }
       fd.set('password', pwd);
     }
-    const composition = allItems
-      .filter((it) => (qty[it.key] || 0) > 0)
-      .map((it) => ({ key: it.key, label: it.label, qty: qty[it.key] }));
+    const paxList = slots.map((s, i) => ({ key: s.key, label: s.label, name: (names[i] || '').trim() }));
     fd.set('trip_id', trip.id);
-    fd.set('composition', JSON.stringify(composition));
+    fd.set('pax_list', JSON.stringify(paxList));
     fd.set('payment_type', payType);
     startTransition(async () => {
       const r = await createBooking(fd);
       if (r?.error) { setErr(r.error); return; }
-      if (makeAcc && !loggedIn && (r.account === 'created' || r.account === 'exists') && r.email) {
+      if (makeAcc && !loggedIn && r.account === 'created' && r.email) {
         try {
           const { error: sErr } = await createClient().auth.signInWithPassword({ email: r.email, password: pwd });
           if (!sErr) { router.push('/akun'); return; }
-        } catch { /* fallback */ }
+        } catch {}
+      }
+      if (makeAcc && !loggedIn && r.account === 'exists') {
+        // email sudah terdaftar → tidak bisa set password baru (mis. akun Google)
+        router.push(`/order/${r.id}?acc=exists`);
+        return;
       }
       router.push(`/order/${r.id}`);
     });
@@ -112,7 +120,6 @@ export default function CheckoutForm({ trip }) {
           <input name="lead_email" type="email" placeholder="email@kamu.com" className={inp} /></label>
       </div>
 
-      {/* KAMAR */}
       {items.rooms?.length > 0 && (
         <div className="border border-slate-200 rounded-2xl p-4">
           <p className="text-sm font-bold text-slate-800">🛏 Kamar (pilih jumlah orang)</p>
@@ -121,7 +128,6 @@ export default function CheckoutForm({ trip }) {
         </div>
       )}
 
-      {/* KATEGORI KHUSUS */}
       {items.specials?.length > 0 && (
         <div className="border border-slate-200 rounded-2xl p-4">
           <p className="text-sm font-bold text-slate-800">👶 Kategori Khusus</p>
@@ -130,7 +136,23 @@ export default function CheckoutForm({ trip }) {
         </div>
       )}
 
-      {/* Pembayaran */}
+      {/* Nama tiap peserta */}
+      {pax > 0 && (
+        <div className="border border-slate-200 rounded-2xl p-4">
+          <p className="text-sm font-bold text-slate-800">🧍 Data Peserta ({pax} orang)</p>
+          <p className="text-[11px] text-slate-400 mb-2">Isi nama tiap peserta (sesuai paspor) — boleh dikosongkan, bisa dilengkapi nanti.</p>
+          <div className="space-y-2">
+            {slots.map((s, i) => (
+              <div key={i}>
+                <span className="text-xs font-semibold text-slate-600">Peserta {i + 1} — {s.label}</span>
+                <input value={names[i] || ''} onChange={(e) => setNames((p) => p.map((v, j) => j === i ? e.target.value : v))}
+                  placeholder="Nama lengkap" className="w-full mt-0.5 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <span className="text-xs font-bold text-slate-600">Pilih Pembayaran</span>
         <div className="grid grid-cols-2 gap-3 mt-1">
@@ -145,7 +167,6 @@ export default function CheckoutForm({ trip }) {
         </div>
       </div>
 
-      {/* Ringkasan */}
       <div className="bg-slate-900 text-white rounded-2xl p-4 space-y-1.5">
         <div className="flex justify-between text-sm"><span className="opacity-80">Total peserta</span><span className="font-bold">{pax} orang</span></div>
         <div className="flex justify-between text-sm"><span className="opacity-80">Harga paket</span><span className="font-bold">{fmtRp(subtotalFull)}</span></div>
@@ -158,7 +179,6 @@ export default function CheckoutForm({ trip }) {
         {payType === 'dp' && pax > 0 && <p className="text-[11px] opacity-70">Sisa pelunasan: {fmtRp(Math.max(subtotalFull - dpBase, 0))} (dibayar bertahap nanti)</p>}
       </div>
 
-      {/* Buat akun (sembunyi kalau sudah login) */}
       {!loggedIn ? (
         <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50">
           <label className="flex items-center gap-2 cursor-pointer">
@@ -171,7 +191,7 @@ export default function CheckoutForm({ trip }) {
                 <input type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} placeholder="min. 6 karakter" className={inp} autoComplete="new-password" /></label>
               <label className="block"><span className="text-xs font-bold text-slate-600">Ulangi Password *</span>
                 <input type="password" value={pwd2} onChange={(e) => setPwd2(e.target.value)} placeholder="ketik ulang" className={inp} autoComplete="new-password" /></label>
-              <p className="sm:col-span-2 text-[11px] text-slate-500">Sudah punya akun? <a href="/masuk" className="font-bold text-emerald-600 underline">Masuk dulu</a> biar tinggal pesan.</p>
+              <p className="sm:col-span-2 text-[11px] text-slate-500">Pakai email yang <b>belum pernah</b> dipakai daftar. Sudah punya akun? <a href="/masuk" className="font-bold text-emerald-600 underline">Masuk dulu</a>.</p>
             </div>
           )}
         </div>
@@ -179,6 +199,7 @@ export default function CheckoutForm({ trip }) {
         <p className="text-[11px] text-emerald-700 bg-emerald-50 rounded-xl p-2.5">✓ Kamu sudah login — pesanan otomatis masuk ke akunmu.</p>
       )}
 
+      {info && <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">{info}</div>}
       {err && <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">⚠ {err}</div>}
 
       <button type="submit" disabled={pending || pax < 1} className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-bold text-lg">

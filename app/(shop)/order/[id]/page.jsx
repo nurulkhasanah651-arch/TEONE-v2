@@ -7,8 +7,10 @@ export const dynamic = 'force-dynamic';
 function fmtRp(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
 function fmtDate(d) { if (!d) return ''; try { return new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return d; } }
 
-export default async function OrderPage({ params }) {
+export default async function OrderPage({ params, searchParams }) {
   const { id } = await params;
+  const sp = await searchParams;
+  const accExists = sp?.acc === 'exists';
   const b = await getBooking(id);
   if (!b) notFound();
   const paid = b.status === 'paid';
@@ -22,6 +24,7 @@ export default async function OrderPage({ params }) {
           <p className="text-sm opacity-90 mt-1">Order #{b.order_code}</p>
         </div>
         <div className="p-6 space-y-3 text-sm">
+          {accExists && <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-800 text-xs">Email kamu sudah terdaftar sebelumnya, jadi akun baru tidak dibuat. Pesanan tetap tercatat. Untuk pantau di menu Akun, login dengan akun lama (atau via Google) di halaman <b>Masuk</b>.</div>}
           <Row label="Trip" value={b.trip?.name || '-'} />
           <Row label="Tanggal" value={`${fmtDate(b.trip?.departure)}${b.trip?.return_date ? ' – ' + fmtDate(b.trip?.return_date) : ''}`} />
           <Row label="Pemesan" value={b.lead_name} />
