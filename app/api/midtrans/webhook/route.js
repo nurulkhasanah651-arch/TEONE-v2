@@ -3,7 +3,7 @@
 import { NextResponse } from 'next/server';
 import { resolveBrandCode } from '@/lib/brand-shared';
 import { verifyNotificationSignature, mapTransactionStatus } from '@/lib/midtrans';
-import { fulfillPaidBooking, recordMilestonePayment } from '@/lib/shop/fulfillment';
+import { fulfillPaidBooking, recordMilestonePayment, recordInvoiceMilestone } from '@/lib/shop/fulfillment';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -31,9 +31,15 @@ export async function POST(request) {
   const status = mapTransactionStatus(n);
   if (status === 'paid') {
     try {
-      if (milestoneType) await recordMilestonePayment(orderCode, milestoneType);
-      else await fulfillPaidBooking(orderCode);
-    } catch (e) { /* tetap 200 agar Midtrans tak retry loop; bisa dicek manual */ }
+      if (parts[0] === 'INVP') {
+        // bayar online dari halaman invoice: INVP-<passengerId>-<type>-<suffix>
+        await recordInvoiceMilestone(parseInt(parts[1]) || 0, parts[2], n.gross_amount);
+      } else if (milestoneType) {
+        await recordMilestonePayment(orderCode, milestoneType);
+      } else {
+        await fulfillPaidBooking(orderCode);
+      }
+    } catch (e) { /* tetap 200 agar Midtrans tak retry loop */ }
   }
   // Midtrans mengharap 200 OK
   return NextResponse.json({ ok: true, status });

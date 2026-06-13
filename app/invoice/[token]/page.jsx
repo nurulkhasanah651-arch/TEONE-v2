@@ -38,11 +38,15 @@ const STATUS_BADGE = {
 };
 
 async function loadClientComponents() {
-  const result = { PaymentProofForm: null, PrintInvoiceButton: null, errors: [] };
+  const result = { PaymentProofForm: null, PrintInvoiceButton: null, InvoicePayOnlineButton: null, errors: [] };
   try {
     const mod = await import('@/components/invoice/PaymentProofForm');
     result.PaymentProofForm = mod.default;
   } catch (e) { result.errors.push(`PaymentProofForm: ${e.message}`); }
+  try {
+    const mod = await import('@/components/invoice/InvoicePayOnlineButton');
+    result.InvoicePayOnlineButton = mod.default;
+  } catch (e) { result.errors.push(`InvoicePayOnlineButton: ${e.message}`); }
   try {
     const mod = await import('@/components/invoice/PrintInvoiceButton');
     result.PrintInvoiceButton = mod.default;
@@ -170,7 +174,7 @@ export default async function PublicInvoicePage({ params }) {
   const sisaInvoice = Math.max(Number(inv.amount || 0) - totalPaidThisInvoice, 0);
   const status = STATUS_BADGE[inv.status] || STATUS_BADGE.sent;
 
-  const { PaymentProofForm, PrintInvoiceButton, errors: clientErrors } = await loadClientComponents();
+  const { PaymentProofForm, PrintInvoiceButton, InvoicePayOnlineButton, errors: clientErrors } = await loadClientComponents();
   errors.push(...clientErrors);
 
   return (
@@ -380,9 +384,10 @@ export default async function PublicInvoicePage({ params }) {
         )}
 
         {/* Payment Proof Form */}
-        {PaymentProofForm && !isLunas && inv.status !== 'paid' && (
+        {!isLunas && inv.status !== 'paid' && (
           <div className="px-6 pb-6 no-print">
-            <PaymentProofForm token={inv.public_token} expectedAmount={sisaInvoice || inv.amount} />
+            {InvoicePayOnlineButton && <InvoicePayOnlineButton token={inv.public_token} />}
+            {PaymentProofForm && <PaymentProofForm token={inv.public_token} expectedAmount={sisaInvoice || inv.amount} />}
           </div>
         )}
 
