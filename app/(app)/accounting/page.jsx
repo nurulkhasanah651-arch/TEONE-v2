@@ -11,8 +11,6 @@ import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import PaymentRequests from '@/components/accounting/PaymentRequests';
 import DownloadButtons from '@/components/common/DownloadButtons';
 import AccountingSheetPanel from '@/components/accounting/AccountingSheetPanel';
-import TaxCalculatorCoretax from '@/components/accounting/TaxCalculatorCoretax';
-import TaxAnnualPanel from '@/components/accounting/TaxAnnualPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -356,10 +354,6 @@ export default async function AccountingDashboard({ searchParams }) {
 
       <AccountingSheetPanel />
 
-      <TaxAnnualPanel />
-
-      <TaxCalculatorCoretax />
-
       {/* PERIODE FILTER */}
       <div className="bg-white rounded-xl border-2 border-brand-200 shadow-card p-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
@@ -424,13 +418,14 @@ export default async function AccountingDashboard({ searchParams }) {
         />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         <SectionCard href="/accounting/reports" icon="📊" title="Laporan Bulanan" color="from-indigo-500 to-blue-700" />
         <SectionCard href="/accounting/cash-position" icon="💼" title="Posisi Kas" color="from-emerald-500 to-green-700" />
         <SectionCard href="/accounting/accounts" icon="🏦" title="Bank & Cash" color="from-blue-500 to-blue-700" />
         <SectionCard href="/accounting/groups" icon="📈" title="Real Cashflow per Group" color="from-green-500 to-emerald-700" />
         <SectionCard href="/accounting/balance-sheet" icon="📋" title="Balance Sheet" color="from-purple-500 to-purple-700" />
         <SectionCard href="/accounting/reconcile" icon="🔄" title="Bank Reconciliation" color="from-cyan-500 to-blue-700" />
+        <SectionCard href="/accounting/pajak" icon="🧾" title="Pajak Tahunan" color="from-rose-500 to-red-700" />
         <SectionCard href="/accounting/new" icon="➕" title="Entry Manual" color="from-amber-500 to-orange-700" />
       </div>
 
