@@ -48,6 +48,7 @@ const GROUPS = [
       { href: '/plan',          label: 'Plan Trip',        icon: '🗺', roles: ['owner', 'accounting', 'manager', 'ops'] },
       { href: '/ads',           label: 'Ads Manager',      icon: '📢', roles: ALL_ROLES },
       { href: '/content',       label: 'Konten',           icon: '📱', roles: ALL_ROLES },
+      { href: '/etalase',       label: 'Etalase Web',      icon: '🖼', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'] },
     ],
   },
   {

@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { getPublishedTrips } from '@/lib/shop/data';
-import { REGIONS, regionLabel } from '@/lib/shop/regions';
+import { getPublishedTrips, getStorefrontSettingsPublic } from '@/lib/shop/data';
+import { effectiveRegions } from '@/lib/shop/regions';
 import TripCard from '@/components/shop/TripCard';
 
 export const dynamic = 'force-dynamic';
@@ -8,19 +8,24 @@ export const dynamic = 'force-dynamic';
 export default async function TripListPage({ searchParams }) {
   const region = searchParams?.region || null;
   const trips = await getPublishedTrips(region);
-  const activeLabel = region ? regionLabel(region) : null;
+  const settings = await getStorefrontSettingsPublic();
+  const regions = effectiveRegions(settings?.regions);
+  const activeLabel = region ? (regions.find((r) => r.key === region)?.label || region) : null;
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <div className="mb-5">
-        <h1 className="text-3xl font-extrabold text-slate-900">{activeLabel ? `Open Trip — ${activeLabel}` : 'Open Trip'}</h1>
-        <p className="text-slate-500 mt-1">Pilih destinasi & tanggal keberangkatanmu. Booking online, bayar aman.</p>
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">{activeLabel ? `Open Trip — ${activeLabel}` : 'Open Trip'}</h1>
+          <p className="text-slate-500 mt-1 text-sm sm:text-base">Pilih destinasi & tanggal keberangkatanmu. Booking online, bayar aman.</p>
+        </div>
+        <Link href="/request-trip" className="shrink-0 px-4 py-2 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold whitespace-nowrap">✈ Custom Trip</Link>
       </div>
 
       {/* Filter region */}
       <div className="flex flex-wrap gap-2 mb-7">
         <Link href="/trip" className={`px-3.5 py-1.5 rounded-full text-sm font-semibold border ${!region ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}>Semua</Link>
-        {REGIONS.map((r) => (
+        {regions.map((r) => (
           <Link key={r.key} href={`/trip?region=${r.key}`} className={`px-3.5 py-1.5 rounded-full text-sm font-semibold border ${region === r.key ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}>
             <span className="mr-1">{r.icon}</span>{r.label}
           </Link>

@@ -2,8 +2,8 @@ import { headers } from 'next/headers';
 import Link from 'next/link';
 import { resolveBrandCode } from '@/lib/brand-shared';
 import { storefrontConfig } from '@/lib/shop/storefront-config';
-import { REGIONS } from '@/lib/shop/regions';
-import { getLatestTrips } from '@/lib/shop/data';
+import { effectiveRegions } from '@/lib/shop/regions';
+import { getLatestTrips, getStorefrontSettingsPublic } from '@/lib/shop/data';
 import { getGoogleReviews } from '@/lib/shop/google-reviews';
 import TripCard from '@/components/shop/TripCard';
 import HeroSlider from '@/components/shop/HeroSlider';
@@ -22,6 +22,9 @@ function Stars({ n = 5 }) {
 export default async function StorefrontHome() {
   const code = brandCode();
   const cfg = storefrontConfig(code);
+  const settings = await getStorefrontSettingsPublic();
+  const heroImages = (settings?.hero_images && settings.hero_images.length) ? settings.hero_images : (cfg.heroImages || (cfg.heroImage ? [cfg.heroImage] : []));
+  const regions = effectiveRegions(settings?.regions);
   const latest = await getLatestTrips(6);
   const live = await getGoogleReviews(cfg.googlePlaceId);
   const rating = live?.rating || cfg.googleRating;
@@ -32,16 +35,17 @@ export default async function StorefrontHome() {
     <div>
       {/* HERO */}
       <section className="relative">
-        <HeroSlider images={cfg.heroImages || (cfg.heroImage ? [cfg.heroImage] : [])} />
-        <div className="relative max-w-6xl mx-auto px-4 py-24 sm:py-32">
+        <HeroSlider images={heroImages} />
+        <div className="relative max-w-6xl mx-auto px-4 py-16 sm:py-32">
           <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/20 border border-emerald-300/40 text-emerald-100 text-xs font-bold px-3 py-1.5">
             ⭐ {cfg.badge}
           </span>
-          <h1 className="mt-5 text-4xl sm:text-5xl font-extrabold text-white leading-tight max-w-2xl">{cfg.heroTitle}</h1>
+          <h1 className="mt-5 text-3xl sm:text-5xl font-extrabold text-white leading-tight max-w-2xl">{cfg.heroTitle}</h1>
           <p className="mt-4 text-base sm:text-lg text-slate-200 max-w-xl">{cfg.heroSubtitle}</p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/trip" className="px-6 py-3 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold shadow-lg">Cari Destinasi</Link>
-            <a href={`https://wa.me/${cfg.waNumber}`} target="_blank" rel="noreferrer" className="px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 border border-white/30 text-white font-bold">Tanya CS</a>
+          <div className="mt-7 sm:mt-8 flex flex-wrap gap-2.5 sm:gap-3">
+            <Link href="/trip" className="px-5 sm:px-6 py-2.5 sm:py-3 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold shadow-lg text-sm sm:text-base">Cari Destinasi</Link>
+            <Link href="/request-trip" className="px-5 sm:px-6 py-2.5 sm:py-3 rounded-full bg-white text-slate-900 hover:bg-slate-100 font-bold shadow-lg text-sm sm:text-base">✈ Custom Trip</Link>
+            <a href={`https://wa.me/${cfg.waNumber}`} target="_blank" rel="noreferrer" className="px-5 sm:px-6 py-2.5 sm:py-3 rounded-full bg-white/10 hover:bg-white/20 border border-white/30 text-white font-bold text-sm sm:text-base">Tanya CS</a>
           </div>
         </div>
       </section>
@@ -87,10 +91,12 @@ export default async function StorefrontHome() {
         <div className="max-w-6xl mx-auto px-4 py-14">
           <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Jelajahi per Destinasi</h2>
           <p className="text-slate-500 mt-1">Pilih region favoritmu.</p>
-          <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-            {REGIONS.map((r) => (
-              <Link key={r.key} href={`/trip?region=${r.key}`} className="group relative rounded-2xl overflow-hidden aspect-[3/4] shadow-sm hover:shadow-lg transition-shadow">
-                <img src={r.image} alt={r.label} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform" />
+          <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+            {regions.map((r) => (
+              <Link key={r.key} href={`/trip?region=${r.key}`} className="group relative rounded-2xl overflow-hidden aspect-[3/4] shadow-sm hover:shadow-lg transition-shadow bg-gradient-to-br from-slate-700 to-slate-900">
+                {r.image
+                  ? <img src={r.image} alt={r.label} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                  : <div className="absolute inset-0 flex items-center justify-center text-5xl opacity-30">{r.icon}</div>}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-900/20 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-3">
                   <p className="text-2xl">{r.icon}</p>
@@ -99,6 +105,29 @@ export default async function StorefrontHome() {
               </Link>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* PRIVATE / CUSTOM TRIP */}
+      <section className="max-w-6xl mx-auto px-4 py-12 sm:py-14">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-purple-600 to-fuchsia-600 px-6 py-10 sm:px-12 sm:py-14 text-center sm:text-left">
+          <div className="relative z-10 sm:flex sm:items-center sm:justify-between sm:gap-8">
+            <div className="max-w-2xl">
+              <span className="inline-block text-3xl sm:text-4xl mb-2">✨</span>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight">Mau trip yang bener-bener kamu banget?</h2>
+              <p className="mt-3 text-indigo-100 text-sm sm:text-base leading-relaxed">
+                Request <b>Private Trip</b> — kamu tentukan destinasi, tanggal, jumlah peserta, budget, dan itinerary.
+                Tim kami susunkan penawaran custom sesuai keinginanmu. Cocok untuk honeymoon, keluarga, rombongan kantor, atau komunitas.
+              </p>
+            </div>
+            <div className="mt-6 sm:mt-0 shrink-0">
+              <Link href="/request-trip" className="inline-block px-7 py-3.5 rounded-full bg-white text-indigo-700 font-bold shadow-xl hover:bg-indigo-50 text-sm sm:text-base">
+                Buat Request Trip →
+              </Link>
+            </div>
+          </div>
+          <div className="pointer-events-none absolute -right-10 -top-10 w-48 h-48 rounded-full bg-white/10" />
+          <div className="pointer-events-none absolute -left-12 -bottom-12 w-56 h-56 rounded-full bg-white/10" />
         </div>
       </section>
 
