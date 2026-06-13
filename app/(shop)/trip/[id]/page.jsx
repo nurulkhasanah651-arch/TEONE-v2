@@ -51,13 +51,20 @@ export default async function TripDetailPage({ params }) {
           {itin.length > 0 && (
             <div>
               <h2 className="text-xl font-bold text-slate-900 mb-3">Itinerary</h2>
-              <ol className="space-y-3">
+              <ol className="space-y-4">
                 {itin.map((d, i) => (
-                  <li key={i} className="flex gap-3">
-                    <span className="shrink-0 w-8 h-8 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center">{d.day || i + 1}</span>
-                    <div>
-                      <p className="font-bold text-slate-800">{d.title || `Hari ${d.day || i + 1}`}</p>
-                      {d.detail && <p className="text-sm text-slate-600">{d.detail}</p>}
+                  <li key={i} className="flex flex-col sm:flex-row gap-4 rounded-2xl border border-slate-200 overflow-hidden">
+                    {d.image && (
+                      <div className="sm:w-56 h-44 sm:h-auto shrink-0 bg-slate-100">
+                        <img src={d.image} alt={d.title || `Hari ${d.day || i + 1}`} className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div className="p-4 flex gap-3">
+                      <span className="shrink-0 w-8 h-8 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center">{d.day || i + 1}</span>
+                      <div>
+                        <p className="font-bold text-slate-800">{d.title || `Hari ${d.day || i + 1}`}</p>
+                        {d.detail && <p className="text-sm text-slate-600 mt-0.5 whitespace-pre-line">{d.detail}</p>}
+                      </div>
                     </div>
                   </li>
                 ))}

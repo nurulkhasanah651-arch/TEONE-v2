@@ -13,29 +13,47 @@ export default function StorefrontPanel({ trip }) {
   const [published, setPublished] = useState(!!trip.is_published);
   const [cover, setCover] = useState(trip.cover_image_url || '');
   const [gallery, setGallery] = useState(Array.isArray(trip.gallery_images) ? trip.gallery_images : []);
-  const [uploading, setUploading] = useState(null);
+  const [uploading, setUploading] = useState(null); // 'cover' | 'gallery' | 'day-<i>'
 
-  const itinText = Array.isArray(trip.itinerary)
-    ? trip.itinerary.map((d) => `${d.title || ''}${d.detail ? ' :: ' + d.detail : ''}`).join('\n')
-    : '';
+  const [itin, setItin] = useState(
+    Array.isArray(trip.itinerary) && trip.itinerary.length
+      ? trip.itinerary.map((d) => ({ title: d.title || '', detail: d.detail || '', image: d.image || '' }))
+      : [{ title: '', detail: '', image: '' }]
+  );
 
   const bd = (trip.price_breakdown && typeof trip.price_breakdown === 'object') ? trip.price_breakdown : {};
   const roomPrices = ROOM_KEYS.map((r) => ({ ...r, price: Number(bd[r.key]) || 0 })).filter((r) => r.price > 0);
 
-  async function doUpload(file, kind) {
-    if (!file) return;
-    setUploading(kind);
-    setMsg(null);
+  async function uploadOne(file) {
     const fd = new FormData();
     fd.set('file', file);
     fd.set('tripId', String(trip.id));
-    const r = await uploadStorefrontImage(fd);
+    return uploadStorefrontImage(fd);
+  }
+
+  async function doUpload(file, kind) {
+    if (!file) return;
+    setUploading(kind); setMsg(null);
+    const r = await uploadOne(file);
     setUploading(null);
     if (r?.error) { setMsg({ t: 'e', x: r.error }); return; }
     if (r?.url) {
       if (kind === 'cover') setCover(r.url);
       else setGallery((g) => [...g, r.url]);
     }
+  }
+
+  // ---- Itinerary helpers ----
+  function setDay(i, field, val) { setItin((a) => a.map((d, j) => j === i ? { ...d, [field]: val } : d)); }
+  function addDay() { setItin((a) => [...a, { title: '', detail: '', image: '' }]); }
+  function removeDay(i) { setItin((a) => a.length > 1 ? a.filter((_, j) => j !== i) : a); }
+  async function uploadDay(i, file) {
+    if (!file) return;
+    setUploading('day-' + i); setMsg(null);
+    const r = await uploadOne(file);
+    setUploading(null);
+    if (r?.error) { setMsg({ t: 'e', x: r.error }); return; }
+    if (r?.url) setDay(i, 'image', r.url);
   }
 
   function submit(e) {
@@ -46,6 +64,7 @@ export default function StorefrontPanel({ trip }) {
     fd.set('_name', trip.name || '');
     fd.set('cover_image_url', cover || '');
     fd.set('gallery_images', JSON.stringify(gallery));
+    fd.set('itinerary_json', JSON.stringify(itin));
     startTransition(async () => {
       const r = await updateTripPublicContent(trip.id, fd);
       if (r?.error) { setMsg({ t: 'e', x: r.error }); return; }
@@ -133,8 +152,40 @@ export default function StorefrontPanel({ trip }) {
           <input name="highlights" defaultValue={trip.highlights || ''} placeholder="Menara Eiffel · Seine Cruise · Keukenhof" className={inp} /></label>
         <label className="block"><span className="text-xs font-bold text-slate-600">Deskripsi</span>
           <textarea name="description" defaultValue={trip.description || ''} rows={3} className={inp} /></label>
-        <label className="block"><span className="text-xs font-bold text-slate-600">Itinerary (1 baris = 1 hari, format: <b>Judul :: Detail</b>)</span>
-          <textarea name="itinerary" defaultValue={itinText} rows={4} placeholder={'Tiba di Paris :: City tour Menara Eiffel\nAmsterdam :: Keukenhof & Zaanse Schans'} className={inp + ' font-mono text-xs'} /></label>
+
+        {/* ITINERARY per hari + foto */}
+        <div>
+          <span className="text-xs font-bold text-slate-600">Itinerary per Hari (judul, detail, foto)</span>
+          <div className="mt-1 space-y-3">
+            {itin.map((d, i) => (
+              <div key={i} className="rounded-xl border border-slate-200 p-3 bg-slate-50">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-slate-700 bg-slate-900 text-white rounded-full px-2.5 py-0.5">Hari {i + 1}</span>
+                  <button type="button" onClick={() => removeDay(i)} className="text-xs text-red-600 hover:underline">Hapus hari</button>
+                </div>
+                <div className="flex gap-3">
+                  <div className="shrink-0">
+                    <div className="w-24 h-20 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center text-slate-300 text-xs">
+                      {d.image ? <img src={d.image} alt="" className="w-full h-full object-cover" /> : 'foto'}
+                    </div>
+                    <label className="mt-1 block text-center text-[11px] font-bold text-emerald-700 cursor-pointer hover:underline">
+                      {uploading === 'day-' + i ? 'Unggah…' : (d.image ? 'Ganti foto' : '📷 Upload')}
+                      <input type="file" accept="image/*" className="hidden" disabled={uploading === 'day-' + i}
+                        onChange={(e) => { uploadDay(i, e.target.files?.[0]); e.target.value = ''; }} />
+                    </label>
+                    {d.image && <button type="button" onClick={() => setDay(i, 'image', '')} className="block w-full text-center text-[11px] text-red-500 hover:underline">hapus foto</button>}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <input value={d.title} onChange={(e) => setDay(i, 'title', e.target.value)} placeholder="Judul hari (mis: Tiba di Paris)" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                    <textarea value={d.detail} onChange={(e) => setDay(i, 'detail', e.target.value)} rows={2} placeholder="Detail kegiatan hari ini" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <button type="button" onClick={addDay} className="mt-2 px-3 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-300 rounded-lg hover:bg-emerald-50">+ Tambah Hari</button>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="block"><span className="text-xs font-bold text-slate-600">Termasuk (1 per baris)</span>
             <textarea name="included" defaultValue={trip.included || ''} rows={3} className={inp} /></label>
