@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getBooking } from '@/lib/shop/data';
+import PayButton from '@/components/shop/PayButton';
 
 export const dynamic = 'force-dynamic';
 function fmtRp(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
@@ -39,12 +40,10 @@ export default async function OrderPage({ params }) {
             </div>
           ) : (
             <>
-              <button disabled className="w-full py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold cursor-not-allowed">
-                💳 Bayar via Midtrans (segera aktif)
-              </button>
-              <p className="text-[11px] text-center text-slate-400">Pembayaran online (Midtrans) sedang diaktifkan. Sementara, tim kami akan menghubungi kamu via WhatsApp untuk pembayaran.</p>
+              <PayButton bookingId={b.id} amountLabel={fmtRp(b.amount)} />
+              <p className="text-[11px] text-center text-slate-400">Pembayaran aman via Midtrans (kartu, VA bank, e-wallet, QRIS). Status otomatis ter-update setelah bayar.</p>
               <a href={`https://wa.me/628145460210?text=${encodeURIComponent('Halo, saya mau bayar booking ' + b.order_code)}`} target="_blank" rel="noreferrer"
-                className="block text-center w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold">Konfirmasi via WhatsApp</a>
+                className="block text-center w-full py-3 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50">Atau konfirmasi via WhatsApp</a>
             </>
           )}
           <Link href="/trip" className="block text-center text-sm text-slate-500 hover:underline pt-2">← Lihat trip lainnya</Link>
