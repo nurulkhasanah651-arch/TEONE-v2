@@ -30,6 +30,8 @@ function autoToEditable(passengers, customers, custMap) {
       passenger_id: p.id,
       name: custMap[p.customer_id]?.name || `#${p.id}`,
       gender: genderOf(p, custMap),
+      noBed: p.age_type === 'child_no_bed' || p.age_type === 'infant',
+      ageType: p.age_type || null,
     })),
   }));
 }
@@ -323,6 +325,7 @@ export default function RoomlistPanel({ trip, passengers = [], customers = [] })
                         {m.name}
                         {m.gender && m.gender !== '?' && <span className="ml-1 text-[9px] text-slate-400">({m.gender === 'M' ? 'L' : 'P'})</span>}
                         {m.manual && <span className="ml-1 text-[8px] px-1 bg-indigo-100 text-indigo-600 rounded font-bold">MANUAL</span>}
+                        {m.noBed && <span className="ml-1 text-[8px] px-1 bg-amber-100 text-amber-700 rounded font-bold">{m.ageType === 'infant' ? 'INFANT' : 'NO BED'}</span>}
                       </span>
                       {!isFinal && (
                         <>
