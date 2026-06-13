@@ -140,7 +140,7 @@ export default async function PublicInvoicePage({ params }) {
   let addonPaidReal = 0;
   let sisaReal = 0;
   let discountReal = 0;
-  let famRoom = 0, famTips = 0, famCity = 0, famCount = 1;
+  let famRoom = 0, famTips = 0, famCity = 0, famFlight = 0, famBaggage = 0, famBase = 0, famCount = 1;
   if (inv.trip_id && (inv.passenger_id || (Array.isArray(inv.covers_passenger_ids) && inv.covers_passenger_ids.length))) {
     try {
       const bill = await getInvoiceBilling(supabase, inv);
@@ -153,6 +153,9 @@ export default async function PublicInvoicePage({ params }) {
       famRoom = bill.members.reduce((t, m) => t + (m.roomPrice || 0), 0);
       famTips = bill.members.reduce((t, m) => t + (m.tips || 0), 0);
       famCity = bill.members.reduce((t, m) => t + (m.cityTax || 0), 0);
+      famFlight = bill.members.reduce((t, m) => t + (m.flight || 0), 0);
+      famBaggage = bill.members.reduce((t, m) => t + (m.baggage || 0), 0);
+      famBase = bill.members.reduce((t, m) => t + (m.baseFee || 0), 0);
       famCount = bill.count || 1;
     } catch (e) { errors.push(`summary: ${e.message}`); }
   } else {
@@ -172,6 +175,9 @@ export default async function PublicInvoicePage({ params }) {
   const rTips = famCount > 1 ? famTips : (famTips || tips);
   const rCity = famCount > 1 ? famCity : (famCity || cityTax);
   if (rRoom > 0) tourItems.push({ label: `Paket Tour${famCount > 1 ? paxNote : ` (${passenger?.room_type || 'Room'})`}`, amount: rRoom });
+  if (famBase > 0) tourItems.push({ label: `Harga Dasar${paxNote}`, amount: famBase });
+  if (famFlight > 0) tourItems.push({ label: `Tiket Pesawat Domestik${paxNote}`, amount: famFlight });
+  if (famBaggage > 0) tourItems.push({ label: `Bagasi Domestik${paxNote}`, amount: famBaggage });
   if (rTips > 0) tourItems.push({ label: `Tips${paxNote}`, amount: rTips });
   if (rCity > 0) tourItems.push({ label: `City Tax${paxNote}`, amount: rCity });
   for (const opt of optItems) tourItems.push({ label: opt.label, amount: opt.amount, detail: 'opt-in' });
