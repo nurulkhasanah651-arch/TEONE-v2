@@ -53,6 +53,8 @@ export default async function VisaUploadPortalPage({ params }) {
             passenger={r.passenger}
             trip={r.trip}
             customer={r.customer}
+            members={r.members || []}
+            isFamily={!!r.is_family}
           />
         </div>
 
