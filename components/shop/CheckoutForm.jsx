@@ -27,6 +27,7 @@ export default function CheckoutForm({ trip }) {
   const [payType, setPayType] = useState('dp');
 
   const [loggedIn, setLoggedIn] = useState(false);
+  const [profile, setProfile] = useState({ name: '', phone: '', email: '' });
   const [makeAcc, setMakeAcc] = useState(true);
   const [pwd, setPwd] = useState('');
   const [pwd2, setPwd2] = useState('');
@@ -66,6 +67,11 @@ export default function CheckoutForm({ trip }) {
     setErr(''); setInfo(''); setNeedLogin(false);
     if (pax < 1) { setErr('Pilih minimal 1 peserta.'); return; }
     const fd = new FormData(e.target);
+    if (loggedIn) {
+      fd.set('lead_name', profile.name || 'Peserta');
+      fd.set('lead_phone', profile.phone || '');
+      fd.set('lead_email', profile.email || '');
+    }
     const email = (fd.get('lead_email') || '').toString().trim();
     if (makeAcc && !loggedIn) {
       if (!email) { setErr('Email wajib diisi untuk membuat akun peserta.'); return; }
@@ -112,14 +118,21 @@ export default function CheckoutForm({ trip }) {
 
   return (
     <form onSubmit={submit} className="mt-6 space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <label className="block"><span className="text-xs font-bold text-slate-600">Nama Pemesan *</span>
-          <input name="lead_name" required placeholder="Nama lengkap" className={inp} /></label>
-        <label className="block"><span className="text-xs font-bold text-slate-600">No HP / WhatsApp *</span>
-          <input name="lead_phone" required placeholder="0812..." className={inp} /></label>
-        <label className="block sm:col-span-2"><span className="text-xs font-bold text-slate-600">Email {makeAcc && !loggedIn ? '*' : ''}</span>
-          <input name="lead_email" type="email" placeholder="email@kamu.com" className={inp} /></label>
-      </div>
+      {loggedIn ? (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-sm">
+          <p className="text-emerald-800 font-semibold">Pesan sebagai <b>{profile.name || 'akun kamu'}</b></p>
+          <p className="text-emerald-700 text-xs">{profile.phone}{profile.email ? ` · ${profile.email}` : ''} · pesanan otomatis masuk akunmu</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="block"><span className="text-xs font-bold text-slate-600">Nama Pemesan *</span>
+            <input name="lead_name" required placeholder="Nama lengkap" className={inp} /></label>
+          <label className="block"><span className="text-xs font-bold text-slate-600">No HP / WhatsApp *</span>
+            <input name="lead_phone" required placeholder="0812..." className={inp} /></label>
+          <label className="block sm:col-span-2"><span className="text-xs font-bold text-slate-600">Email {makeAcc ? '*' : ''}</span>
+            <input name="lead_email" type="email" placeholder="email@kamu.com" className={inp} /></label>
+        </div>
+      )}
 
       {items.rooms?.length > 0 && (
         <div className="border border-slate-200 rounded-2xl p-4">
