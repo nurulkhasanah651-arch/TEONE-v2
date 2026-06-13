@@ -18,7 +18,7 @@ function sumAdsLeads(l) {
 }
 function sumClosing(u) {
   return (u.from_instagram || 0) + (u.from_whatsapp || 0) + (u.from_offline || 0)
-    + (u.closing_alumni || 0) + (u.closing_mitra || 0)
+    + (u.closing_alumni || 0) + (u.closing_mitra || 0) + (u.from_website || 0)
     + (u.from_ads_meta || 0) + (u.from_ads_google || 0) + (u.from_ads_tiktok || 0);
 }
 

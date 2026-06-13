@@ -105,7 +105,7 @@ export default async function DashboardPage() {
   // === CLOSING HARI INI — aggregate dari cs_daily_updates per trip ===
   const todayClosingTotal = csToday.reduce((s, c) =>
     s + (c.from_instagram || 0) + (c.from_whatsapp || 0) + (c.from_offline || 0)
-      + (c.closing_alumni || 0) + (c.closing_mitra || 0)
+      + (c.closing_alumni || 0) + (c.closing_mitra || 0) + (c.from_website || 0)
       + (c.from_ads_meta || 0) + (c.from_ads_google || 0) + (c.from_ads_tiktok || 0)
   , 0);
 

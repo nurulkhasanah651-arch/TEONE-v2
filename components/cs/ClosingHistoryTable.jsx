@@ -42,7 +42,7 @@ function fmtMonthLabel(key) {
 
 function organic(u) {
   return (u.from_instagram || 0) + (u.from_whatsapp || 0) + (u.from_offline || 0)
-    + (u.closing_alumni || 0) + (u.closing_mitra || 0);
+    + (u.closing_alumni || 0) + (u.closing_mitra || 0) + (u.from_website || 0);
 }
 function ads(u) {
   return (u.from_ads_meta || 0) + (u.from_ads_google || 0) + (u.from_ads_tiktok || 0);
@@ -54,7 +54,7 @@ function totalClosing(u) {
 function emptyAggregate() {
   return {
     closing_organic: 0, closing_ads: 0,
-    from_instagram: 0, from_whatsapp: 0, from_offline: 0, closing_alumni: 0, closing_mitra: 0,
+    from_instagram: 0, from_whatsapp: 0, from_offline: 0, closing_alumni: 0, closing_mitra: 0, from_website: 0,
     from_ads_meta: 0, from_ads_google: 0, from_ads_tiktok: 0,
     total: 0, trips_count: 0,
   };
@@ -66,10 +66,11 @@ function addUpdate(agg, u) {
   agg.from_offline += u.from_offline || 0;
   agg.closing_alumni += u.closing_alumni || 0;
   agg.closing_mitra += u.closing_mitra || 0;
+  agg.from_website += u.from_website || 0;
   agg.from_ads_meta += u.from_ads_meta || 0;
   agg.from_ads_google += u.from_ads_google || 0;
   agg.from_ads_tiktok += u.from_ads_tiktok || 0;
-  agg.closing_organic = agg.from_instagram + agg.from_whatsapp + agg.from_offline + agg.closing_alumni + agg.closing_mitra;
+  agg.closing_organic = agg.from_instagram + agg.from_whatsapp + agg.from_offline + agg.closing_alumni + agg.closing_mitra + agg.from_website;
   agg.closing_ads = agg.from_ads_meta + agg.from_ads_google + agg.from_ads_tiktok;
   agg.total = agg.closing_organic + agg.closing_ads;
   agg.trips_count += 1;
@@ -286,6 +287,7 @@ function DailyClosingList({ rows, onDelete, pending }) {
             </div>
             <div className="flex gap-2 text-xs flex-wrap items-center">
               <span className="px-2 py-1 rounded bg-green-50 text-green-700 font-semibold">Terjual: {totalClosing(u)}</span>
+              {(u.from_website || 0) > 0 && <span className="px-2 py-1 rounded bg-indigo-50 text-indigo-700 font-semibold">🌐 Web: {u.from_website}</span>}
               <span className="px-2 py-1 rounded bg-blue-50 text-blue-700 font-semibold">Leads: {u.jumlah_leads || 0}</span>
               <span className="px-2 py-1 rounded bg-amber-50 text-amber-700 font-semibold">Sisa: {u.sisa_seat || 0}</span>
               <Link
