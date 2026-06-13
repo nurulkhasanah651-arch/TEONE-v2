@@ -11,6 +11,7 @@ export default function CheckoutForm({ trip }) {
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState('');
   const [info, setInfo] = useState('');
+  const [needLogin, setNeedLogin] = useState(false);
 
   const items = trip.priceItems || { rooms: [], specials: [] };
   const adminFee = Number(trip.adminFee || 0);
@@ -62,7 +63,7 @@ export default function CheckoutForm({ trip }) {
 
   function submit(e) {
     e.preventDefault();
-    setErr(''); setInfo('');
+    setErr(''); setInfo(''); setNeedLogin(false);
     if (pax < 1) { setErr('Pilih minimal 1 peserta.'); return; }
     const fd = new FormData(e.target);
     const email = (fd.get('lead_email') || '').toString().trim();
@@ -78,7 +79,7 @@ export default function CheckoutForm({ trip }) {
     fd.set('payment_type', payType);
     startTransition(async () => {
       const r = await createBooking(fd);
-      if (r?.error) { setErr(r.error); return; }
+      if (r?.error) { setErr(r.error); setNeedLogin(!!r.needLogin); return; }
       // Buat sesi (kalau akun baru) supaya pesanan otomatis ke akun, TAPI tetap arahkan
       // ke halaman pesanan biar peserta bisa langsung klik Bayar (Midtrans).
       if (makeAcc && !loggedIn && r.account === 'created' && r.email) {
@@ -200,7 +201,7 @@ export default function CheckoutForm({ trip }) {
       )}
 
       {info && <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">{info}</div>}
-      {err && <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">⚠ {err}</div>}
+      {err && <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">⚠ {err}{needLogin && <> <a href="/masuk" className="font-bold underline">Masuk sekarang →</a></>}</div>}
 
       <button type="submit" disabled={pending || pax < 1} className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-bold text-lg">
         {pending ? 'Memproses...' : 'Lanjut ke Pembayaran →'}
