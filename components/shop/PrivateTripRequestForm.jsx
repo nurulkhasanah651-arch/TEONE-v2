@@ -37,7 +37,10 @@ function Field({ label, required, children }) {
   );
 }
 
-function FormInner({ waNumber }) {
+function FormInner({ waNumber, accent = 'emerald' }) {
+  const A = accent === 'blue'
+    ? { ring: 'focus:border-blue-500 focus:ring-blue-100', legend: 'text-blue-700', btn: 'from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700', chip: 'bg-blue-500 hover:bg-blue-600' }
+    : { ring: 'focus:border-emerald-500 focus:ring-emerald-100', legend: 'text-emerald-700', btn: 'from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700', chip: 'bg-emerald-500 hover:bg-emerald-600' };
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [done, setDone] = useState(false);
@@ -88,7 +91,7 @@ function FormInner({ waNumber }) {
           </ol>
         </div>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer" className="px-5 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold">💬 Chat CS Sekarang</a>
+          <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer" className={`px-5 py-2.5 rounded-full ${A.chip} text-white font-bold`}>💬 Chat CS Sekarang</a>
           <button onClick={() => { setDone(false); setReferenceId(null); }} className="px-5 py-2.5 bg-slate-100 text-slate-700 rounded-full font-semibold hover:bg-slate-200">← Request lain</button>
         </div>
       </div>
@@ -102,7 +105,7 @@ function FormInner({ waNumber }) {
         <input type="text" name="website_url" tabIndex="-1" autoComplete="off" style={{ position: 'absolute', left: '-9999px', height: 0, width: 0, opacity: 0 }} />
 
         <fieldset className="space-y-4">
-          <legend className="text-sm font-bold text-emerald-700 uppercase tracking-wider mb-1">👤 Data Kontak</legend>
+          <legend className={`text-sm font-bold ${A.legend} uppercase tracking-wider mb-1`}>👤 Data Kontak</legend>
           <Field label="Nama Lengkap" required>
             <input name="name" type="text" required minLength={2} maxLength={100} placeholder="Contoh: Nurul Khasanah" className={inputCls} />
           </Field>
@@ -117,7 +120,7 @@ function FormInner({ waNumber }) {
         </fieldset>
 
         <fieldset className="space-y-4 pt-4 border-t border-slate-200">
-          <legend className="text-sm font-bold text-emerald-700 uppercase tracking-wider mb-1">🌍 Detail Trip</legend>
+          <legend className={`text-sm font-bold ${A.legend} uppercase tracking-wider mb-1`}>🌍 Detail Trip</legend>
           <Field label="Destinasi Tujuan" required>
             <input name="destination" type="text" required maxLength={200} placeholder="Contoh: Korea, Bali, Eropa Barat, Umroh+Turki" className={inputCls} />
           </Field>
@@ -139,7 +142,7 @@ function FormInner({ waNumber }) {
         </fieldset>
 
         <fieldset className="space-y-4 pt-4 border-t border-slate-200">
-          <legend className="text-sm font-bold text-emerald-700 uppercase tracking-wider mb-1">💰 Estimasi Budget</legend>
+          <legend className={`text-sm font-bold ${A.legend} uppercase tracking-wider mb-1`}>💰 Estimasi Budget</legend>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2">
               <Field label="Estimasi Budget (IDR)"><input name="estimate_budget" type="text" inputMode="numeric" placeholder="Contoh: 25000000" className={inputCls} /></Field>
@@ -149,7 +152,7 @@ function FormInner({ waNumber }) {
         </fieldset>
 
         <fieldset className="space-y-4 pt-4 border-t border-slate-200">
-          <legend className="text-sm font-bold text-emerald-700 uppercase tracking-wider mb-1">📝 Ide & Request</legend>
+          <legend className={`text-sm font-bold ${A.legend} uppercase tracking-wider mb-1`}>📝 Ide & Request</legend>
           <Field label="Ide Itinerary / Tempat Wajib Dikunjungi">
             <textarea name="itinerary_idea" rows={3} maxLength={1000} placeholder="Contoh: Namsan Tower, Lotte World, Nami Island..." className={inputCls} />
           </Field>
@@ -158,7 +161,7 @@ function FormInner({ waNumber }) {
           </Field>
         </fieldset>
 
-        <button type="submit" disabled={pending} className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-base font-bold rounded-xl hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 shadow-lg">
+        <button type="submit" disabled={pending} className={`w-full py-3.5 bg-gradient-to-r ${A.btn} text-white text-base font-bold rounded-xl disabled:opacity-50 shadow-lg`}>
           {pending ? '⏳ Mengirim...' : '✈ Kirim Request Saya'}
         </button>
         <p className="text-xs text-center text-slate-500">Dengan submit, kamu setuju tim kami menghubungi via WhatsApp di nomor yang kamu kasih.</p>
@@ -167,6 +170,6 @@ function FormInner({ waNumber }) {
   );
 }
 
-export default function PrivateTripRequestForm({ waNumber = '628145460210' }) {
-  return <Suspense fallback={null}><FormInner waNumber={waNumber} /></Suspense>;
+export default function PrivateTripRequestForm({ waNumber = '628145460210', accent = 'emerald' }) {
+  return <Suspense fallback={null}><FormInner waNumber={waNumber} accent={accent} /></Suspense>;
 }
