@@ -2,6 +2,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBooking } from '@/lib/actions/shop-checkout';
+import { createClient } from '@/lib/supabase/client';
 
 function fmtRp(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
 
@@ -13,6 +14,9 @@ export default function CheckoutForm({ trip }) {
   const [pax, setPax] = useState(1);
   const [payType, setPayType] = useState('dp');
   const [room, setRoom] = useState(rooms[0]?.label || 'Double');
+  const [makeAcc, setMakeAcc] = useState(true);
+  const [pwd, setPwd] = useState('');
+  const [pwd2, setPwd2] = useState('');
 
   const selected = rooms.find((r) => r.label === room);
   const unit = selected ? selected.price : (trip.public_price || 0);
@@ -23,12 +27,27 @@ export default function CheckoutForm({ trip }) {
     e.preventDefault();
     setErr('');
     const fd = new FormData(e.target);
+    const email = (fd.get('lead_email') || '').toString().trim();
+    if (makeAcc) {
+      if (!email) { setErr('Email wajib diisi untuk membuat akun peserta.'); return; }
+      if (pwd.length < 6) { setErr('Password minimal 6 karakter.'); return; }
+      if (pwd !== pwd2) { setErr('Konfirmasi password tidak sama.'); return; }
+      fd.set('password', pwd);
+    }
     fd.set('trip_id', trip.id);
     fd.set('pax_count', String(pax));
     fd.set('payment_type', payType);
     startTransition(async () => {
       const r = await createBooking(fd);
       if (r?.error) { setErr(r.error); return; }
+      // Bila akun dibuat / sudah ada → auto login lalu ke portal peserta
+      if (makeAcc && (r.account === 'created' || r.account === 'exists') && r.email) {
+        try {
+          const supabase = createClient();
+          const { error: sErr } = await supabase.auth.signInWithPassword({ email: r.email, password: pwd });
+          if (!sErr) { router.push('/akun'); return; }
+        } catch { /* fallback ke order */ }
+      }
       router.push(`/order/${r.id}`);
     });
   }
@@ -80,6 +99,23 @@ export default function CheckoutForm({ trip }) {
           <p className="text-xs opacity-80">Total bayar sekarang ({payType === 'full' ? 'Lunas' : 'DP'})</p>
           <p className="text-2xl font-extrabold">{fmtRp(amount)}</p>
         </div>
+      </div>
+
+      {/* Buat akun peserta */}
+      <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={makeAcc} onChange={(e) => setMakeAcc(e.target.checked)} className="w-4 h-4" />
+          <span className="text-sm font-bold text-slate-800">Buat akun peserta (pantau status pembayaran & trip)</span>
+        </label>
+        {makeAcc && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+            <label className="block"><span className="text-xs font-bold text-slate-600">Password *</span>
+              <input type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} placeholder="min. 6 karakter" className={inp} autoComplete="new-password" /></label>
+            <label className="block"><span className="text-xs font-bold text-slate-600">Ulangi Password *</span>
+              <input type="password" value={pwd2} onChange={(e) => setPwd2(e.target.value)} placeholder="ketik ulang" className={inp} autoComplete="new-password" /></label>
+            <p className="sm:col-span-2 text-[11px] text-slate-500">Pakai <b>email</b> di atas untuk login nanti di halaman <b>Masuk</b>. Sudah punya akun? Login dulu saja.</p>
+          </div>
+        )}
       </div>
 
       {err && <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">⚠ {err}</div>}

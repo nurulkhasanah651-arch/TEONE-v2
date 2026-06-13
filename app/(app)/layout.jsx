@@ -17,6 +17,11 @@ export default async function AppLayout({ children }) {
     redirect('/login');
   }
 
+  // Peserta (akun storefront) bukan staf — arahkan ke portal peserta.
+  if (user.user_metadata?.role === 'peserta') {
+    redirect('/akun');
+  }
+
   // GERBANG OTORITATIF: role dihitung dari data resmi (employees/tour_leaders/mitra),
   // BUKAN dari metadata yang bisa di-set sendiri. Metadata hanya fallback bila
   // service key tidak tersedia (cegah lockout). Tidak terdaftar → tidak ada akses.

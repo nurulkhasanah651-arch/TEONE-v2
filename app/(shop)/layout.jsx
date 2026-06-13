@@ -21,6 +21,7 @@ export default function ShopLayout({ children }) {
           <nav className="flex items-center gap-5 text-sm font-semibold text-slate-600">
             <Link href="/home" className="hover:text-slate-900 hidden sm:inline">Beranda</Link>
             <Link href="/trip" className="hover:text-slate-900">Open Trip</Link>
+            <Link href="/akun" className="hover:text-slate-900">Akun</Link>
             <a href="https://wa.me/628145460210" target="_blank" rel="noreferrer" className="px-4 py-2 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white">Tanya CS</a>
           </nav>
         </div>
