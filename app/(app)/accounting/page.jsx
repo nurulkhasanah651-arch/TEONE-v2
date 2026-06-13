@@ -11,6 +11,7 @@ import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import PaymentRequests from '@/components/accounting/PaymentRequests';
 import DownloadButtons from '@/components/common/DownloadButtons';
 import AccountingSheetPanel from '@/components/accounting/AccountingSheetPanel';
+import TaxCalculatorCoretax from '@/components/accounting/TaxCalculatorCoretax';
 
 export const dynamic = 'force-dynamic';
 
@@ -353,6 +354,8 @@ export default async function AccountingDashboard({ searchParams }) {
       />
 
       <AccountingSheetPanel />
+
+      <TaxCalculatorCoretax />
 
       {/* PERIODE FILTER */}
       <div className="bg-white rounded-xl border-2 border-brand-200 shadow-card p-4">
