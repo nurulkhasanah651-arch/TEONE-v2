@@ -79,18 +79,13 @@ export default function CheckoutForm({ trip }) {
     startTransition(async () => {
       const r = await createBooking(fd);
       if (r?.error) { setErr(r.error); return; }
+      // Buat sesi (kalau akun baru) supaya pesanan otomatis ke akun, TAPI tetap arahkan
+      // ke halaman pesanan biar peserta bisa langsung klik Bayar (Midtrans).
       if (makeAcc && !loggedIn && r.account === 'created' && r.email) {
-        try {
-          const { error: sErr } = await createClient().auth.signInWithPassword({ email: r.email, password: pwd });
-          if (!sErr) { router.push('/akun'); return; }
-        } catch {}
+        try { await createClient().auth.signInWithPassword({ email: r.email, password: pwd }); } catch {}
       }
-      if (makeAcc && !loggedIn && r.account === 'exists') {
-        // email sudah terdaftar → tidak bisa set password baru (mis. akun Google)
-        router.push(`/order/${r.id}?acc=exists`);
-        return;
-      }
-      router.push(`/order/${r.id}`);
+      const q = (makeAcc && !loggedIn && r.account === 'exists') ? '?acc=exists' : '';
+      router.push(`/order/${r.id}${q}`);
     });
   }
 
