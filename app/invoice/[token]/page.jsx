@@ -5,6 +5,7 @@
 import { notFound } from 'next/navigation';
 import { createPublicClient as createClient } from '@/lib/supabase/server';
 import { getExpectedAndPaidForPassenger } from '@/lib/actions/invoices';
+import { getInvoiceBilling } from '@/lib/shop/invoice-bill';
 
 export const dynamic = 'force-dynamic';
 
@@ -139,15 +140,20 @@ export default async function PublicInvoicePage({ params }) {
   let addonPaidReal = 0;
   let sisaReal = 0;
   let discountReal = 0;
-  if (inv.trip_id && inv.passenger_id) {
+  let famRoom = 0, famTips = 0, famCity = 0, famCount = 1;
+  if (inv.trip_id && (inv.passenger_id || (Array.isArray(inv.covers_passenger_ids) && inv.covers_passenger_ids.length))) {
     try {
-      const summary = await getExpectedAndPaidForPassenger(supabase, inv.trip_id, inv.passenger_id);
-      expectedTotalReal = Number(summary.expectedTotal) || 0;
-      totalPaidReal = Number(summary.totalPaid) || 0;
-      pokokPaidReal = Number(summary.pokokPaid) || 0;
-      addonPaidReal = Number(summary.addonPaid) || 0;
-      sisaReal = Number(summary.sisa) || 0;
-      discountReal = Number(summary.discount) || 0;
+      const bill = await getInvoiceBilling(supabase, inv);
+      expectedTotalReal = bill.expectedTotal;
+      totalPaidReal = bill.totalPaid;
+      pokokPaidReal = bill.pokokPaid;
+      addonPaidReal = bill.addonPaid;
+      sisaReal = bill.sisa;
+      discountReal = bill.discount;
+      famRoom = bill.members.reduce((t, m) => t + (m.roomPrice || 0), 0);
+      famTips = bill.members.reduce((t, m) => t + (m.tips || 0), 0);
+      famCity = bill.members.reduce((t, m) => t + (m.cityTax || 0), 0);
+      famCount = bill.count || 1;
     } catch (e) { errors.push(`summary: ${e.message}`); }
   } else {
     totalPaidReal = participantPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
@@ -161,9 +167,13 @@ export default async function PublicInvoicePage({ params }) {
 
   // Tour breakdown items
   const tourItems = [];
-  if (roomPrice > 0) tourItems.push({ label: `Paket Tour (${passenger?.room_type || 'Room'})`, amount: roomPrice });
-  if (tips > 0) tourItems.push({ label: 'Tips', amount: tips });
-  if (cityTax > 0) tourItems.push({ label: 'City Tax', amount: cityTax });
+  const paxNote = famCount > 1 ? ` (${famCount} peserta)` : '';
+  const rRoom = famCount > 1 ? famRoom : (famRoom || roomPrice);
+  const rTips = famCount > 1 ? famTips : (famTips || tips);
+  const rCity = famCount > 1 ? famCity : (famCity || cityTax);
+  if (rRoom > 0) tourItems.push({ label: `Paket Tour${famCount > 1 ? paxNote : ` (${passenger?.room_type || 'Room'})`}`, amount: rRoom });
+  if (rTips > 0) tourItems.push({ label: `Tips${paxNote}`, amount: rTips });
+  if (rCity > 0) tourItems.push({ label: `City Tax${paxNote}`, amount: rCity });
   for (const opt of optItems) tourItems.push({ label: opt.label, amount: opt.amount, detail: 'opt-in' });
   if (discountReal > 0) tourItems.push({ label: 'Diskon', amount: -discountReal, detail: 'potongan' });
 
