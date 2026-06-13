@@ -82,9 +82,11 @@ export default async function AkunPage() {
                     )}
                   </div>
                   <div className="mt-3 flex gap-2">
-                    <Link href={`/order/${b.id}`} className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold">
-                      {b.status === 'paid' ? 'Lihat Detail' : '💳 Bayar / Detail'}
-                    </Link>
+                    {b.status === 'paid' ? (
+                      <Link href={`/akun/bayar/${b.id}`} className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">💳 Bayar Lanjutan</Link>
+                    ) : (
+                      <Link href={`/order/${b.id}`} className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold">💳 Bayar / Detail</Link>
+                    )}
                     {b.trip?.slug && <Link href={`/trip/${b.trip.slug}`} className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold">Info Trip</Link>}
                     <a href={`https://wa.me/628145460210?text=${encodeURIComponent('Halo, saya peserta order ' + b.order_code)}`} target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold">Tanya CS</a>
                   </div>

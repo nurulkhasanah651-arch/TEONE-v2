@@ -3,7 +3,7 @@
 import { NextResponse } from 'next/server';
 import { resolveBrandCode } from '@/lib/brand-shared';
 import { verifyNotificationSignature, mapTransactionStatus } from '@/lib/midtrans';
-import { fulfillPaidBooking } from '@/lib/shop/fulfillment';
+import { fulfillPaidBooking, recordMilestonePayment } from '@/lib/shop/fulfillment';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,10 @@ export async function POST(request) {
 
   // order_id = "<ORDER_CODE>-<suffix>" → ambil order_code asli
   const rawOrderId = String(n.order_id || '');
-  const orderCode = rawOrderId.split('-').slice(0, 2).join('-'); // mis: TE-ABC123
+  const parts = rawOrderId.split('-');
+  const orderCode = parts.slice(0, 2).join('-'); // mis: TE-ABC123
+  // bayar lanjutan ditandai segmen ke-3 'M<type>' (mis. TE-ABC123-MP1-xxx)
+  const milestoneType = (parts[2] && parts[2][0] === 'M') ? parts[2].slice(1) : null;
 
   // verifikasi signature pakai server key brand terkait
   const valid = verifyNotificationSignature(code, {
@@ -27,7 +30,10 @@ export async function POST(request) {
 
   const status = mapTransactionStatus(n);
   if (status === 'paid') {
-    try { await fulfillPaidBooking(orderCode); } catch (e) { /* tetap 200 agar Midtrans tak retry loop; bisa dicek manual */ }
+    try {
+      if (milestoneType) await recordMilestonePayment(orderCode, milestoneType);
+      else await fulfillPaidBooking(orderCode);
+    } catch (e) { /* tetap 200 agar Midtrans tak retry loop; bisa dicek manual */ }
   }
   // Midtrans mengharap 200 OK
   return NextResponse.json({ ok: true, status });
