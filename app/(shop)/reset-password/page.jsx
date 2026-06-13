@@ -7,27 +7,52 @@ import { createClient } from '@/lib/supabase/client';
 export default function ResetPasswordPage() {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [ready, setReady] = useState(false);   // sesi recovery aktif?
+  const [ready, setReady] = useState(false);
   const [checking, setChecking] = useState(true);
   const [pwd, setPwd] = useState('');
   const [pwd2, setPwd2] = useState('');
   const [err, setErr] = useState('');
   const [done, setDone] = useState(false);
 
-  // Supabase client (detectSessionInUrl) akan menukar token di URL jadi sesi recovery.
+  // Tangani 3 jenis link:
+  // 1) Link domain kita: /reset-password?token_hash=...&type=recovery  → verifyOtp
+  // 2) Link lama (hash):  /reset-password#access_token=...&type=recovery → detectSessionInUrl
+  // 3) Sudah ada sesi recovery → langsung siap
   useEffect(() => {
     const supabase = createClient();
     let mounted = true;
+
+    async function init() {
+      try {
+        const qs = new URLSearchParams(window.location.search);
+        const token_hash = qs.get('token_hash');
+        const type = qs.get('type') || 'recovery';
+        const codeErr = qs.get('error_description') || qs.get('error');
+
+        if (codeErr) { if (mounted) { setChecking(false); setReady(false); } return; }
+
+        if (token_hash) {
+          const { error } = await supabase.auth.verifyOtp({ token_hash, type });
+          if (mounted) { setReady(!error); setChecking(false); }
+          // bersihkan query dari URL
+          try { window.history.replaceState({}, '', '/reset-password'); } catch {}
+          return;
+        }
+
+        // fallback: sesi yang sudah ada (hash sudah diproses client)
+        const { data } = await supabase.auth.getSession();
+        if (mounted) { if (data?.session) setReady(true); setChecking(false); }
+      } catch {
+        if (mounted) setChecking(false);
+      }
+    }
+
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
       if (event === 'PASSWORD_RECOVERY' || session) { setReady(true); setChecking(false); }
     });
-    // fallback: cek sesi yg sudah ada
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      if (data?.session) setReady(true);
-      setChecking(false);
-    });
+
+    init();
     return () => { mounted = false; sub?.subscription?.unsubscribe?.(); };
   }, []);
 
