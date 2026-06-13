@@ -132,11 +132,16 @@ export default async function TripDetailPage({ params }) {
             {rooms.length > 0 && (
               <div className="mt-3 border-t border-slate-100 pt-3">
                 <p className="text-xs font-bold text-slate-500 mb-1.5">Harga per tipe kamar</p>
-                <ul className="space-y-1">
+                <ul className="space-y-2">
                   {rooms.map((r) => (
-                    <li key={r.key} className="flex items-center justify-between text-sm">
-                      <span className="text-slate-600">{r.label}</span>
-                      <span className="font-bold text-slate-800">{fmtRp(r.price)}</span>
+                    <li key={r.key} className="text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-600">{r.label}</span>
+                        <span className="font-bold text-slate-800">{fmtRp(r.price)}</span>
+                      </div>
+                      {r.addons?.length > 0 && r.base > 0 && (
+                        <p className="text-[10px] text-slate-400 leading-snug">{r.label} {fmtRp(r.base)}{r.addons.map((a) => ` + ${a.label} ${fmtRp(a.value)}`).join('')}</p>
+                      )}
                     </li>
                   ))}
                 </ul>

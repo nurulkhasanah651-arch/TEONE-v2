@@ -97,9 +97,14 @@ export default function CheckoutForm({ trip }) {
   const inp = 'w-full mt-1 px-3 py-2.5 border border-slate-300 rounded-xl text-sm';
   const Stepper = ({ it }) => (
     <div className="flex items-center justify-between gap-3 py-2 border-b border-slate-100 last:border-0">
-      <div>
+      <div className="pr-2">
         <p className="text-sm font-semibold text-slate-800">{it.label}</p>
-        <p className="text-xs text-slate-500">{fmtRp(it.price)} / orang</p>
+        <p className="text-xs font-bold text-slate-700">{fmtRp(it.price)} / orang</p>
+        {it.addons?.length > 0 && it.base > 0 && (
+          <p className="text-[10px] text-slate-400 mt-0.5 leading-snug">
+            {it.label} {fmtRp(it.base)}{it.addons.map((a, k) => ` + ${a.label} ${fmtRp(a.value)}`).join('')}
+          </p>
+        )}
       </div>
       <div className="flex items-center gap-2">
         <button type="button" onClick={() => setItemQty(it.key, -1)} className="w-8 h-8 rounded-lg border border-slate-300 font-bold disabled:opacity-40" disabled={(qty[it.key] || 0) <= 0}>−</button>
