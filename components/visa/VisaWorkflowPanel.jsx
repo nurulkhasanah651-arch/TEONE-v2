@@ -379,6 +379,7 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
   const [biometricCost, setBiometricCost] = useState(p.visa_biometric_cost ?? trip.visa_default_biometric_cost ?? 0);
   const [visaCost, setVisaCost] = useState(p.visa_visa_cost ?? trip.visa_default_visa_cost ?? 0);
   const [biometricTime, setBiometricTime] = useState(p.visa_biometric_time || '');
+  const [biometricDate, setBiometricDate] = useState(p.visa_biometric_date || '');
   const [docShortage, setDocShortage] = useState(p.visa_docs_shortage || '');
   const [singleTemplate, setSingleTemplate] = useState('doc_collection');
   const [singleCustomVars, setSingleCustomVars] = useState({});
@@ -417,7 +418,7 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
   }
   function handleSaveBiometricTime() {
     startTransition(async () => {
-      const r = await updatePassengerBiometricTime(p.id, biometricTime);
+      const r = await updatePassengerBiometricTime(p.id, biometricTime, biometricDate);
       if (r?.error) showMsg(r.error, 'error');
       else { showMsg(`✓ Jam biometrik tersimpan`); router.refresh(); }
     });
@@ -541,10 +542,13 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
           {expanded && (
             <div className="mt-3 space-y-3">
               <div className="p-3 bg-indigo-50 rounded border border-indigo-200">
-                <p className="text-xs font-bold text-indigo-800 uppercase mb-1">⏰ Jam Biometrik</p>
-                <div className="flex gap-2 items-center">
-                  <input autoComplete="off" type="time" value={biometricTime} onChange={(e) => setBiometricTime(e.target.value)} className="px-3 py-1.5 border border-slate-300 rounded text-sm" />
-                  <button type="button" onClick={handleSaveBiometricTime} disabled={pending} className="px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold rounded">💾</button>
+                <p className="text-xs font-bold text-indigo-800 uppercase mb-1">📅 Tanggal & ⏰ Jam Biometrik</p>
+                <div className="flex gap-2 items-center flex-wrap">
+                  <div><span className="block text-[10px] text-indigo-600 font-semibold">Tanggal</span>
+                    <input autoComplete="off" type="date" value={biometricDate} onChange={(e) => setBiometricDate(e.target.value)} className="px-3 py-1.5 border border-slate-300 rounded text-sm" /></div>
+                  <div><span className="block text-[10px] text-indigo-600 font-semibold">Jam</span>
+                    <input autoComplete="off" type="time" value={biometricTime} onChange={(e) => setBiometricTime(e.target.value)} className="px-3 py-1.5 border border-slate-300 rounded text-sm" /></div>
+                  <button type="button" onClick={handleSaveBiometricTime} disabled={pending} className="self-end px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold rounded">💾 Simpan</button>
                 </div>
               </div>
 
