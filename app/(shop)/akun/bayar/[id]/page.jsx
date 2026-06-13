@@ -41,9 +41,9 @@ export default async function BayarLanjutanPage({ params }) {
 
       {/* Ringkasan */}
       <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-xl border border-slate-200 p-3"><p className="text-[11px] text-slate-500">Total Paket</p><p className="font-extrabold text-slate-900 text-sm">{fmtRp(plan?.milestoneTotal)}</p></div>
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3"><p className="text-[11px] text-slate-500">Sudah Dibayar</p><p className="font-extrabold text-emerald-700 text-sm">{fmtRp(plan?.totalPaid)}</p></div>
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3"><p className="text-[11px] text-slate-500">Sisa</p><p className="font-extrabold text-amber-700 text-sm">{fmtRp(plan?.sisa)}</p></div>
+        <div className="rounded-xl border border-slate-200 p-3"><p className="text-[11px] text-slate-500">Total Paket</p><p className="font-extrabold text-slate-900 text-sm">{fmtRp(plan?.pokokTotal ?? plan?.milestoneTotal)}</p></div>
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3"><p className="text-[11px] text-slate-500">Sudah Dibayar</p><p className="font-extrabold text-emerald-700 text-sm">{fmtRp(plan?.pokokPaid ?? plan?.totalPaid)}</p></div>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3"><p className="text-[11px] text-slate-500">Sisa</p><p className="font-extrabold text-amber-700 text-sm">{fmtRp(plan?.pokokSisa ?? plan?.sisa)}</p></div>
       </div>
 
       {/* Daftar termin */}

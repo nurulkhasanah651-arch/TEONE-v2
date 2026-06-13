@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getPesertaData } from '@/lib/shop/data';
+import { getBookingPaymentPlan } from '@/lib/shop/payments';
 import LogoutButton from '@/components/shop/LogoutButton';
 
 export const dynamic = 'force-dynamic';
@@ -23,9 +24,12 @@ export default async function AkunPage() {
 
   const { customer, bookings } = await getPesertaData(user);
   const name = customer?.name || user.user_metadata?.name || 'Peserta';
-  const totalTrx = bookings.reduce((s, b) => s + Number(b.amount || 0), 0);
-  const paidTrx = bookings.filter((b) => b.status === 'paid').reduce((s, b) => s + Number(b.amount || 0), 0);
-  const sisaTrx = Math.max(totalTrx - paidTrx, 0);
+  // Sinkron checklist payment: total harga, sudah dibayar pokok, sisa — per booking
+  const plans = {};
+  await Promise.all(bookings.map(async (b) => { plans[b.id] = await getBookingPaymentPlan(b).catch(() => null); }));
+  const totalTrx = bookings.reduce((s, b) => s + Number(plans[b.id]?.pokokTotal || 0), 0);
+  const paidTrx = bookings.reduce((s, b) => s + Number(plans[b.id]?.pokokPaid || 0), 0);
+  const sisaTrx = bookings.reduce((s, b) => s + Number(plans[b.id]?.pokokSisa || 0), 0);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -40,9 +44,9 @@ export default async function AkunPage() {
       {/* Ringkasan */}
       <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
         <Stat label="Trip Diikuti" value={String(bookings.length)} />
-        <Stat label="Total Transaksi" value={fmtRp(totalTrx)} />
+        <Stat label="Total Harga Paket" value={fmtRp(totalTrx)} />
         <Stat label="Sudah Dibayar" value={fmtRp(paidTrx)} good />
-        <Stat label="Belum Dibayar" value={fmtRp(sisaTrx)} warn />
+        <Stat label="Sisa Pembayaran" value={fmtRp(sisaTrx)} warn />
       </div>
 
       {/* Daftar trip */}
@@ -72,10 +76,11 @@ export default async function AkunPage() {
                     <span className={`text-[11px] font-bold px-2 py-1 rounded-full whitespace-nowrap ${st.cls}`}>{st.label}</span>
                   </div>
                   <div className="mt-2 flex items-center justify-between flex-wrap gap-2">
-                    <div className="text-sm">
-                      <span className="text-slate-500">Order {b.order_code} · </span>
-                      <span className="font-bold text-slate-800">{fmtRp(b.amount)}</span>
-                      <span className="text-slate-400 text-xs"> ({b.payment_type === 'full' ? 'Lunas' : 'DP'})</span>
+                    <div className="text-xs text-slate-600">
+                      <span className="text-slate-400">Order {b.order_code}</span><br/>
+                      <span>Total: <b className="text-slate-800">{fmtRp(plans[b.id]?.pokokTotal)}</b></span> ·
+                      <span className="text-emerald-700"> Dibayar: <b>{fmtRp(plans[b.id]?.pokokPaid)}</b></span> ·
+                      <span className="text-amber-700"> Sisa: <b>{fmtRp(plans[b.id]?.pokokSisa)}</b></span>
                     </div>
                     {dleft != null && dleft >= 0 && b.status !== 'cancelled' && (
                       <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">⏳ {dleft === 0 ? 'Hari ini!' : `${dleft} hari lagi`}</span>
