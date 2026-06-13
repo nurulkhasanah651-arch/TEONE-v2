@@ -403,7 +403,12 @@ export default async function PublicInvoicePage({ params }) {
         {!isLunas && inv.status !== 'paid' && (
           <div className="px-6 pb-6 no-print">
             {InvoicePayOnlineButton && <InvoicePayOnlineButton token={inv.public_token} />}
-            {PaymentProofForm && <PaymentProofForm token={inv.public_token} expectedAmount={sisaInvoice || inv.amount} />}
+            {PaymentProofForm && (
+              <>
+                <p className="text-[11px] text-slate-500 mt-3 mb-1 font-semibold">🏦 Apabila menggunakan transfer bank, upload bukti transfer di bawah ini:</p>
+                <PaymentProofForm token={inv.public_token} expectedAmount={sisaInvoice || inv.amount} />
+              </>
+            )}
           </div>
         )}
 
