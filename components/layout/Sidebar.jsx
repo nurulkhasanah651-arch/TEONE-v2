@@ -26,6 +26,7 @@ const GROUPS = [
       { href: '/trips',      label: 'Master Trip', icon: '✈', roles: ALL_ROLES },
       { href: '/cs',         label: 'CS Daily',    icon: '☎', roles: ALL_ROLES },
       { href: '/visa',       label: 'Visa',        icon: '🛂', roles: ALL_ROLES },
+      { href: '/operasional', label: 'Operasional', icon: '🛠', roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
     ],
   },
   {
@@ -33,7 +34,6 @@ const GROUPS = [
     label: 'Keuangan',
     items: [
       { href: '/finance',    label: 'Finance',    icon: '$',  roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
-      { href: '/operasional', label: 'Operasional', icon: '🛠', roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
       { href: '/invoices',   label: 'Invoices',   icon: '🧾', roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
       { href: '/accounting', label: 'Accounting', icon: '📊', roles: ['owner', 'accounting'] },
       { href: '/refunds',    label: 'Refunds',    icon: '💸', roles: ALL_ROLES },
