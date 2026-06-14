@@ -43,7 +43,7 @@ export default async function OrderPage({ params, searchParams }) {
             </div>
           ) : (
             <>
-              <PayButton bookingId={b.id} amountLabel={fmtRp(b.amount)} />
+              <PayButton bookingId={b.id} amount={b.amount} />
               <p className="text-[11px] text-center text-slate-400">Pembayaran aman via Midtrans (kartu, VA bank, e-wallet, QRIS). Status otomatis ter-update setelah bayar.</p>
               <a href={`https://wa.me/628145460210?text=${encodeURIComponent('Halo, saya mau bayar booking ' + b.order_code)}`} target="_blank" rel="noreferrer"
                 className="block text-center w-full py-3 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50">Atau konfirmasi via WhatsApp</a>
