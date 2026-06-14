@@ -9,8 +9,12 @@ import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 export default function PnrRow({ pnr }) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
-  const balance = (pnr.seats * pnr.ticket_price) - (pnr.deposit_total || 0) - (pnr.payoff_amount || 0);
-  const isPaid = balance <= 0 && pnr.payoff_date;
+  const seats = Number(pnr.pax ?? pnr.seats) || 0;
+  const pricePerSeat = Number(pnr.price_per_pax ?? pnr.ticket_price) || 0;
+  const totalCost = pnr.ticket_type === 'fit' ? (Number(pnr.total_amount) || 0) : (seats * pricePerSeat);
+  const depositPaid = Number(pnr.deposit_total) || 0;
+  const balance = Math.max(totalCost - depositPaid, 0); // sisa pelunasan = total - deposit
+  const isPaid = totalCost > 0 && depositPaid >= totalCost;
   const deadlineDays = pnr.payoff_due_date ? daysUntil(pnr.payoff_due_date) : null;
 
   async function handleDelete() {
@@ -62,8 +66,8 @@ export default function PnrRow({ pnr }) {
           <p className="mt-1.5 text-sm font-semibold text-slate-800">{pnr.route || '—'}</p>
           <p className="text-xs text-slate-500 mt-0.5">
             {pnr.departure_date && `Berangkat ${fmtDate(pnr.departure_date)}`}
-            {pnr.ticket_type !== 'fit' && pnr.seats > 0 && ` · ${pnr.seats} seat`}
-            {pnr.ticket_type !== 'fit' && pnr.ticket_price > 0 && ` · ${fmtRupiah(pnr.ticket_price)}/seat`}
+            {pnr.ticket_type !== 'fit' && seats > 0 && ` · ${seats} seat`}
+            {pnr.ticket_type !== 'fit' && pricePerSeat > 0 && ` · ${fmtRupiah(pricePerSeat)}/seat`}
           </p>
           {pnr.ticket_type === 'fit' ? (
             <div className="mt-2 flex flex-wrap gap-3 text-xs">
@@ -72,9 +76,9 @@ export default function PnrRow({ pnr }) {
             </div>
           ) : (
             <div className="mt-2 flex flex-wrap gap-3 text-xs">
-              <span className="text-amber-700"><span className="font-semibold">DP:</span> {fmtRupiah(pnr.deposit_total || 0)}{pnr.deposit_date ? ` (${fmtDate(pnr.deposit_date)})` : ''}</span>
-              <span className="text-green-700"><span className="font-semibold">Pelunasan:</span> {fmtRupiah(pnr.payoff_amount || 0)}{pnr.payoff_date ? ` (${fmtDate(pnr.payoff_date)})` : ''}</span>
-              <span className={balance > 0 ? 'text-red-700' : 'text-blue-700'}><span className="font-semibold">Sisa:</span> {fmtRupiah(balance)}</span>
+              <span className="text-slate-700"><span className="font-semibold">Total:</span> {fmtRupiah(totalCost)}</span>
+              <span className="text-amber-700"><span className="font-semibold">Deposit:</span> {fmtRupiah(depositPaid)}{pnr.deposit_date ? ` (${fmtDate(pnr.deposit_date)})` : ''}</span>
+              <span className={balance > 0 ? 'text-red-700' : 'text-blue-700'}><span className="font-semibold">Sisa Pelunasan:</span> {fmtRupiah(balance)}</span>
               {pnr.payoff_due_date && <span className="text-slate-700"><span className="font-semibold">Deadline:</span> {fmtDate(pnr.payoff_due_date)}</span>}
             </div>
           )}
