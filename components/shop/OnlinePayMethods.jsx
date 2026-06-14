@@ -5,7 +5,8 @@ import { PAY_METHODS, paymentFee } from '@/lib/shop/payment-fee';
 function fmtRp(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
 
 // pay: async (method) => { redirect_url } | { error }
-export default function OnlinePayMethods({ amount = 0, pay, note }) {
+export default function OnlinePayMethods({ amount = 0, pay, note, buttonLabel = '💳 Bayar Online' }) {
+  const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [busy, setBusy] = useState(null);
   const [err, setErr] = useState('');
@@ -20,9 +21,27 @@ export default function OnlinePayMethods({ amount = 0, pay, note }) {
     });
   }
 
+  if (!open) {
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold"
+        >
+          {buttonLabel}{amount > 0 ? ` · ${fmtRp(amount)}` : ''}
+        </button>
+        {note && <p className="text-[11px] text-center text-slate-400 mt-1">{note}</p>}
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-2">
-      <p className="text-xs font-semibold text-slate-600">Pilih metode pembayaran online:</p>
+    <div className="space-y-2 rounded-xl border border-slate-200 p-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-slate-600">Pilih metode pembayaran:</p>
+        <button type="button" onClick={() => setOpen(false)} className="text-[11px] text-slate-400 hover:text-slate-600">✕ tutup</button>
+      </div>
       {PAY_METHODS.map((m) => {
         const fee = paymentFee(m.key, amount);
         const total = (Number(amount) || 0) + fee;
@@ -35,10 +54,8 @@ export default function OnlinePayMethods({ amount = 0, pay, note }) {
             className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-emerald-400 disabled:opacity-50 text-left transition-colors"
           >
             <span className="min-w-0">
-              <span className="block text-sm font-bold text-slate-800">{m.short}</span>
-              <span className="block text-[11px] text-slate-500">
-                {m.rate > 0 ? `+ biaya ${Math.round(m.rate * 100)}% per transaksi` : 'tanpa biaya tambahan'}
-              </span>
+              <span className="block text-sm font-bold text-slate-800">{m.short}{m.rate > 0 ? ` (+${Math.round(m.rate * 100)}%)` : ''}</span>
+              {m.desc && <span className="block text-[11px] text-slate-500">{m.desc}</span>}
             </span>
             <span className="text-right shrink-0">
               {amount > 0 && <span className="block text-sm font-bold text-emerald-700">{fmtRp(total)}</span>}
