@@ -26,7 +26,6 @@ const GROUPS = [
       { href: '/trips',      label: 'Master Trip', icon: '✈', roles: ALL_ROLES },
       { href: '/cs',         label: 'CS Daily',    icon: '☎', roles: ALL_ROLES },
       { href: '/visa',       label: 'Visa',        icon: '🛂', roles: ALL_ROLES },
-      { href: '/operasional', label: 'Operasional', icon: '🛠', roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
     ],
   },
   {
@@ -40,13 +39,20 @@ const GROUPS = [
     ],
   },
   {
+    key: 'operasional',
+    label: 'Operasional',
+    items: [
+      { href: '/operasional',   label: 'Operasional',  icon: '🛠', roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
+      { href: '/plan',          label: 'Plan Trip',    icon: '🗺', roles: ['owner', 'accounting', 'manager', 'ops'] },
+      { href: '/private-trips', label: 'Request Trip', icon: '📨', roles: ALL_ROLES },
+    ],
+  },
+  {
     key: 'marketing',
     label: 'Marketing & Sales',
     items: [
       { href: '/crm',           label: 'CRM Customer',     icon: '👥', roles: ALL_ROLES },
       { href: '/quotations',    label: 'Penawaran AI',     icon: '💰', roles: ALL_ROLES },
-      { href: '/private-trips', label: 'Private Trip Req', icon: '📨', roles: ALL_ROLES },
-      { href: '/plan',          label: 'Plan Trip',        icon: '🗺', roles: ['owner', 'accounting', 'manager', 'ops'] },
       { href: '/ads',           label: 'Ads Manager',      icon: '📢', roles: ALL_ROLES },
       { href: '/content',       label: 'Konten',           icon: '📱', roles: ALL_ROLES },
       { href: '/etalase',       label: 'Etalase Web',      icon: '🖼', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'] },
