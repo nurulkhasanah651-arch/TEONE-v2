@@ -76,15 +76,7 @@ export default async function FinancePage() {
       </div>
 
       {/* Round 94: tambah Invoices Peserta jadi 4 section card */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <SectionCard
-          href="/finance/cashflow"
-          icon="💰"
-          title="Proyeksi Income per Group"
-          desc="Auto income (peserta × breakdown) + HPP per kategori (tiket, hotel, LA, transport, visa, dll). Per item ada DP/Total/Sisa + Request Payment."
-          badge={`${items.length} item HPP/income`}
-          color="from-green-500 to-emerald-700"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <SectionCard
           href="/finance/payments"
           icon="🧾"
@@ -100,14 +92,6 @@ export default async function FinancePage() {
           desc="Generate invoice per milestone, kirim via WhatsApp, peserta upload bukti transfer, auto receipt setelah verify + info sisa pembayaran."
           badge="Per peserta · per group"
           color="from-pink-500 to-rose-700"
-        />
-        <SectionCard
-          href="/finance/pnr"
-          icon="✈"
-          title="PNR Inventory"
-          desc="Deposit maskapai, harga tiket, vendor, deadline pelunasan. Auto-sync ke HPP."
-          badge={`${totalPNR} PNR`}
-          color="from-amber-500 to-orange-700"
         />
       </div>
     </div>
