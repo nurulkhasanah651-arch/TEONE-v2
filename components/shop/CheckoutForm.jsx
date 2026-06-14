@@ -118,6 +118,8 @@ export default function CheckoutForm({ trip }) {
 
   return (
     <form onSubmit={submit} className="mt-6 space-y-4">
+      {/* honeypot anti-bot — jangan diisi */}
+      <input type="text" name="website_url" tabIndex={-1} autoComplete="off" aria-hidden="true" style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }} />
       {loggedIn ? (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-sm">
           <p className="text-emerald-800 font-semibold">Pesan sebagai <b>{profile.name || 'akun kamu'}</b></p>
