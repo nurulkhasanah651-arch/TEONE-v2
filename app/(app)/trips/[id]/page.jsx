@@ -121,12 +121,32 @@ export default async function TripDetailPage({ params }) {
             <h1 className="text-3xl font-bold text-brand-700">{trip.name}</h1>
             {trip.destination && <p className="mt-1 text-slate-600">{trip.destination}</p>}
           </div>
-          <Link
-            href={`/trips/${trip.id}/edit`}
-            className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-card transition-colors"
-          >
-            ✎ Edit Trip
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            {trip.is_published && trip.slug ? (
+              <a
+                href={`/trip/${trip.slug}`}
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold rounded-lg shadow-card transition-colors"
+              >
+                🌐 Lihat di Web
+              </a>
+            ) : (
+              <Link
+                href={`/trips/${trip.id}/edit`}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-lg shadow-card transition-colors"
+                title="Atur konten & publish agar muncul di web"
+              >
+                🛒 Konten Jualan (belum publish)
+              </Link>
+            )}
+            <Link
+              href={`/trips/${trip.id}/edit`}
+              className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-card transition-colors"
+            >
+              ✎ Edit Trip
+            </Link>
+          </div>
         </div>
       </div>
 
