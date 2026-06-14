@@ -5,6 +5,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { mainExpectedPerPassenger } from '@/lib/utils/price-breakdown';
 
 function parseParticipantFields(formData) {
   const first_name = (formData.get('first_name') || '').trim();
@@ -43,6 +44,16 @@ function revalidateAllRelated(tripId) {
   revalidatePath('/visa');
 }
 
+// Auto-hitung harga pokok per peserta dari price_breakdown trip (sama seperti checkout web).
+// Dipakai kalau admin tidak mengisi "Harga Bayar" manual.
+async function autoPricePaid(supabase, tripId, room_type, age_type) {
+  try {
+    const { data: trip } = await supabase.from('trips').select('price_breakdown').eq('id', tripId).maybeSingle();
+    const bd = (trip?.price_breakdown && typeof trip.price_breakdown === 'object') ? trip.price_breakdown : {};
+    return mainExpectedPerPassenger({ room_type, age_type }, bd) || 0;
+  } catch { return 0; }
+}
+
 export async function addParticipant(tripId, formData) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -73,11 +84,14 @@ export async function addParticipant(tripId, formData) {
 
   if (cErr) return { error: 'Gagal simpan customer: ' + cErr.message };
 
+  // Auto-isi harga dari tipe kamar + harga trip kalau dikosongkan
+  const pricePaid = f.price_paid > 0 ? f.price_paid : await autoPricePaid(supabase, tripId, f.room_type, f.age_type);
+
   const { error: pErr } = await supabase.from('trip_passengers').insert({
     trip_id: tripId,
     customer_id: customer.id,
     room_type: f.room_type,
-    price_paid: f.price_paid,
+    price_paid: pricePaid,
     age_type: f.age_type,
     status: 'confirmed',
   });
@@ -118,7 +132,7 @@ export async function updateParticipant(tripId, passengerId, customerId, formDat
 
   const passengerUpdates = {
     room_type: f.room_type,
-    price_paid: f.price_paid,
+    price_paid: f.price_paid > 0 ? f.price_paid : await autoPricePaid(supabase, tripId, f.room_type, f.age_type),
     age_type: f.age_type,
   };
 
