@@ -25,9 +25,9 @@ export default function AccountingForm({ trips = [], accounts = [], hppItems = [
     return hppItems.filter((h) => String(h.trip_id) === String(tripId));
   }, [tripId, hppItems]);
 
-  const pnrForTrip = useMemo(() => {
-    if (!tripId) return [];
-    return pnrs.filter((p) => String(p.trip_id) === String(tripId));
+  const availablePnr = useMemo(() => {
+    if (tripId) return pnrs.filter((p) => String(p.trip_id) === String(tripId) || !p.trip_id);
+    return pnrs;
   }, [tripId, pnrs]);
   const selectedPnr = useMemo(() => pnrs.find((p) => String(p.id) === String(linkedPnr)) || null, [linkedPnr, pnrs]);
   function pnrTotalCost(p) {
@@ -136,17 +136,17 @@ export default function AccountingForm({ trips = [], accounts = [], hppItems = [
         </div>
       )}
 
-      {type === 'out' && tripId && pnrForTrip.length > 0 && (
+      {type === 'out' && availablePnr.length > 0 && (
         <div className="p-4 bg-sky-50 border-2 border-sky-200 rounded-lg space-y-3">
           <Field label="✈ Link ke PNR (Deposit / Pelunasan)" hint="Pilih PNR. Cash out ini menambah deposit PNR atau melunasinya, dan auto-sync ke Finance/HPP.">
             <select name="linked_pnr_id" value={linkedPnr} onChange={(e) => setLinkedPnr(e.target.value)} className={inputCls}>
               <option value="">— Tidak link PNR —</option>
-              {pnrForTrip.map((p) => {
+              {availablePnr.map((p) => {
                 const tc = p.ticket_type === 'fit' ? (Number(p.total_amount) || 0) : (Number(p.pax) || 0) * (Number(p.price_per_pax) || 0);
                 const sisa = Math.max(tc - (Number(p.deposit_total) || 0), 0);
                 return (
                   <option key={p.id} value={p.id}>
-                    {p.pnr || `#${p.id}`}{(p.vendor || p.airline) ? ` · ${p.vendor || p.airline}` : ''} — sisa Rp {sisa.toLocaleString('id-ID')}
+                    {p.pnr || `#${p.id}`}{(p.vendor || p.airline) ? ` · ${p.vendor || p.airline}` : ''}{p.trip_id ? '' : ' · (tanpa trip)'} — sisa Rp {sisa.toLocaleString('id-ID')}
                   </option>
                 );
               })}
