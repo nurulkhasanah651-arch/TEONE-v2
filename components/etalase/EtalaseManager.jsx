@@ -3,7 +3,7 @@
 // Kelola Etalase: foto header slider + region (judul/ikon/foto/keyword).
 import { useState, useRef, useTransition } from 'react';
 import { uploadStorefrontImage } from '@/lib/actions/shop-admin';
-import { saveHeroImages, saveRegions, savePrivateImages } from '@/lib/actions/storefront-settings';
+import { saveHeroImages, saveRegions, savePrivateImages, saveTermsDefault } from '@/lib/actions/storefront-settings';
 
 function Toast({ msg }) {
   if (!msg) return null;
@@ -23,9 +23,10 @@ async function doUpload(file) {
   return r;
 }
 
-export default function EtalaseManager({ initialHero, initialRegions, initialPrivate }) {
+export default function EtalaseManager({ initialHero, initialRegions, initialPrivate, initialTerms, termsSeed }) {
   const [hero, setHero] = useState(Array.isArray(initialHero) ? initialHero : []);
   const [priv, setPriv] = useState(Array.isArray(initialPrivate) ? initialPrivate : []);
+  const [terms, setTerms] = useState((initialTerms && initialTerms.trim()) ? initialTerms : (termsSeed || ''));
   const [regions, setRegions] = useState(Array.isArray(initialRegions) && initialRegions.length ? initialRegions : []);
   const [msg, setMsg] = useState(null);
   const [pending, startTransition] = useTransition();
@@ -143,6 +144,16 @@ export default function EtalaseManager({ initialHero, initialRegions, initialPri
       const sv = await saveRegions(payload);
       if (sv?.error) toast(sv.error, 'error'); else toast(`✓ ${sv.count} region disimpan`);
     });
+  }
+
+  function saveTerms() {
+    startTransition(async () => {
+      const sv = await saveTermsDefault(terms);
+      if (sv?.error) toast(sv.error, 'error'); else toast('✓ Syarat & Ketentuan disimpan');
+    });
+  }
+  function resetTermsToStandard() {
+    setTerms(termsSeed || '');
   }
 
   return (
