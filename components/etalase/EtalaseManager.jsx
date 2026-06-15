@@ -280,6 +280,22 @@ export default function EtalaseManager({ initialHero, initialRegions, initialPri
           {pending ? '⏳ Menyimpan...' : '💾 Simpan Semua Region'}
         </button>
       </section>
+
+      {/* ====== SYARAT & KETENTUAN DEFAULT ====== */}
+      <section className="bg-white border border-slate-200 rounded-2xl p-5">
+        <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+          <h2 className="text-lg font-bold text-slate-900">📋 Syarat &amp; Ketentuan (Default Web)</h2>
+          <button type="button" onClick={resetTermsToStandard} className="text-xs font-semibold text-slate-500 hover:text-slate-700">↺ Kembalikan ke teks standar</button>
+        </div>
+        <p className="text-xs text-slate-500 mb-3">Teks ini otomatis tampil di halaman detail trip bila S&amp;K khusus per trip dikosongkan. Edit sekali di sini, berlaku untuk semua trip. Satu poin per baris; baris diakhiri titik dua (:) atau HURUF BESAR jadi judul section.</p>
+        <textarea value={terms} onChange={(e) => setTerms(e.target.value)} rows={16}
+          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono leading-relaxed focus:ring-1 focus:ring-emerald-500 outline-none"
+          placeholder="PEMESANAN & PELUNASAN:" />
+        <button type="button" onClick={saveTerms} disabled={pending}
+          className="mt-3 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-bold">
+          {pending ? '⏳ Menyimpan...' : '💾 Simpan Syarat & Ketentuan'}
+        </button>
+      </section>
     </div>
   );
 }

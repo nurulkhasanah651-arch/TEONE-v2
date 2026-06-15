@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { resolveBrandCode } from '@/lib/brand-shared';
 import { defaultTermsFor } from '@/lib/shop/default-terms';
-import { getPublishedTrip, tripSeatLeft, tripPrice, tripRoomPrices } from '@/lib/shop/data';
+import { getPublishedTrip, tripSeatLeft, tripPrice, tripRoomPrices, getStorefrontSettingsPublic } from '@/lib/shop/data';
 import HeroSlider from '@/components/shop/HeroSlider';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +23,11 @@ export default async function TripDetailPage({ params }) {
   const heroImgs = [t.cover_image_url, ...gallery].filter(Boolean);
   let brand = 'teone';
   try { const h = headers(); brand = h.get('x-brand') || resolveBrandCode({ host: h.get('host') }) || 'teone'; } catch {}
-  const sk = lines(t.syarat_ketentuan && t.syarat_ketentuan.trim() ? t.syarat_ketentuan : defaultTermsFor(brand));
+  const settings = await getStorefrontSettingsPublic();
+  const skText = (t.syarat_ketentuan && t.syarat_ketentuan.trim())
+    ? t.syarat_ketentuan
+    : ((settings?.terms_default && settings.terms_default.trim()) ? settings.terms_default : defaultTermsFor(brand));
+  const sk = lines(skText);
   const visa = lines(t.syarat_visa);
 
   return (
