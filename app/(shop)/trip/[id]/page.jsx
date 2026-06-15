@@ -1,5 +1,8 @@
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { resolveBrandCode } from '@/lib/brand-shared';
+import { defaultTermsFor } from '@/lib/shop/default-terms';
 import { getPublishedTrip, tripSeatLeft, tripPrice, tripRoomPrices } from '@/lib/shop/data';
 import HeroSlider from '@/components/shop/HeroSlider';
 
@@ -18,7 +21,9 @@ export default async function TripDetailPage({ params }) {
   const rooms = tripRoomPrices(t);
   const gallery = Array.isArray(t.gallery_images) ? t.gallery_images : [];
   const heroImgs = [t.cover_image_url, ...gallery].filter(Boolean);
-  const sk = lines(t.syarat_ketentuan);
+  let brand = 'teone';
+  try { const h = headers(); brand = h.get('x-brand') || resolveBrandCode({ host: h.get('host') }) || 'teone'; } catch {}
+  const sk = lines(t.syarat_ketentuan && t.syarat_ketentuan.trim() ? t.syarat_ketentuan : defaultTermsFor(brand));
   const visa = lines(t.syarat_visa);
 
   return (
@@ -98,7 +103,12 @@ export default async function TripDetailPage({ params }) {
                     <span className="text-slate-400 group-open:rotate-180 transition-transform">▾</span>
                   </summary>
                   <ul className="px-5 pb-4 space-y-1.5">
-                    {sk.map((l, i) => <li key={i} className="text-sm text-slate-600 flex gap-2"><span className="text-slate-400">•</span>{l}</li>)}
+                    {sk.map((l, i) => {
+                      const isHead = /:$/.test(l) || (l.length > 4 && l === l.toUpperCase());
+                      return isHead
+                        ? <li key={i} className="text-[13px] font-bold text-slate-800 mt-3 first:mt-0 list-none">{l}</li>
+                        : <li key={i} className="text-sm text-slate-600 flex gap-2"><span className="text-slate-400">•</span>{l}</li>;
+                    })}
                   </ul>
                 </details>
               )}

@@ -194,7 +194,7 @@ export default function StorefrontPanel({ trip }) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <label className="block"><span className="text-xs font-bold text-slate-600">📋 Syarat &amp; Ketentuan</span>
+          <label className="block"><span className="text-xs font-bold text-slate-600">📋 Syarat &amp; Ketentuan</span><span className="block text-[10px] text-slate-400 mb-1">Kosongkan untuk pakai S&amp;K standar Traveling Eropa otomatis.</span>
             <textarea name="syarat_ketentuan" defaultValue={trip.syarat_ketentuan || ''} rows={4} placeholder={'Pembayaran DP mengunci seat\nPelunasan H-45 sebelum keberangkatan\nDP tidak dapat dikembalikan'} className={inp} /></label>
           <label className="block"><span className="text-xs font-bold text-slate-600">🛂 Syarat Visa</span>
             <textarea name="syarat_visa" defaultValue={trip.syarat_visa || ''} rows={4} placeholder={'Paspor masa berlaku min. 6 bulan\nFoto 4x6 latar putih\nRekening koran 3 bulan terakhir'} className={inp} /></label>
