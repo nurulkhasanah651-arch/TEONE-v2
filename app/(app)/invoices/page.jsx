@@ -17,6 +17,7 @@ import DPApprovalPanel from '@/components/accounting/DPApprovalPanel';
 import InvoicePaymentApprovalPanel from '@/components/invoices/InvoicePaymentApprovalPanel';
 import TripInvoicesBrowser from '@/components/invoices/TripInvoicesBrowser';
 import InvoiceDriveSyncPicker from '@/components/invoices/InvoiceDriveSyncPicker';
+import ManualInvoiceButton from '@/components/invoices/ManualInvoiceButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -157,9 +158,12 @@ export default async function InvoicesPage() {
           <h1 className="text-3xl font-bold text-brand-700">Invoices</h1>
           <p className="mt-1 text-slate-600">Klik trip buat liat detail invoice peserta · Filter per bulan keberangkatan</p>
         </div>
-        <Link href="/finance/payments" className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg">
-          → Payment Checklist (Generate Invoice)
-        </Link>
+        <div className="flex gap-2 flex-wrap">
+          <ManualInvoiceButton />
+          <Link href="/finance/payments" className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg">
+            → Payment Checklist (Generate Invoice)
+          </Link>
+        </div>
       </div>
 
       {/* GRAND STATS */}
