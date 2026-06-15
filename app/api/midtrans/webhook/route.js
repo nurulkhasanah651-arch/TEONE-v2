@@ -2,7 +2,7 @@
 // vs khasanahtravel.com). /api/* di-skip dari middleware (lihat middleware.js).
 import { NextResponse } from 'next/server';
 import { resolveBrandCode } from '@/lib/brand-shared';
-import { verifyNotificationSignature, mapTransactionStatus } from '@/lib/midtrans';
+import { verifyNotificationSignature, mapTransactionStatus, midtransMethodLabel } from '@/lib/midtrans';
 import { fulfillPaidBooking, recordMilestonePayment, recordInvoiceMilestone, applyInvoiceOnlinePaid } from '@/lib/shop/fulfillment';
 
 export const runtime = 'nodejs';
@@ -29,17 +29,18 @@ export async function POST(request) {
   if (!valid) return NextResponse.json({ ok: false, error: 'invalid signature' }, { status: 403 });
 
   const status = mapTransactionStatus(n);
+  const method = midtransMethodLabel(n.payment_type);
   if (status === 'paid') {
     try {
       if (parts[0] === 'INVID') {
         // bayar online dari invoice (family-aware): INVID-<invoiceId>-<suffix>
-        await applyInvoiceOnlinePaid(parseInt(parts[1]) || 0, n.gross_amount);
+        await applyInvoiceOnlinePaid(parseInt(parts[1]) || 0, n.gross_amount, method);
       } else if (parts[0] === 'INVP') {
-        await recordInvoiceMilestone(parseInt(parts[1]) || 0, parts[2], n.gross_amount);
+        await recordInvoiceMilestone(parseInt(parts[1]) || 0, parts[2], n.gross_amount, method);
       } else if (milestoneType) {
-        await recordMilestonePayment(orderCode, milestoneType);
+        await recordMilestonePayment(orderCode, milestoneType, method);
       } else {
-        await fulfillPaidBooking(orderCode);
+        await fulfillPaidBooking(orderCode, method);
       }
     } catch (e) { /* tetap 200 agar Midtrans tak retry loop */ }
   }

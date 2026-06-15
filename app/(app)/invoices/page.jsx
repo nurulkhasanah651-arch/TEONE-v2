@@ -74,6 +74,27 @@ export default async function InvoicesPage() {
     customers: custMapForPax[p.customer_id] || null,
   }));
 
+  // Notif pembayaran ONLINE terbaru (Midtrans → participant_payments label 'Online ...')
+  let onlinePays = [];
+  try {
+    const { data: opRes } = await serviceClient
+      .from('participant_payments')
+      .select('id, passenger_id, type, amount, label, paid_at, created_at')
+      .or('label.ilike.Online%,label.ilike.Midtrans%')
+      .order('created_at', { ascending: false })
+      .limit(15);
+    const tripMap = Object.fromEntries(trips.map((t) => [t.id, t]));
+    const paxMap = Object.fromEntries(allPassengers.map((p) => [p.id, p]));
+    onlinePays = (opRes || []).map((p) => {
+      const pax = paxMap[p.passenger_id];
+      const cust = pax ? custMapForPax[pax.customer_id] : null;
+      const trip = pax ? tripMap[pax.trip_id] : null;
+      const lbl = String(p.label || '');
+      const method = lbl.includes('·') ? lbl.split('·')[1].trim() : 'online';
+      return { id: p.id, name: cust?.name || ('#' + p.passenger_id), type: p.type, amount: p.amount, method, trip: trip ? (trip.kode_trip || trip.name || '') : '' };
+    });
+  } catch {}
+
   const pendingDPCount = dpRequests.filter((r) => r.status === 'pending').length;
   const pendingPaymentCount = pendingPayments.length;
 
@@ -148,6 +169,26 @@ export default async function InvoicesPage() {
         <StatCard label="Sudah Dibayar" value={fmtRupiah(grand.paidAmount)} color="text-green-700" bg="bg-green-50" small />
         <StatCard label="Sisa Tagihan" value={fmtRupiah(sisa)} color="text-red-700" bg="bg-red-50" small />
       </div>
+
+      {/* NOTIF PEMBAYARAN ONLINE TERBARU */}
+      {onlinePays.length > 0 && (
+        <div className="bg-white border border-emerald-200 rounded-xl shadow-card overflow-hidden">
+          <div className="px-4 py-2.5 bg-emerald-50 border-b border-emerald-200 flex items-center justify-between flex-wrap gap-2">
+            <h2 className="text-sm font-bold text-emerald-800">🔔 Pembayaran Online Terbaru</h2>
+            <span className="text-[11px] text-emerald-600">{onlinePays.length} terbaru · otomatis via Midtrans</span>
+          </div>
+          <ul className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+            {onlinePays.map((o) => (
+              <li key={o.id} className="px-4 py-2 text-sm flex items-center justify-between gap-3 flex-wrap">
+                <span className="text-slate-700">
+                  <b>{o.name}</b> sudah bayar <b>{o.type}</b>{o.trip ? ` · ${o.trip}` : ''} <span className="text-slate-400">— via {o.method}</span>
+                </span>
+                <span className="text-emerald-700 font-bold whitespace-nowrap">{fmtRupiah(o.amount)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* BANNER ALERTS */}
       {pendingDPCount > 0 && (
