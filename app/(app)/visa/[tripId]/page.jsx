@@ -153,7 +153,7 @@ export default async function VisaTripPage({ params }) {
         <VisaPDFDownloads trip={trip} passengers={passengersWithCustomers} />
         <div className="flex flex-wrap gap-2 pt-1 border-t border-slate-100">
           <ManifestDownloadButton tripId={tripId} label="📋 Download Manifest (Excel)" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg" />
-          <RoomlistDownloadButton tripId={tripId} label="🛏 Download Roomlist (Excel)" className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg" />
+          <RoomlistDownloadButton tripId={tripId} label="🛏 Download Roomlist (PDF)" className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg" />
         </div>
       </div>
 
