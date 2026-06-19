@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { getRoomlistRows } from '@/lib/actions/manifest';
-import { buildRoomlistAOA } from '@/lib/utils/roomlist-export';
+import { downloadRoomlistPDF } from '@/lib/utils/roomlist-pdf';
 
-export default function RoomlistDownloadButton({ tripId, label = '🛏 Download Roomlist', className = '' }) {
+export default function RoomlistDownloadButton({ tripId, label = '🛏 Download Roomlist (PDF)', className = '' }) {
   const [loading, setLoading] = useState(false);
   async function handle() {
     setLoading(true);
@@ -12,14 +12,7 @@ export default function RoomlistDownloadButton({ tripId, label = '🛏 Download 
       const res = await getRoomlistRows(tripId);
       if (res?.error) { alert('Gagal: ' + res.error); return; }
       const { trip, rooms } = res;
-      const XLSX = await import('xlsx');
-      const { aoa, merges, cols, sheetName, fileName } = buildRoomlistAOA({ trip, rooms });
-      const ws = XLSX.utils.aoa_to_sheet(aoa);
-      ws['!cols'] = cols;
-      ws['!merges'] = merges;
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, sheetName);
-      XLSX.writeFile(wb, fileName);
+      await downloadRoomlistPDF({ trip, rooms });
     } catch (e) {
       alert('Gagal download: ' + (e?.message || e));
     } finally { setLoading(false); }

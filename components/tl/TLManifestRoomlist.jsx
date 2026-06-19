@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react';
 import { generateRoomlist, normalizeGender } from '@/lib/utils/roomlist';
 import { calcAge } from '@/lib/utils/format';
 import { buildRoomlistAOA } from '@/lib/utils/roomlist-export';
+import { downloadRoomlistPDF } from '@/lib/utils/roomlist-pdf';
 
 function fmtDate(s) {
   if (!s) return '—';
@@ -112,11 +113,23 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
     }
   }
 
+  async function downloadPdf() {
+    try {
+      await downloadRoomlistPDF({
+        trip: { name: trip?.name, kode_trip: trip?.kode_trip, departure: trip?.departure, return_date: trip?.return_date, arrival: trip?.arrival },
+        rooms,
+      });
+    } catch (e) {
+      alert('Gagal download PDF: ' + (e?.message || e));
+    }
+  }
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
         <h2 className="font-bold text-brand-700 flex-1">📋 Manifest & Roomlist</h2>
-        <button onClick={downloadExcel} className="px-3 py-1 rounded font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white">📥 Download</button>
+        <button onClick={downloadPdf} className="px-3 py-1 rounded font-semibold text-xs bg-rose-600 hover:bg-rose-700 text-white">🛏 Roomlist PDF</button>
+        <button onClick={downloadExcel} className="px-3 py-1 rounded font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white">📥 Excel</button>
         <div className="flex gap-1 text-xs">
           <button
             onClick={() => setTab('manifest')}
