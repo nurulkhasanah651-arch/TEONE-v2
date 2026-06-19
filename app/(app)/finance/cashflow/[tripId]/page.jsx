@@ -17,6 +17,7 @@ import QuotationDownloadButton from '@/components/finance/QuotationDownloadButto
 import HotelHPPSection from '@/components/finance/HotelHPPSection';
 import RoomlistPanel from '@/components/finance/RoomlistPanel';
 import ManifestDownloadButton from '@/components/common/ManifestDownloadButton';
+import RoomlistDownloadButton from '@/components/common/RoomlistDownloadButton';
 import ProyeksiIncomeSection from '@/components/finance/ProyeksiIncomeSection';
 
 export const dynamic = 'force-dynamic';
@@ -336,7 +337,7 @@ export default async function CashflowDetailPage({ params }) {
         fmtMoney={fmtMoney}
       />
 
-      <div className="flex justify-end"><ManifestDownloadButton tripId={tripId} /></div>
+      <div className="flex justify-end gap-2"><RoomlistDownloadButton tripId={tripId} /><ManifestDownloadButton tripId={tripId} /></div>
 
       <RoomlistPanel
         trip={trip}
