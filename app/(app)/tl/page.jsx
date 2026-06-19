@@ -94,7 +94,8 @@ export default async function TLPortalPage() {
     }
   } catch {}
 
-  const myTlId = tlRecord?.id ?? null;
+  const metaTlId = user?.user_metadata?.tl_id ?? null;
+  const myTlId = tlRecord?.id ?? metaTlId;
   const myPhone = normPhone(tlRecord?.phone);
   const userName = user?.user_metadata?.full_name?.toLowerCase() || userEmail.split('@')[0] || '';
   const myTrips = activeTrips.filter((t) => {
