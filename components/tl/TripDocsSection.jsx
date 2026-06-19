@@ -292,14 +292,12 @@ export default function TripDocsSection({
                 {list.map((d) => (
                   <div key={d.id} className="flex items-center justify-between gap-3 p-2 rounded bg-slate-50 hover:bg-slate-100 group">
                     <div className="flex-1 min-w-0">
-                      <button
-                        type="button"
-                        onClick={() => handleDownload(d)}
-                        disabled={dl === d.id}
-                        className="text-sm font-semibold text-blue-700 hover:underline truncate block text-left disabled:opacity-50"
+                      <a
+                        href={`/api/trip-docs/${d.id}/download`}
+                        className="text-sm font-semibold text-blue-700 hover:underline truncate block"
                       >
-                        📄 {d.title} <span className="text-[10px] text-blue-500">{dl === d.id ? '⏳ menyiapkan…' : '⬇ Download'}</span>
-                      </button>
+                        📄 {d.title} <span className="text-[10px] text-blue-500">⬇ Download</span>
+                      </a>
                       {d.notes && <p className="text-xs text-slate-500 mt-0.5">{d.notes}</p>}
                       <p className="text-[10px] text-slate-400 mt-0.5">
                         {d.uploaded_by && `Upload by ${d.uploaded_by}`}
