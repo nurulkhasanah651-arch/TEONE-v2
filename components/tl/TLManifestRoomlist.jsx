@@ -6,6 +6,7 @@
 import { useMemo, useState } from 'react';
 import { generateRoomlist, normalizeGender } from '@/lib/utils/roomlist';
 import { calcAge } from '@/lib/utils/format';
+import { buildRoomlistAOA } from '@/lib/utils/roomlist-export';
 
 function fmtDate(s) {
   if (!s) return '—';
@@ -13,10 +14,27 @@ function fmtDate(s) {
   catch { return s; }
 }
 
+function tlMemberDetail(c = {}, pax = {}) {
+  const first = c.first_name || (c.name ? c.name.split(' ')[0] : '');
+  const last = c.surname || c.last_name || (c.name ? c.name.split(' ').slice(1).join(' ') : '');
+  const g = normalizeGender({ gender: pax.gender || pax.sex || c.gender || c.sex });
+  const birth = c.birthday || c.dob || c.date_of_birth;
+  const age = calcAge(birth);
+  const title = g === 'M' ? 'Mr' : g === 'F' ? ((age != null && age < 18) ? 'Miss' : 'Mrs') : '';
+  return {
+    name: c.name || first || '', first_name: first, surname: last, title, gender: g,
+    passport_no: c.passport_no || c.passport_number || c.ktp || '',
+    place_of_birth: c.place_of_birth || c.city || '',
+    birth_date: fmtDate(birth), age: age == null ? '' : age,
+  };
+}
+
 export default function TLManifestRoomlist({ trip, passengers = [], customerMap = {} }) {
   const [tab, setTab] = useState('manifest');
 
   const rooms = useMemo(() => {
+    const customers = Object.values(customerMap);
+    const custByName = {}; for (const c of customers) { if (c?.name) custByName[String(c.name).toLowerCase()] = c; }
     const saved = trip?.final_roomlist?.rooms;
     if (Array.isArray(saved) && saved.length > 0) {
       return saved.map((r, i) => ({
@@ -24,21 +42,20 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
         room_type: r.room_type,
         label: r.label,
         is_family: r.is_family,
-        members: (r.members || []).map((m) => ({ name: m.name, gender: m.gender })),
+        members: (r.members || []).map((m) => {
+          const c = custByName[String(m.name || '').toLowerCase()] || {};
+          const d = tlMemberDetail(c, { gender: m.gender });
+          return { ...d, name: m.name || d.name, gender: m.gender || d.gender };
+        }),
         note: r.note,
       }));
     }
-    const customers = Object.values(customerMap);
     return generateRoomlist(passengers, customers).map((r) => ({
       room_no: r.room_no,
       room_type: r.room_type,
       label: r.label,
       is_family: r.is_family,
-      members: (r.pax || []).map((p) => {
-        const c = customerMap[p.customer_id] || {};
-        const g = normalizeGender({ gender: p.gender || p.sex || c.gender || c.sex });
-        return { name: c.name || `#${p.id}`, gender: g };
-      }),
+      members: (r.pax || []).map((p) => tlMemberDetail(customerMap[p.customer_id] || {}, p)),
       note: r.needs_upgrade ? r.upgrade_note : '',
     }));
   }, [trip, passengers, customerMap]);
@@ -79,21 +96,14 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
       wsM['!cols'] = [{ wch: 5 }, { wch: 18 }, { wch: 18 }, { wch: 7 }, { wch: 16 }, { wch: 13 }, { wch: 6 }, { wch: 18 }, { wch: 13 }, { wch: 18 }, { wch: 13 }, { wch: 16 }];
       XLSX.utils.book_append_sheet(wb, wsM, 'Manifest');
 
-      // Sheet Roomlist
-      const roomAoa = [
-        [`ROOMLIST — ${trip?.name || ''}`],
-        [''],
-        ['Room#', 'Type', 'Family', 'Label', 'Pax 1', 'Pax 2', 'Pax 3', 'Pax 4', 'Note'],
-        ...rooms.map((r) => {
-          const names = [0, 1, 2, 3].map((i) => {
-            const m = r.members[i];
-            return m ? `${m.name}${m.gender && m.gender !== '?' ? ` (${m.gender === 'M' ? 'L' : 'P'})` : ''}` : '';
-          });
-          return [r.room_no, (r.room_type || '').toUpperCase(), r.is_family ? 'YA' : '', r.label || '', ...names, r.note || ''];
-        }),
-      ];
+      // Sheet Roomlist (format template TE)
+      const { aoa: roomAoa, merges: roomMerges, cols: roomCols } = buildRoomlistAOA({
+        trip: { name: trip?.name, kode_trip: trip?.kode_trip, departure: trip?.departure, return_date: trip?.return_date, arrival: trip?.arrival },
+        rooms,
+      });
       const wsR = XLSX.utils.aoa_to_sheet(roomAoa);
-      wsR['!cols'] = [{ wch: 7 }, { wch: 10 }, { wch: 7 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 28 }];
+      wsR['!cols'] = roomCols;
+      wsR['!merges'] = roomMerges;
       XLSX.utils.book_append_sheet(wb, wsR, 'Roomlist');
 
       XLSX.writeFile(wb, `Manifest-Roomlist - ${trip?.kode_trip || trip?.name || 'trip'}.xlsx`);
