@@ -4,7 +4,7 @@
 // Path: components/tl/TripDocsSection.jsx
 
 import { useState, useTransition } from 'react';
-import { addTripDocument, deleteTripDocument } from '@/lib/actions/tlmanage';
+import { addTripDocument, deleteTripDocument, getTripDocDownloadUrl } from '@/lib/actions/tlmanage';
 import FileUploadInput from './FileUploadInput';
 
 const CATEGORIES = [
@@ -105,6 +105,26 @@ export default function TripDocsSection({
     });
   }
 
+  const [dl, setDl] = useState('');
+  async function handleDownload(doc) {
+    setDl(doc.id);
+    try {
+      const r = await getTripDocDownloadUrl(doc.id);
+      if (r?.error) { alert('Gagal download: ' + r.error); return; }
+      if (r?.url) {
+        const a = document.createElement('a');
+        a.href = r.url;
+        a.rel = 'noreferrer';
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+    } catch (e) {
+      alert('Gagal download: ' + (e?.message || e));
+    } finally { setDl(''); }
+  }
+
   const docsByCategory = {};
   for (const d of docs) {
     const cat = d.category || 'other';
@@ -133,7 +153,7 @@ export default function TripDocsSection({
             )}
           </h2>
           {isTL && (
-            <p className="text-[10px] text-blue-700 mt-0.5">📥 TL: Klik link untuk download. Upload by Internal only.</p>
+            <p className="text-[10px] text-blue-700 mt-0.5">📥 TL: Klik nama dokumen untuk download langsung (tak perlu akun Supabase). Upload by Internal only.</p>
           )}
         </div>
         {canUpload && !showForm && (
@@ -256,14 +276,14 @@ export default function TripDocsSection({
                 {list.map((d) => (
                   <div key={d.id} className="flex items-center justify-between gap-3 p-2 rounded bg-slate-50 hover:bg-slate-100 group">
                     <div className="flex-1 min-w-0">
-                      <a
-                        href={d.file_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sm font-semibold text-blue-700 hover:underline truncate block"
+                      <button
+                        type="button"
+                        onClick={() => handleDownload(d)}
+                        disabled={dl === d.id}
+                        className="text-sm font-semibold text-blue-700 hover:underline truncate block text-left disabled:opacity-50"
                       >
-                        📄 {d.title} <span className="text-[10px] text-blue-500">↗ Open/Download</span>
-                      </a>
+                        📄 {d.title} <span className="text-[10px] text-blue-500">{dl === d.id ? '⏳ menyiapkan…' : '⬇ Download'}</span>
+                      </button>
                       {d.notes && <p className="text-xs text-slate-500 mt-0.5">{d.notes}</p>}
                       <p className="text-[10px] text-slate-400 mt-0.5">
                         {d.uploaded_by && `Upload by ${d.uploaded_by}`}
