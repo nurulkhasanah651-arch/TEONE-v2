@@ -12,7 +12,7 @@ export default function ShopLayout({ children }) {
   const code = brandCode();
   const ui = BRAND_UI[code] || BRAND_UI.teone;
   const cfg = storefrontConfig(code);
-  const wa = cfg.waNumber || '628145460210';
+  const wa = cfg.waNumber || '6282210991200';
   return (
     <div className="min-h-screen bg-white text-slate-800 flex flex-col">
       <header className="border-b border-slate-200 sticky top-0 bg-white/95 backdrop-blur z-40">

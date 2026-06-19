@@ -93,7 +93,7 @@ export default async function AkunPage() {
                       <Link href={`/order/${b.id}`} className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold">💳 Bayar / Detail</Link>
                     )}
                     {b.trip?.slug && <Link href={`/trip/${b.trip.slug}`} className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold">Info Trip</Link>}
-                    <a href={`https://wa.me/628145460210?text=${encodeURIComponent('Halo, saya peserta order ' + b.order_code)}`} target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold">Tanya CS</a>
+                    <a href={`https://wa.me/6282210991200?text=${encodeURIComponent('Halo, saya peserta order ' + b.order_code)}`} target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold">Tanya CS</a>
                   </div>
                 </div>
               </div>
