@@ -6,6 +6,7 @@
 import { useState, useTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { approvePaymentRequest, rejectPaymentRequest } from '@/lib/actions/accounting';
+import { accountingApproveTLPayment, rejectTLPayment } from '@/lib/actions/tl-payments';
 import { getInvoiceSignedUrl, uploadTransferProof } from '@/lib/actions/hpp-documents';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 
@@ -24,13 +25,17 @@ function getPhaseLabel(item) {
   return phase || 'Payment';
 }
 
-export default function PaymentRequests({ requests = [], accounts = [], trips = [] }) {
+export default function PaymentRequests({ requests = [], tlRequests = [], accounts = [], trips = [] }) {
   const [pending, startTransition] = useTransition();
   const [approving, setApproving] = useState(null);
   const [rejecting, setRejecting] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const router = useRouter();
   const proofFileRef = useRef(null); // R184: bukti transfer
+  // TL gaji approve (langsung Cash Out + HPP)
+  const [tlApproving, setTlApproving] = useState(null);
+  const [tlRejecting, setTlRejecting] = useState(null);
+  const [tlRejectReason, setTlRejectReason] = useState('');
 
   const tripMap = Object.fromEntries(trips.map((t) => [t.id, t]));
 
@@ -75,7 +80,31 @@ export default function PaymentRequests({ requests = [], accounts = [], trips = 
     });
   }
 
-  if (requests.length === 0) return null;
+  async function handleTLApprove(formData) {
+    if (!tlApproving) return;
+    startTransition(async () => {
+      const result = await accountingApproveTLPayment(tlApproving.id, formData);
+      if (result?.error) { alert(result.error); return; }
+      setTlApproving(null);
+      router.refresh();
+    });
+  }
+
+  async function handleTLReject() {
+    if (!tlRejecting) return;
+    if (!tlRejectReason.trim()) { alert('Alasan reject wajib diisi'); return; }
+    startTransition(async () => {
+      const fd = new FormData();
+      fd.append('reject_reason', tlRejectReason);
+      const result = await rejectTLPayment(tlRejecting.id, fd);
+      if (result?.error) { alert(result.error); return; }
+      setTlRejecting(null);
+      setTlRejectReason('');
+      router.refresh();
+    });
+  }
+
+  if (requests.length === 0 && tlRequests.length === 0) return null;
 
   const today = new Date().toISOString().slice(0, 10);
   // R180c: total = sum dari payment_request_amount (bukan total_amount)
@@ -83,6 +112,7 @@ export default function PaymentRequests({ requests = [], accounts = [], trips = 
 
   return (
     <>
+      {requests.length > 0 && (
       <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-amber-300 bg-amber-100/60 flex items-center justify-between flex-wrap gap-2">
           <h2 className="font-bold text-amber-800 flex items-center gap-2">
@@ -172,6 +202,104 @@ export default function PaymentRequests({ requests = [], accounts = [], trips = 
           })}
         </div>
       </div>
+      )}
+
+      {/* ===== Request Gaji TL — approve = langsung Cash Out + HPP ===== */}
+      {tlRequests.length > 0 && (
+      <div className="bg-gradient-to-r from-pink-50 to-purple-50 border-2 border-pink-300 rounded-xl shadow-card overflow-hidden">
+        <div className="px-5 py-3 border-b border-pink-300 bg-pink-100/60 flex items-center justify-between flex-wrap gap-2">
+          <h2 className="font-bold text-pink-800 flex items-center gap-2">
+            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-pink-500 text-white text-sm font-bold animate-pulse">{tlRequests.length}</span>
+            ✈ Request Gaji TL
+          </h2>
+          <span className="text-xs text-pink-700">Total Diajukan: {fmtRupiah(tlRequests.reduce((s, r) => s + Number(r.amount || 0), 0))}</span>
+        </div>
+        <div className="divide-y divide-pink-200">
+          {tlRequests.map((r) => {
+            const typeLabel = r.payment_type === 'dp_70' ? '70% DP' : '30% Final';
+            return (
+              <div key={r.id} className="px-5 py-3 hover:bg-pink-50/50">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {r.trip_kode && <span className="text-xs font-mono font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded">{r.trip_kode}</span>}
+                      <p className="text-sm font-bold text-slate-800">🧑‍✈️ {r.tl_name || 'TL'}</p>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${r.payment_type === 'dp_70' ? 'bg-amber-200 text-amber-800' : 'bg-blue-100 text-blue-700'}`}>{typeLabel}</span>
+                    </div>
+                    {r.trip_name && <p className="mt-0.5 text-xs text-slate-600">{r.trip_name}</p>}
+                    <p className="mt-1 text-xs text-slate-600">
+                      Requested by <strong>{r.requested_by || '—'}</strong> · {fmtDate(r.requested_at)}
+                      {r.request_notes && (<><br /><span className="italic">"{r.request_notes}"</span></>)}
+                    </p>
+                    {(r.tl_bank_name || r.tl_bank_account) && (
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        🏦 {r.tl_bank_name || '-'} · {r.tl_bank_account || '-'}{r.tl_bank_holder ? ` (a.n. ${r.tl_bank_holder})` : ''}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xl font-bold text-pink-700">{fmtRupiah(r.amount)}</p>
+                    {Number(r.total_fee || 0) > 0 && <p className="text-[10px] text-slate-500">dari fee {fmtRupiah(r.total_fee)}</p>}
+                    <div className="mt-2 flex gap-2 justify-end">
+                      <button onClick={() => setTlRejecting(r)} disabled={pending} className="px-3 py-1 text-xs font-semibold rounded border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50">✗ Reject</button>
+                      <button onClick={() => setTlApproving(r)} disabled={pending} className="px-3 py-1 text-xs font-semibold rounded bg-green-500 text-white hover:bg-green-600 disabled:opacity-50">✓ Approve {fmtRupiah(r.amount)}</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      )}
+
+      {/* TL Approve modal */}
+      {tlApproving && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setTlApproving(null)}>
+          <form action={handleTLApprove} className="bg-white rounded-xl shadow-card-hover max-w-md w-full p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold text-pink-700">✓ Approve Gaji TL & Cash Out</h3>
+            <div className="p-3 bg-slate-50 rounded space-y-1">
+              <p className="text-sm font-bold text-slate-800">🧑‍✈️ {tlApproving.tl_name}</p>
+              <p className="text-xs text-slate-600">{tlApproving.trip_kode} · {tlApproving.payment_type === 'dp_70' ? '70% DP' : '30% Final'}</p>
+              <p className="text-2xl font-bold text-pink-700">{fmtRupiah(tlApproving.amount)}</p>
+            </div>
+            <label className="block">
+              <span className="text-xs font-bold text-slate-700 block mb-1">Transfer dari Akun <span className="text-red-500">*</span></span>
+              <select name="account_id" required className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-brand-500 outline-none bg-white">
+                <option value="">— Pilih akun —</option>
+                {accounts.map((a) => <option key={a.id} value={a.id}>{a.name} ({a.type})</option>)}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-xs font-bold text-slate-700 block mb-1">Catatan (opsional)</span>
+              <input autoComplete="off" type="text" name="approval_notes" className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-brand-500 outline-none" />
+            </label>
+            <p className="text-[11px] text-slate-500">Saat approve: <b>{fmtRupiah(tlApproving.amount)}</b> langsung tercatat sebagai <b>Cash Out</b> + <b>HPP (lunas)</b> di grup trip.</p>
+            <div className="flex gap-2 justify-end pt-2 border-t border-slate-100">
+              <button type="button" onClick={() => setTlApproving(null)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded font-semibold">Batal</button>
+              <button type="submit" disabled={pending} className="px-5 py-2 bg-green-500 text-white text-sm font-semibold rounded hover:bg-green-600 disabled:opacity-50">{pending ? 'Memproses...' : `✓ Approve ${fmtRupiah(tlApproving.amount)}`}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* TL Reject modal */}
+      {tlRejecting && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setTlRejecting(null)}>
+          <div className="bg-white rounded-xl shadow-card-hover max-w-md w-full p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold text-pink-700">✗ Reject Gaji TL</h3>
+            <p className="text-sm text-slate-600">TL: <strong>{tlRejecting.tl_name}</strong> · {fmtRupiah(tlRejecting.amount)}</p>
+            <label className="block">
+              <span className="text-xs font-bold text-slate-700 block mb-1">Alasan Reject</span>
+              <textarea autoComplete="off" value={tlRejectReason} onChange={(e) => setTlRejectReason(e.target.value)} rows="3" className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-brand-500 outline-none resize-none" />
+            </label>
+            <div className="flex gap-2 justify-end">
+              <button type="button" onClick={() => setTlRejecting(null)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded font-semibold">Batal</button>
+              <button type="button" onClick={handleTLReject} disabled={pending} className="px-5 py-2 bg-red-500 text-white text-sm font-semibold rounded hover:bg-red-600 disabled:opacity-50">{pending ? 'Memproses...' : '✗ Reject'}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Approve modal */}
       {approving && (

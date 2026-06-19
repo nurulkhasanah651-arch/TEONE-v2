@@ -102,7 +102,7 @@ export default async function AccountingDashboard({ searchParams }) {
 
   const supabase = createClient();
 
-  const [accounts, accEntries, payments, hppLunas, passengers, customers, allFinItems, pnrs, trips, pendingRequests] = await Promise.all([
+  const [accounts, accEntries, payments, hppLunas, passengers, customers, allFinItems, pnrs, trips, pendingRequests, tlRequests] = await Promise.all([
     safeQuery(supabase.from('accounts').select('*').eq('active', true)),
     safeQuery(supabase.from('accounting_entries').select('*').order('date', { ascending: false })),
     safeQuery(supabase.from('participant_payments').select('*').order('paid_at', { ascending: false, nullsFirst: false })),
@@ -113,6 +113,7 @@ export default async function AccountingDashboard({ searchParams }) {
     safeQuery(supabase.from('flight_inventory').select('deposit_total, payoff_amount')),
     safeQuery(supabase.from('trips').select('id, kode_trip, name')),
     safeQuery(supabase.from('trip_finance_items').select('*').eq('item_type', 'hpp').eq('payment_request_status', 'requested').order('payment_requested_at', { ascending: true })),
+    safeQuery(supabase.from('tl_payments').select('*').eq('status', 'requested').order('requested_at', { ascending: true })),
   ]);
 
   const accountBalances = {};
@@ -348,6 +349,7 @@ export default async function AccountingDashboard({ searchParams }) {
 
       <PaymentRequests
         requests={pendingRequests}
+        tlRequests={tlRequests}
         accounts={accounts}
         trips={trips}
       />
