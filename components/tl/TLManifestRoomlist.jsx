@@ -123,7 +123,7 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
 
       {tab === 'manifest' ? (
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="min-w-[860px] w-full text-xs [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
             <thead className="bg-slate-50 border-b border-slate-200 text-left text-[11px] font-bold text-slate-600 uppercase">
               <tr>
                 <th className="px-3 py-2">#</th>
