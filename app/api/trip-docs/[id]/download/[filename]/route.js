@@ -67,7 +67,8 @@ export async function GET(req, { params }) {
   if (ext && !base.toLowerCase().endsWith('.' + ext)) base += '.' + ext;
 
   const buf = Buffer.from(await blob.arrayBuffer());
-  const contentType = (ext && MIME[ext]) || blob.type || 'application/octet-stream';
+  // Paksa unduh (jangan preview inline di HP): selalu octet-stream
+  const contentType = 'application/octet-stream';
 
   return new Response(buf, {
     status: 200,

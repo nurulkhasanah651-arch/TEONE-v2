@@ -114,30 +114,7 @@ export default function TripDocsSection({
     });
   }
 
-  const [dl, setDl] = useState('');
-  async function handleDownload(e, doc) {
-    if (e) e.preventDefault();
-    const name = docFileName(doc);
-    const url = `/api/trip-docs/${doc.id}/download/${encodeURIComponent(name)}`;
-    setDl(doc.id);
-    try {
-      // Same-origin (tanpa CORS): fetch -> blob -> paksa simpan ke perangkat
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const blob = await resp.blob();
-      const objUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objUrl;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(objUrl), 5000);
-    } catch (err) {
-      // Fallback: buka URL route (header attachment) langsung
-      try { window.location.href = url; } catch { alert('Gagal download: ' + (err?.message || err)); }
-    } finally { setDl(''); }
-  }
+
 
   const docsByCategory = {};
   for (const d of docs) {
@@ -293,10 +270,9 @@ export default function TripDocsSection({
                       <a
                         href={`/api/trip-docs/${d.id}/download/${encodeURIComponent(docFileName(d))}`}
                         download={docFileName(d)}
-                        onClick={(e) => handleDownload(e, d)}
                         className="text-sm font-semibold text-blue-700 hover:underline truncate block"
                       >
-                        📄 {d.title} <span className="text-[10px] text-blue-500">{dl === d.id ? '⏳ menyiapkan…' : '⬇ Download'}</span>
+                        📄 {d.title} <span className="text-[10px] text-blue-500">⬇ Download</span>
                       </a>
                       {d.notes && <p className="text-xs text-slate-500 mt-0.5">{d.notes}</p>}
                       <p className="text-[10px] text-slate-400 mt-0.5">
