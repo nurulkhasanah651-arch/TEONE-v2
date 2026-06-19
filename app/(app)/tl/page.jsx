@@ -71,8 +71,41 @@ export default async function TLPortalPage() {
     } catch {}
   }
 
-  const userName = user?.user_metadata?.full_name?.toLowerCase() || user?.email?.split('@')[0]?.toLowerCase() || '';
-  const myTrips = activeTrips.filter((t) => t.tl_name && (t.tl_name || '').toLowerCase().includes(userName));
+  // Cocokkan TL yang login ke trip-nya secara ANDAL: via tour_leaders (email/user_id) → tl_id,
+  // fallback ke tl_phone / tl_email, terakhir baru nama. (dulu cuma cek nama → sering 0 trip)
+  const normPhone = (p) => String(p || '').replace(/\D/g, '').replace(/^0/, '62');
+  const userEmail = (user?.email || '').toLowerCase();
+  let tlRecord = null;
+  try {
+    const ors = [];
+    if (userEmail) ors.push(`email.ilike.${userEmail}`);
+    if (user?.id) ors.push(`user_id.eq.${user.id}`);
+    if (ors.length) {
+      const { data: tlByEmail } = await serviceClient
+        .from('tour_leaders').select('id, name, email, phone, user_id')
+        .or(ors.join(',')).limit(1).maybeSingle();
+      tlRecord = tlByEmail || null;
+    }
+  } catch {}
+  // Tautkan user_id ke record TL pada login pertama (biar makin akurat ke depan)
+  try {
+    if (tlRecord && !tlRecord.user_id && user?.id) {
+      await serviceClient.from('tour_leaders').update({ user_id: user.id }).eq('id', tlRecord.id);
+    }
+  } catch {}
+
+  const myTlId = tlRecord?.id ?? null;
+  const myPhone = normPhone(tlRecord?.phone);
+  const userName = user?.user_metadata?.full_name?.toLowerCase() || userEmail.split('@')[0] || '';
+  const myTrips = activeTrips.filter((t) => {
+    if (myTlId != null && t.tl_id != null && String(t.tl_id) === String(myTlId)) return true;
+    if (userEmail && t.tl_email && String(t.tl_email).toLowerCase() === userEmail) return true;
+    if (myPhone && t.tl_phone && normPhone(t.tl_phone) === myPhone) return true;
+    // fallback longgar by nama (dua arah)
+    const tn = (t.tl_name || '').toLowerCase().trim();
+    if (tn && userName && (tn.includes(userName) || userName.includes(tn))) return true;
+    return false;
+  });
   const tripsWithTL = activeTrips.filter((t) => t.tl_name && t.tl_name.trim());
 
   // ═══ INTERNAL MANAGEMENT VIEW (Manager / Ops / Owner / CS) ═══
