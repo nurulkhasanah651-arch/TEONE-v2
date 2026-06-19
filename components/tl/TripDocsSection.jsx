@@ -4,7 +4,7 @@
 // Path: components/tl/TripDocsSection.jsx
 
 import { useState, useTransition } from 'react';
-import { addTripDocument, deleteTripDocument, getTripDocDownloadUrl } from '@/lib/actions/tlmanage';
+import { addTripDocument, deleteTripDocument } from '@/lib/actions/tlmanage';
 import FileUploadInput from './FileUploadInput';
 
 const CATEGORIES = [
@@ -115,38 +115,27 @@ export default function TripDocsSection({
   }
 
   const [dl, setDl] = useState('');
-  async function handleDownload(doc) {
+  async function handleDownload(e, doc) {
+    if (e) e.preventDefault();
+    const name = docFileName(doc);
+    const url = `/api/trip-docs/${doc.id}/download/${encodeURIComponent(name)}`;
     setDl(doc.id);
     try {
-      const r = await getTripDocDownloadUrl(doc.id);
-      if (r?.error) { alert('Gagal download: ' + r.error); return; }
-      if (!r?.url) { alert('File tidak tersedia'); return; }
-      const filename = r.filename || (doc.title || 'dokumen');
-      // Unduh paksa: fetch -> blob -> anchor download. Fallback buka tab bila CORS blokir.
-      try {
-        const resp = await fetch(r.url);
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        const blob = await resp.blob();
-        const objUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = objUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(objUrl), 4000);
-      } catch (corsErr) {
-        const a = document.createElement('a');
-        a.href = r.url;
-        a.download = filename;
-        a.target = '_blank';
-        a.rel = 'noreferrer';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }
-    } catch (e) {
-      alert('Gagal download: ' + (e?.message || e));
+      // Same-origin (tanpa CORS): fetch -> blob -> paksa simpan ke perangkat
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const blob = await resp.blob();
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objUrl;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(objUrl), 5000);
+    } catch (err) {
+      // Fallback: buka URL route (header attachment) langsung
+      try { window.location.href = url; } catch { alert('Gagal download: ' + (err?.message || err)); }
     } finally { setDl(''); }
   }
 
@@ -304,9 +293,10 @@ export default function TripDocsSection({
                       <a
                         href={`/api/trip-docs/${d.id}/download/${encodeURIComponent(docFileName(d))}`}
                         download={docFileName(d)}
+                        onClick={(e) => handleDownload(e, d)}
                         className="text-sm font-semibold text-blue-700 hover:underline truncate block"
                       >
-                        📄 {d.title} <span className="text-[10px] text-blue-500">⬇ Download</span>
+                        📄 {d.title} <span className="text-[10px] text-blue-500">{dl === d.id ? '⏳ menyiapkan…' : '⬇ Download'}</span>
                       </a>
                       {d.notes && <p className="text-xs text-slate-500 mt-0.5">{d.notes}</p>}
                       <p className="text-[10px] text-slate-400 mt-0.5">
