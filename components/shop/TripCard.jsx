@@ -13,7 +13,7 @@ export default function TripCard({ t }) {
           ? <img src={t.cover_image_url} alt={t.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
           : <div className="w-full h-full flex items-center justify-center text-white/80 text-4xl">✈</div>}
         <span className={`absolute top-3 left-3 text-[11px] font-bold px-2 py-1 rounded-full ${seat > 0 ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
-          {seat > 0 ? `Sisa ${seat} seat` : 'Seat habis'}
+          {seat > 0 ? `Sisa ${seat} seat` : 'SOLD OUT'}
         </span>
       </div>
       <div className="p-4">

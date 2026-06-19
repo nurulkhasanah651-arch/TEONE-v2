@@ -173,12 +173,12 @@ export default async function TripDetailPage({ params }) {
 
             <div className="mt-3 text-sm text-slate-600 space-y-1 border-t border-slate-100 pt-3">
               <p>📅 {fmtDate(t.departure)}{t.return_date ? ` – ${fmtDate(t.return_date)}` : ''}</p>
-              <p className={seat > 0 ? 'text-emerald-700 font-semibold' : 'text-red-600 font-semibold'}>{seat > 0 ? `🎟 Sisa ${seat} seat` : '🚫 Seat habis'}</p>
+              <p className={seat > 0 ? 'text-emerald-700 font-semibold' : 'text-red-600 font-semibold'}>{seat > 0 ? `🎟 Sisa ${seat} seat` : '🚫 SOLD OUT'}</p>
             </div>
             {seat > 0 ? (
               <Link href={`/checkout/${t.slug || t.id}`} className="mt-4 block text-center w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold">Pesan Sekarang</Link>
             ) : (
-              <button disabled className="mt-4 w-full py-3 rounded-xl bg-slate-200 text-slate-400 font-bold cursor-not-allowed">Seat Habis</button>
+              <button disabled className="mt-4 w-full py-3 rounded-xl bg-slate-200 text-slate-400 font-bold cursor-not-allowed">SOLD OUT</button>
             )}
             <a href="https://wa.me/628145460210" target="_blank" rel="noreferrer" className="mt-2 block text-center w-full py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50">Tanya dulu via WA</a>
           </div>
