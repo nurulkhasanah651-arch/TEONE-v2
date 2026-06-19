@@ -1,5 +1,6 @@
-// Stream download dokumen trip via domain sendiri (teone/khasanah) dengan header attachment.
-// Andal di desktop & mobile (paksa unduh, tanpa CORS, TL tak perlu akun Supabase).
+// Stream download dokumen trip via domain sendiri dengan header attachment.
+// Nama file asli jadi segmen URL terakhir → HP menyimpan dengan nama benar
+// walau Content-Disposition diabaikan. Andal di desktop & mobile.
 import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 
@@ -41,7 +42,6 @@ export async function GET(req, { params }) {
   const parsed = parseStorageUrl(doc.file_url);
   if (parsed) { bucket = parsed.bucket; path = path || parsed.path; }
   if (!path) {
-    // file_url bukan storage Supabase → redirect saja
     if (doc.file_url) return Response.redirect(doc.file_url, 302);
     return new Response('No file', { status: 404 });
   }
@@ -60,7 +60,10 @@ export async function GET(req, { params }) {
   const src = path || doc.file_url || '';
   const extMatch = String(src).match(/\.([a-zA-Z0-9]{2,5})(?:\?|$)/);
   const ext = extMatch ? extMatch[1].toLowerCase() : '';
-  let base = (doc.title || 'dokumen').replace(/[^a-zA-Z0-9.\- ]/g, '_').trim().slice(0, 80) || 'dokumen';
+  // Nama dari segmen URL (dikirim client) atau fallback dari judul
+  let base = '';
+  try { base = decodeURIComponent(params?.filename || ''); } catch { base = params?.filename || ''; }
+  base = (base || doc.title || 'dokumen').replace(/[^a-zA-Z0-9.\- ]/g, '_').trim().slice(0, 100) || 'dokumen';
   if (ext && !base.toLowerCase().endsWith('.' + ext)) base += '.' + ext;
 
   const buf = Buffer.from(await blob.arrayBuffer());

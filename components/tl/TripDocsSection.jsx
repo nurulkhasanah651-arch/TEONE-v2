@@ -34,6 +34,15 @@ function fmtSize(b) {
   return (b / 1048576).toFixed(1) + ' MB';
 }
 
+function docFileName(d) {
+  const src = d?.file_path || d?.file_url || '';
+  const m = String(src).match(/\.([a-zA-Z0-9]{2,5})(?:\?|$)/);
+  const ext = m ? m[1].toLowerCase() : '';
+  let base = String(d?.title || 'dokumen').replace(/[^a-zA-Z0-9.\- ]/g, '_').trim().slice(0, 100) || 'dokumen';
+  if (ext && !base.toLowerCase().endsWith('.' + ext)) base += '.' + ext;
+  return base;
+}
+
 export default function TripDocsSection({
   tripId, docs = [],
   canUpload = false,
@@ -293,7 +302,7 @@ export default function TripDocsSection({
                   <div key={d.id} className="flex items-center justify-between gap-3 p-2 rounded bg-slate-50 hover:bg-slate-100 group">
                     <div className="flex-1 min-w-0">
                       <a
-                        href={`/api/trip-docs/${d.id}/download`}
+                        href={`/api/trip-docs/${d.id}/download/${encodeURIComponent(docFileName(d))}`}
                         className="text-sm font-semibold text-blue-700 hover:underline truncate block"
                       >
                         📄 {d.title} <span className="text-[10px] text-blue-500">⬇ Download</span>
