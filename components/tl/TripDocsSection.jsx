@@ -111,11 +111,27 @@ export default function TripDocsSection({
     try {
       const r = await getTripDocDownloadUrl(doc.id);
       if (r?.error) { alert('Gagal download: ' + r.error); return; }
-      if (r?.url) {
+      if (!r?.url) { alert('File tidak tersedia'); return; }
+      const filename = r.filename || (doc.title || 'dokumen');
+      // Unduh paksa: fetch -> blob -> anchor download. Fallback buka tab bila CORS blokir.
+      try {
+        const resp = await fetch(r.url);
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const blob = await resp.blob();
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(objUrl), 4000);
+      } catch (corsErr) {
         const a = document.createElement('a');
         a.href = r.url;
-        a.rel = 'noreferrer';
+        a.download = filename;
         a.target = '_blank';
+        a.rel = 'noreferrer';
         document.body.appendChild(a);
         a.click();
         a.remove();
