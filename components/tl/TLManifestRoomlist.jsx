@@ -6,8 +6,8 @@
 import { useMemo, useState } from 'react';
 import { generateRoomlist, normalizeGender } from '@/lib/utils/roomlist';
 import { calcAge } from '@/lib/utils/format';
-import { buildRoomlistAOA } from '@/lib/utils/roomlist-export';
 import { downloadRoomlistPDF } from '@/lib/utils/roomlist-pdf';
+import { downloadManifestPDF } from '@/lib/utils/manifest-pdf';
 
 function fmtDate(s) {
   if (!s) return '—';
@@ -63,53 +63,32 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
 
   const isSavedFinal = Array.isArray(trip?.final_roomlist?.rooms) && trip.final_roomlist.rooms.length > 0;
 
-  async function downloadExcel() {
+  async function downloadManifestPdf() {
     try {
-      const XLSX = await import('xlsx');
-      const wb = XLSX.utils.book_new();
-
-      // Sheet Manifest
-      const manifestAoa = [
-        [`MANIFEST — ${trip?.name || ''}`],
-        [`${fmtDate(trip?.departure)} s/d ${fmtDate(trip?.return_date || trip?.arrival)}`],
-        [''],
-        ['No.', 'First Name', 'Last Name', 'Gender', 'Tempat Lahir', 'Tgl Lahir', 'Umur', 'No. Paspor', 'Tgl Issue', 'Issuing Office', 'Tgl Expired', 'No. HP'],
-        ...passengers.map((p, idx) => {
-          const c = customerMap[p.customer_id] || {};
-          const g = normalizeGender({ gender: p.gender || p.sex || c.gender || c.sex });
-          const first = c.first_name || (c.name ? c.name.split(' ')[0] : '');
-          const last = c.surname || c.last_name || (c.name ? c.name.split(' ').slice(1).join(' ') : '');
-          const birth = c.birthday || c.dob || c.date_of_birth;
-          return [
-            idx + 1, first, last,
-            g === 'M' ? 'L' : g === 'F' ? 'P' : '',
-            c.place_of_birth || c.city || '',
-            fmtDate(birth), calcAge(birth) ?? '',
-            c.passport_no || c.passport_number || '',
-            fmtDate(c.passport_issued_date || c.issue_date),
-            c.passport_issued_at || c.issuing_office || '',
-            fmtDate(c.passport_expiry || c.expiry_date),
-            c.phone || c.whatsapp || '',
-          ];
-        }),
-      ];
-      const wsM = XLSX.utils.aoa_to_sheet(manifestAoa);
-      wsM['!cols'] = [{ wch: 5 }, { wch: 18 }, { wch: 18 }, { wch: 7 }, { wch: 16 }, { wch: 13 }, { wch: 6 }, { wch: 18 }, { wch: 13 }, { wch: 18 }, { wch: 13 }, { wch: 16 }];
-      XLSX.utils.book_append_sheet(wb, wsM, 'Manifest');
-
-      // Sheet Roomlist (format template TE)
-      const { aoa: roomAoa, merges: roomMerges, cols: roomCols } = buildRoomlistAOA({
-        trip: { name: trip?.name, kode_trip: trip?.kode_trip, departure: trip?.departure, return_date: trip?.return_date, arrival: trip?.arrival },
-        rooms,
+      const rows = passengers.map((p, idx) => {
+        const c = customerMap[p.customer_id] || {};
+        const g = normalizeGender({ gender: p.gender || p.sex || c.gender || c.sex });
+        const first = c.first_name || (c.name ? c.name.split(' ')[0] : '');
+        const last = c.surname || c.last_name || (c.name ? c.name.split(' ').slice(1).join(' ') : '');
+        const birth = c.birthday || c.dob || c.date_of_birth;
+        return [
+          idx + 1, first, last,
+          g === 'M' ? 'L' : g === 'F' ? 'P' : '',
+          c.place_of_birth || c.city || '',
+          fmtDate(birth), calcAge(birth) ?? '',
+          c.passport_no || c.passport_number || '',
+          fmtDate(c.passport_issued_date || c.issue_date),
+          c.passport_issued_at || c.issuing_office || '',
+          fmtDate(c.passport_expiry || c.expiry_date),
+          c.phone || c.whatsapp || '',
+        ];
       });
-      const wsR = XLSX.utils.aoa_to_sheet(roomAoa);
-      wsR['!cols'] = roomCols;
-      wsR['!merges'] = roomMerges;
-      XLSX.utils.book_append_sheet(wb, wsR, 'Roomlist');
-
-      XLSX.writeFile(wb, `Manifest-Roomlist - ${trip?.kode_trip || trip?.name || 'trip'}.xlsx`);
+      await downloadManifestPDF({
+        trip: { name: trip?.name, kode_trip: trip?.kode_trip, departure: trip?.departure, return_date: trip?.return_date, arrival: trip?.arrival },
+        rows,
+      });
     } catch (e) {
-      alert('Gagal download: ' + (e?.message || e));
+      alert('Gagal download Manifest: ' + (e?.message || e));
     }
   }
 
@@ -128,8 +107,8 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
         <h2 className="font-bold text-brand-700 flex-1">📋 Manifest & Roomlist</h2>
+        <button onClick={downloadManifestPdf} className="px-3 py-1 rounded font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white">📋 Manifest PDF</button>
         <button onClick={downloadPdf} className="px-3 py-1 rounded font-semibold text-xs bg-rose-600 hover:bg-rose-700 text-white">🛏 Roomlist PDF</button>
-        <button onClick={downloadExcel} className="px-3 py-1 rounded font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white">📥 Excel</button>
         <div className="flex gap-1 text-xs">
           <button
             onClick={() => setTab('manifest')}
