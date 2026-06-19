@@ -303,6 +303,7 @@ export default function TripDocsSection({
                     <div className="flex-1 min-w-0">
                       <a
                         href={`/api/trip-docs/${d.id}/download/${encodeURIComponent(docFileName(d))}`}
+                        download={docFileName(d)}
                         className="text-sm font-semibold text-blue-700 hover:underline truncate block"
                       >
                         📄 {d.title} <span className="text-[10px] text-blue-500">⬇ Download</span>
