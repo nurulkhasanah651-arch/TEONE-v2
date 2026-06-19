@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { resolveBrandCode } from '@/lib/brand-shared';
 import { storefrontConfig } from '@/lib/shop/storefront-config';
 import { effectiveRegions } from '@/lib/shop/regions';
-import { getLatestTrips, getStorefrontSettingsPublic } from '@/lib/shop/data';
+import { getFlashSaleTrips, getBestSellerTrips, getStorefrontSettingsPublic } from '@/lib/shop/data';
 import { getGoogleReviews } from '@/lib/shop/google-reviews';
 import TripCard from '@/components/shop/TripCard';
 import HeroSlider from '@/components/shop/HeroSlider';
@@ -25,7 +25,8 @@ export default async function StorefrontHome() {
   const settings = await getStorefrontSettingsPublic();
   const heroImages = (settings?.hero_images && settings.hero_images.length) ? settings.hero_images : (cfg.heroImages || (cfg.heroImage ? [cfg.heroImage] : []));
   const regions = effectiveRegions(settings?.regions);
-  const latest = await getLatestTrips(6);
+  const flashSale = await getFlashSaleTrips(8);
+  const bestSeller = await getBestSellerTrips(6);
   const live = await getGoogleReviews(cfg.googlePlaceId);
   const rating = live?.rating || cfg.googleRating;
   const count = live?.count || cfg.googleCount;
@@ -62,36 +63,12 @@ export default async function StorefrontHome() {
         </div>
       </section>
 
-      {/* PILIH JADWAL TERBARU */}
-      <section className="max-w-6xl mx-auto px-4 py-14">
-        <div className="flex items-end justify-between mb-6">
-          <div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Pilih Jadwal Terbaru</h2>
-            <p className="text-slate-500 mt-1">Keberangkatan terdekat — booking sekarang sebelum seat habis.</p>
-          </div>
-          <Link href="/trip" className="hidden sm:inline text-sm font-bold text-emerald-600 hover:text-emerald-700">Lihat semua →</Link>
-        </div>
-        {latest.length === 0 ? (
-          <div className="text-center py-12 text-slate-400">
-            <p className="text-4xl mb-2">🧳</p>
-            <p className="font-bold text-slate-600">Jadwal trip akan segera tayang</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {latest.map((t) => <TripCard key={t.id} t={t} />)}
-          </div>
-        )}
-        <div className="mt-6 sm:hidden text-center">
-          <Link href="/trip" className="text-sm font-bold text-emerald-600">Lihat semua trip →</Link>
-        </div>
-      </section>
-
-      {/* KATEGORI PER REGION */}
+      {/* KATEGORI PER BENUA — paling atas */}
       <section className="bg-slate-50 border-y border-slate-100">
         <div className="max-w-6xl mx-auto px-4 py-14">
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Jelajahi per Destinasi</h2>
-          <p className="text-slate-500 mt-1">Pilih region favoritmu.</p>
-          <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Jelajahi per Benua</h2>
+          <p className="text-slate-500 mt-1">Pilih region favoritmu — Eropa, UK + Ireland, Asia, dan lainnya.</p>
+          <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
             {regions.map((r) => (
               <Link key={r.key} href={`/trip?region=${r.key}`} className="group relative rounded-2xl overflow-hidden aspect-[3/4] shadow-sm hover:shadow-lg transition-shadow bg-gradient-to-br from-slate-700 to-slate-900">
                 {r.image
@@ -105,6 +82,46 @@ export default async function StorefrontHome() {
               </Link>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* FLASH SALE — promo/diskon */}
+      {flashSale.length > 0 && (
+      <section className="max-w-6xl mx-auto px-4 py-14">
+        <div className="flex items-end justify-between mb-6">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-rose-600">⚡ Flash Sale Trip</h2>
+            <p className="text-slate-500 mt-1">Promo & diskon spesial — buruan sebelum kehabisan!</p>
+          </div>
+          <Link href="/trip" className="hidden sm:inline text-sm font-bold text-rose-600 hover:text-rose-700">Lihat semua →</Link>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {flashSale.map((t) => <TripCard key={t.id} t={t} />)}
+        </div>
+      </section>
+      )}
+
+      {/* BEST SELLER TRIP (dipilih dari master trip) */}
+      <section className="max-w-6xl mx-auto px-4 py-14">
+        <div className="flex items-end justify-between mb-6">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">⭐ Best Seller Trip</h2>
+            <p className="text-slate-500 mt-1">Trip paling diminati — favorit para peserta.</p>
+          </div>
+          <Link href="/trip" className="hidden sm:inline text-sm font-bold text-emerald-600 hover:text-emerald-700">Lihat semua →</Link>
+        </div>
+        {bestSeller.length === 0 ? (
+          <div className="text-center py-12 text-slate-400">
+            <p className="text-4xl mb-2">🧳</p>
+            <p className="font-bold text-slate-600">Best seller akan segera tayang</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {bestSeller.map((t) => <TripCard key={t.id} t={t} />)}
+          </div>
+        )}
+        <div className="mt-6 sm:hidden text-center">
+          <Link href="/trip" className="text-sm font-bold text-emerald-600">Lihat semua trip →</Link>
         </div>
       </section>
 

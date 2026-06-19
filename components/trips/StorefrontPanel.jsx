@@ -11,6 +11,8 @@ export default function StorefrontPanel({ trip }) {
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
   const [published, setPublished] = useState(!!trip.is_published);
+  const [flashSale, setFlashSale] = useState(!!trip.is_flash_sale);
+  const [bestSeller, setBestSeller] = useState(!!trip.is_best_seller);
   const [cover, setCover] = useState(trip.cover_image_url || '');
   const [gallery, setGallery] = useState(Array.isArray(trip.gallery_images) ? trip.gallery_images : []);
   const [uploading, setUploading] = useState(null); // 'cover' | 'gallery' | 'day-<i>'
@@ -61,6 +63,8 @@ export default function StorefrontPanel({ trip }) {
     setMsg(null);
     const fd = new FormData(e.target);
     fd.set('is_published', published ? '1' : '0');
+    fd.set('is_flash_sale', flashSale ? '1' : '0');
+    fd.set('is_best_seller', bestSeller ? '1' : '0');
     fd.set('_name', trip.name || '');
     fd.set('cover_image_url', cover || '');
     fd.set('gallery_images', JSON.stringify(gallery));
@@ -84,6 +88,14 @@ export default function StorefrontPanel({ trip }) {
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} className="w-4 h-4" />
           <span className="text-sm font-bold text-emerald-800">{published ? 'Tampil di web' : 'Belum tampil'}</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={flashSale} onChange={(e) => setFlashSale(e.target.checked)} className="w-4 h-4 accent-rose-600" />
+          <span className="text-sm font-bold text-rose-700">⚡ Flash Sale</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={bestSeller} onChange={(e) => setBestSeller(e.target.checked)} className="w-4 h-4 accent-amber-500" />
+          <span className="text-sm font-bold text-amber-700">⭐ Best Seller</span>
         </label>
       </div>
       <form onSubmit={submit} className="p-5 space-y-4">
