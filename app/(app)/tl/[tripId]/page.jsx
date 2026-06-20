@@ -13,6 +13,7 @@ import ReimbursementPanel from '@/components/tl/ReimbursementPanel';
 import TripDocsSection from '@/components/tl/TripDocsSection';
 import PreDepartureChecklist from '@/components/tl/PreDepartureChecklist';
 import TLExpenseForm from '@/components/tl/TLExpenseForm';
+import SignedFileLink from '@/components/common/SignedFileLink';
 import FinalReportForm from '@/components/tl/FinalReportForm';
 import VendorReviewSection from '@/components/tl/VendorReviewSection';
 import TLManifestRoomlist from '@/components/tl/TLManifestRoomlist';
@@ -68,6 +69,8 @@ export default async function TLTripDetailPage({ params }) {
   try { const r = await serviceClient.from('trip_petty_cash').select('*').eq('trip_id', tripId).maybeSingle(); pettyCash = r.data; } catch {}
   try { const r = await serviceClient.from('reimbursement_requests').select('*').eq('trip_id', tripId).order('created_at', { ascending: false }); reimbursements = r.data || []; } catch {}
   try { const r = await serviceClient.from('trip_documents').select('*').eq('trip_id', tripId).order('created_at', { ascending: false }); docs = r.data || []; } catch {}
+  let tlExpenses = [];
+  try { const r = await serviceClient.from('trip_tl_expenses').select('*').eq('trip_id', tripId).order('created_at', { ascending: false }); tlExpenses = r.data || []; } catch {}
 
   // R130 data
   let checklist = null, finalReport = null, vendorReviews = [];
@@ -156,6 +159,39 @@ export default async function TLTripDetailPage({ params }) {
           userRole={role}
         />
       )}
+
+      {/* DAFTAR EXPENSE TERCATAT (petty + reimburse) + bukti */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+          <h2 className="font-bold text-slate-700">🧾 Daftar Expense Tercatat <span className="text-xs font-semibold text-slate-500">({tlExpenses.length})</span></h2>
+        </div>
+        {tlExpenses.length === 0 ? (
+          <div className="p-6 text-center text-sm text-slate-500">Belum ada expense tercatat.</div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {tlExpenses.map((ex) => (
+              <div key={ex.id} className="px-5 py-3 flex items-start justify-between gap-3 flex-wrap">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {ex.category && <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">{ex.category}</span>}
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${ex.status === 'petty' ? 'bg-emerald-100 text-emerald-700' : ex.status === 'reimburse' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                      {ex.status === 'petty' ? 'Petty Cash' : ex.status === 'reimburse' ? 'Reimburse' : 'Petty + Reimburse'}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">{ex.description}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {ex.tanggal ? fmtDate(ex.tanggal) : fmtDate(ex.created_at)}{ex.submitted_by ? ` · ${ex.submitted_by}` : ''}
+                  </p>
+                  {ex.receipt_url
+                    ? <SignedFileLink url={ex.receipt_url} className="text-[11px] text-blue-600 hover:underline cursor-pointer inline-block mt-0.5">📎 Lihat bukti</SignedFileLink>
+                    : <span className="text-[11px] text-slate-400 inline-block mt-0.5">tanpa bukti</span>}
+                </div>
+                <p className="text-sm font-bold text-slate-800 whitespace-nowrap">{fmtRupiah(ex.amount_idr || 0)}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* REIMBURSEMENT */}
       <ReimbursementPanel
