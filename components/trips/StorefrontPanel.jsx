@@ -145,6 +145,14 @@ export default function StorefrontPanel({ trip }) {
       </div>
       <form onSubmit={submit} className="p-5 space-y-4">
 
+        <div className="rounded-lg bg-emerald-50 border-2 border-emerald-300 p-3">
+          <label className="block">
+            <span className="text-sm font-extrabold text-emerald-800">📝 Judul Trip (tampil di web)</span>
+            <span className="block text-[11px] text-emerald-700 mb-1">Judul besar yang dilihat customer — boleh beda dari nama Master Trip. Kosongkan = pakai nama master.</span>
+            <input name="public_title" defaultValue={trip.public_title || ''} placeholder={trip.name || 'mis: West Europe Special Zermatt Swiss'} className={inp + ' bg-white'} />
+          </label>
+        </div>
+
         <div className="rounded-lg bg-indigo-50 border border-indigo-200 p-3">
           <span className="text-xs font-bold text-indigo-800">⚡ Pakai Template dari Trip Lain</span>
           <p className="text-[11px] text-indigo-600 mb-1">Pilih paket yang sudah ada (mis. West Europe) → itinerary, foto, deskripsi, highlight, termasuk/tidak, visa & S&K terisi otomatis. Tinggal edit lalu Simpan. (Harga & DP tetap dari trip ini.)</p>
@@ -189,9 +197,6 @@ export default function StorefrontPanel({ trip }) {
             </label>
           </div>
         </div>
-
-        <label className="block"><span className="text-xs font-bold text-slate-600">Judul Trip tampil di web (opsional — kosongkan untuk pakai nama Master Trip)</span>
-          <input name="public_title" defaultValue={trip.public_title || ''} placeholder={trip.name || ''} className={inp} /></label>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="block"><span className="text-xs font-bold text-slate-600">Slug URL (otomatis dari nama kalau kosong)</span>
