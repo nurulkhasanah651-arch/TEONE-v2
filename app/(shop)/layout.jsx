@@ -48,7 +48,6 @@ export default async function ShopLayout({ children }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
             <div>
               {logo ? <img src={logo} alt={cfg.brandName || ui.label} className="h-10 w-auto object-contain mb-2" /> : <p className="font-extrabold text-slate-800 text-lg">{cfg.brandName || ui.label}</p>}
-              <p className="mt-2 text-sm text-slate-500 max-w-sm">{ui.footer}</p>
             </div>
             <div>
               <p className="font-bold text-slate-800 mb-2">Contact Us</p>
