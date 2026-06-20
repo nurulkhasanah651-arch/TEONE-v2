@@ -11,6 +11,7 @@ import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import PaymentRequests from '@/components/accounting/PaymentRequests';
 import DownloadButtons from '@/components/common/DownloadButtons';
 import AccountingSheetPanel from '@/components/accounting/AccountingSheetPanel';
+import DeleteTxButton from '@/components/accounting/DeleteTxButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -653,9 +654,12 @@ export default async function AccountingDashboard({ searchParams }) {
                     <p className="mt-1 text-sm font-semibold text-slate-800">{e.description}</p>
                     <p className="text-xs text-slate-500 mt-0.5">{fmtDate(e.date)}</p>
                   </div>
-                  <p className={`text-lg font-bold ${e.type === 'in' ? 'text-green-700' : 'text-amber-700'}`}>
-                    {e.type === 'in' ? '+' : '−'} {fmtRupiah(e.amount)}
-                  </p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <p className={`text-lg font-bold ${e.type === 'in' ? 'text-green-700' : 'text-amber-700'}`}>
+                      {e.type === 'in' ? '+' : '−'} {fmtRupiah(e.amount)}
+                    </p>
+                    <DeleteTxButton source={e.source} id={e.id} label={e.description} />
+                  </div>
                 </div>
               </div>
             ))}
