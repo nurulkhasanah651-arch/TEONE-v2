@@ -180,8 +180,14 @@ export default function EtalaseManager({ initialHero, initialRegions, initialPri
     if (!file || !/^image\//.test(file.type)) return;
     setBusy(true);
     const r = await doUpload(file);
-    if (r?.url) updateRegion(i, { image: r.url });
-    else if (r?.error) toast(r.error, 'error');
+    if (r?.url) {
+      const next = regions.map((rg, idx) => idx === i ? { ...rg, image: r.url } : rg);
+      setRegions(next);
+      // langsung simpan ke DB supaya foto region tidak hilang saat reload
+      const payload = next.map((rg) => ({ ...rg, kw: typeof rg.kw === 'string' ? rg.kw : (Array.isArray(rg.kw) ? rg.kw.join(', ') : '') }));
+      const sv = await saveRegions(payload);
+      if (sv?.error) toast(sv.error, 'error'); else toast('✓ Foto region tersimpan');
+    } else if (r?.error) toast(r.error, 'error');
     setBusy(false);
   }
   function saveAllRegions() {
