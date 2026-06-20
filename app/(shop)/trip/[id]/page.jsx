@@ -5,6 +5,7 @@ import { resolveBrandCode } from '@/lib/brand-shared';
 import { defaultTermsFor } from '@/lib/shop/default-terms';
 import { getPublishedTrip, tripSeatLeft, tripPrice, tripRoomPrices, getStorefrontSettingsPublic } from '@/lib/shop/data';
 import HeroSlider from '@/components/shop/HeroSlider';
+import ShareTrip from '@/components/shop/ShareTrip';
 
 export const dynamic = 'force-dynamic';
 
@@ -211,6 +212,7 @@ export default async function TripDetailPage({ params }) {
               <button disabled className="mt-4 w-full py-3 rounded-xl bg-slate-200 text-slate-400 font-bold cursor-not-allowed">SOLD OUT</button>
             )}
             <a href="https://wa.me/6282210991200" target="_blank" rel="noreferrer" className="mt-2 block text-center w-full py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50">Tanya dulu via WA</a>
+            <ShareTrip title={t.public_title || t.name} />
           </div>
         </div>
       </div>

@@ -142,6 +142,8 @@ export default function StorefrontPanel({ trip }) {
           <input type="checkbox" checked={bestSeller} onChange={(e) => setBestSeller(e.target.checked)} className="w-4 h-4 accent-amber-500" />
           <span className="text-sm font-bold text-amber-700">⭐ Best Seller</span>
         </label>
+        <button type="button" onClick={() => window.open(`/trip/${trip.slug || trip.id}/pdf`, '_blank')}
+          className="ml-auto px-3 py-1.5 rounded-lg bg-slate-900 text-white text-sm font-bold hover:bg-slate-800">📄 Download PDF</button>
       </div>
       <form onSubmit={submit} className="p-5 space-y-4">
 
