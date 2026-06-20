@@ -1,11 +1,11 @@
 'use client';
 import { useState, useTransition } from 'react';
-import { PAY_METHODS, paymentFee } from '@/lib/shop/payment-fee';
+import { PAY_METHODS } from '@/lib/shop/payment-fee';
 
 function fmtRp(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
 
 // pay: async (method) => { redirect_url } | { error }
-export default function OnlinePayMethods({ amount = 0, pay, note, buttonLabel = '💳 Bayar Online' }) {
+export default function OnlinePayMethods({ amount = 0, pay, note, buttonLabel = '💳 Bayar Online', feeFlat = 0 }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [busy, setBusy] = useState(null);
@@ -43,7 +43,7 @@ export default function OnlinePayMethods({ amount = 0, pay, note, buttonLabel = 
         <button type="button" onClick={() => setOpen(false)} className="text-[11px] text-slate-400 hover:text-slate-600">✕ tutup</button>
       </div>
       {PAY_METHODS.map((m) => {
-        const fee = paymentFee(m.key, amount);
+        const fee = Number(feeFlat) || 0;
         const total = (Number(amount) || 0) + fee;
         return (
           <button
@@ -54,12 +54,12 @@ export default function OnlinePayMethods({ amount = 0, pay, note, buttonLabel = 
             className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-emerald-400 disabled:opacity-50 text-left transition-colors"
           >
             <span className="min-w-0">
-              <span className="block text-sm font-bold text-slate-800">{m.short}{m.rate > 0 ? ` (+${Math.round(m.rate * 100)}%)` : ''}</span>
+              <span className="block text-sm font-bold text-slate-800">{m.short}</span>
               {m.desc && <span className="block text-[11px] text-slate-500">{m.desc}</span>}
             </span>
             <span className="text-right shrink-0">
               {amount > 0 && <span className="block text-sm font-bold text-emerald-700">{fmtRp(total)}</span>}
-              {fee > 0 && <span className="block text-[10px] text-slate-400">termasuk biaya {fmtRp(fee)}</span>}
+              {fee > 0 && <span className="block text-[10px] text-slate-400">termasuk biaya admin {fmtRp(fee)}</span>}
               {busy === m.key && pending && <span className="block text-[10px] text-emerald-600">membuka…</span>}
             </span>
           </button>
