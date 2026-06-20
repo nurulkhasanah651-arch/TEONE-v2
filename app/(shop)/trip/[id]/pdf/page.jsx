@@ -64,6 +64,8 @@ export default async function TripPdfPage({ params }) {
         table.price tr td:first-child { border-radius: 12px 0 0 12px; font-weight:700; }
         table.price tr td:last-child { border-radius: 0 12px 12px 0; text-align:right; font-weight:800; color:${C.primary}; }
         .itin td { vertical-align: top; }
+        .flow { overflow: visible !important; }
+        .daycard { page-break-inside: avoid; break-inside: avoid; }
         @media screen { body{ padding: 16px 0; } .page{ box-shadow: 0 6px 24px rgba(0,0,0,.18); margin-bottom: 18px; } }
         @media print { @page { size: A4; margin: 0; } body { margin:0; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .no-print { display:none !important; } .page { box-shadow:none; margin:0; } }
       `}</style>
@@ -159,26 +161,22 @@ export default async function TripPdfPage({ params }) {
 
         {/* ITINERARY */}
         {itin.length > 0 && (
-          <div className="page">
+          <div className="page flow">
             <TopBar />
             <div className="pad">
               <SectionHead>Itinerary</SectionHead>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }} className="itin">
-                <thead>
-                  <tr style={{ background: C.primary, color: '#fff' }}>
-                    <td style={{ padding: '10px 14px', fontWeight: 800, width: '34%' }}>Hari</td>
-                    <td style={{ padding: '10px 14px', fontWeight: 800 }}>Tujuan / Acara</td>
-                  </tr>
-                </thead>
-                <tbody>
-                  {itin.map((d, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid #e6edf5' }}>
-                      <td style={{ padding: '12px 14px', fontWeight: 700 }}>Day {d.day || i + 1}{d.title ? <span style={{ display: 'block', fontWeight: 600, color: '#42566e', fontSize: 12 }}>{d.title}</span> : null}</td>
-                      <td style={{ padding: '12px 14px', fontSize: 13, color: '#33475e', whiteSpace: 'pre-line' }}>{d.detail || d.title || '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {itin.map((d, i) => (
+                  <div key={i} className="daycard" style={{ display: 'flex', gap: 12, border: '1px solid #e6edf5', borderRadius: 12, overflow: 'hidden', background: '#fff' }}>
+                    {d.image && <img src={d.image} alt="" style={{ width: 130, height: 100, objectFit: 'cover', flexShrink: 0 }} />}
+                    <div style={{ padding: '10px 12px', flex: 1 }}>
+                      <span style={{ display: 'inline-block', background: C.primary, color: '#fff', fontWeight: 800, fontSize: 11, padding: '2px 12px', borderRadius: 999 }}>Day {d.day || i + 1}</span>
+                      {d.title && <p style={{ fontWeight: 700, margin: '6px 0 2px' }}>{d.title}</p>}
+                      {d.detail && <p style={{ fontSize: 12.5, color: '#33475e', whiteSpace: 'pre-line', margin: 0 }}>{d.detail}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
