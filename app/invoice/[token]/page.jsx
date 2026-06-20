@@ -2,6 +2,7 @@
 // Fix: roomTypeToKey smart mapping (Twin→double, dll)
 // Fix: section "Sudah Dibayar + Sisa" SELALU tampil walaupun breakdown kosong
 
+import SignedFileLink from '@/components/common/SignedFileLink';
 import { notFound } from 'next/navigation';
 import { createPublicClient as createClient } from '@/lib/supabase/server';
 import { getExpectedAndPaidForPassenger } from '@/lib/actions/invoices';
@@ -439,7 +440,7 @@ export default async function PublicInvoicePage({ params }) {
                          '⏳ Menunggu Verifikasi'}
                       </span>
                       {p.proof_url && (
-                        <a href={p.proof_url} target="_blank" rel="noreferrer" className="block mt-1 text-[10px] underline no-print">Lihat bukti</a>
+                        <SignedFileLink url={p.proof_url} className="block mt-1 text-[10px] underline no-print cursor-pointer">Lihat bukti</SignedFileLink>
                       )}
                     </div>
                   </div>

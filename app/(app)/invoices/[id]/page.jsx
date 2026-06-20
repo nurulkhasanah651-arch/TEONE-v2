@@ -1,5 +1,6 @@
 // Round 93: Admin Invoice detail — preview + actions (send WA, approve payment, mark paid)
 
+import SignedFileLink from '@/components/common/SignedFileLink';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -129,14 +130,12 @@ export default async function InvoiceDetailAdmin({ params }) {
                   </div>
                   <div className="text-right space-y-2">
                     {p.proof_url && (
-                      <a
-                        href={p.proof_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block px-3 py-1 bg-slate-100 hover:bg-slate-200 text-xs font-semibold rounded"
+                      <SignedFileLink
+                        url={p.proof_url}
+                        className="block px-3 py-1 bg-slate-100 hover:bg-slate-200 text-xs font-semibold rounded cursor-pointer"
                       >
                         📎 Lihat Bukti
-                      </a>
+                      </SignedFileLink>
                     )}
                   </div>
                 </div>

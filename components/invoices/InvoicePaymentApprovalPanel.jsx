@@ -4,6 +4,7 @@
 
 'use client';
 
+import SignedImage from '@/components/common/SignedImage';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { approveInvoicePayment, rejectInvoicePayment, deleteInvoicePayment } from '@/lib/actions/invoice-payment';
@@ -188,8 +189,8 @@ export default function InvoicePaymentApprovalPanel({ payments = [] }) {
                         </button>
                         {previewId === p.id && (
                           <div className="mt-2 inline-block p-2 bg-slate-50 border border-slate-200 rounded">
-                            <img
-                              src={p.proof_url}
+                            <SignedImage
+                              url={p.proof_url}
                               alt="Bukti transfer"
                               className="max-h-64 max-w-full rounded border border-slate-300"
                             />
