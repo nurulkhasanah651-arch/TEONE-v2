@@ -37,7 +37,7 @@ export default async function TripDetailPage({ params }) {
         {heroImgs.length > 0 && <HeroSlider images={heroImgs} overlay="bottom" />}
         <div className="relative max-w-6xl mx-auto px-4 h-full flex flex-col justify-end pb-6 text-white z-10">
           {t.destination && <p className="text-sm font-bold uppercase tracking-wider opacity-90">{t.destination}</p>}
-          <h1 className="text-3xl md:text-4xl font-extrabold">{t.name}</h1>
+          <h1 className="text-3xl md:text-4xl font-extrabold">{t.public_title || t.name}</h1>
           <p className="mt-1 opacity-90">{fmtDate(t.departure)}{t.return_date ? ` – ${fmtDate(t.return_date)}` : ''}</p>
         </div>
       </div>

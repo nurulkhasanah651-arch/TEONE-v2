@@ -24,7 +24,7 @@ export default function TripCard({ t }) {
       </div>
       <div className={`p-4 ${soldout ? 'bg-slate-50' : ''}`}>
         {t.destination && <p className={`text-[11px] font-bold uppercase tracking-wider ${soldout ? 'text-slate-400' : 'text-slate-400'}`}>{t.destination}</p>}
-        <h3 className={`font-bold mt-0.5 line-clamp-2 ${soldout ? 'text-slate-500' : 'text-slate-900'}`}>{t.name}</h3>
+        <h3 className={`font-bold mt-0.5 line-clamp-2 ${soldout ? 'text-slate-500' : 'text-slate-900'}`}>{t.public_title || t.name}</h3>
         <p className="text-xs text-slate-500 mt-1">{fmtDate(t.departure)}{t.return_date ? ` – ${fmtDate(t.return_date)}` : ''}</p>
         {soldout ? (
           <p className="mt-3 text-sm font-extrabold uppercase tracking-wide text-slate-400">SOLD OUT</p>

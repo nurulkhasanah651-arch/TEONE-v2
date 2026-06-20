@@ -190,6 +190,9 @@ export default function StorefrontPanel({ trip }) {
           </div>
         </div>
 
+        <label className="block"><span className="text-xs font-bold text-slate-600">Judul Trip tampil di web (opsional — kosongkan untuk pakai nama Master Trip)</span>
+          <input name="public_title" defaultValue={trip.public_title || ''} placeholder={trip.name || ''} className={inp} /></label>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="block"><span className="text-xs font-bold text-slate-600">Slug URL (otomatis dari nama kalau kosong)</span>
             <input name="slug" defaultValue={trip.slug || ''} placeholder="west-europe-open-trip" className={inp} /></label>
