@@ -1,8 +1,8 @@
 'use client';
-import { useState, useTransition } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { VISA_TEMPLATES } from '@/lib/shop/visa-templates';
 import { useRouter } from 'next/navigation';
-import { updateTripPublicContent, uploadStorefrontImage } from '@/lib/actions/shop-admin';
+import { updateTripPublicContent, uploadStorefrontImage, listStorefrontTemplates, getStorefrontTemplate } from '@/lib/actions/shop-admin';
 import { ROOM_KEYS } from '@/lib/utils/price-breakdown';
 import { compressImage } from '@/lib/utils/compress-image';
 
@@ -19,6 +19,13 @@ export default function StorefrontPanel({ trip }) {
   const [cover, setCover] = useState(trip.cover_image_url || '');
   const [gallery, setGallery] = useState(Array.isArray(trip.gallery_images) ? trip.gallery_images : []);
   const [uploading, setUploading] = useState(null); // 'cover' | 'gallery' | 'day-<i>'
+  const [highlights, setHighlights] = useState(trip.highlights || '');
+  const [description, setDescription] = useState(trip.description || '');
+  const [included, setIncluded] = useState(trip.included || '');
+  const [excluded, setExcluded] = useState(trip.excluded || '');
+  const [syaratKetentuan, setSyaratKetentuan] = useState(trip.syarat_ketentuan || '');
+  const [templates, setTemplates] = useState([]);
+  const [applying, setApplying] = useState(false);
 
   const [itin, setItin] = useState(
     Array.isArray(trip.itinerary) && trip.itinerary.length
@@ -63,6 +70,31 @@ export default function StorefrontPanel({ trip }) {
     if (r?.url) setDay(i, 'image', r.url);
   }
 
+  useEffect(() => {
+    listStorefrontTemplates(trip.id).then((r) => { if (r?.templates) setTemplates(r.templates); }).catch(() => {});
+  }, []);
+
+  async function applyTemplate(sourceId) {
+    if (!sourceId) return;
+    if (!confirm('Isi otomatis dari template ini? Konten saat ini (foto, itinerary, deskripsi, highlight, termasuk/tidak termasuk, visa, S&K) akan DITIMPA. Harga, slug, dan DP tidak ikut berubah.')) return;
+    setApplying(true); setMsg(null);
+    try {
+      const r = await getStorefrontTemplate(sourceId);
+      if (r?.error) { setMsg({ t: 'e', x: r.error }); return; }
+      const d = r.data;
+      setCover(d.cover_image_url || '');
+      setGallery(Array.isArray(d.gallery_images) ? d.gallery_images : []);
+      setItin(d.itinerary && d.itinerary.length ? d.itinerary : [{ title: '', detail: '', image: '' }]);
+      setHighlights(d.highlights || '');
+      setDescription(d.description || '');
+      setIncluded(d.included || '');
+      setExcluded(d.excluded || '');
+      setSyaratVisa(d.syarat_visa || '');
+      setSyaratKetentuan(d.syarat_ketentuan || '');
+      setMsg({ t: 'ok', x: 'Template diterapkan. Silakan edit lalu klik "Simpan Konten Jualan".' });
+    } finally { setApplying(false); }
+  }
+
   function submit(e) {
     e.preventDefault();
     setMsg(null);
@@ -104,6 +136,15 @@ export default function StorefrontPanel({ trip }) {
         </label>
       </div>
       <form onSubmit={submit} className="p-5 space-y-4">
+
+        <div className="rounded-lg bg-indigo-50 border border-indigo-200 p-3">
+          <span className="text-xs font-bold text-indigo-800">⚡ Pakai Template dari Trip Lain</span>
+          <p className="text-[11px] text-indigo-600 mb-1">Pilih paket yang sudah ada (mis. West Europe) → itinerary, foto, deskripsi, highlight, termasuk/tidak, visa & S&K terisi otomatis. Tinggal edit lalu Simpan. (Harga & DP tetap dari trip ini.)</p>
+          <select value="" disabled={applying} onChange={(e) => { applyTemplate(e.target.value); e.target.value = ''; }} className={inp + ' bg-white'}>
+            <option value="">{applying ? 'Menerapkan…' : '— Pilih trip sebagai template —'}</option>
+            {templates.map((t) => <option key={t.id} value={t.id}>{t.name}{t.kode_trip ? ` (${t.kode_trip})` : ''}</option>)}
+          </select>
+        </div>
 
         <div>
           <span className="text-xs font-bold text-slate-600">Foto Cover</span>
@@ -166,9 +207,9 @@ export default function StorefrontPanel({ trip }) {
         </div>
 
         <label className="block"><span className="text-xs font-bold text-slate-600">Highlight (singkat)</span>
-          <input name="highlights" defaultValue={trip.highlights || ''} placeholder="Menara Eiffel · Seine Cruise · Keukenhof" className={inp} /></label>
+          <input name="highlights" value={highlights} onChange={(e) => setHighlights(e.target.value)} placeholder="Menara Eiffel · Seine Cruise · Keukenhof" className={inp} /></label>
         <label className="block"><span className="text-xs font-bold text-slate-600">Deskripsi</span>
-          <textarea name="description" defaultValue={trip.description || ''} rows={3} className={inp} /></label>
+          <textarea name="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={inp} /></label>
 
         {/* ITINERARY per hari + foto */}
         <div>
@@ -205,14 +246,14 @@ export default function StorefrontPanel({ trip }) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="block"><span className="text-xs font-bold text-slate-600">Termasuk (1 per baris)</span>
-            <textarea name="included" defaultValue={trip.included || ''} rows={3} className={inp} /></label>
+            <textarea name="included" value={included} onChange={(e) => setIncluded(e.target.value)} rows={3} className={inp} /></label>
           <label className="block"><span className="text-xs font-bold text-slate-600">Tidak Termasuk (1 per baris)</span>
-            <textarea name="excluded" defaultValue={trip.excluded || ''} rows={3} className={inp} /></label>
+            <textarea name="excluded" value={excluded} onChange={(e) => setExcluded(e.target.value)} rows={3} className={inp} /></label>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="block"><span className="text-xs font-bold text-slate-600">📋 Syarat &amp; Ketentuan</span><span className="block text-[10px] text-slate-400 mb-1">Kosongkan untuk pakai S&amp;K standar Traveling Eropa otomatis.</span>
-            <textarea name="syarat_ketentuan" defaultValue={trip.syarat_ketentuan || ''} rows={4} placeholder={'Pembayaran DP mengunci seat\nPelunasan H-45 sebelum keberangkatan\nDP tidak dapat dikembalikan'} className={inp} /></label>
+            <textarea name="syarat_ketentuan" value={syaratKetentuan} onChange={(e) => setSyaratKetentuan(e.target.value)} rows={4} placeholder={'Pembayaran DP mengunci seat\nPelunasan H-45 sebelum keberangkatan\nDP tidak dapat dikembalikan'} className={inp} /></label>
           <label className="block"><span className="text-xs font-bold text-slate-600">🛂 Syarat Visa</span>
             <span className="block text-[10px] text-slate-400 mb-1">Pilih template sesuai destinasi → terisi otomatis (masih bisa diedit). Kosongkan jika tanpa visa.</span>
             <select value="" onChange={(e) => { const t = VISA_TEMPLATES.find((v) => v.key === e.target.value); if (t) setSyaratVisa(t.text); e.target.value=''; }} className={inp + ' mb-1.5 bg-white'}>
