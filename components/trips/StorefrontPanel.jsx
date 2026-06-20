@@ -33,6 +33,11 @@ export default function StorefrontPanel({ trip }) {
       : [{ title: '', detail: '', image: '' }]
   );
 
+  const _tpl0 = (trip.payment_template && typeof trip.payment_template === 'object') ? trip.payment_template : {};
+  const _dl0 = (trip.payment_deadlines && typeof trip.payment_deadlines === 'object') ? trip.payment_deadlines : {};
+  const PAY_ROWS = [['P1', 'Payment 1'], ['P2', 'Payment 2'], ['P3', 'Payment 3'], ['Pelunasan', 'Pelunasan']];
+  const [sched, setSched] = useState(PAY_ROWS.map(([type, label]) => ({ type, label, amount: _tpl0[type] || '', due: _dl0[type] || '' })));
+
   const bd = (trip.price_breakdown && typeof trip.price_breakdown === 'object') ? trip.price_breakdown : {};
   const roomPrices = ROOM_KEYS.map((r) => ({ ...r, price: Number(bd[r.key]) || 0 })).filter((r) => r.price > 0);
 
@@ -187,6 +192,23 @@ export default function StorefrontPanel({ trip }) {
             <input name="slug" defaultValue={trip.slug || ''} placeholder="west-europe-open-trip" className={inp} /></label>
           <label className="block"><span className="text-xs font-bold text-slate-600">DP (Rp)</span>
             <input name="dp_amount" defaultValue={trip.dp_amount || ''} placeholder="3500000" className={inp} /></label>
+        </div>
+
+        <div className="rounded-lg bg-indigo-50 border border-indigo-200 p-3">
+          <p className="text-xs font-bold text-indigo-700">🗓 Skema Cicilan (diisi CS) — tampil ke customer di web</p>
+          <p className="text-[11px] text-indigo-600 mb-2">Isi nominal &amp; tanggal jatuh tempo tiap termin. DP pakai field DP di atas. Kosongkan termin yang tidak dipakai.</p>
+          <div className="space-y-2">
+            {sched.map((r, i) => (
+              <div key={r.type} className="grid grid-cols-12 gap-2 items-center">
+                <span className="col-span-12 sm:col-span-3 text-xs font-semibold text-slate-600">{r.label}</span>
+                <input className="col-span-7 sm:col-span-5 px-2 py-1.5 border border-slate-300 rounded text-sm" placeholder="Nominal (Rp)" inputMode="numeric"
+                  value={r.amount} onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); setSched((s) => s.map((x, j) => j === i ? { ...x, amount: v } : x)); }} />
+                <input type="date" className="col-span-5 sm:col-span-4 px-2 py-1.5 border border-slate-300 rounded text-sm"
+                  value={r.due || ''} onChange={(e) => { const v = e.target.value; setSched((s) => s.map((x, j) => j === i ? { ...x, due: v } : x)); }} />
+              </div>
+            ))}
+          </div>
+          <input type="hidden" name="payment_schedule_json" value={JSON.stringify(sched.map((r) => ({ type: r.type, label: r.label, amount: Number(r.amount) || 0, due: r.due || '' })))} />
         </div>
 
         <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">

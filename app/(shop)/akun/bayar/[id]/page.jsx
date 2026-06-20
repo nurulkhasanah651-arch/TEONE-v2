@@ -11,6 +11,8 @@ import ManualPayPanel from '@/components/shop/ManualPayPanel';
 
 export const dynamic = 'force-dynamic';
 function fmtRp(n){return 'Rp '+Number(n||0).toLocaleString('id-ID');}
+function fmtDate(d){ if(!d) return null; try{ return new Date(d+'T00:00:00').toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'}); }catch{ return d; } }
+function daysTo(d){ if(!d) return null; return Math.ceil((new Date(d+'T00:00:00') - new Date())/86400000); }
 function brandCode(){ try{const h=headers();return h.get('x-brand')||resolveBrandCode({host:h.get('host')});}catch{return 'teone';} }
 
 export default async function BayarLanjutanPage({ params }) {
@@ -53,11 +55,18 @@ export default async function BayarLanjutanPage({ params }) {
             <div>
               <p className="font-semibold text-slate-800 text-sm">{m.label}</p>
               <p className="text-xs text-slate-400">{fmtRp(m.perPax)} × {plan.paxCount}</p>
+              {m.deadline && !m.paid && (() => { const dl = daysTo(m.deadline); const over = dl != null && dl < 0; return (
+                <p className={`text-[11px] mt-0.5 font-medium ${over ? 'text-red-600' : 'text-slate-500'}`}>
+                  🗓 Jatuh tempo {fmtDate(m.deadline)}{dl != null && (over ? ` · lewat ${Math.abs(dl)} hari` : dl === 0 ? ' · hari ini' : ` · ${dl} hari lagi`)}
+                </p>
+              ); })()}
+              {m.deadline && m.paid && <p className="text-[11px] mt-0.5 text-slate-300">🗓 {fmtDate(m.deadline)}</p>}
+              {m.type === 'DP' && <p className="text-[11px] mt-0.5 text-slate-400">saat booking</p>}
             </div>
             <div className="text-right">
               <p className="font-bold text-slate-900 text-sm">{fmtRp(m.total)}</p>
               {m.paid ? <span className="text-[11px] font-bold text-emerald-600">✓ Lunas</span>
-                : next && next.type === m.type ? <span className="text-[11px] font-bold text-amber-600">Jatuh tempo</span>
+                : next && next.type === m.type ? <span className="text-[11px] font-bold text-amber-600">Bayar sekarang</span>
                 : <span className="text-[11px] text-slate-400">belum</span>}
             </div>
           </div>
