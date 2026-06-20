@@ -16,6 +16,8 @@ export default async function ShopLayout({ children }) {
   const wa = cfg.waNumber || '6282210991200';
   const settings = await getStorefrontSettingsPublic();
   const logo = (settings?.logo_url || '').trim();
+  const c = cfg.contact || {};
+  const waDisp = c.phone ? ('0' + String(c.phone).replace(/^62/, '')) : '';
   return (
     <div className="min-h-screen bg-white text-slate-800 flex flex-col">
       <header className="border-b border-slate-200 sticky top-0 bg-white/95 backdrop-blur z-40">
@@ -41,10 +43,30 @@ export default async function ShopLayout({ children }) {
         </div>
       </header>
       <main className="flex-1">{children}</main>
-      <footer className="border-t border-slate-200 mt-16 py-8 text-center text-xs text-slate-500">
-        {logo ? <img src={logo} alt={cfg.brandName || ui.label} className="h-10 w-auto object-contain mx-auto mb-2" /> : <p className="font-bold text-slate-700">{cfg.brandName || ui.label}</p>}
-        <p className="mt-1">{ui.footer}</p>
-        <p className="mt-1">© {new Date().getFullYear()} · PT Khasanah Global Internasional</p>
+      <footer className="border-t border-slate-200 mt-16 bg-slate-50">
+        <div className="max-w-6xl mx-auto px-4 py-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+            <div>
+              {logo ? <img src={logo} alt={cfg.brandName || ui.label} className="h-10 w-auto object-contain mb-2" /> : <p className="font-extrabold text-slate-800 text-lg">{cfg.brandName || ui.label}</p>}
+              <p className="mt-2 text-sm text-slate-500 max-w-sm">{ui.footer}</p>
+            </div>
+            <div>
+              <p className="font-bold text-slate-800 mb-2">Contact Us</p>
+              <ul className="space-y-1.5 text-sm text-slate-600">
+                {c.phone && <li>📱 <a href={`https://wa.me/${c.phone}`} target="_blank" rel="noreferrer" className="hover:text-emerald-700 font-semibold">{waDisp}</a> (WhatsApp)</li>}
+                {c.email && <li>✉️ <a href={`mailto:${c.email}`} className="hover:text-slate-900">{c.email}</a></li>}
+                {c.address && <li className="flex gap-1.5"><span>📍</span><span>{c.address}</span></li>}
+                {(c.instagram || c.tiktok) && (
+                  <li className="flex gap-3 pt-1">
+                    {c.instagram && <a href={c.instagram} target="_blank" rel="noreferrer" className="font-semibold text-pink-600 hover:underline">Instagram</a>}
+                    {c.tiktok && <a href={c.tiktok} target="_blank" rel="noreferrer" className="font-semibold text-slate-800 hover:underline">TikTok</a>}
+                  </li>
+                )}
+              </ul>
+            </div>
+          </div>
+          <p className="mt-8 text-center text-xs text-slate-400">© {new Date().getFullYear()} · PT Khasanah Global Internasional</p>
+        </div>
       </footer>
     </div>
   );

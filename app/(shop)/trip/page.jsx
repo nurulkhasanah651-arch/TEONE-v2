@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 export default async function TripListPage({ searchParams }) {
   const region = searchParams?.region || null;
   const sub = searchParams?.sub || null;
+  const month = searchParams?.month || null;
   let trips = await getPublishedTrips(region);
   const settings = await getStorefrontSettingsPublic();
   const regions = effectiveRegions(settings?.regions);
@@ -18,6 +19,12 @@ export default async function TripListPage({ searchParams }) {
   if (region && sub) {
     trips = trips.filter((t) => tripSubcat(t, region) === sub);
   }
+  // Bulan keberangkatan yang tersedia (dari trip yg lolos filter region/sub)
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const monthLabel = (ym) => { const [y, m] = ym.split('-'); return `${MON[Number(m) - 1]} ${y}`; };
+  const months = [...new Set(trips.map((t) => (t.departure || '').slice(0, 7)).filter(Boolean))].sort();
+  const qbase = (extra) => { const p = new URLSearchParams(); if (region) p.set('region', region); if (sub) p.set('sub', sub); for (const k in extra) { if (extra[k]) p.set(k, extra[k]); } const s2 = p.toString(); return '/trip' + (s2 ? '?' + s2 : ''); };
+  if (month) trips = trips.filter((t) => (t.departure || '').slice(0, 7) === month);
   const activeSubLabel = (region && sub) ? subcatLabel(region, sub) : null;
   const heading = activeSubLabel ? `Open Trip — ${activeSubLabel}` : (activeLabel ? `Open Trip — ${activeLabel}` : 'Open Trip');
 
@@ -49,6 +56,17 @@ export default async function TripListPage({ searchParams }) {
             <Link key={s.key} href={`/trip?region=${region}&sub=${s.key}`} className={`px-3 py-1 rounded-full text-xs font-semibold border ${sub === s.key ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-400'}`}>
               <span className="mr-1">{s.icon}</span>{s.label}
             </Link>
+          ))}
+        </div>
+      )}
+
+      {/* Filter per bulan keberangkatan */}
+      {months.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-7">
+          <span className="text-xs font-bold text-slate-400 self-center mr-1">📅 Bulan:</span>
+          <Link href={qbase({})} className={`px-3 py-1 rounded-full text-xs font-semibold border ${!month ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-400'}`}>Semua Bulan</Link>
+          {months.map((ym) => (
+            <Link key={ym} href={qbase({ month: ym })} className={`px-3 py-1 rounded-full text-xs font-semibold border ${month === ym ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-400'}`}>{monthLabel(ym)}</Link>
           ))}
         </div>
       )}
