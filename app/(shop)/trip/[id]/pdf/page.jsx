@@ -104,11 +104,11 @@ export default async function TripPdfPage({ params }) {
               {dates && <p style={{ display: 'inline-block', background: C.primary, color: '#fff', padding: '6px 16px', borderRadius: 999, fontWeight: 700, fontSize: 13, marginBottom: 18 }}>{dates}</p>}
               {rooms.length > 0 ? (
                 <table className="price"><tbody>
-                  {rooms.map((r) => (<tr key={r.key}><td>{r.label}</td><td>{fmtRp(r.price)}</td></tr>))}
+                  {rooms.map((r) => (<tr key={r.key}><td>{r.label}</td><td>{fmtRp(r.base)}</td></tr>))}
                 </tbody></table>
               ) : <p className="muted">Harga paket belum diisi.</p>}
               {rooms[0]?.addons?.length > 0 && (
-                <p className="muted" style={{ fontSize: 11, marginTop: 8 }}>Sudah termasuk biaya wajib: {rooms[0].addons.map((a) => `${a.label} ${fmtRp(a.value)}`).join(' · ')}. Visa &amp; opsional tidak termasuk.</p>
+                <p className="muted" style={{ fontSize: 11, marginTop: 8 }}>Harga di atas room only (belum termasuk: {rooms[0].addons.map((a) => `${a.label} ${fmtRp(a.value)}`).join(' · ')}; visa &amp; opsional terpisah).</p>
               )}
               {t.dp_amount > 0 && (
                 <div style={{ marginTop: 26, background: `linear-gradient(135deg, ${C.primary}, ${C.primary2})`, color: '#fff', borderRadius: 16, padding: '18px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
