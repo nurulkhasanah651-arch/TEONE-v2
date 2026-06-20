@@ -12,7 +12,10 @@ import { resolveBrandCodeBrowser, BRAND_UI } from '@/lib/brand-shared';
 
 export default function LoginPage() {
   const [brandUi, setBrandUi] = useState(BRAND_UI.teone);
-  useEffect(() => { setBrandUi(BRAND_UI[resolveBrandCodeBrowser()] || BRAND_UI.teone); }, []);
+  useEffect(() => {
+    setBrandUi(BRAND_UI[resolveBrandCodeBrowser()] || BRAND_UI.teone);
+    try { const p = new URLSearchParams(window.location.search); if (p.get('tab') === 'tl') setTab('tl'); } catch {}
+  }, []);
   const router = useRouter();
   const supabase = createClient();
 

@@ -46,7 +46,7 @@ export default async function TLAssignTokenPage({ params, searchParams }) {
           <p className="text-xs text-slate-500 mt-2">
             Diputuskan: {fmtDate(trip.tl_assignment_decided_at)}
           </p>
-          <a href="/login" className="mt-5 inline-block px-5 py-2.5 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-lg">
+          <a href="/login?tab=tl" className="mt-5 inline-block px-5 py-2.5 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-lg">
             Login ke Portal TL →
           </a>
         </div>
@@ -85,10 +85,10 @@ export default async function TLAssignTokenPage({ params, searchParams }) {
               Terima kasih sudah approve trip <strong>{trip.kode_trip || `#${trip.id}`} — {trip.name}</strong>.
             </p>
             <p className="text-xs text-slate-600 mt-2">
-              Trip akan muncul di Portal TL setelah kamu login.
+              Penugasan dikonfirmasi. Login ke web untuk pantau tripmu (peserta, dokumen, manifest, expense).
             </p>
-            <a href="/login" className="mt-5 inline-block px-5 py-2.5 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-lg">
-              Login ke Portal TL →
+            <a href="/login?tab=tl" className="mt-5 inline-block px-5 py-3 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded-lg shadow">
+              🔐 Login ke Portal TL untuk Pantau Trip →
             </a>
           </div>
         </main>
