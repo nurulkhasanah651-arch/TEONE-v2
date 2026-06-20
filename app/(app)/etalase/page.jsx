@@ -24,7 +24,7 @@ export default async function EtalasePage() {
           Atur foto header (slider) dan judul + foto region yang tampil di website jualan ({'{'}travelingeropa.com / khasanahtravel.com{'}'}).
         </p>
       </div>
-      <EtalaseManager initialHero={heroImages} initialRegions={regions} initialPrivate={privateImages} initialTerms={termsSaved} termsSeed={termsSeed} />
+      <EtalaseManager initialHero={heroImages} initialRegions={regions} initialPrivate={privateImages} initialTerms={termsSaved} termsSeed={termsSeed} initialLogo={r?.logo_url || ''} />
     </div>
   );
 }
