@@ -4,6 +4,7 @@ import { VISA_TEMPLATES } from '@/lib/shop/visa-templates';
 import { useRouter } from 'next/navigation';
 import { updateTripPublicContent, uploadStorefrontImage } from '@/lib/actions/shop-admin';
 import { ROOM_KEYS } from '@/lib/utils/price-breakdown';
+import { compressImage } from '@/lib/utils/compress-image';
 
 function fmtRp(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
 
@@ -29,8 +30,10 @@ export default function StorefrontPanel({ trip }) {
   const roomPrices = ROOM_KEYS.map((r) => ({ ...r, price: Number(bd[r.key]) || 0 })).filter((r) => r.price > 0);
 
   async function uploadOne(file) {
+    // Kompres/resize di browser dulu (atasi foto HP besar gagal upload — limit ~4.5MB Vercel)
+    const compressed = await compressImage(file, { maxDim: 1920, quality: 0.78 });
     const fd = new FormData();
-    fd.set('file', file);
+    fd.set('file', compressed || file);
     fd.set('tripId', String(trip.id));
     return uploadStorefrontImage(fd);
   }
@@ -115,7 +118,7 @@ export default function StorefrontPanel({ trip }) {
                   onChange={(e) => { doUpload(e.target.files?.[0], 'cover'); e.target.value = ''; }} />
               </label>
               {cover && <button type="button" onClick={() => setCover('')} className="ml-2 text-xs text-red-600 hover:underline">Hapus</button>}
-              <p className="text-[11px] text-slate-400 mt-1">JPG/PNG/WebP, maks 8MB.</p>
+              <p className="text-[11px] text-slate-400 mt-1">JPG/PNG/WebP — foto besar otomatis dikompres.</p>
             </div>
           </div>
         </div>
