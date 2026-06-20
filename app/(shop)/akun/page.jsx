@@ -82,11 +82,6 @@ export default async function AkunPage() {
                       <span className="text-emerald-700"> Dibayar: <b>{fmtRp(plans[b.id]?.pokokPaid)}</b></span> ·
                       <span className="text-amber-700"> Sisa: <b>{fmtRp(plans[b.id]?.pokokSisa)}</b></span>
                     </div>
-                    {plans[b.id]?.nextUnpaid?.deadline && (() => { const nx = plans[b.id].nextUnpaid; const dl = daysTo(nx.deadline); const over = dl != null && dl < 0; return (
-                      <p className={`text-[11px] mt-1 font-semibold ${over ? 'text-red-600' : 'text-amber-700'}`}>
-                        🗓 {nx.label} {fmtRp(nx.total)} — jatuh tempo {fmtDate(nx.deadline)}{dl != null && (over ? ` (lewat ${Math.abs(dl)} hari)` : dl === 0 ? ' (hari ini)' : ` (${dl} hari lagi)`)}
-                      </p>
-                    ); })()}
                     {dleft != null && dleft >= 0 && b.status !== 'cancelled' && (
                       <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">⏳ {dleft === 0 ? 'Hari ini!' : `${dleft} hari lagi`}</span>
                     )}

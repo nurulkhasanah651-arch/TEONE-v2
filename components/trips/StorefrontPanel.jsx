@@ -33,10 +33,13 @@ export default function StorefrontPanel({ trip }) {
       : [{ title: '', detail: '', image: '' }]
   );
 
-  const _tpl0 = (trip.payment_template && typeof trip.payment_template === 'object') ? trip.payment_template : {};
-  const _dl0 = (trip.payment_deadlines && typeof trip.payment_deadlines === 'object') ? trip.payment_deadlines : {};
-  const PAY_ROWS = [['P1', 'Payment 1'], ['P2', 'Payment 2'], ['P3', 'Payment 3'], ['Pelunasan', 'Pelunasan']];
-  const [sched, setSched] = useState(PAY_ROWS.map(([type, label]) => ({ type, label, amount: _tpl0[type] || '', due: _dl0[type] || '' })));
+  // Skema cicilan KHUSUS tampilan web (trip.web_payment_schedule) — TERPISAH dari payment checklist finance.
+  const _ws0 = Array.isArray(trip.web_payment_schedule) ? trip.web_payment_schedule : [];
+  const [insts, setInsts] = useState(() => {
+    const a = _ws0.filter((r) => r && r.type && r.type !== 'Pelunasan').map((r) => ({ amount: r.amount || '', due: r.due || '' }));
+    return a.length ? a : [{ amount: '', due: '' }];
+  });
+  const [pelDue, setPelDue] = useState((_ws0.find((r) => r && r.type === 'Pelunasan') || {}).due || '');
 
   const bd = (trip.price_breakdown && typeof trip.price_breakdown === 'object') ? trip.price_breakdown : {};
   const roomPrices = ROOM_KEYS.map((r) => ({ ...r, price: Number(bd[r.key]) || 0 })).filter((r) => r.price > 0);
@@ -196,19 +199,32 @@ export default function StorefrontPanel({ trip }) {
 
         <div className="rounded-lg bg-indigo-50 border border-indigo-200 p-3">
           <p className="text-xs font-bold text-indigo-700">🗓 Skema Cicilan (diisi CS) — tampil ke customer di web</p>
-          <p className="text-[11px] text-indigo-600 mb-2">Isi nominal &amp; tanggal jatuh tempo tiap termin. DP pakai field DP di atas. Kosongkan termin yang tidak dipakai.</p>
+          <p className="text-[11px] text-indigo-600 mb-2">DP pakai field DP di atas. Tambah termin sesuai kebutuhan (maks 7). <b>Pelunasan otomatis = sisa tagihan</b>, cukup isi tanggalnya.</p>
           <div className="space-y-2">
-            {sched.map((r, i) => (
-              <div key={r.type} className="grid grid-cols-12 gap-2 items-center">
-                <span className="col-span-12 sm:col-span-3 text-xs font-semibold text-slate-600">{r.label}</span>
-                <input className="col-span-7 sm:col-span-5 px-2 py-1.5 border border-slate-300 rounded text-sm" placeholder="Nominal (Rp)" inputMode="numeric"
-                  value={r.amount} onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); setSched((s) => s.map((x, j) => j === i ? { ...x, amount: v } : x)); }} />
+            {insts.map((r, i) => (
+              <div key={i} className="grid grid-cols-12 gap-2 items-center">
+                <span className="col-span-12 sm:col-span-3 text-xs font-semibold text-slate-600">Payment {i + 1}</span>
+                <input className="col-span-6 sm:col-span-4 px-2 py-1.5 border border-slate-300 rounded text-sm" placeholder="Nominal (Rp)" inputMode="numeric"
+                  value={r.amount} onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); setInsts((s) => s.map((x, j) => j === i ? { ...x, amount: v } : x)); }} />
                 <input type="date" className="col-span-5 sm:col-span-4 px-2 py-1.5 border border-slate-300 rounded text-sm"
-                  value={r.due || ''} onChange={(e) => { const v = e.target.value; setSched((s) => s.map((x, j) => j === i ? { ...x, due: v } : x)); }} />
+                  value={r.due || ''} onChange={(e) => { const v = e.target.value; setInsts((s) => s.map((x, j) => j === i ? { ...x, due: v } : x)); }} />
+                <button type="button" title="Hapus termin" onClick={() => setInsts((s) => s.filter((_, j) => j !== i))}
+                  className="col-span-1 text-red-500 hover:text-red-700 text-sm font-bold">✕</button>
               </div>
             ))}
           </div>
-          <input type="hidden" name="payment_schedule_json" value={JSON.stringify(sched.map((r) => ({ type: r.type, label: r.label, amount: Number(r.amount) || 0, due: r.due || '' })))} />
+          {insts.length < 7 && (
+            <button type="button" onClick={() => setInsts((s) => [...s, { amount: '', due: '' }])}
+              className="mt-2 text-xs font-bold text-indigo-700 hover:underline">+ Tambah Payment</button>
+          )}
+          <div className="mt-3 grid grid-cols-12 gap-2 items-center border-t border-indigo-200 pt-2">
+            <span className="col-span-12 sm:col-span-3 text-xs font-semibold text-slate-600">Pelunasan</span>
+            <span className="col-span-6 sm:col-span-4 text-[11px] text-slate-500 italic">menyesuaikan sisa tagihan</span>
+            <input type="date" className="col-span-5 sm:col-span-4 px-2 py-1.5 border border-slate-300 rounded text-sm"
+              value={pelDue} onChange={(e) => setPelDue(e.target.value)} />
+          </div>
+          <input type="hidden" name="payment_schedule_json"
+            value={JSON.stringify([...insts.map((r, i) => ({ type: 'P' + (i + 1), amount: Number(r.amount) || 0, due: r.due || '' })), { type: 'Pelunasan', amount: 0, due: pelDue || '' }])} />
         </div>
 
         <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">

@@ -97,6 +97,35 @@ export default async function TripDetailPage({ params }) {
             </div>
           )}
 
+          {/* Skema Pembayaran / Cicilan (khusus tampilan web) */}
+          {Array.isArray(t.web_payment_schedule) && t.web_payment_schedule.length > 0 && (
+            <div className="border border-slate-200 rounded-2xl p-4">
+              <p className="font-bold text-slate-900 mb-2">💳 Skema Pembayaran (Cicilan)</p>
+              <div className="divide-y divide-slate-100">
+                {t.dp_amount ? (
+                  <div className="flex items-center justify-between py-2 text-sm">
+                    <span className="font-semibold text-slate-700">DP</span>
+                    <span className="font-bold text-slate-900">{fmtRp(t.dp_amount)}</span>
+                  </div>
+                ) : null}
+                {t.web_payment_schedule.filter((r) => r.type !== 'Pelunasan').map((r, i) => (
+                  <div key={i} className="flex items-center justify-between py-2 text-sm">
+                    <span className="font-semibold text-slate-700">Payment {i + 1}
+                      {r.due ? <span className="block text-[11px] font-normal text-slate-400">🗓 jatuh tempo {fmtDate(r.due)}</span> : null}</span>
+                    <span className="font-bold text-slate-900">{r.amount ? fmtRp(r.amount) : '-'}</span>
+                  </div>
+                ))}
+                {(() => { const pel = t.web_payment_schedule.find((r) => r.type === 'Pelunasan'); if (!pel) return null; return (
+                  <div className="flex items-center justify-between py-2 text-sm">
+                    <span className="font-semibold text-slate-700">Pelunasan
+                      {pel.due ? <span className="block text-[11px] font-normal text-slate-400">🗓 jatuh tempo {fmtDate(pel.due)}</span> : null}</span>
+                    <span className="font-semibold text-amber-600 italic text-xs">menyesuaikan sisa tagihan</span>
+                  </div>
+                ); })()}
+              </div>
+            </div>
+          )}
+
           {/* Accordion: Syarat & Ketentuan + Syarat Visa (klik buka-tutup) */}
           {(sk.length > 0 || visa.length > 0 || t.visa_pdf_syarat_url) && (
             <div className="space-y-3">
