@@ -3,7 +3,9 @@
 // Hindari WA/bot preview yg auto-trigger approve/reject
 
 import { createClient } from '@supabase/supabase-js';
-import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
+import { brandServiceRoleKey, brandSupabaseUrl, currentBrandCode } from '@/lib/supabase/service-env';
+import { siteUrlFor } from '@/lib/brand-shared';
+import { getFonnteToken } from '@/lib/utils/fonnte';
 import { NextResponse } from 'next/server';
 
 function getServiceClient() {
@@ -13,6 +15,26 @@ function getServiceClient() {
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+}
+
+async function sendTLConfirmWA(phone, message) {
+  try {
+    let brand = ''; try { brand = currentBrandCode(); } catch {}
+    const { token } = getFonnteToken('ops', brand);
+    if (!token || !phone) return;
+    await fetch('https://api.fonnte.com/send', {
+      method: 'POST',
+      headers: { 'Authorization': token, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ target: phone, message, countryCode: '62' }),
+    });
+  } catch { /* best-effort */ }
+}
+
+function normPhoneTL(p) {
+  let x = String(p || '').replace(/[^0-9]/g, '');
+  if (x.startsWith('0')) x = '62' + x.slice(1);
+  if (x.startsWith('8')) x = '62' + x;
+  return x;
 }
 
 function htmlPage(title, body, color = '#10B981') {
@@ -281,7 +303,7 @@ export async function POST(request, context) {
 
   const { data: trip } = await supabase
     .from('trips')
-    .select('id, name, kode_trip, tl_assignment_status')
+    .select('id, name, kode_trip, tl_id, tl_assignment_status')
     .eq('tl_assignment_token', token)
     .maybeSingle();
 
@@ -336,6 +358,19 @@ export async function POST(request, context) {
   const displayName = trip.name || trip.kode_trip || `Trip #${trip.id}`;
 
   if (newStatus === 'approved') {
+    // Kirim WA konfirmasi + link login Portal TL (best-effort)
+    let loginUrl = '/login?tab=tl';
+    try {
+      let brand = ''; try { brand = currentBrandCode(); } catch {}
+      const base = siteUrlFor(brand) || 'https://teone.dev';
+      loginUrl = `${base}/login?tab=tl`;
+      const { data: tl } = await supabase.from('tour_leaders').select('name, phone').eq('id', trip.tl_id).maybeSingle();
+      if (tl?.phone) {
+        const msg = `Halo ${tl.name || 'Kak'} 🙏\n\nPenugasan sebagai Tour Leader untuk trip *${displayName}* sudah kamu *KONFIRMASI* ✅\n\nSilakan login ke web untuk pantau tripmu (peserta, dokumen, manifest, roomlist, expense):\n🔗 ${loginUrl}\n\n(Login pakai akun Google yang sudah didaftarkan Ops.)\n\n— Traveling Eropa One System`;
+        await sendTLConfirmWA(normPhoneTL(tl.phone), msg);
+      }
+    } catch { /* best-effort */ }
+
     return new NextResponse(
       htmlPage('Approve Berhasil',
         `<div class="icon">✅</div>
@@ -343,7 +378,8 @@ export async function POST(request, context) {
          <p>Terima kasih sudah konfirmasi 🙏</p>
          <p>Kakak ter-assign sebagai Tour Leader untuk:</p>
          <p style="margin-top: 12px; font-weight: 600; color: #111;">${displayName}</p>
-         <p style="margin-top: 16px; font-size: 13px; color: #6b7280;">Detail trip lengkap akan dikirim admin via WA terpisah.</p>`,
+         <p style="margin-top: 16px;">Login ke web untuk pantau tripmu:</p>
+         <a href="${loginUrl}" style="display:inline-block;margin-top:12px;padding:14px 22px;background:#10B981;color:#fff;border-radius:10px;font-weight:700;text-decoration:none;">🔐 Login ke Portal TL →</a>`,
         '#10B981'
       ),
       { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
