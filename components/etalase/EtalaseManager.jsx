@@ -15,9 +15,38 @@ function Toast({ msg }) {
   );
 }
 
+// Kompres/kecilkan gambar di browser sebelum upload (hindari batas ~4.5MB Vercel).
+// SVG dibiarkan. PNG transparan tetap PNG (jaga transparansi logo), foto besar -> JPEG.
+async function compressImage(file) {
+  try {
+    if (!/^image\//.test(file.type)) return file;
+    if (file.type === 'image/svg+xml') return file;
+    const bmp = await createImageBitmap(file);
+    const maxDim = 1920;
+    const overDim = Math.max(bmp.width, bmp.height) > 2000;
+    const big = file.size > 2.5 * 1024 * 1024;
+    if (!overDim && !big) { bmp.close && bmp.close(); return file; }
+    const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
+    const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(bmp, 0, 0, w, h);
+    bmp.close && bmp.close();
+    const isPng = file.type === 'image/png';
+    const type = isPng ? 'image/png' : 'image/jpeg';
+    const blob = await new Promise((res) => canvas.toBlob(res, type, isPng ? undefined : 0.82));
+    if (!blob) return file;
+    const ext = isPng ? 'png' : 'jpg';
+    const base = (file.name || 'foto').replace(/\.[^.]+$/, '');
+    return new File([blob], `${base}.${ext}`, { type });
+  } catch { return file; }
+}
+
 async function doUpload(file) {
+  const f = await compressImage(file);
   const fd = new FormData();
-  fd.append('file', file);
+  fd.append('file', f);
   fd.append('tripId', 'etalase');
   const r = await uploadStorefrontImage(fd);
   return r;
