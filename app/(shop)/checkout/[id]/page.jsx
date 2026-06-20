@@ -32,7 +32,7 @@ export default async function CheckoutPage({ params }) {
       {seat <= 0 ? (
         <p className="mt-6 text-center text-red-600 font-bold">Maaf, seat trip ini sudah habis.</p>
       ) : (
-        <CheckoutForm trip={{ id: t.id, name: t.name, dp_amount: Number(t.dp_amount || 0), seat, priceItems: tripPriceItems(t), adminFee: ADMIN_FEE }} />
+        <CheckoutForm trip={{ id: t.id, name: t.name, return_date: t.return_date || t.arrival || null, dp_amount: Number(t.dp_amount || 0), seat, priceItems: tripPriceItems(t), adminFee: ADMIN_FEE }} />
       )}
     </div>
   );

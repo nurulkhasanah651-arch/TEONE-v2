@@ -24,6 +24,28 @@ export default function CheckoutForm({ trip }) {
     return init;
   });
   const [names, setNames] = useState(['']);
+  const [dobs, setDobs] = useState([]);
+  const RETURN = trip.return_date || null;
+  const needsDob = (key) => key === 'infant' || key === 'child_no_bed';
+  function monthsAt(dob, ref) {
+    if (!dob || !ref) return null;
+    const b = new Date(dob + 'T00:00:00'), r = new Date(ref + 'T00:00:00');
+    if (isNaN(b) || isNaN(r)) return null;
+    let m = (r.getFullYear() - b.getFullYear()) * 12 + (r.getMonth() - b.getMonth());
+    if (r.getDate() < b.getDate()) m -= 1;
+    return m;
+  }
+  // null = ok; string = pesan error
+  function dobError(key, dob) {
+    if (!needsDob(key)) return null;
+    if (!dob) return 'Wajib isi tanggal lahir.';
+    const m = monthsAt(dob, RETURN);
+    if (m == null) return 'Tanggal lahir tidak valid.';
+    if (m < 0) return 'Tanggal lahir tidak valid.';
+    if (key === 'infant' && m > 24) return `Infant maks 24 bulan saat kepulangan (saat ini ${Math.floor(m / 12)} th ${m % 12} bln). Pilih kategori lain.`;
+    if (key === 'child_no_bed' && Math.floor(m / 12) > 12) return `Child no bed maks 12 tahun saat kepulangan (saat ini ${Math.floor(m / 12)} th). Pilih kategori lain.`;
+    return null;
+  }
   const [payType, setPayType] = useState('dp');
 
   const [loggedIn, setLoggedIn] = useState(false);
@@ -46,6 +68,7 @@ export default function CheckoutForm({ trip }) {
   // sinkronkan jumlah field nama dengan jumlah slot
   const qtySig = JSON.stringify(qty);
   useEffect(() => { setNames((prev) => slots.map((_, i) => prev[i] || '')); /* eslint-disable-next-line */ }, [qtySig]);
+  useEffect(() => { setDobs((prev) => slots.map((_, i) => prev[i] || '')); /* eslint-disable-next-line */ }, [qtySig]);
 
   function setItemQty(key, delta) {
     setQty((q) => {
@@ -79,7 +102,11 @@ export default function CheckoutForm({ trip }) {
       if (pwd !== pwd2) { setErr('Konfirmasi password tidak sama.'); return; }
       fd.set('password', pwd);
     }
-    const paxList = slots.map((s, i) => ({ key: s.key, label: s.label, name: (names[i] || '').trim() }));
+    for (let i = 0; i < slots.length; i++) {
+      const e2 = dobError(slots[i].key, dobs[i]);
+      if (e2) { setErr(`Peserta ${i + 1} (${slots[i].label}): ${e2}`); return; }
+    }
+    const paxList = slots.map((s, i) => ({ key: s.key, label: s.label, name: (names[i] || '').trim(), dob: dobs[i] || '' }));
     fd.set('trip_id', trip.id);
     fd.set('pax_list', JSON.stringify(paxList));
     fd.set('payment_type', payType);
@@ -158,13 +185,21 @@ export default function CheckoutForm({ trip }) {
           <p className="text-sm font-bold text-slate-800">🧍 Data Peserta ({pax} orang)</p>
           <p className="text-[11px] text-slate-400 mb-2">Isi nama tiap peserta (sesuai paspor) — boleh dikosongkan, bisa dilengkapi nanti.</p>
           <div className="space-y-2">
-            {slots.map((s, i) => (
+            {slots.map((s, i) => { const de = needsDob(s.key) ? dobError(s.key, dobs[i]) : null; return (
               <div key={i}>
                 <span className="text-xs font-semibold text-slate-600">Peserta {i + 1} — {s.label}</span>
                 <input value={names[i] || ''} onChange={(e) => setNames((p) => p.map((v, j) => j === i ? e.target.value : v))}
                   placeholder="Nama lengkap" className="w-full mt-0.5 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                {needsDob(s.key) && (
+                  <div className="mt-1">
+                    <span className="text-[11px] font-semibold text-amber-700">Tanggal lahir {s.key === 'infant' ? '(infant — maks 24 bln saat pulang)' : '(child no bed — maks 12 th saat pulang)'}</span>
+                    <input type="date" value={dobs[i] || ''} onChange={(e) => setDobs((p) => p.map((v, j) => j === i ? e.target.value : v))}
+                      className={`w-full mt-0.5 px-3 py-2 border rounded-lg text-sm ${de ? 'border-red-400 bg-red-50' : 'border-slate-300'}`} />
+                    {de && <p className="text-[11px] text-red-600 mt-0.5">{de}</p>}
+                  </div>
+                )}
               </div>
-            ))}
+            ); })}
           </div>
         </div>
       )}
@@ -218,7 +253,7 @@ export default function CheckoutForm({ trip }) {
       {info && <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">{info}</div>}
       {err && <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">⚠ {err}{needLogin && <> <a href="/masuk" className="font-bold underline">Masuk sekarang →</a></>}</div>}
 
-      <button type="submit" disabled={pending || pax < 1} className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-bold text-lg">
+      <button type="submit" disabled={pending || pax < 1 || slots.some((s, i) => !!dobError(s.key, dobs[i]))} className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-bold text-lg">
         {pending ? 'Memproses...' : 'Lanjut ke Pembayaran →'}
       </button>
       <p className="text-[11px] text-center text-slate-400">Dengan memesan, kamu setuju dengan syarat & ketentuan trip.</p>

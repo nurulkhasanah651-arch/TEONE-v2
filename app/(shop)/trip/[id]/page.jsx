@@ -31,6 +31,54 @@ export default async function TripDetailPage({ params }) {
   const sk = lines(skText);
   const visa = lines(t.syarat_visa);
 
+  const priceCard = (
+          <div className="sticky top-20 border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <p className="text-xs text-slate-500">Harga mulai</p>
+            <p className="text-3xl font-extrabold text-slate-900">{fmtRp(tripPrice(t))}<span className="text-sm font-medium text-slate-500"> /pax</span></p>
+            {t.dp_amount > 0 && <p className="text-sm text-emerald-700 font-semibold mt-1">Booking cukup DP {fmtRp(t.dp_amount)}</p>}
+
+            {rooms.length > 0 && (
+              <div className="mt-3 border-t border-slate-100 pt-3">
+                <p className="text-xs font-bold text-slate-500 mb-1.5">Harga dasar per tipe (per orang)</p>
+                <ul className="space-y-1">
+                  {rooms.map((r) => (
+                    <li key={r.key} className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600">{r.label}</span>
+                      <span className="font-bold text-slate-800">{fmtRp(r.base)}</span>
+                    </li>
+                  ))}
+                </ul>
+                {rooms[0]?.addons?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-xs font-bold text-slate-500 mb-1.5">Biaya wajib (semua peserta)</p>
+                    <ul className="space-y-1">
+                      {rooms[0].addons.map((a, i) => (
+                        <li key={i} className="flex items-center justify-between text-sm">
+                          <span className="text-slate-600">{a.label}</span>
+                          <span className="font-semibold text-slate-700">{fmtRp(a.value)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-[11px] text-slate-400 mt-2">Harga akhir per orang = harga tipe + biaya wajib. Visa & opsional tidak termasuk.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="mt-3 text-sm text-slate-600 space-y-1 border-t border-slate-100 pt-3">
+              <p>📅 {fmtDate(t.departure)}{t.return_date ? ` – ${fmtDate(t.return_date)}` : ''}</p>
+              <p className={seat > 0 ? 'text-emerald-700 font-semibold' : 'text-red-600 font-semibold'}>{seat > 0 ? `🎟 Sisa ${seat} seat` : '🚫 SOLD OUT'}</p>
+            </div>
+            {seat > 0 ? (
+              <Link href={`/checkout/${t.slug || t.id}`} className="mt-4 block text-center w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold">Pesan Sekarang</Link>
+            ) : (
+              <button disabled className="mt-4 w-full py-3 rounded-xl bg-slate-200 text-slate-400 font-bold cursor-not-allowed">SOLD OUT</button>
+            )}
+            <a href="https://wa.me/6282210991200" target="_blank" rel="noreferrer" className="mt-2 block text-center w-full py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50">Tanya dulu via WA</a>
+            <ShareTrip title={t.public_title || t.name} />
+          </div>
+  );
+
   return (
     <div>
       {/* Hero (slideshow kalau ada galeri) */}
@@ -81,6 +129,8 @@ export default async function TripDetailPage({ params }) {
               </ol>
             </div>
           )}
+          {/* Harga — di HP muncul tepat di bawah itinerary */}
+          <div className="lg:hidden">{priceCard}</div>
           {(t.included || t.excluded) && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {t.included && (
@@ -167,53 +217,8 @@ export default async function TripDetailPage({ params }) {
           )}
         </div>
 
-        {/* Kanan: kartu harga */}
-        <div className="lg:col-span-1">
-          <div className="sticky top-20 border border-slate-200 rounded-2xl p-5 shadow-sm">
-            <p className="text-xs text-slate-500">Harga mulai</p>
-            <p className="text-3xl font-extrabold text-slate-900">{fmtRp(tripPrice(t))}<span className="text-sm font-medium text-slate-500"> /pax</span></p>
-            {t.dp_amount > 0 && <p className="text-sm text-emerald-700 font-semibold mt-1">Booking cukup DP {fmtRp(t.dp_amount)}</p>}
-
-            {rooms.length > 0 && (
-              <div className="mt-3 border-t border-slate-100 pt-3">
-                <p className="text-xs font-bold text-slate-500 mb-1.5">Harga dasar per tipe (per orang)</p>
-                <ul className="space-y-1">
-                  {rooms.map((r) => (
-                    <li key={r.key} className="flex items-center justify-between text-sm">
-                      <span className="text-slate-600">{r.label}</span>
-                      <span className="font-bold text-slate-800">{fmtRp(r.base)}</span>
-                    </li>
-                  ))}
-                </ul>
-                {rooms[0]?.addons?.length > 0 && (
-                  <div className="mt-3">
-                    <p className="text-xs font-bold text-slate-500 mb-1.5">Biaya wajib (semua peserta)</p>
-                    <ul className="space-y-1">
-                      {rooms[0].addons.map((a, i) => (
-                        <li key={i} className="flex items-center justify-between text-sm">
-                          <span className="text-slate-600">{a.label}</span>
-                          <span className="font-semibold text-slate-700">{fmtRp(a.value)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="text-[11px] text-slate-400 mt-2">Harga akhir per orang = harga tipe + biaya wajib. Visa & opsional tidak termasuk.</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="mt-3 text-sm text-slate-600 space-y-1 border-t border-slate-100 pt-3">
-              <p>📅 {fmtDate(t.departure)}{t.return_date ? ` – ${fmtDate(t.return_date)}` : ''}</p>
-              <p className={seat > 0 ? 'text-emerald-700 font-semibold' : 'text-red-600 font-semibold'}>{seat > 0 ? `🎟 Sisa ${seat} seat` : '🚫 SOLD OUT'}</p>
-            </div>
-            {seat > 0 ? (
-              <Link href={`/checkout/${t.slug || t.id}`} className="mt-4 block text-center w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold">Pesan Sekarang</Link>
-            ) : (
-              <button disabled className="mt-4 w-full py-3 rounded-xl bg-slate-200 text-slate-400 font-bold cursor-not-allowed">SOLD OUT</button>
-            )}
-            <a href="https://wa.me/6282210991200" target="_blank" rel="noreferrer" className="mt-2 block text-center w-full py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50">Tanya dulu via WA</a>
-            <ShareTrip title={t.public_title || t.name} />
-          </div>
+        <div className="hidden lg:block lg:col-span-1">
+          {priceCard}
         </div>
       </div>
     </div>
