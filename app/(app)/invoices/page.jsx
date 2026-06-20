@@ -9,6 +9,7 @@
 // Drive picker = COLLAPSED by default — gak ganggu workflow normal.
 
 import Link from 'next/link';
+import OnlinePayFeed from '@/components/invoices/OnlinePayFeed';
 import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
@@ -174,25 +175,8 @@ export default async function InvoicesPage() {
         <StatCard label="Sisa Tagihan" value={fmtRupiah(sisa)} color="text-red-700" bg="bg-red-50" small />
       </div>
 
-      {/* NOTIF PEMBAYARAN ONLINE TERBARU */}
-      {onlinePays.length > 0 && (
-        <div className="bg-white border border-emerald-200 rounded-xl shadow-card overflow-hidden">
-          <div className="px-4 py-2.5 bg-emerald-50 border-b border-emerald-200 flex items-center justify-between flex-wrap gap-2">
-            <h2 className="text-sm font-bold text-emerald-800">🔔 Pembayaran Online Terbaru</h2>
-            <span className="text-[11px] text-emerald-600">{onlinePays.length} terbaru · otomatis via Midtrans</span>
-          </div>
-          <ul className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
-            {onlinePays.map((o) => (
-              <li key={o.id} className="px-4 py-2 text-sm flex items-center justify-between gap-3 flex-wrap">
-                <span className="text-slate-700">
-                  <b>{o.name}</b> sudah bayar <b>{o.type}</b>{o.trip ? ` · ${o.trip}` : ''} <span className="text-slate-400">— via {o.method}</span>
-                </span>
-                <span className="text-emerald-700 font-bold whitespace-nowrap">{fmtRupiah(o.amount)}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* NOTIF PEMBAYARAN ONLINE TERBARU (bisa di-close) */}
+      <OnlinePayFeed items={onlinePays} />
 
       {/* BANNER ALERTS */}
       {pendingDPCount > 0 && (
