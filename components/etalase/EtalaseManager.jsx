@@ -3,7 +3,7 @@
 // Kelola Etalase: foto header slider + region (judul/ikon/foto/keyword).
 import { useState, useRef, useTransition } from 'react';
 import { uploadStorefrontImage } from '@/lib/actions/shop-admin';
-import { saveHeroImages, saveRegions, savePrivateImages, saveTermsDefault, saveLogo } from '@/lib/actions/storefront-settings';
+import { saveHeroImages, saveRegions, savePrivateImages, saveTermsDefault, saveLogo, saveAboutImage } from '@/lib/actions/storefront-settings';
 
 function Toast({ msg }) {
   if (!msg) return null;
@@ -52,7 +52,7 @@ async function doUpload(file) {
   return r;
 }
 
-export default function EtalaseManager({ initialHero, initialRegions, initialPrivate, initialTerms, termsSeed, initialLogo }) {
+export default function EtalaseManager({ initialHero, initialRegions, initialPrivate, initialTerms, termsSeed, initialLogo, initialAbout }) {
   const [hero, setHero] = useState(Array.isArray(initialHero) ? initialHero : []);
   const [priv, setPriv] = useState(Array.isArray(initialPrivate) ? initialPrivate : []);
   const [terms, setTerms] = useState((initialTerms && initialTerms.trim()) ? initialTerms : (termsSeed || ''));
@@ -64,6 +64,8 @@ export default function EtalaseManager({ initialHero, initialRegions, initialPri
   const privInput = useRef(null);
   const logoInput = useRef(null);
   const [logo, setLogo] = useState((initialLogo || '').trim());
+  const aboutInput = useRef(null);
+  const [about, setAbout] = useState((initialAbout || '').trim());
 
   function toast(text, type = 'success') {
     setMsg({ text, type });
@@ -86,6 +88,20 @@ export default function EtalaseManager({ initialHero, initialRegions, initialPri
   async function removeLogo() {
     setLogo('');
     startTransition(async () => { await saveLogo(''); toast('Logo dihapus'); });
+  }
+  async function handleAboutFile(files) {
+    const file = files && files[0];
+    if (!file || !/^image\//.test(file.type)) return;
+    setBusy(true);
+    const r = await doUpload(file);
+    if (r?.url) { setAbout(r.url); const sv = await saveAboutImage(r.url); if (sv?.error) toast(sv.error, 'error'); else toast('✓ Foto Tentang tersimpan'); }
+    else if (r?.error) toast(r.error, 'error');
+    setBusy(false);
+    if (aboutInput.current) aboutInput.current.value = '';
+  }
+  async function removeAbout() {
+    setAbout('');
+    startTransition(async () => { await saveAboutImage(''); toast('Foto Tentang dihapus'); });
   }
 
   // ---------- HERO ----------
@@ -230,6 +246,25 @@ export default function EtalaseManager({ initialHero, initialRegions, initialPri
             <input ref={logoInput} type="file" accept="image/*" className="hidden" id="logo-upload" onChange={(e) => handleLogoFile(e.target.files)} />
             <label htmlFor="logo-upload" className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold cursor-pointer ${busy ? 'bg-slate-200 text-slate-400' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}>📤 Upload Logo</label>
             {logo && <button type="button" onClick={removeLogo} className="px-3 py-2 rounded-lg text-sm font-bold border border-red-300 text-red-600 hover:bg-red-50">Hapus</button>}
+          </div>
+        </div>
+      </section>
+
+      {/* ====== TENTANG ====== */}
+      <section className="bg-white border border-slate-200 rounded-2xl p-5">
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-lg font-bold text-slate-900">📷 Foto Section “Tentang”</h2>
+          {busy && <span className="text-xs text-slate-400">⏳ memproses...</span>}
+        </div>
+        <p className="text-xs text-slate-500 mb-4">Foto di samping tulisan “Tentang Traveling Eropa Group” di homepage. Disarankan landscape (4:3).</p>
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="w-44 h-32 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
+            {about ? <img src={about} alt="tentang" className="w-full h-full object-cover" /> : <span className="text-slate-400 text-xs">belum ada foto</span>}
+          </div>
+          <div className="flex gap-2">
+            <input ref={aboutInput} type="file" accept="image/*" className="hidden" id="about-upload" onChange={(e) => handleAboutFile(e.target.files)} />
+            <label htmlFor="about-upload" className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold cursor-pointer ${busy ? 'bg-slate-200 text-slate-400' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}>📤 Upload Foto</label>
+            {about && <button type="button" onClick={removeAbout} className="px-3 py-2 rounded-lg text-sm font-bold border border-red-300 text-red-600 hover:bg-red-50">Hapus</button>}
           </div>
         </div>
       </section>

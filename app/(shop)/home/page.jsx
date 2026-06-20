@@ -151,7 +151,7 @@ export default async function StorefrontHome() {
       {/* TENTANG */}
       <section className="max-w-6xl mx-auto px-4 py-16 grid md:grid-cols-2 gap-10 items-center">
         <div className="rounded-2xl overflow-hidden aspect-[4/3] shadow-md order-1 md:order-none">
-          <img src={cfg.about.image} alt="" className="w-full h-full object-cover" />
+          <img src={settings?.about_image || cfg.about.image} alt="" className="w-full h-full object-cover" />
         </div>
         <div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">{cfg.about.title}</h2>
