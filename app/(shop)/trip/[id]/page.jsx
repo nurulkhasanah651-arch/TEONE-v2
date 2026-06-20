@@ -100,38 +100,6 @@ export default async function TripDetailPage({ params }) {
           {/* Accordion: Syarat & Ketentuan + Syarat Visa (klik buka-tutup) */}
           {(sk.length > 0 || visa.length > 0 || t.visa_pdf_syarat_url || (Array.isArray(t.web_payment_schedule) && t.web_payment_schedule.length > 0)) && (
             <div className="space-y-3">
-              {sk.length > 0 && (
-                <details className="group border border-slate-200 rounded-2xl overflow-hidden">
-                  <summary className="flex items-center justify-between cursor-pointer px-5 py-4 font-bold text-slate-800 select-none">
-                    <span>📋 Syarat &amp; Ketentuan</span>
-                    <span className="text-slate-400 group-open:rotate-180 transition-transform">▾</span>
-                  </summary>
-                  <ul className="px-5 pb-4 space-y-1.5">
-                    {sk.map((l, i) => {
-                      const isHead = /:$/.test(l) || (l.length > 4 && l === l.toUpperCase());
-                      return isHead
-                        ? <li key={i} className="text-[13px] font-bold text-slate-800 mt-3 first:mt-0 list-none">{l}</li>
-                        : <li key={i} className="text-sm text-slate-600 flex gap-2"><span className="text-slate-400">•</span>{l}</li>;
-                    })}
-                  </ul>
-                </details>
-              )}
-              {(visa.length > 0 || t.visa_pdf_syarat_url) && (
-                <details className="group border border-slate-200 rounded-2xl overflow-hidden">
-                  <summary className="flex items-center justify-between cursor-pointer px-5 py-4 font-bold text-slate-800 select-none">
-                    <span>🛂 Syarat Visa</span>
-                    <span className="text-slate-400 group-open:rotate-180 transition-transform">▾</span>
-                  </summary>
-                  <div className="px-5 pb-4">
-                    <ul className="space-y-1.5">
-                      {visa.map((l, i) => <li key={i} className="text-sm text-slate-600 flex gap-2"><span className="text-slate-400">•</span>{l}</li>)}
-                    </ul>
-                    {t.visa_pdf_syarat_url && (
-                      <a href={t.visa_pdf_syarat_url} target="_blank" rel="noreferrer" className="inline-block mt-3 text-sm font-bold text-emerald-600 hover:underline">📄 Unduh syarat visa lengkap (PDF)</a>
-                    )}
-                  </div>
-                </details>
-              )}
               {Array.isArray(t.web_payment_schedule) && t.web_payment_schedule.length > 0 && (
                 <details className="group border border-slate-200 rounded-2xl overflow-hidden">
                   <summary className="flex items-center justify-between cursor-pointer px-5 py-4 font-bold text-slate-800 select-none">
@@ -160,6 +128,38 @@ export default async function TripDetailPage({ params }) {
                       </div>
                     ); })()}
                   </div>
+                </details>
+              )}
+              {(visa.length > 0 || t.visa_pdf_syarat_url) && (
+                <details className="group border border-slate-200 rounded-2xl overflow-hidden">
+                  <summary className="flex items-center justify-between cursor-pointer px-5 py-4 font-bold text-slate-800 select-none">
+                    <span>🛂 Syarat Visa</span>
+                    <span className="text-slate-400 group-open:rotate-180 transition-transform">▾</span>
+                  </summary>
+                  <div className="px-5 pb-4">
+                    <ul className="space-y-1.5">
+                      {visa.map((l, i) => <li key={i} className="text-sm text-slate-600 flex gap-2"><span className="text-slate-400">•</span>{l}</li>)}
+                    </ul>
+                    {t.visa_pdf_syarat_url && (
+                      <a href={t.visa_pdf_syarat_url} target="_blank" rel="noreferrer" className="inline-block mt-3 text-sm font-bold text-emerald-600 hover:underline">📄 Unduh syarat visa lengkap (PDF)</a>
+                    )}
+                  </div>
+                </details>
+              )}
+              {sk.length > 0 && (
+                <details className="group border border-slate-200 rounded-2xl overflow-hidden">
+                  <summary className="flex items-center justify-between cursor-pointer px-5 py-4 font-bold text-slate-800 select-none">
+                    <span>📋 Syarat &amp; Ketentuan</span>
+                    <span className="text-slate-400 group-open:rotate-180 transition-transform">▾</span>
+                  </summary>
+                  <ul className="px-5 pb-4 space-y-1.5">
+                    {sk.map((l, i) => {
+                      const isHead = /:$/.test(l) || (l.length > 4 && l === l.toUpperCase());
+                      return isHead
+                        ? <li key={i} className="text-[13px] font-bold text-slate-800 mt-3 first:mt-0 list-none">{l}</li>
+                        : <li key={i} className="text-sm text-slate-600 flex gap-2"><span className="text-slate-400">•</span>{l}</li>;
+                    })}
+                  </ul>
                 </details>
               )}
             </div>
