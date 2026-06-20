@@ -1,5 +1,6 @@
 'use client';
 import { useState, useTransition } from 'react';
+import { VISA_TEMPLATES } from '@/lib/shop/visa-templates';
 import { useRouter } from 'next/navigation';
 import { updateTripPublicContent, uploadStorefrontImage } from '@/lib/actions/shop-admin';
 import { ROOM_KEYS } from '@/lib/utils/price-breakdown';
@@ -11,6 +12,7 @@ export default function StorefrontPanel({ trip }) {
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
   const [published, setPublished] = useState(!!trip.is_published);
+  const [syaratVisa, setSyaratVisa] = useState(trip.syarat_visa || '');
   const [flashSale, setFlashSale] = useState(!!trip.is_flash_sale);
   const [bestSeller, setBestSeller] = useState(!!trip.is_best_seller);
   const [cover, setCover] = useState(trip.cover_image_url || '');
@@ -209,7 +211,12 @@ export default function StorefrontPanel({ trip }) {
           <label className="block"><span className="text-xs font-bold text-slate-600">📋 Syarat &amp; Ketentuan</span><span className="block text-[10px] text-slate-400 mb-1">Kosongkan untuk pakai S&amp;K standar Traveling Eropa otomatis.</span>
             <textarea name="syarat_ketentuan" defaultValue={trip.syarat_ketentuan || ''} rows={4} placeholder={'Pembayaran DP mengunci seat\nPelunasan H-45 sebelum keberangkatan\nDP tidak dapat dikembalikan'} className={inp} /></label>
           <label className="block"><span className="text-xs font-bold text-slate-600">🛂 Syarat Visa</span>
-            <textarea name="syarat_visa" defaultValue={trip.syarat_visa || ''} rows={4} placeholder={'Paspor masa berlaku min. 6 bulan\nFoto 4x6 latar putih\nRekening koran 3 bulan terakhir'} className={inp} /></label>
+            <span className="block text-[10px] text-slate-400 mb-1">Pilih template sesuai destinasi → terisi otomatis (masih bisa diedit). Kosongkan jika tanpa visa.</span>
+            <select value="" onChange={(e) => { const t = VISA_TEMPLATES.find((v) => v.key === e.target.value); if (t) setSyaratVisa(t.text); e.target.value=''; }} className={inp + ' mb-1.5 bg-white'}>
+              <option value="">— Pilih template syarat visa —</option>
+              {VISA_TEMPLATES.map((v) => <option key={v.key} value={v.key}>{v.label}</option>)}
+            </select>
+            <textarea name="syarat_visa" value={syaratVisa} onChange={(e) => setSyaratVisa(e.target.value)} rows={6} placeholder={'Pilih template di atas, atau ketik manual...'} className={inp} /></label>
         </div>
         <p className="text-[11px] text-slate-400 -mt-2">Di web, dua bagian ini tampil sebagai tombol yang bisa diklik (buka-tutup) supaya halaman tidak panjang. 1 poin per baris.</p>
 
