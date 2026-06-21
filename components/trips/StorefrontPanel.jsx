@@ -43,6 +43,7 @@ export default function StorefrontPanel({ trip }) {
 
   const [bd, setBd] = useState((trip.price_breakdown && typeof trip.price_breakdown === 'object') ? trip.price_breakdown : {});
   const [dpAmount, setDpAmount] = useState(trip.dp_amount || '');
+  const [tplApplied, setTplApplied] = useState(false);
   const roomPrices = ROOM_KEYS.map((r) => ({ ...r, price: Number(bd[r.key]) || 0 })).filter((r) => r.price > 0);
   const EXTRA_LABELS = { tips: 'Tips', city_tax: 'City Tax', domestic_baggage: 'Bagasi Domestik', domestic_flight: 'Tiket Domestik', harga_jual_base: 'Base', visa: 'Visa', asuransi: 'Asuransi' };
   const extraRows = Object.keys(EXTRA_LABELS).map((k) => ({ k, label: EXTRA_LABELS[k], val: Number(bd[k]) || 0 })).filter((x) => x.val > 0);
@@ -103,13 +104,14 @@ export default function StorefrontPanel({ trip }) {
       setSyaratVisa(d.syarat_visa || '');
       setSyaratKetentuan(d.syarat_ketentuan || '');
       setBd((d.price_breakdown && typeof d.price_breakdown === 'object') ? d.price_breakdown : {});
+      setTplApplied(true);
       if (d.dp_amount) setDpAmount(d.dp_amount);
       if (Array.isArray(d.web_payment_schedule)) {
         const a = d.web_payment_schedule.filter((x) => x && x.type && x.type !== 'Pelunasan').map((x) => ({ amount: x.amount || '', due: x.due || '' }));
         setInsts(a.length ? a : [{ amount: '', due: '' }]);
         setPelDue((d.web_payment_schedule.find((x) => x && x.type === 'Pelunasan') || {}).due || '');
       }
-      setMsg({ t: 'ok', x: 'Template diterapkan (termasuk harga & DP). Silakan cek lalu klik Simpan.' });
+      setMsg({ t: 'ok', x: 'Template diterapkan (harga, DP, cicilan ikut). Klik SIMPAN → harga otomatis masuk ke Harga per Tipe (Master Trip), halaman akan dimuat ulang.' });
     } finally { setApplying(false); }
   }
 
@@ -127,6 +129,11 @@ export default function StorefrontPanel({ trip }) {
     startTransition(async () => {
       const r = await updateTripPublicContent(trip.id, fd);
       if (r?.error) { setMsg({ t: 'e', x: r.error }); return; }
+      if (tplApplied) {
+        setMsg({ t: 'ok', x: 'Tersimpan. Memuat ulang halaman supaya harga tampil di Master Trip…' });
+        setTimeout(() => { window.location.reload(); }, 700);
+        return;
+      }
       setMsg({ t: 'ok', x: 'Konten jualan tersimpan' + (r.slug ? ` · /trip/${r.slug}` : '') });
       router.refresh();
     });
