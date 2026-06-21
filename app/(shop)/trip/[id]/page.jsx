@@ -20,6 +20,7 @@ export default async function TripDetailPage({ params }) {
   if (!t) notFound();
   const flashTrips = (await getFlashSaleTrips(8)).filter((x) => String(x.id) !== String(t.id)).slice(0, 4);
   const seat = tripSeatLeft(t);
+  const seatShown = seat > 10 ? 10 : seat; // tampilan maks 10; booking tetap pakai sisa asli
   const itin = Array.isArray(t.itinerary) ? t.itinerary : [];
   const rooms = tripRoomPrices(t);
   const gallery = Array.isArray(t.gallery_images) ? t.gallery_images : [];
@@ -69,7 +70,7 @@ export default async function TripDetailPage({ params }) {
 
             <div className="mt-3 text-sm text-slate-600 space-y-1 border-t border-slate-100 pt-3">
               <p>📅 {fmtDate(t.departure)}{t.return_date ? ` – ${fmtDate(t.return_date)}` : ''}</p>
-              <p className={seat > 0 ? 'text-emerald-700 font-semibold' : 'text-red-600 font-semibold'}>{seat > 0 ? `🎟 Sisa ${seat} seat` : '🚫 SOLD OUT'}</p>
+              <p className={seat > 0 ? 'text-emerald-700 font-semibold' : 'text-red-600 font-semibold'}>{seat > 0 ? `🎟 Sisa ${seatShown} seat` : '🚫 SOLD OUT'}</p>
             </div>
             {seat > 0 ? (
               <Link href={`/checkout/${t.slug || t.id}`} className="mt-4 block text-center w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold">Pesan Sekarang</Link>

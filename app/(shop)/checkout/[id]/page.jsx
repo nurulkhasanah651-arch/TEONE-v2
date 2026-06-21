@@ -24,7 +24,7 @@ export default async function CheckoutPage({ params }) {
         </div>
         <div className="min-w-0">
           <p className="font-bold text-slate-800 truncate">{t.name}</p>
-          <p className="text-xs text-slate-500">{fmtDate(t.departure)}{t.return_date ? ` – ${fmtDate(t.return_date)}` : ''} · Sisa {seat} seat</p>
+          <p className="text-xs text-slate-500">{fmtDate(t.departure)}{t.return_date ? ` – ${fmtDate(t.return_date)}` : ''} · Sisa {seat > 10 ? 10 : seat} seat</p>
           <p className="text-sm font-bold text-slate-900 mt-0.5">{fmtRp(tripPrice(t))} /pax</p>
         </div>
       </div>

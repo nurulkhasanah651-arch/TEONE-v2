@@ -7,6 +7,7 @@ function fmtDate(d) { if (!d) return ''; try { return new Date(d + 'T00:00:00').
 export default function TripCard({ t }) {
   const seat = tripSeatLeft(t);
   const soldout = seat <= 0;
+  const seatShown = seat > 10 ? 10 : seat; // tampilan: maks 10 (urgency); checkout tetap pakai sisa asli
   return (
     <Link href={`/trip/${t.slug || t.id}`} className={`group rounded-2xl border overflow-hidden transition-shadow bg-white ${soldout ? 'border-slate-300 opacity-95' : 'border-slate-200 hover:shadow-lg'}`}>
       <div className="aspect-[4/3] bg-gradient-to-br from-slate-700 to-slate-900 relative overflow-hidden">
@@ -19,7 +20,7 @@ export default function TripCard({ t }) {
             <span className="mt-1 text-[11px] font-semibold text-white/70 uppercase tracking-wide">Seat Habis</span>
           </div>
         ) : (
-          <span className="absolute top-3 left-3 text-[11px] font-bold px-2 py-1 rounded-full bg-emerald-500 text-white">Sisa {seat} seat</span>
+          <span className="absolute top-3 left-3 text-[11px] font-bold px-2 py-1 rounded-full bg-emerald-500 text-white">Sisa {seatShown} seat</span>
         )}
       </div>
       <div className={`p-4 ${soldout ? 'bg-slate-50' : ''}`}>
