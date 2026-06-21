@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getPublishedTrips, getStorefrontSettingsPublic } from '@/lib/shop/data';
+import { getPublishedTrips, getStorefrontSettingsPublic, tripSeatLeft } from '@/lib/shop/data';
 import { effectiveRegions, subcatsForRegion, subcatLabel, tripSubcat } from '@/lib/shop/regions';
 import TripCard from '@/components/shop/TripCard';
 
@@ -25,6 +25,8 @@ export default async function TripListPage({ searchParams }) {
   const months = [...new Set(trips.map((t) => (t.departure || '').slice(0, 7)).filter(Boolean))].sort();
   const qbase = (extra) => { const p = new URLSearchParams(); if (region) p.set('region', region); if (sub) p.set('sub', sub); for (const k in extra) { if (extra[k]) p.set(k, extra[k]); } const s2 = p.toString(); return '/trip' + (s2 ? '?' + s2 : ''); };
   if (month) trips = trips.filter((t) => (t.departure || '').slice(0, 7) === month);
+  // Available di atas, SOLD OUT di paling bawah (urutan tanggal tetap di tiap grup)
+  trips = [...trips].sort((a, b) => ((tripSeatLeft(a) <= 0 ? 1 : 0) - (tripSeatLeft(b) <= 0 ? 1 : 0)));
   const activeSubLabel = (region && sub) ? subcatLabel(region, sub) : null;
   const heading = activeSubLabel ? `Open Trip — ${activeSubLabel}` : (activeLabel ? `Open Trip — ${activeLabel}` : 'Open Trip');
 
