@@ -6,6 +6,7 @@ import { defaultTermsFor } from '@/lib/shop/default-terms';
 import { getPublishedTrip, tripSeatLeft, tripPrice, tripRoomPrices, getStorefrontSettingsPublic, getFlashSaleTrips } from '@/lib/shop/data';
 import HeroSlider from '@/components/shop/HeroSlider';
 import ShareTrip from '@/components/shop/ShareTrip';
+import TripCard from '@/components/shop/TripCard';
 
 export const dynamic = 'force-dynamic';
 
