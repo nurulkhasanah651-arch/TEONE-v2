@@ -41,8 +41,11 @@ export default function StorefrontPanel({ trip }) {
   });
   const [pelDue, setPelDue] = useState((_ws0.find((r) => r && r.type === 'Pelunasan') || {}).due || '');
 
-  const bd = (trip.price_breakdown && typeof trip.price_breakdown === 'object') ? trip.price_breakdown : {};
+  const [bd, setBd] = useState((trip.price_breakdown && typeof trip.price_breakdown === 'object') ? trip.price_breakdown : {});
+  const [dpAmount, setDpAmount] = useState(trip.dp_amount || '');
   const roomPrices = ROOM_KEYS.map((r) => ({ ...r, price: Number(bd[r.key]) || 0 })).filter((r) => r.price > 0);
+  const EXTRA_LABELS = { tips: 'Tips', city_tax: 'City Tax', domestic_baggage: 'Bagasi Domestik', domestic_flight: 'Tiket Domestik', harga_jual_base: 'Base', visa: 'Visa', asuransi: 'Asuransi' };
+  const extraRows = Object.keys(EXTRA_LABELS).map((k) => ({ k, label: EXTRA_LABELS[k], val: Number(bd[k]) || 0 })).filter((x) => x.val > 0);
 
   async function uploadOne(file) {
     // Kompres/resize di browser dulu (atasi foto HP besar gagal upload — limit ~4.5MB Vercel)
@@ -84,7 +87,7 @@ export default function StorefrontPanel({ trip }) {
 
   async function applyTemplate(sourceId) {
     if (!sourceId) return;
-    if (!confirm('Isi otomatis dari template ini? Konten saat ini (foto, itinerary, deskripsi, highlight, termasuk/tidak termasuk, visa, S&K) akan DITIMPA. Harga, slug, dan DP tidak ikut berubah.')) return;
+    if (!confirm('Isi otomatis dari template ini? SEMUA konten akan DITIMPA: foto, itinerary, deskripsi, highlight, termasuk/tidak, visa, S&K, HARGA per kamar + city tax/tips dll, DP, dan skema cicilan. Slug tetap.')) return;
     setApplying(true); setMsg(null);
     try {
       const r = await getStorefrontTemplate(sourceId);
@@ -99,7 +102,14 @@ export default function StorefrontPanel({ trip }) {
       setExcluded(d.excluded || '');
       setSyaratVisa(d.syarat_visa || '');
       setSyaratKetentuan(d.syarat_ketentuan || '');
-      setMsg({ t: 'ok', x: 'Template diterapkan. Silakan edit lalu klik "Simpan Konten Jualan".' });
+      setBd((d.price_breakdown && typeof d.price_breakdown === 'object') ? d.price_breakdown : {});
+      if (d.dp_amount) setDpAmount(d.dp_amount);
+      if (Array.isArray(d.web_payment_schedule)) {
+        const a = d.web_payment_schedule.filter((x) => x && x.type && x.type !== 'Pelunasan').map((x) => ({ amount: x.amount || '', due: x.due || '' }));
+        setInsts(a.length ? a : [{ amount: '', due: '' }]);
+        setPelDue((d.web_payment_schedule.find((x) => x && x.type === 'Pelunasan') || {}).due || '');
+      }
+      setMsg({ t: 'ok', x: 'Template diterapkan (termasuk harga & DP). Silakan cek lalu klik Simpan.' });
     } finally { setApplying(false); }
   }
 
@@ -204,7 +214,7 @@ export default function StorefrontPanel({ trip }) {
           <label className="block"><span className="text-xs font-bold text-slate-600">Slug URL (otomatis dari nama kalau kosong)</span>
             <input name="slug" defaultValue={trip.slug || ''} placeholder="west-europe-open-trip" className={inp} /></label>
           <label className="block"><span className="text-xs font-bold text-slate-600">DP (Rp)</span>
-            <input name="dp_amount" defaultValue={trip.dp_amount || ''} placeholder="3500000" className={inp} /></label>
+            <input name="dp_amount" value={dpAmount} onChange={(e) => setDpAmount(e.target.value.replace(/[^0-9]/g, ''))} placeholder="3500000" className={inp} /></label>
         </div>
 
         <div className="rounded-lg bg-indigo-50 border border-indigo-200 p-3">
@@ -238,7 +248,11 @@ export default function StorefrontPanel({ trip }) {
         </div>
 
         <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
-          <p className="text-xs font-bold text-slate-700">💰 Harga per tipe kamar (otomatis dari Master Trip)</p>
+          <p className="text-xs font-bold text-slate-700">💰 Harga per tipe kamar (dari Master Trip / template)</p>
+          <input type="hidden" name="price_breakdown_json" value={JSON.stringify(bd)} />
+          {extraRows.length > 0 && (
+            <p className="text-[11px] text-slate-500 mt-1">Biaya wajib: {extraRows.map((x) => `${x.label} ${fmtRp(x.val)}`).join(' · ')}</p>
+          )}
           {roomPrices.length ? (
             <div className="mt-2 flex flex-wrap gap-2">
               {roomPrices.map((r) => (
