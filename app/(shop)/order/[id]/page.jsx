@@ -38,9 +38,15 @@ export default async function OrderPage({ params, searchParams }) {
           </div>
 
           {paid ? (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-800 text-center text-sm">
-              Pembayaran kamu sudah kami terima. Tim kami akan menghubungi via WhatsApp untuk langkah berikutnya 🙏
-            </div>
+            <>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-800 text-center text-sm">
+                Pembayaran kamu sudah kami terima. Tim kami akan menghubungi via WhatsApp untuk langkah berikutnya 🙏
+              </div>
+              <Link href="/akun" className="block text-center w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                👤 Pantau Pesanan di Akun Saya →
+              </Link>
+              <p className="text-[11px] text-center text-slate-400">Kalau diminta login, gunakan No HP / email + password yang kamu buat tadi.</p>
+            </>
           ) : (
             <>
               <PayButton bookingId={b.id} amount={b.amount} />
