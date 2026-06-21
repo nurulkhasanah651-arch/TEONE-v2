@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { resolveBrandCode } from '@/lib/brand-shared';
 import { defaultTermsFor } from '@/lib/shop/default-terms';
-import { getPublishedTrip, tripSeatLeft, tripPrice, tripRoomPrices, getStorefrontSettingsPublic } from '@/lib/shop/data';
+import { getPublishedTrip, tripSeatLeft, tripPrice, tripRoomPrices, getStorefrontSettingsPublic, getFlashSaleTrips } from '@/lib/shop/data';
 import HeroSlider from '@/components/shop/HeroSlider';
 import ShareTrip from '@/components/shop/ShareTrip';
 
@@ -17,6 +17,7 @@ export default async function TripDetailPage({ params }) {
   const { id } = await params;
   const t = await getPublishedTrip(id);
   if (!t) notFound();
+  const flashTrips = (await getFlashSaleTrips(8)).filter((x) => String(x.id) !== String(t.id)).slice(0, 4);
   const seat = tripSeatLeft(t);
   const itin = Array.isArray(t.itinerary) ? t.itinerary : [];
   const rooms = tripRoomPrices(t);
@@ -75,7 +76,6 @@ export default async function TripDetailPage({ params }) {
               <button disabled className="mt-4 w-full py-3 rounded-xl bg-slate-200 text-slate-400 font-bold cursor-not-allowed">SOLD OUT</button>
             )}
             <a href="https://wa.me/6282210991200" target="_blank" rel="noreferrer" className="mt-2 block text-center w-full py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50">Tanya dulu via WA</a>
-            <ShareTrip title={t.public_title || t.name} />
           </div>
   );
 
@@ -215,10 +215,37 @@ export default async function TripDetailPage({ params }) {
               )}
             </div>
           )}
+
+          <div className="pt-1">
+            <p className="text-xs font-bold text-slate-400 mb-1.5">Suka paket ini?</p>
+            <ShareTrip title={t.public_title || t.name} />
+          </div>
         </div>
 
         <div className="hidden lg:block lg:col-span-1">
           {priceCard}
+        </div>
+      </div>
+
+      {/* Section bawah: Flash Sale + jelajah trip lain */}
+      <div className="bg-slate-50 border-t border-slate-200 mt-4">
+        <div className="max-w-6xl mx-auto px-4 py-10">
+          {flashTrips.length > 0 && (
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl sm:text-2xl font-extrabold text-rose-600">⚡ Flash Sale Trip</h2>
+                <Link href="/trip" className="text-sm font-bold text-slate-600 hover:text-slate-900">Lihat semua →</Link>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {flashTrips.map((ft) => <TripCard key={ft.id} t={ft} />)}
+              </div>
+            </div>
+          )}
+          <div className="text-center bg-white border border-slate-200 rounded-2xl p-6">
+            <p className="font-bold text-slate-800 text-lg">Mau lihat-lihat destinasi lain?</p>
+            <p className="text-sm text-slate-500 mt-1">Jelajahi semua open trip ke Eropa, Asia, dan dunia.</p>
+            <Link href="/trip" className="inline-block mt-4 px-6 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold">Pilih Trip Lainnya</Link>
+          </div>
         </div>
       </div>
     </div>
