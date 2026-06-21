@@ -36,14 +36,21 @@ export default function CheckoutForm({ trip }) {
     return m;
   }
   // null = ok; string = pesan error
+  function ageText(dob) {
+    const m = monthsAt(dob, RETURN);
+    if (m == null || m < 0) return '';
+    const y = Math.floor(m / 12), mo = m % 12;
+    return (y ? `${y} th ` : '') + `${mo} bln`;
+  }
   function dobError(key, dob) {
     if (!needsDob(key)) return null;
     if (!dob) return 'Wajib isi tanggal lahir.';
+    if (!RETURN) return null; // tgl pulang trip belum diisi → tidak bisa cek umur, terima saja
     const m = monthsAt(dob, RETURN);
-    if (m == null) return 'Tanggal lahir tidak valid.';
-    if (m < 0) return 'Tanggal lahir tidak valid.';
-    if (key === 'infant' && m > 24) return `Infant maks 24 bulan saat kepulangan (saat ini ${Math.floor(m / 12)} th ${m % 12} bln). Pilih kategori lain.`;
-    if (key === 'child_no_bed' && Math.floor(m / 12) > 12) return `Child no bed maks 12 tahun saat kepulangan (saat ini ${Math.floor(m / 12)} th). Pilih kategori lain.`;
+    if (m == null) return 'Tanggal lahir belum benar.';
+    if (m < 0) return 'Tanggal lahir kok setelah tanggal pulang? Cek lagi ya.';
+    if (key === 'infant' && m > 24) return `Umur saat pulang ${ageText(dob)} — infant maksimal 24 bulan. Pilih kategori lain (Child/kamar).`;
+    if (key === 'child_no_bed' && Math.floor(m / 12) > 12) return `Umur saat pulang ${ageText(dob)} — child no bed maksimal 12 tahun. Pilih kamar biasa.`;
     return null;
   }
   const [payType, setPayType] = useState('dp');
@@ -191,10 +198,13 @@ export default function CheckoutForm({ trip }) {
                 <input value={names[i] || ''} onChange={(e) => setNames((p) => p.map((v, j) => j === i ? e.target.value : v))}
                   placeholder="Nama lengkap" className="w-full mt-0.5 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
                 {needsDob(s.key) && (
-                  <div className="mt-1">
-                    <span className="text-[11px] font-semibold text-amber-700">Tanggal lahir {s.key === 'infant' ? '(infant — maks 24 bln saat pulang)' : '(child no bed — maks 12 th saat pulang)'}</span>
-                    <input type="date" value={dobs[i] || ''} onChange={(e) => setDobs((p) => p.map((v, j) => j === i ? e.target.value : v))}
-                      className={`w-full mt-0.5 px-3 py-2 border rounded-lg text-sm ${de ? 'border-red-400 bg-red-50' : 'border-slate-300'}`} />
+                  <div className="mt-1.5">
+                    <span className="text-[11px] font-semibold text-slate-600">📅 Tanggal lahir anak {s.key === 'infant' ? '(infant — maks 24 bulan saat pulang)' : '(child no bed — maks 12 tahun saat pulang)'}</span>
+                    <input type="date" value={dobs[i] || ''} max={new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => setDobs((p) => p.map((v, j) => j === i ? e.target.value : v))}
+                      className={`w-full mt-0.5 px-3 py-2.5 border rounded-lg text-sm ${de ? 'border-red-400 bg-red-50' : 'border-slate-300'}`} />
+                    <p className="text-[11px] text-slate-400 mt-0.5">Klik kolom di atas untuk pilih dari kalender.</p>
+                    {!de && dobs[i] && ageText(dobs[i]) && <p className="text-[11px] text-emerald-600 mt-0.5 font-semibold">✓ Umur saat pulang: {ageText(dobs[i])}</p>}
                     {de && <p className="text-[11px] text-red-600 mt-0.5">{de}</p>}
                   </div>
                 )}
