@@ -2,7 +2,7 @@
 import { useState, useEffect, useTransition } from 'react';
 import { VISA_TEMPLATES } from '@/lib/shop/visa-templates';
 import { useRouter } from 'next/navigation';
-import { updateTripPublicContent, uploadStorefrontImage, listStorefrontTemplates, getStorefrontTemplate } from '@/lib/actions/shop-admin';
+import { updateTripPublicContent, uploadStorefrontImage, listStorefrontTemplates, getStorefrontTemplate, applyTemplateToTrip } from '@/lib/actions/shop-admin';
 import { ROOM_KEYS } from '@/lib/utils/price-breakdown';
 import { compressImage } from '@/lib/utils/compress-image';
 
@@ -88,31 +88,14 @@ export default function StorefrontPanel({ trip }) {
 
   async function applyTemplate(sourceId) {
     if (!sourceId) return;
-    if (!confirm('Isi otomatis dari template ini? SEMUA konten akan DITIMPA: foto, itinerary, deskripsi, highlight, termasuk/tidak, visa, S&K, HARGA per kamar + city tax/tips dll, DP, dan skema cicilan. Slug tetap.')) return;
+    if (!confirm('Terapkan template ini? SEMUA konten trip ini (foto, itinerary, deskripsi, highlight, termasuk/tidak, visa, S&K, HARGA per tipe + city tax/tips dll, DP, skema cicilan) akan DITIMPA dari trip sumber dan LANGSUNG TERSIMPAN. Slug, nama, tanggal trip ini tetap.')) return;
     setApplying(true); setMsg(null);
     try {
-      const r = await getStorefrontTemplate(sourceId);
-      if (r?.error) { setMsg({ t: 'e', x: r.error }); return; }
-      const d = r.data;
-      setCover(d.cover_image_url || '');
-      setGallery(Array.isArray(d.gallery_images) ? d.gallery_images : []);
-      setItin(d.itinerary && d.itinerary.length ? d.itinerary : [{ title: '', detail: '', image: '' }]);
-      setHighlights(d.highlights || '');
-      setDescription(d.description || '');
-      setIncluded(d.included || '');
-      setExcluded(d.excluded || '');
-      setSyaratVisa(d.syarat_visa || '');
-      setSyaratKetentuan(d.syarat_ketentuan || '');
-      setBd((d.price_breakdown && typeof d.price_breakdown === 'object') ? d.price_breakdown : {});
-      setTplApplied(true);
-      if (d.dp_amount) setDpAmount(d.dp_amount);
-      if (Array.isArray(d.web_payment_schedule)) {
-        const a = d.web_payment_schedule.filter((x) => x && x.type && x.type !== 'Pelunasan').map((x) => ({ amount: x.amount || '', due: x.due || '' }));
-        setInsts(a.length ? a : [{ amount: '', due: '' }]);
-        setPelDue((d.web_payment_schedule.find((x) => x && x.type === 'Pelunasan') || {}).due || '');
-      }
-      setMsg({ t: 'ok', x: 'Template diterapkan (harga, DP, cicilan ikut). Klik SIMPAN → harga otomatis masuk ke Harga per Tipe (Master Trip), halaman akan dimuat ulang.' });
-    } finally { setApplying(false); }
+      const r = await applyTemplateToTrip(trip.id, sourceId);
+      if (r?.error) { setMsg({ t: 'e', x: r.error }); setApplying(false); return; }
+      setMsg({ t: 'ok', x: 'Template diterapkan & tersimpan (termasuk harga). Memuat ulang halaman…' });
+      setTimeout(() => { window.location.reload(); }, 700);
+    } catch (e) { setMsg({ t: 'e', x: e?.message || 'gagal' }); setApplying(false); }
   }
 
   function submit(e) {
