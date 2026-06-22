@@ -20,8 +20,9 @@ async function safeQuery(promise, fallback = []) {
 }
 
 function getDateRange(period, customFrom, customTo) {
-  const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
+  // Pakai tanggal zona Jakarta (WIB) agar konsisten dgn paid_at pembayaran (yg juga WIB).
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+  const [yy, mm] = todayStr.split('-');
 
   if (period === 'custom') {
     return { from: customFrom || '', to: customTo || todayStr };
@@ -30,18 +31,16 @@ function getDateRange(period, customFrom, customTo) {
     return { from: todayStr, to: todayStr };
   }
   if (period === 'week') {
-    const start = new Date(today);
-    const day = start.getDay() || 7;
-    start.setDate(start.getDate() - day + 1);
-    return { from: start.toISOString().slice(0, 10), to: todayStr };
+    const d = new Date(todayStr + 'T00:00:00');
+    const day = d.getDay() || 7;
+    d.setDate(d.getDate() - day + 1);
+    return { from: d.toISOString().slice(0, 10), to: todayStr };
   }
   if (period === 'month') {
-    const start = new Date(today.getFullYear(), today.getMonth(), 1);
-    return { from: start.toISOString().slice(0, 10), to: todayStr };
+    return { from: `${yy}-${mm}-01`, to: todayStr };
   }
   if (period === 'year') {
-    const start = new Date(today.getFullYear(), 0, 1);
-    return { from: start.toISOString().slice(0, 10), to: todayStr };
+    return { from: `${yy}-01-01`, to: todayStr };
   }
   return { from: '', to: '' };
 }
