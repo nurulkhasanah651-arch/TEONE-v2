@@ -81,7 +81,7 @@ export default function ManualTransferBox({ bookingId, amount = 0, bank = {} }) 
 
   return (
     <div className="space-y-3">
-      <p className="text-sm font-extrabold text-slate-800">🏦 Transfer Bank Manual</p>
+      <p className="text-sm font-extrabold text-slate-800">🏦 Transfer Bank Manual (Transfer Bank BCA)</p>
       {/* Nominal */}
       <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
         <p className="text-xs text-slate-500">Nominal yang ditransfer</p>

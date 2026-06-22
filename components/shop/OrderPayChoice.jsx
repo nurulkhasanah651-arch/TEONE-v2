@@ -42,7 +42,7 @@ export default function OrderPayChoice({ bookingId, amount = 0, bank = {}, manua
           className="w-full text-left p-4 rounded-xl border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40 transition flex items-center gap-3">
           <span className="text-2xl">🏦</span>
           <span className="flex-1">
-            <span className="block font-bold text-slate-800">Transfer Bank Manual</span>
+            <span className="block font-bold text-slate-800">Transfer Bank Manual (Transfer Bank BCA)</span>
             <span className="block text-xs text-slate-500">Transfer ke rekening {bank.bank_name || 'BCA'} lalu upload bukti</span>
           </span>
           <span className="text-slate-400">›</span>
