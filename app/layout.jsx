@@ -1,6 +1,6 @@
 import './globals.css';
 import { headers } from 'next/headers';
-import { resolveBrandCode, BRAND_UI } from '@/lib/brand-shared';
+import { resolveBrandCode, BRAND_UI, isStorefrontHost } from '@/lib/brand-shared';
 
 function currentBrandCode() {
   try {
@@ -12,7 +12,26 @@ function currentBrandCode() {
 }
 
 export async function generateMetadata() {
-  const ui = BRAND_UI[currentBrandCode()] || BRAND_UI.teone;
+  let host = '';
+  try { host = headers().get('host') || ''; } catch {}
+  const code = currentBrandCode();
+  // Halaman publik (etalase) → branding customer, BUKAN "TEONE One System".
+  if (isStorefrontHost(host)) {
+    if (code === 'khasanah') {
+      const t = 'Khasanah Travel — Umroh & Haji';
+      const d = 'Paket umroh & haji terkurasi bersama Khasanah Travel.';
+      return { title: t, description: d, metadataBase: new URL('https://www.khasanahtravel.com'),
+        openGraph: { title: t, description: d, siteName: 'Khasanah Travel', type: 'website' },
+        twitter: { card: 'summary_large_image', title: t, description: d } };
+    }
+    const t = 'Traveling Eropa — Open Trip & Private Trip Eropa';
+    const d = 'Jelajahi Eropa bersama Traveling Eropa. Open trip, private trip, dan paket wisata Eropa terkurasi.';
+    return { title: t, description: d, metadataBase: new URL('https://www.travelingeropa.com'),
+      openGraph: { title: t, description: d, siteName: 'Traveling Eropa', type: 'website' },
+      twitter: { card: 'summary_large_image', title: t, description: d } };
+  }
+  // Halaman internal (teone.dev) → branding sistem.
+  const ui = BRAND_UI[code] || BRAND_UI.teone;
   return { title: ui.title, description: ui.description };
 }
 

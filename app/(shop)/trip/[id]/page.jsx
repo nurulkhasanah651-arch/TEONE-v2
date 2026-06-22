@@ -10,6 +10,40 @@ import TripCard from '@/components/shop/TripCard';
 
 export const dynamic = 'force-dynamic';
 
+export async function generateMetadata({ params }) {
+  try {
+    const { id } = await params;
+    const t = await getPublishedTrip(id);
+    if (!t) return {};
+    let host = ''; let code = 'teone';
+    try { const h = headers(); host = h.get('host') || ''; code = h.get('x-brand') || resolveBrandCode({ host }) || 'teone'; } catch {}
+    const siteName = code === 'khasanah' ? 'Khasanah Travel' : 'Traveling Eropa';
+    const baseUrl = code === 'khasanah' ? 'https://www.khasanahtravel.com' : 'https://www.travelingeropa.com';
+    const title = `${t.public_title || t.name} — ${siteName}`;
+    const rawDesc = (t.description && String(t.description).trim())
+      ? String(t.description)
+      : `Open Trip ${t.destination || t.name} bersama ${siteName}. Lihat itinerary, harga, dan jadwal keberangkatan.`;
+    const description = rawDesc.replace(/\s+/g, ' ').trim().slice(0, 200);
+    const img = t.cover_image_url || null;
+    const url = `${baseUrl}/trip/${t.slug || id}`;
+    return {
+      title,
+      description,
+      metadataBase: new URL(baseUrl),
+      alternates: { canonical: url },
+      openGraph: {
+        title, description, url, siteName, type: 'website',
+        images: img ? [{ url: img }] : [],
+      },
+      twitter: {
+        card: img ? 'summary_large_image' : 'summary',
+        title, description,
+        images: img ? [img] : [],
+      },
+    };
+  } catch { return {}; }
+}
+
 function fmtRp(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
 function fmtDate(d) { if (!d) return ''; try { return new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }); } catch { return d; } }
 function lines(s) { return String(s || '').split('\n').map((l) => l.trim()).filter(Boolean); }
