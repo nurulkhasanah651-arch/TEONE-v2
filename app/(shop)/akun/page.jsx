@@ -60,7 +60,13 @@ export default async function AkunPage() {
       ) : (
         <div className="mt-3 space-y-3">
           {bookings.map((b) => {
-            const st = STATUS[b.status] || { label: b.status || 'Status', cls: 'bg-slate-100 text-slate-600' };
+            const _sisa = Number(plans[b.id]?.pokokSisa || 0);
+            const _paid = Number(plans[b.id]?.pokokPaid || 0);
+            let st;
+            if (b.status === 'cancelled') st = { label: 'Dibatalkan', cls: 'bg-red-100 text-red-700' };
+            else if (b.status === 'pending') st = { label: 'Menunggu pembayaran', cls: 'bg-amber-100 text-amber-700' };
+            else if (_sisa <= 0 && _paid > 0) st = { label: 'Lunas', cls: 'bg-emerald-100 text-emerald-700' };
+            else st = { label: 'Belum Lunas', cls: 'bg-blue-100 text-blue-700' };
             const dleft = daysTo(b.trip?.departure);
             return (
               <div key={b.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col sm:flex-row">
@@ -87,8 +93,14 @@ export default async function AkunPage() {
                     )}
                   </div>
                   <div className="mt-3 flex gap-2">
-                    {b.status === 'paid' ? (
-                      <Link href={`/akun/bayar/${b.id}`} className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">💳 Bayar Lanjutan</Link>
+                    {b.status === 'cancelled' ? (
+                      <span className="px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-bold">Dibatalkan</span>
+                    ) : b.status === 'paid' ? (
+                      _sisa > 0 ? (
+                        <Link href={`/akun/bayar/${b.id}`} className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">💳 Bayar Lanjutan</Link>
+                      ) : (
+                        <span className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-bold">✓ Lunas</span>
+                      )
                     ) : (
                       <Link href={`/order/${b.id}`} className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold">💳 Bayar / Detail</Link>
                     )}

@@ -10,6 +10,10 @@
     {
       "path": "/api/cron/marketing-sync",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/cancel-unpaid",
+      "schedule": "0 * * * *"
     }
   ]
 }
