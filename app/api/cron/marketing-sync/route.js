@@ -88,7 +88,7 @@ export async function GET(request) {
   const provided = url.searchParams.get('secret') || (auth.startsWith('Bearer ') ? auth.slice(7) : '');
   const cronSecret = process.env.CRON_SECRET;
   const windsorKey = process.env.WINDSOR_API_KEY;
-  const ok = !cronSecret || provided === cronSecret || (windsorKey && provided === windsorKey);
+  const ok = (!!cronSecret && provided === cronSecret) || (!!windsorKey && provided === windsorKey);
   if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
 
   const onlyBrand = url.searchParams.get('brand'); // 'teone' | 'khasanah'

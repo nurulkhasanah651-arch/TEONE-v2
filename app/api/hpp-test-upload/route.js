@@ -4,6 +4,8 @@
 import { NextResponse } from 'next/server';
 import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { createClient as createAuthClient } from '@/lib/supabase/server';
+import { assertStaff } from '@/lib/auth/require-staff';
 
 function getServiceClient() {
   const url = brandSupabaseUrl();
@@ -16,6 +18,13 @@ function getServiceClient() {
 
 export async function POST() {
   const logs = [];
+  // Guard: hanya staf internal (cegah endpoint diagnostik dipanggil publik)
+  {
+    const _auth = createAuthClient();
+    const { data: { user } } = await _auth.auth.getUser();
+    const _g = await assertStaff(user, '/invoices');
+    if (_g.error) return NextResponse.json({ ok: false, logs: ['❌ Akses ditolak'] }, { status: 403 });
+  }
   const supabase = getServiceClient();
   if (!supabase) {
     return NextResponse.json({
