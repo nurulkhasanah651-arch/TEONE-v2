@@ -155,9 +155,34 @@ export default async function AccountingDashboard({ searchParams }) {
   const realCompanyMoney = totalBank - hutang;
   const netEquity = (totalBank + piutang) - hutang;
 
-  const tripMap = Object.fromEntries(trips.map((t) => [t.id, t]));
-  const paxMap = Object.fromEntries(passengers.map((p) => [p.id, p]));
-  const custMap = Object.fromEntries(customers.map((c) => [c.id, c]));
+  // Resolve peserta/customer/trip yg dirujuk pembayaran — atasi cap 1000 baris (peserta sudah ribuan).
+  // Tanpa ini, pembayaran peserta baru tampil "Peserta · -" (nama/trip hilang) → seolah tidak masuk.
+  const payPaxIds = [...new Set(payments.map((p) => p.passenger_id).filter(Boolean))];
+  let paxExtra = [];
+  for (let i = 0; i < payPaxIds.length; i += 500) {
+    const chunk = payPaxIds.slice(i, i + 500);
+    const r = await safeQuery(supabase.from('trip_passengers').select('id, trip_id, customer_id, price_paid').in('id', chunk));
+    if (Array.isArray(r)) paxExtra = paxExtra.concat(r);
+  }
+  const allPax = [...passengers, ...paxExtra];
+  const paxMap = Object.fromEntries(allPax.map((p) => [p.id, p]));
+
+  const needCustIds = [...new Set(paxExtra.map((p) => p.customer_id).filter((id) => id && !customers.find((c) => c.id === id)))];
+  let custExtra = [];
+  for (let i = 0; i < needCustIds.length; i += 500) {
+    const chunk = needCustIds.slice(i, i + 500);
+    const r = await safeQuery(supabase.from('customers').select('id, name').in('id', chunk));
+    if (Array.isArray(r)) custExtra = custExtra.concat(r);
+  }
+  const custMap = Object.fromEntries([...customers, ...custExtra].map((c) => [c.id, c]));
+
+  const needTripIds = [...new Set(paxExtra.map((p) => p.trip_id).filter((id) => id && !trips.find((t) => t.id === id)))];
+  let tripExtra = [];
+  if (needTripIds.length) {
+    const r = await safeQuery(supabase.from('trips').select('id, kode_trip, name').in('id', needTripIds));
+    if (Array.isArray(r)) tripExtra = r;
+  }
+  const tripMap = Object.fromEntries([...trips, ...tripExtra].map((t) => [t.id, t]));
 
   const allEntries = [];
   for (const p of payments) {
