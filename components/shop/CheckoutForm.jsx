@@ -90,7 +90,7 @@ export default function CheckoutForm({ trip }) {
   const dp = Number(trip.dp_amount || 0);
   const dpBase = dp > 0 ? dp * pax : Math.round(subtotalFull * 0.2);
   const base = payType === 'full' ? subtotalFull : dpBase;
-  const amount = pax > 0 ? base + adminFee : 0;
+  const amount = pax > 0 ? base : 0; // tanpa biaya admin (admin hanya saat bayar online)
 
   function submit(e) {
     e.preventDefault();
@@ -232,7 +232,7 @@ export default function CheckoutForm({ trip }) {
         <div className="flex justify-between text-sm"><span className="opacity-80">Total peserta</span><span className="font-bold">{pax} orang</span></div>
         <div className="flex justify-between text-sm"><span className="opacity-80">Harga paket</span><span className="font-bold">{fmtRp(subtotalFull)}</span></div>
         {payType === 'dp' && <div className="flex justify-between text-sm"><span className="opacity-80">DP ({fmtRp(dp)} × {pax})</span><span className="font-bold">{fmtRp(dpBase)}</span></div>}
-        <div className="flex justify-between text-sm"><span className="opacity-80">Biaya admin</span><span className="font-bold">{fmtRp(adminFee)}</span></div>
+        <p className="text-[11px] opacity-70">Biaya admin {fmtRp(adminFee)} hanya untuk pembayaran ONLINE (kartu/VA/e-wallet). Transfer bank manual tanpa biaya admin.</p>
         <div className="flex justify-between pt-2 mt-1 border-t border-white/20">
           <span className="font-bold">Bayar sekarang ({payType === 'full' ? 'Lunas' : 'DP'})</span>
           <span className="text-2xl font-extrabold">{fmtRp(amount)}</span>
