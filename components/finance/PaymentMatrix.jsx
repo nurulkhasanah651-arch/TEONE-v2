@@ -89,6 +89,18 @@ export default function PaymentMatrix({
     });
   }
 
+  // Catat pembayaran milestone dgn NOMINAL CUSTOM (default template, bisa diubah).
+  async function handleCreateAmount(passengerId, type, amount) {
+    const amt = parseInt(amount) || 0;
+    if (amt <= 0) { setEditingCell(null); return; }
+    startTransition(async () => {
+      const result = await toggleMilestone(passengerId, tripId, type, amt);
+      if (result?.error) alert(result.error);
+      setEditingCell(null);
+      router.refresh();
+    });
+  }
+
   async function handleSaveNotes(paymentId, notes) {
     startTransition(async () => {
       const result = await updatePaymentNotes(paymentId, tripId, notes);
@@ -230,14 +242,14 @@ export default function PaymentMatrix({
                           {isEditing ? (
                             <input autoComplete="off"
                               type="number"
-                              defaultValue={payment?.amount || 0} min="0" autoFocus
-                              onBlur={(e) => handleSaveAmount(payment.id, e.target.value)}
+                              defaultValue={isPaid ? (payment?.amount || 0) : (m.amount || 0)} min="0" autoFocus
+                              onBlur={(e) => (isPaid ? handleSaveAmount(payment.id, e.target.value) : handleCreateAmount(p.id, m.key, e.target.value))}
                               onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEditingCell(null); }}
                               className="w-20 px-1 py-0.5 border border-brand-500 rounded text-xs text-center"
                             />
                           ) : (
                             <button
-                              onClick={() => handleToggle(p.id, m.key, m.amount)}
+                              onClick={() => (isPaid ? handleToggle(p.id, m.key, m.amount) : setEditingCell({ passengerId: p.id, type: m.key }))}
                               disabled={pending}
                               className={`w-10 h-8 rounded font-bold text-sm transition-colors disabled:opacity-50 ${
                                 isPaid ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-400'
@@ -246,7 +258,7 @@ export default function PaymentMatrix({
                                 ? `Lunas: ${fmtRupiah(payment.amount)}`
                                 : m.isOptional
                                   ? `Opt-in: klik untuk add ${m.label} (${fmtRupiah(m.amount)}) ke expected peserta ini`
-                                  : `Klik untuk tandai lunas (${fmtRupiah(m.amount)})`}
+                                  : `Klik untuk input nominal bayar (default ${fmtRupiah(m.amount)}, bisa diubah)`}
                             >
                               {isPaid ? '✓' : '○'}
                             </button>
