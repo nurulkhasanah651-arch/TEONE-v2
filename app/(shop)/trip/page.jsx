@@ -42,9 +42,9 @@ export default async function TripListPage({ searchParams }) {
 
       {/* Filter region (top-level) */}
       <div className="flex flex-wrap gap-2 mb-3">
-        <Link href="/trip" className={`px-3.5 py-1.5 rounded-full text-sm font-semibold border ${!region ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}>Semua</Link>
+        <Link prefetch={false} href="/trip" className={`px-3.5 py-1.5 rounded-full text-sm font-semibold border ${!region ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}>Semua</Link>
         {regions.map((r) => (
-          <Link key={r.key} href={`/trip?region=${r.key}`} className={`px-3.5 py-1.5 rounded-full text-sm font-semibold border ${region === r.key ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}>
+          <Link key={r.key} prefetch={false} href={`/trip?region=${r.key}`} className={`px-3.5 py-1.5 rounded-full text-sm font-semibold border ${region === r.key ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}>
             <span className="mr-1">{r.icon}</span>{r.label}
           </Link>
         ))}
@@ -53,9 +53,9 @@ export default async function TripListPage({ searchParams }) {
       {/* Sub-kategori (muncul kalau region punya kategori turunan, mis. Eropa / Asia) */}
       {subcats.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-7 pl-1 border-l-2 border-emerald-200">
-          <Link href={`/trip?region=${region}`} className={`ml-2 px-3 py-1 rounded-full text-xs font-semibold border ${!sub ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-400'}`}>Semua {activeLabel}</Link>
+          <Link prefetch={false} href={`/trip?region=${region}`} className={`ml-2 px-3 py-1 rounded-full text-xs font-semibold border ${!sub ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-400'}`}>Semua {activeLabel}</Link>
           {subcats.map((s) => (
-            <Link key={s.key} href={`/trip?region=${region}&sub=${s.key}`} className={`px-3 py-1 rounded-full text-xs font-semibold border ${sub === s.key ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-400'}`}>
+            <Link key={s.key} prefetch={false} href={`/trip?region=${region}&sub=${s.key}`} className={`px-3 py-1 rounded-full text-xs font-semibold border ${sub === s.key ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-400'}`}>
               <span className="mr-1">{s.icon}</span>{s.label}
             </Link>
           ))}
@@ -66,9 +66,9 @@ export default async function TripListPage({ searchParams }) {
       {months.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-7">
           <span className="text-xs font-bold text-slate-400 self-center mr-1">📅 Bulan:</span>
-          <Link href={qbase({})} className={`px-3 py-1 rounded-full text-xs font-semibold border ${!month ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-400'}`}>Semua Bulan</Link>
+          <Link prefetch={false} href={qbase({})} className={`px-3 py-1 rounded-full text-xs font-semibold border ${!month ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-400'}`}>Semua Bulan</Link>
           {months.map((ym) => (
-            <Link key={ym} href={qbase({ month: ym })} className={`px-3 py-1 rounded-full text-xs font-semibold border ${month === ym ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-400'}`}>{monthLabel(ym)}</Link>
+            <Link key={ym} prefetch={false} href={qbase({ month: ym })} className={`px-3 py-1 rounded-full text-xs font-semibold border ${month === ym ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-400'}`}>{monthLabel(ym)}</Link>
           ))}
         </div>
       )}

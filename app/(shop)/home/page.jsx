@@ -91,7 +91,7 @@ export default async function StorefrontHome() {
           <p className="text-slate-500 mt-1">Pilih region favoritmu — Eropa, UK + Ireland, Asia, dan lainnya.</p>
           <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
             {regions.map((r) => (
-              <Link key={r.key} href={`/trip?region=${r.key}`} className="group relative rounded-2xl overflow-hidden aspect-[3/4] shadow-sm hover:shadow-lg transition-shadow bg-gradient-to-br from-slate-700 to-slate-900">
+              <Link key={r.key} prefetch={false} href={`/trip?region=${r.key}`} className="group relative rounded-2xl overflow-hidden aspect-[3/4] shadow-sm hover:shadow-lg transition-shadow bg-gradient-to-br from-slate-700 to-slate-900">
                 {r.image
                   ? <img src={r.image} alt={r.label} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform" />
                   : <div className="absolute inset-0 flex items-center justify-center text-5xl opacity-30">{r.icon}</div>}
