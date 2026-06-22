@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah } from '@/lib/utils/format';
 import { computeIncomeProjection } from '@/lib/utils/price-breakdown';
 import { getManualTransfers } from '@/lib/shop/data';
+import PaymentReminderPanel from '@/components/finance/PaymentReminderPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,6 +67,8 @@ export default async function FinancePage() {
         <h1 className="text-3xl font-bold text-brand-700">Finance</h1>
         <p className="mt-1 text-slate-600">Kelola cashflow, payment, dan inventory tiket dalam satu tempat.</p>
       </div>
+
+      <PaymentReminderPanel />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Total Trip" value={totalTrips} color="text-brand-700" bg="bg-brand-50" />
