@@ -15,6 +15,9 @@ export default async function OrderPage({ params, searchParams }) {
   if (!b) notFound();
   const paid = b.status === 'paid';
   const bank = await getBrandBank();
+  // Nominal transfer manual = total tanpa biaya admin (admin 13rb hanya utk pembayaran online)
+  let manualAmount = Number(b.amount) || 0;
+  try { const _m = JSON.parse(b.notes || '{}'); manualAmount = Math.max(manualAmount - (Number(_m.admin_fee) || 0), 0); } catch {}
 
   return (
     <div className="max-w-xl mx-auto px-4 py-10">
@@ -53,6 +56,7 @@ export default async function OrderPage({ params, searchParams }) {
               <OrderPayChoice
                 bookingId={b.id}
                 amount={b.amount}
+                manualAmount={manualAmount}
                 bank={bank || {}}
                 manualStatus={b.manual_status || null}
                 rejectReason={b.manual_reject_reason || null}

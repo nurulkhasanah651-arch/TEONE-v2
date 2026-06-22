@@ -6,7 +6,8 @@ import { useState } from 'react';
 import PayButton from './PayButton';
 import ManualTransferBox from './ManualTransferBox';
 
-export default function OrderPayChoice({ bookingId, amount = 0, bank = {}, manualStatus = null, rejectReason = null }) {
+export default function OrderPayChoice({ bookingId, amount = 0, manualAmount = null, bank = {}, manualStatus = null, rejectReason = null }) {
+  const manualAmt = manualAmount == null ? amount : manualAmount;
   // Kalau sebelumnya sudah upload & masih nunggu verifikasi → tampilkan status, sembunyikan pilihan.
   const [method, setMethod] = useState(manualStatus === 'pending' ? 'manual' : null);
 
@@ -57,7 +58,7 @@ export default function OrderPayChoice({ bookingId, amount = 0, bank = {}, manua
         className="text-xs text-slate-500 hover:text-slate-700">← Ganti metode pembayaran</button>
       {method === 'online'
         ? <PayButton bookingId={bookingId} amount={amount} />
-        : <ManualTransferBox bookingId={bookingId} amount={amount} bank={bank} />}
+        : <ManualTransferBox bookingId={bookingId} amount={manualAmt} bank={bank} />}
     </div>
   );
 }
