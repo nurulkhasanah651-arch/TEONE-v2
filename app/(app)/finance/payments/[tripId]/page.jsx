@@ -223,7 +223,7 @@ export default async function TripPaymentsPage({ params }) {
         <StatCard label="Progress Total" value={`${progress}%`} color="text-blue-700" bg="bg-blue-50" />
       </div>
 
-      <PaymentTemplateForm tripId={tripId} template={template} />
+      <PaymentTemplateForm tripId={tripId} template={template} schedule={Array.isArray(trip.web_payment_schedule) ? trip.web_payment_schedule : []} />
 
       <PaymentMatrix
         tripId={tripId}

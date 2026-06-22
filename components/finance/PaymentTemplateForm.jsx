@@ -24,16 +24,25 @@ const STANDARD = [
 ];
 const STANDARD_KEYS = new Set(STANDARD.map((s) => s.key));
 
-export default function PaymentTemplateForm({ tripId, template = {} }) {
+export default function PaymentTemplateForm({ tripId, template = {}, schedule = [] }) {
   const [open, setOpen] = useState(false);
+  const _schedAmt = {}; const _schedDue = {};
+  for (const r of (Array.isArray(schedule) ? schedule : [])) { if (r && r.type) { if (Number(r.amount) > 0) _schedAmt[r.type] = Number(r.amount); if (r.due) _schedDue[r.type] = r.due; } }
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
 
   // Standard amounts — init dari template
   const [stdValues, setStdValues] = useState(() => {
     const v = {};
-    for (const m of STANDARD) v[m.key] = template[m.key] || 0;
+    for (const m of STANDARD) v[m.key] = (Number(template[m.key]) > 0 ? template[m.key] : (_schedAmt[m.key] || 0));
     return v;
+  });
+
+  // Tanggal deadline per termin — init dari jadwal web
+  const [dueValues, setDueValues] = useState(() => {
+    const d = {};
+    for (const m of STANDARD) d[m.key] = _schedDue[m.key] || '';
+    return d;
   });
 
   // Hidden standard items (deleted by user)
@@ -215,6 +224,14 @@ export default function PaymentTemplateForm({ tripId, template = {} }) {
                   className="w-full pl-7 pr-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-brand-500 focus:border-brand-500 outline-none bg-white"
                 />
               </div>
+              {m.key !== 'Visa' && m.key !== 'Asuransi' && (
+                <input type="date" name={`due_${m.key}`}
+                  value={dueValues[m.key] || ''}
+                  onChange={(e) => setDueValues((d) => ({ ...d, [m.key]: e.target.value }))}
+                  title="Tanggal deadline (sinkron ke web)"
+                  className="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-brand-500 focus:border-brand-500 outline-none bg-white text-slate-600"
+                />
+              )}
             </label>
           </div>
         ))}
