@@ -73,6 +73,8 @@ export default function InvoicePanelForPassenger({
   priceBreakdown = {}, paidMilestones = [],
   familyGroup = null, familyMembers = [],
   paymentTemplate = {},
+  scheduleDue = {},
+  scheduleAmount = {},
   // Round 102e: data hitungan dari matrix
   expectedTotal = 0,
   totalPaidPerPax = 0,
@@ -130,6 +132,7 @@ export default function InvoicePanelForPassenger({
         if (v > 0) return v;
       }
     }
+    if (scheduleAmount && Number(scheduleAmount[key]) > 0) return Number(scheduleAmount[key]);
     return 0;
   }
 
@@ -141,6 +144,8 @@ export default function InvoicePanelForPassenger({
 
   useEffect(() => {
     if (!mode) return;
+    // Auto-isi due date dari jadwal trip (tetap bisa diedit per peserta)
+    if (scheduleDue && scheduleDue[milestone]) setDueDate(scheduleDue[milestone]);
     if (milestone === 'Custom') return;
 
     const isFamily = mode === 'family_invoice' || mode === 'family_receipt';

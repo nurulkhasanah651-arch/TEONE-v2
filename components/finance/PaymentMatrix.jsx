@@ -16,6 +16,8 @@ export default function PaymentMatrix({
   passengers = [],
   paymentsByPassenger = {},
   template = {},
+  scheduleDue = {},
+  scheduleAmount = {},
   breakdown = {},
   invoicesByPassenger = {},
   familyGroups = [],
@@ -357,6 +359,8 @@ export default function PaymentMatrix({
                             invoices={invoicesByPassenger[p.id] || []}
                             priceBreakdown={breakdown}
                             paymentTemplate={template}
+                            scheduleDue={scheduleDue}
+                            scheduleAmount={scheduleAmount}
                             paidMilestones={pays.map((py) => py.type)}
                             familyGroup={fg}
                             familyMembers={familyMembers}

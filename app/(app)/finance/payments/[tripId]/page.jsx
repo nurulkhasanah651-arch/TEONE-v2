@@ -115,6 +115,11 @@ export default async function TripPaymentsPage({ params }) {
   const pnrs = pnrRes || [];
 
   const template = (trip.payment_template && typeof trip.payment_template === 'object') ? trip.payment_template : {};
+  // Jadwal cicilan dari editor web → default due date & nominal (Finance tetap menang via template).
+  const _sched = Array.isArray(trip.web_payment_schedule) ? trip.web_payment_schedule : [];
+  const scheduleDue = {}; const scheduleAmount = {};
+  for (const r of _sched) { if (r && r.type) { if (r.due) scheduleDue[r.type] = r.due; if (Number(r.amount) > 0) scheduleAmount[r.type] = Number(r.amount); } }
+  if (trip.dp_amount && !scheduleAmount.DP) scheduleAmount.DP = Number(trip.dp_amount);
   // EXPECTED per peserta: price_paid kalau sudah diisi, kalau 0 fallback proyeksi harga kamar (SINKRON list)
   const paxExpected = (p) => {
     const fixed = Number(p.price_paid) || 0;
@@ -225,6 +230,8 @@ export default async function TripPaymentsPage({ params }) {
         passengers={passengersWithCustomers}
         paymentsByPassenger={paymentsByPassenger}
         template={template}
+        scheduleDue={scheduleDue}
+        scheduleAmount={scheduleAmount}
         breakdown={breakdown}
         invoicesByPassenger={invoicesByPassenger}
         familyGroups={familyGroups}
