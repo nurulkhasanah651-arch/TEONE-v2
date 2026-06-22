@@ -19,6 +19,9 @@ import InvoicePaymentApprovalPanel from '@/components/invoices/InvoicePaymentApp
 import TripInvoicesBrowser from '@/components/invoices/TripInvoicesBrowser';
 import InvoiceDriveSyncPicker from '@/components/invoices/InvoiceDriveSyncPicker';
 import ManualInvoiceButton from '@/components/invoices/ManualInvoiceButton';
+import SignedFileLink from '@/components/common/SignedFileLink';
+import ManualTransferActions from '@/components/finance/ManualTransferActions';
+import { getManualTransfers } from '@/lib/shop/data';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,6 +72,13 @@ export default async function InvoicesPage() {
   const pendingPayments = pendingPaymentsRes.data || [];
   const dpRequests = dpRequestsRes.data || [];
   const familyGroups = familyGroupsRes.data || [];
+
+  // Transfer Bank Manual dari etalase web yang menunggu verifikasi finance
+  let pendingManual = [];
+  try {
+    const mt = await getManualTransfers({ limit: 150 });
+    pendingManual = mt.filter((b) => b.manual_status === 'pending' && b.status !== 'paid');
+  } catch {}
 
   const custMapForPax = Object.fromEntries(customers.map((c) => [c.id, c]));
   const passengersWithCustomer = allPassengers.map((p) => ({
@@ -195,6 +205,18 @@ export default async function InvoicesPage() {
         </div>
       )}
 
+      {/* TRANSFER BANK MANUAL WEB — menunggu verifikasi finance */}
+      {pendingManual.length > 0 && (
+        <div className="bg-emerald-50 border-l-4 border-emerald-500 p-3 rounded">
+          <p className="text-sm font-bold text-emerald-900">
+            🏦 {pendingManual.length} Transfer Bank Manual (web) menunggu verifikasi — section di bawah
+          </p>
+        </div>
+      )}
+      {pendingManual.length > 0 && (
+        <ManualTransferApprovalPanel items={pendingManual} />
+      )}
+
       {/* PAYMENT APPROVAL PANEL — R201 NEW */}
       {pendingPaymentCount > 0 && (
         <InvoicePaymentApprovalPanel payments={pendingPayments} />
@@ -224,6 +246,37 @@ function StatCard({ label, value, color, bg, small = false }) {
       <p className="text-xs font-medium text-slate-500">{label}</p>
       <p className={`mt-1 font-bold ${color} ${small ? 'text-lg' : 'text-2xl'}`}>{value}</p>
       <div className={`mt-2 h-1 w-8 rounded-full ${bg}`} />
+    </div>
+  );
+}
+
+function ManualTransferApprovalPanel({ items = [] }) {
+  const rp = (n) => 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+  return (
+    <div className="bg-white border border-emerald-200 rounded-xl shadow-card p-4">
+      <h2 className="text-lg font-bold text-emerald-700 mb-1">🏦 Transfer Bank Manual (Web) — Menunggu Verifikasi</h2>
+      <p className="text-xs text-slate-500 mb-3">Approve = peserta otomatis masuk Master Trip + checklist payment finance.</p>
+      <div className="space-y-3">
+        {items.map((b) => (
+          <div key={b.id} className="border border-emerald-200 rounded-lg p-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-bold text-slate-900">{b.lead_name} <span className="text-xs font-normal text-slate-500">· {b.lead_phone}</span></p>
+                <p className="text-sm text-slate-600">{b.trip?.name || '-'} {b.trip?.kode_trip ? `(${b.trip.kode_trip})` : ''}</p>
+                <p className="text-xs text-slate-500 mt-0.5">Order #{b.order_code} · {b.payment_type === 'full' ? 'Lunas' : 'DP'}</p>
+                {b.manual_note && <p className="text-xs italic text-slate-700 mt-1">"{b.manual_note}"</p>}
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-extrabold text-slate-900">{rp(b.amount)}</p>
+                {b.payment_proof_url && (
+                  <SignedFileLink url={b.payment_proof_url} className="inline-block mt-1 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-xs font-semibold rounded cursor-pointer">📎 Lihat Bukti</SignedFileLink>
+                )}
+              </div>
+            </div>
+            <ManualTransferActions bookingId={b.id} />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
