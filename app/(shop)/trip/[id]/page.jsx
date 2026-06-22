@@ -115,8 +115,29 @@ export default async function TripDetailPage({ params }) {
           </div>
   );
 
+  const _siteName = brand === 'khasanah' ? 'Khasanah Travel' : 'Traveling Eropa';
+  const _canonical = `${brand === 'khasanah' ? 'https://www.khasanahtravel.com' : 'https://www.travelingeropa.com'}/trip/${t.slug || t.id}`;
+  const _jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: t.public_title || t.name,
+    description: (t.description ? String(t.description) : `Open Trip ${t.destination || t.name} bersama ${_siteName}.`).replace(/\s+/g, ' ').trim().slice(0, 320),
+    image: heroImgs.length ? heroImgs.slice(0, 6) : undefined,
+    brand: { '@type': 'Brand', name: _siteName },
+    category: t.destination || 'Tour & Travel',
+    offers: {
+      '@type': 'Offer',
+      price: tripPrice(t) || undefined,
+      priceCurrency: 'IDR',
+      availability: seat > 0 ? 'https://schema.org/InStock' : 'https://schema.org/SoldOut',
+      url: _canonical,
+      ...(t.departure ? { validFrom: t.departure } : {}),
+    },
+  };
+
   return (
     <div>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(_jsonLd) }} />
       {/* Hero (slideshow kalau ada galeri) */}
       <div className="relative h-72 md:h-96 bg-gradient-to-br from-slate-700 to-slate-900">
         {heroImgs.length > 0 && <HeroSlider images={heroImgs} overlay="bottom" />}

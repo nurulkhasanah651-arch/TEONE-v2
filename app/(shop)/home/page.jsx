@@ -32,8 +32,29 @@ export default async function StorefrontHome() {
   const count = live?.count || cfg.googleCount;
   const reviews = (live?.reviews && live.reviews.length) ? live.reviews : cfg.testimonials;
 
+  const _isKh = code === 'khasanah';
+  const _orgName = _isKh ? 'Khasanah Travel' : 'Traveling Eropa';
+  const _orgUrl = _isKh ? 'https://www.khasanahtravel.com' : 'https://www.travelingeropa.com';
+  const _orgLogo = (settings?.logo_url) || `${_orgUrl}/icon.png`;
+  const _orgLd = {
+    '@context': 'https://schema.org',
+    '@type': 'TravelAgency',
+    name: _orgName,
+    url: _orgUrl,
+    logo: _orgLogo,
+    image: _orgLogo,
+    ...(_isKh ? {} : {
+      description: 'Open trip & private trip Eropa terkurasi bersama Traveling Eropa.',
+      sameAs: ['https://www.instagram.com/travelingeropa/', 'https://www.tiktok.com/@travelingeropa'],
+      address: { '@type': 'PostalAddress', streetAddress: 'Ruko Graha Boulevard, Jl. Gading Serpong Boulevard, Curug Sangereng, Kelapa Dua', addressRegion: 'Banten', postalCode: '15810', addressCountry: 'ID' },
+    }),
+  };
+  const _siteLd = { '@context': 'https://schema.org', '@type': 'WebSite', name: _orgName, url: _orgUrl };
+
   return (
     <div>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(_orgLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(_siteLd) }} />
       {/* HERO */}
       <section className="relative">
         <HeroSlider images={heroImages} />
