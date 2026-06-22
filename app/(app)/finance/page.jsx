@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah } from '@/lib/utils/format';
 import { computeIncomeProjection } from '@/lib/utils/price-breakdown';
+import { getManualTransfers } from '@/lib/shop/data';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,11 @@ export default async function FinancePage() {
   ]);
 
   const trips = tripsRes.data || [];
+  let manualPendingCount = 0;
+  try {
+    const mt = await getManualTransfers({ limit: 150 });
+    manualPendingCount = mt.filter((r) => r.manual_status === 'pending' && r.status !== 'paid').length;
+  } catch {}
   const items = itemsRes.data || [];
   const allPax = paxRes.data || [];
   const totalTrips = trips.length;
@@ -92,6 +98,14 @@ export default async function FinancePage() {
           desc="Generate invoice per milestone, kirim via WhatsApp, peserta upload bukti transfer, auto receipt setelah verify + info sisa pembayaran."
           badge="Per peserta · per group"
           color="from-pink-500 to-rose-700"
+        />
+        <SectionCard
+          href="/finance/manual-transfer"
+          icon="🏦"
+          title="Transfer Manual Web"
+          desc="Verifikasi bukti transfer bank dari customer (etalase web). Approve = peserta auto masuk Master Trip + checklist payment."
+          badge={manualPendingCount > 0 ? `${manualPendingCount} menunggu verifikasi` : 'Dari etalase web'}
+          color="from-amber-500 to-orange-700"
         />
       </div>
     </div>

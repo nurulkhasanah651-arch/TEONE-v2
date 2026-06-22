@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getBooking } from '@/lib/shop/data';
-import PayButton from '@/components/shop/PayButton';
+import { getBooking, getBrandBank } from '@/lib/shop/data';
+import OrderPayChoice from '@/components/shop/OrderPayChoice';
 
 export const dynamic = 'force-dynamic';
 function fmtRp(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
@@ -14,6 +14,7 @@ export default async function OrderPage({ params, searchParams }) {
   const b = await getBooking(id);
   if (!b) notFound();
   const paid = b.status === 'paid';
+  const bank = await getBrandBank();
 
   return (
     <div className="max-w-xl mx-auto px-4 py-10">
@@ -49,8 +50,13 @@ export default async function OrderPage({ params, searchParams }) {
             </>
           ) : (
             <>
-              <PayButton bookingId={b.id} amount={b.amount} />
-              <p className="text-[11px] text-center text-slate-400">Pembayaran aman via Midtrans (kartu, VA bank, e-wallet, QRIS). Status otomatis ter-update setelah bayar.</p>
+              <OrderPayChoice
+                bookingId={b.id}
+                amount={b.amount}
+                bank={bank || {}}
+                manualStatus={b.manual_status || null}
+                rejectReason={b.manual_reject_reason || null}
+              />
               <a href={`https://wa.me/6282210991200?text=${encodeURIComponent('Halo, saya mau bayar booking ' + b.order_code)}`} target="_blank" rel="noreferrer"
                 className="block text-center w-full py-3 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50">Atau konfirmasi via WhatsApp</a>
             </>
