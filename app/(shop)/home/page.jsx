@@ -25,8 +25,8 @@ export default async function StorefrontHome() {
   const settings = await getStorefrontSettingsPublic();
   const heroImages = (settings?.hero_images && settings.hero_images.length) ? settings.hero_images : (cfg.heroImages || (cfg.heroImage ? [cfg.heroImage] : []));
   const regions = effectiveRegions(settings?.regions);
-  const flashSale = await getFlashSaleTrips(8);
-  const bestSeller = await getBestSellerTrips(6);
+  const flashSale = await getFlashSaleTrips(20);
+  const bestSeller = await getBestSellerTrips(20);
   const live = await getGoogleReviews(cfg.googlePlaceId);
   const rating = live?.rating || cfg.googleRating;
   const count = live?.count || cfg.googleCount;
