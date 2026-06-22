@@ -20,18 +20,18 @@ export default function TripCard({ t }) {
             <span className="mt-1 text-[11px] font-semibold text-white/70 uppercase tracking-wide">Seat Habis</span>
           </div>
         ) : (
-          <span className="absolute top-3 left-3 text-[11px] font-bold px-2 py-1 rounded-full bg-emerald-500 text-white">Sisa {seatShown} seat</span>
+          <span className="absolute top-2 left-2 text-[10px] sm:text-[11px] font-bold px-2 py-0.5 sm:py-1 rounded-full bg-emerald-500 text-white">Sisa {seatShown} seat</span>
         )}
       </div>
-      <div className={`p-4 ${soldout ? 'bg-slate-50' : ''}`}>
+      <div className={`p-3 sm:p-4 ${soldout ? 'bg-slate-50' : ''}`}>
         {t.destination && <p className={`text-[11px] font-bold uppercase tracking-wider ${soldout ? 'text-slate-400' : 'text-slate-400'}`}>{t.destination}</p>}
-        <h3 className={`font-bold mt-0.5 line-clamp-2 ${soldout ? 'text-slate-500' : 'text-slate-900'}`}>{t.public_title || t.name}</h3>
+        <h3 className={`font-bold text-sm sm:text-base leading-snug mt-0.5 line-clamp-2 ${soldout ? 'text-slate-500' : 'text-slate-900'}`}>{t.public_title || t.name}</h3>
         <p className="text-xs text-slate-500 mt-1">{fmtDate(t.departure)}{t.return_date ? ` – ${fmtDate(t.return_date)}` : ''}</p>
         {soldout ? (
           <p className="mt-3 text-sm font-extrabold uppercase tracking-wide text-slate-400">SOLD OUT</p>
         ) : (
           <>
-            <p className="mt-3 text-lg font-extrabold text-slate-900">{fmtRp(tripPrice(t))}</p>
+            <p className="mt-2 sm:mt-3 text-base sm:text-lg font-extrabold text-slate-900">{fmtRp(tripPrice(t))}</p>
             {t.dp_amount > 0 && <p className="text-[11px] text-emerald-700">Bisa DP {fmtRp(t.dp_amount)}</p>}
           </>
         )}

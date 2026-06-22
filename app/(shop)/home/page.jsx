@@ -116,7 +116,7 @@ export default async function StorefrontHome() {
           </div>
           <Link href="/trip" className="hidden sm:inline text-sm font-bold text-rose-600 hover:text-rose-700">Lihat semua →</Link>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
           {flashSale.map((t) => <TripCard key={t.id} t={t} />)}
         </div>
       </section>
@@ -137,7 +137,7 @@ export default async function StorefrontHome() {
             <p className="font-bold text-slate-600">Best seller akan segera tayang</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
             {bestSeller.map((t) => <TripCard key={t.id} t={t} />)}
           </div>
         )}

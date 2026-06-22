@@ -293,7 +293,7 @@ export default async function TripDetailPage({ params }) {
                 <h2 className="text-xl sm:text-2xl font-extrabold text-rose-600">⚡ Flash Sale Trip</h2>
                 <Link href="/trip" className="text-sm font-bold text-slate-600 hover:text-slate-900">Lihat semua →</Link>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {flashTrips.map((ft) => <TripCard key={ft.id} t={ft} />)}
               </div>
             </div>
