@@ -10,7 +10,7 @@ export default async function NewCSPage() {
   const { data: trips } = await supabase
     .from('trips')
     .select('id, kode_trip, name, status, seat_left')
-    .in('status', ['open selling', 'prepare to sell', 'closed selling', 'ongoing'])
+    .in('status', ['open selling', 'prepare to sell', 'closed selling', 'ongoing', 'confirmed'])
     .order('departure', { ascending: true });
   const { data: mitraList } = await supabase.from('mitra').select('id, name').eq('active', true).order('name');
 
