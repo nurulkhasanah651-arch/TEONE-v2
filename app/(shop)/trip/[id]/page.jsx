@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { resolveBrandCode } from '@/lib/brand-shared';
+import { storefrontConfig } from '@/lib/shop/storefront-config';
 import { defaultTermsFor } from '@/lib/shop/default-terms';
 import { getPublishedTrip, tripSeatLeft, tripPrice, tripRoomPrices, getStorefrontSettingsPublic, getFlashSaleTrips } from '@/lib/shop/data';
 import HeroSlider from '@/components/shop/HeroSlider';
@@ -61,6 +62,7 @@ export default async function TripDetailPage({ params }) {
   const heroImgs = [t.cover_image_url, ...gallery].filter(Boolean);
   let brand = 'teone';
   try { const h = headers(); brand = h.get('x-brand') || resolveBrandCode({ host: h.get('host') }) || 'teone'; } catch {}
+  const csWa = storefrontConfig(brand).waNumber || '6282210991200';
   const settings = await getStorefrontSettingsPublic();
   const skText = (t.syarat_ketentuan && t.syarat_ketentuan.trim())
     ? t.syarat_ketentuan
@@ -111,7 +113,7 @@ export default async function TripDetailPage({ params }) {
             ) : (
               <button disabled className="mt-4 w-full py-3 rounded-xl bg-slate-200 text-slate-400 font-bold cursor-not-allowed">SOLD OUT</button>
             )}
-            <a href="https://wa.me/6282210991200" target="_blank" rel="noreferrer" className="mt-2 block text-center w-full py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50">Tanya dulu via WA</a>
+            <a href={`https://wa.me/${csWa}`} target="_blank" rel="noreferrer" className="mt-2 block text-center w-full py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50">Tanya dulu via WA</a>
           </div>
   );
 

@@ -1,5 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
+import { resolveBrandCode } from '@/lib/brand-shared';
+import { storefrontConfig } from '@/lib/shop/storefront-config';
 import { getBooking, getBrandBank } from '@/lib/shop/data';
 import OrderPayChoice from '@/components/shop/OrderPayChoice';
 
@@ -13,6 +16,9 @@ export default async function OrderPage({ params, searchParams }) {
   const accExists = sp?.acc === 'exists';
   const b = await getBooking(id);
   if (!b) notFound();
+  let _brand = 'teone';
+  try { const h = headers(); _brand = h.get('x-brand') || resolveBrandCode({ host: h.get('host') }) || 'teone'; } catch {}
+  const csWa = storefrontConfig(_brand).waNumber || '6282210991200';
   const paid = b.status === 'paid';
   const bank = await getBrandBank();
   // Nominal transfer manual = total tanpa biaya admin (admin 13rb hanya utk pembayaran online)
@@ -61,7 +67,7 @@ export default async function OrderPage({ params, searchParams }) {
                 manualStatus={b.manual_status || null}
                 rejectReason={b.manual_reject_reason || null}
               />
-              <a href={`https://wa.me/6282210991200?text=${encodeURIComponent('Halo, saya mau bayar booking ' + b.order_code)}`} target="_blank" rel="noreferrer"
+              <a href={`https://wa.me/${csWa}?text=${encodeURIComponent('Halo, saya mau bayar booking ' + b.order_code)}`} target="_blank" rel="noreferrer"
                 className="block text-center w-full py-3 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50">Atau konfirmasi via WhatsApp</a>
             </>
           )}

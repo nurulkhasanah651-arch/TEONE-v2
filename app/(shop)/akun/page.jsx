@@ -1,5 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
+import { resolveBrandCode } from '@/lib/brand-shared';
+import { storefrontConfig } from '@/lib/shop/storefront-config';
 import { createClient } from '@/lib/supabase/server';
 import { getPesertaData } from '@/lib/shop/data';
 import { getBookingPaymentPlan } from '@/lib/shop/payments';
@@ -21,6 +24,9 @@ export default async function AkunPage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/masuk');
+  let _brand = 'teone';
+  try { const h = headers(); _brand = h.get('x-brand') || resolveBrandCode({ host: h.get('host') }) || 'teone'; } catch {}
+  const csWa = storefrontConfig(_brand).waNumber || '6282210991200';
 
   const { customer, bookings } = await getPesertaData(user);
   const name = customer?.name || user.user_metadata?.name || 'Peserta';
@@ -105,7 +111,7 @@ export default async function AkunPage() {
                       <Link href={`/order/${b.id}`} className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold">💳 Bayar / Detail</Link>
                     )}
                     {b.trip?.slug && <Link href={`/trip/${b.trip.slug}`} className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold">Info Trip</Link>}
-                    <a href={`https://wa.me/6282210991200?text=${encodeURIComponent('Halo, saya peserta order ' + b.order_code)}`} target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold">Tanya CS</a>
+                    <a href={`https://wa.me/${csWa}?text=${encodeURIComponent('Halo, saya peserta order ' + b.order_code)}`} target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold">Tanya CS</a>
                   </div>
                 </div>
               </div>
