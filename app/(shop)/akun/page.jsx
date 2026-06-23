@@ -5,6 +5,7 @@ import { resolveBrandCode } from '@/lib/brand-shared';
 import { storefrontConfig } from '@/lib/shop/storefront-config';
 import { createClient } from '@/lib/supabase/server';
 import { getPesertaData } from '@/lib/shop/data';
+import { reconcilePendingBooking } from '@/lib/shop/fulfillment';
 import { getBookingPaymentPlan } from '@/lib/shop/payments';
 import LogoutButton from '@/components/shop/LogoutButton';
 
@@ -27,8 +28,16 @@ export default async function AkunPage() {
   let _brand = 'teone';
   try { const h = headers(); _brand = h.get('x-brand') || resolveBrandCode({ host: h.get('host') }) || 'teone'; } catch {}
   const csWa = storefrontConfig(_brand).waNumber || '6282210991200';
+  // Self-heal pembayaran online yang webhook-nya telat/terlewat
+  try {
+    const pend = (bookings || []).filter((bk) => bk && bk.status !== 'paid' && bk.midtrans_order_id);
+    if (pend.length) {
+      const res = await Promise.all(pend.map((bk) => reconcilePendingBooking(_brand, bk).catch(() => false)));
+      if (res.some(Boolean)) { const r = await getPesertaData(user); customer = r.customer; bookings = r.bookings; }
+    }
+  } catch {}
 
-  const { customer, bookings } = await getPesertaData(user);
+  let { customer, bookings } = await getPesertaData(user);
   const name = customer?.name || user.user_metadata?.name || 'Peserta';
   // Sinkron checklist payment: total harga, sudah dibayar pokok, sisa — per booking
   const plans = {};

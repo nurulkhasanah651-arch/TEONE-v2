@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { resolveBrandCode } from '@/lib/brand-shared';
 import { storefrontConfig } from '@/lib/shop/storefront-config';
 import { getBooking, getBrandBank } from '@/lib/shop/data';
+import { reconcilePendingBooking } from '@/lib/shop/fulfillment';
 import OrderPayChoice from '@/components/shop/OrderPayChoice';
 
 export const dynamic = 'force-dynamic';
@@ -14,10 +15,15 @@ export default async function OrderPage({ params, searchParams }) {
   const { id } = await params;
   const sp = await searchParams;
   const accExists = sp?.acc === 'exists';
-  const b = await getBooking(id);
+  let b = await getBooking(id);
   if (!b) notFound();
   let _brand = 'teone';
   try { const h = headers(); _brand = h.get('x-brand') || resolveBrandCode({ host: h.get('host') }) || 'teone'; } catch {}
+  // Self-heal: kalau masih pending tapi sudah settle di Midtrans (webhook telat/terlewat),
+  // proses sekarang lalu muat ulang booking agar tampil 'Pembayaran Berhasil'.
+  if (b.status !== 'paid' && b.midtrans_order_id) {
+    try { const healed = await reconcilePendingBooking(_brand, b); if (healed) { const fresh = await getBooking(id); if (fresh) b = fresh; } } catch {}
+  }
   const csWa = storefrontConfig(_brand).waNumber || '6282210991200';
   const paid = b.status === 'paid';
   const bank = await getBrandBank();
