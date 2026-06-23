@@ -102,11 +102,11 @@ export default function PassportUploadAI({
           subfolder={`passport/pax${paxIndex}`}
           value={passportData.passport_photo_url || ''}
           onChange={handlePhotoUploaded}
-          label="🛂 Upload Foto Passport (AI auto-fill data)"
+          label="🛂 Upload Foto / PDF Passport (AI auto-fill data)"
           maxSizeMB={20}
         />
         <p className="text-[10px] text-purple-700 mt-1">
-          💡 Upload foto halaman passport (yang ada foto + data) — AI akan baca otomatis dan isi nama, no passport, tgl lahir, expired, dll.
+          💡 Upload foto atau PDF halaman passport (yang ada foto + data) — AI baca otomatis & isi nama, no passport, tgl lahir, expired, dll.
         </p>
       </div>
 
