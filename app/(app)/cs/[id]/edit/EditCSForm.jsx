@@ -60,7 +60,7 @@ export default function EditCSForm({ update, existingParticipants = [] }) {
   function addRow() {
     setNewParticipants((a) => [...a, {
       first_name: '', last_name: '', phone: '', email: '',
-      source: 'whatsapp', room_type: '', price_paid: '',
+      source: 'whatsapp', room_type: '', price_paid: '', discount: '',
       dp_amount: '', dp_date: new Date().toISOString().slice(0, 10), dp_method: 'transfer',
       family_name: '',
     }]);
@@ -253,9 +253,13 @@ export default function EditCSForm({ update, existingParticipants = [] }) {
                         {ROOM_TYPES.map((r) => <option key={r} value={r}>{r}</option>)}
                       </select>
                     </label>
-                    <label className="block col-span-2">
+                    <label className="block">
                       <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Harga Bayar (IDR)</span>
                       <input autoComplete="off" type="number" value={p.price_paid} min="0" onChange={(e) => updRow(i, 'price_paid', e.target.value)} className={miniInput} placeholder="50000000" />
+                    </label>
+                    <label className="block">
+                      <span className="text-[11px] font-semibold text-emerald-700 block mb-0.5">💸 Diskon (Rp)</span>
+                      <input autoComplete="off" type="number" value={p.discount} min="0" onChange={(e) => updRow(i, 'discount', e.target.value)} className={miniInput} placeholder="0" />
                     </label>
                   </div>
 
