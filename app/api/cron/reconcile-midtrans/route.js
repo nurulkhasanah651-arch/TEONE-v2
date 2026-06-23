@@ -4,7 +4,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseEnvFor } from '@/lib/brand-shared';
-import { reconcilePendingBooking } from '@/lib/shop/fulfillment';
+import { reconcilePendingBooking, reconcileInvoiceOnline } from '@/lib/shop/fulfillment';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -44,7 +44,18 @@ export async function GET(request) {
       for (const b of rows || []) {
         try { if (await reconcilePendingBooking(code, b)) healed++; } catch { /* skip */ }
       }
-      results.push({ brand: code, checked: (rows || []).length, healed });
+      // Invoice online (cicilan/pelunasan) yang belum lunas tapi sudah settle di Midtrans
+      const { data: invs } = await db.from('invoices')
+        .select('id, status, paid_at, midtrans_order_id, amount, trip_id')
+        .neq('status', 'paid')
+        .is('paid_at', null)
+        .not('midtrans_order_id', 'is', null)
+        .gte('created_at', since);
+      let healedInv = 0;
+      for (const inv of invs || []) {
+        try { if (await reconcileInvoiceOnline(code, inv)) healedInv++; } catch { /* skip */ }
+      }
+      results.push({ brand: code, checked: (rows || []).length, healed, invoices_checked: (invs || []).length, invoices_healed: healedInv });
     } catch (e) {
       results.push({ brand: code, error: e?.message || String(e) });
     }

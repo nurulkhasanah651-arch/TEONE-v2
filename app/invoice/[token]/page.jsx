@@ -81,6 +81,22 @@ export default async function PublicInvoicePage({ params }) {
 
   if (!inv) return <ErrorBox title="Invoice tidak ditemukan" errors={[`Token: ${token}`, ...errors]} />;
 
+  // Self-heal: invoice belum lunas tapi sudah settle di Midtrans (webhook telat/terlewat) → proses lalu muat ulang.
+  if (inv.status !== 'paid' && !inv.paid_at && inv.midtrans_order_id) {
+    try {
+      const { headers } = await import('next/headers');
+      const { resolveBrandCode } = await import('@/lib/brand-shared');
+      let _brand = 'teone';
+      try { const h = headers(); _brand = h.get('x-brand') || resolveBrandCode({ host: h.get('host') }) || 'teone'; } catch {}
+      const { reconcileInvoiceOnline } = await import('@/lib/shop/fulfillment');
+      const healed = await reconcileInvoiceOnline(_brand, inv);
+      if (healed) {
+        const { data: fresh } = await supabase.from('invoices').select('*').eq('public_token', token).maybeSingle();
+        if (fresh) inv = fresh;
+      }
+    } catch {}
+  }
+
   // Fetch company
   let company = {};
   try {
