@@ -9,8 +9,36 @@ function brandCode() {
   catch { return 'teone'; }
 }
 
+const KHASANAH_THEME_CSS = `.theme-khasanah .text-emerald-700{color:#8A3417!important}
+.theme-khasanah .text-emerald-600{color:#A8451F!important}
+.theme-khasanah .text-emerald-800{color:#6E2912!important}
+.theme-khasanah .text-emerald-500{color:#BC5A2E!important}
+.theme-khasanah .text-emerald-50{color:#FBF1EA!important}
+.theme-khasanah .text-emerald-100{color:#F6DECF!important}
+.theme-khasanah .bg-emerald-50{background-color:#FBF1EA!important}
+.theme-khasanah .bg-emerald-100{background-color:#F6DECF!important}
+.theme-khasanah .bg-emerald-500{background-color:#BC5A2E!important}
+.theme-khasanah .bg-emerald-600{background-color:#A8451F!important}
+.theme-khasanah .bg-emerald-700{background-color:#8A3417!important}
+.theme-khasanah .border-emerald-200{border-color:#ECBFA1!important}
+.theme-khasanah .border-emerald-300{border-color:#DD9A6F!important}
+.theme-khasanah .border-emerald-400{border-color:#CC7344!important}
+.theme-khasanah .border-emerald-600{border-color:#A8451F!important}
+.theme-khasanah .hover\:bg-emerald-50:hover{background-color:#FBF1EA!important}
+.theme-khasanah .hover\:bg-emerald-600:hover{background-color:#A8451F!important}
+.theme-khasanah .hover\:bg-emerald-700:hover{background-color:#8A3417!important}
+.theme-khasanah .hover\:bg-emerald-800:hover{background-color:#6E2912!important}
+.theme-khasanah .hover\:text-emerald-700:hover{color:#8A3417!important}
+.theme-khasanah .focus\:ring-emerald-100:focus{--tw-ring-color:#F6DECF!important}
+.theme-khasanah .focus\:border-emerald-500:focus{border-color:#BC5A2E!important}
+.theme-khasanah .from-emerald-600{--tw-gradient-from:#A8451F var(--tw-gradient-from-position)!important;--tw-gradient-to:rgb(168 69 31 / 0) var(--tw-gradient-to-position)!important;--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)!important}
+.theme-khasanah .to-teal-600{--tw-gradient-to:#8A3417 var(--tw-gradient-to-position)!important}
+.theme-khasanah .hover\:from-emerald-700:hover{--tw-gradient-from:#8A3417 var(--tw-gradient-from-position)!important;--tw-gradient-to:rgb(138 52 23 / 0) var(--tw-gradient-to-position)!important;--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)!important}
+.theme-khasanah .hover\:to-teal-700:hover{--tw-gradient-to:#6E2912 var(--tw-gradient-to-position)!important}`;
+
 export default async function ShopLayout({ children }) {
   const code = brandCode();
+  const isKh = code === 'khasanah';
   const ui = BRAND_UI[code] || BRAND_UI.teone;
   const cfg = storefrontConfig(code);
   const wa = cfg.waNumber || '6282210991200';
@@ -19,7 +47,8 @@ export default async function ShopLayout({ children }) {
   const c = cfg.contact || {};
   const waDisp = c.phone ? ('0' + String(c.phone).replace(/^62/, '')) : '';
   return (
-    <div className="min-h-screen bg-white text-slate-800 flex flex-col">
+    <div className={`min-h-screen bg-white text-slate-800 flex flex-col${isKh ? ' theme-khasanah' : ''}`}>
+      {isKh && <style dangerouslySetInnerHTML={{ __html: KHASANAH_THEME_CSS }} />}
       <header className="border-b border-slate-200 sticky top-0 bg-white/95 backdrop-blur z-40">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-2">
           <Link href="/home" className="flex items-center gap-2 font-extrabold text-lg sm:text-xl text-slate-900 shrink-0">

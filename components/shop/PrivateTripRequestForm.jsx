@@ -40,6 +40,8 @@ function Field({ label, required, children }) {
 function FormInner({ waNumber, accent = 'emerald' }) {
   const A = accent === 'blue'
     ? { ring: 'focus:border-blue-500 focus:ring-blue-100', legend: 'text-blue-700', btn: 'from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700', chip: 'bg-blue-500 hover:bg-blue-600' }
+    : accent === 'orange'
+    ? { ring: 'focus:border-orange-500 focus:ring-orange-100', legend: 'text-orange-700', btn: 'from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700', chip: 'bg-orange-600 hover:bg-orange-700' }
     : { ring: 'focus:border-emerald-500 focus:ring-emerald-100', legend: 'text-emerald-700', btn: 'from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700', chip: 'bg-emerald-500 hover:bg-emerald-600' };
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
