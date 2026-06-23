@@ -97,10 +97,21 @@ export default async function InvoicesPage() {
       .order('created_at', { ascending: false })
       .limit(15);
     const tripMap = Object.fromEntries(trips.map((t) => [t.id, t]));
-    const paxMap = Object.fromEntries(allPassengers.map((p) => [p.id, p]));
+    // Resolusi nama tahan batas 1000 baris: ambil peserta & customer yg direferensikan langsung by id
+    const opPaxIds = [...new Set((opRes || []).map((p) => p.passenger_id).filter(Boolean))];
+    let opPaxMap = {}, opCustMap = {};
+    if (opPaxIds.length) {
+      const { data: opPax } = await serviceClient.from('trip_passengers').select('id, trip_id, customer_id').in('id', opPaxIds);
+      opPaxMap = Object.fromEntries((opPax || []).map((p) => [p.id, p]));
+      const opCustIds = [...new Set((opPax || []).map((p) => p.customer_id).filter(Boolean))];
+      if (opCustIds.length) {
+        const { data: opCust } = await serviceClient.from('customers').select('id, name').in('id', opCustIds);
+        opCustMap = Object.fromEntries((opCust || []).map((c) => [c.id, c]));
+      }
+    }
     onlinePays = (opRes || []).map((p) => {
-      const pax = paxMap[p.passenger_id];
-      const cust = pax ? custMapForPax[pax.customer_id] : null;
+      const pax = opPaxMap[p.passenger_id];
+      const cust = pax ? opCustMap[pax.customer_id] : null;
       const trip = pax ? tripMap[pax.trip_id] : null;
       const lbl = String(p.label || '');
       const method = lbl.includes('·') ? lbl.split('·')[1].trim() : 'online';
