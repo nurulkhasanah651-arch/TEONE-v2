@@ -97,10 +97,16 @@ export default function CheckoutForm({ trip }) {
     setErr(''); setInfo(''); setNeedLogin(false);
     if (pax < 1) { setErr('Pilih minimal 1 peserta.'); return; }
     const fd = new FormData(e.target);
+    const firstPaxName = (names.find((n) => (n || '').trim()) || '').trim();
     if (loggedIn) {
-      fd.set('lead_name', profile.name || 'Peserta');
+      // Nama pemesan: utamakan nama profil; kalau kosong, pakai nama peserta yg diketik (bukan "Peserta").
+      fd.set('lead_name', (profile.name && profile.name.trim()) || firstPaxName || 'Peserta');
       fd.set('lead_phone', profile.phone || '');
       fd.set('lead_email', profile.email || '');
+    } else {
+      // Tamu: kalau field nama pemesan kosong, fallback ke nama peserta pertama
+      const ln = (fd.get('lead_name') || '').toString().trim();
+      if (!ln && firstPaxName) fd.set('lead_name', firstPaxName);
     }
     const email = (fd.get('lead_email') || '').toString().trim();
     if (makeAcc && !loggedIn) {
