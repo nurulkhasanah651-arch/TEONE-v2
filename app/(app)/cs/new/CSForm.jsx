@@ -38,7 +38,7 @@ function parseInput(s) {
 
 const BLANK_PAX = {
   first_name: '', last_name: '', phone: '', email: '',
-  source: 'whatsapp', room_type: '', price_paid: '',
+  source: 'whatsapp', room_type: '', price_paid: '', discount: '',
   dp_amount: '', dp_date: new Date().toISOString().slice(0, 10),
   dp_method: 'transfer', dp_proof_url: '',
   family_name: '',
@@ -282,9 +282,13 @@ export default function CSForm({ trips, mitraList = [] }) {
                         {ROOM_TYPES.map((r) => <option key={r} value={r}>{r}</option>)}
                       </select>
                     </label>
-                    <label className="block col-span-2">
+                    <label className="block">
                       <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Harga Bayar Override (opsional)</span>
                       <input autoComplete="off" type="number" value={p.price_paid} min="0" onChange={(e) => updParticipant(i, 'price_paid', e.target.value)} className={miniInput} placeholder="Auto dari breakdown kalau kosong" />
+                    </label>
+                    <label className="block">
+                      <span className="text-[11px] font-semibold text-emerald-700 block mb-0.5">💸 Diskon (Rp, opsional)</span>
+                      <input autoComplete="off" type="number" value={p.discount} min="0" onChange={(e) => updParticipant(i, 'discount', e.target.value)} className={miniInput} placeholder="0" />
                     </label>
                   </div>
 
