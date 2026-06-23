@@ -172,9 +172,13 @@ export default async function PublicInvoicePage({ params }) {
   // Tour breakdown items
   const tourItems = [];
   const paxNote = famCount > 1 ? ` (${famCount} peserta)` : '';
-  const rRoom = famCount > 1 ? famRoom : (famRoom || roomPrice);
   const rTips = famCount > 1 ? famTips : (famTips || tips);
   const rCity = famCount > 1 ? famCity : (famCity || cityTax);
+  // Paket Tour = total pokok (harga jual/price_paid, sudah net diskon + diskon ditambah balik)
+  //   dikurangi komponen yg ditampilkan terpisah → supaya baris2 PASTI menjumlah ke TOTAL PAKET.
+  const _pokokGross = (Number(expectedTotalReal) || 0) + (Number(discountReal) || 0);
+  const _extras = (rTips || 0) + (rCity || 0) + (famFlight || 0) + (famBaggage || 0) + (famBase || 0);
+  let rRoom = _pokokGross > 0 ? Math.max(_pokokGross - _extras, 0) : (famCount > 1 ? famRoom : (famRoom || roomPrice));
   if (rRoom > 0) tourItems.push({ label: `Paket Tour${famCount > 1 ? paxNote : ` (${passenger?.room_type || 'Room'})`}`, amount: rRoom });
   if (famBase > 0) tourItems.push({ label: `Harga Dasar${paxNote}`, amount: famBase });
   if (famFlight > 0) tourItems.push({ label: `Tiket Pesawat Domestik${paxNote}`, amount: famFlight });
