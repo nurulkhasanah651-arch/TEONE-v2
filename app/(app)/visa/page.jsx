@@ -27,7 +27,7 @@ export default async function VisaListPage() {
   // R215s — fetch visa_uploaded_docs + visa_uploads_last_viewed_at juga
   const [trips, passengers] = await Promise.all([
     safeQuery(supabase.from('trips').select('*').order('departure', { ascending: true, nullsFirst: false })),
-    safeQuery(supabase.from('trip_passengers').select('id, trip_id, visa_docs, visa_uploaded_docs, visa_uploads_last_viewed_at')),
+    safeQuery(supabase.from('trip_passengers').select('id, trip_id, visa_docs, visa_uploaded_docs, visa_uploads_last_viewed_at, visa_status, visa_biometric_date')),
   ]);
 
   let activeTrips = trips.filter((t) => t.status !== 'completed' && t.status !== 'cancelled');
@@ -183,6 +183,10 @@ NOTIFY pgrst, 'reload schema';`}</pre>
               const statusCfg = STATUS_MAP[t.visa_status || 'pending'];
               const days = daysUntil(t.departure);
               const stats = tripStats[t.id] || { totalUploads: 0, newUploadsCount: 0, newUploadsByPax: 0 };
+              const bioScheduled = pax.filter((p) => p.visa_biometric_date).length;
+              const vApproved = pax.filter((p) => p.visa_status === 'approved').length;
+              const vRejected = pax.filter((p) => p.visa_status === 'rejected').length;
+              const vProcess = pax.filter((p) => ['ready_to_submit', 'submitted', 'biometric', 'on_process'].includes(p.visa_status)).length;
 
               return (
                 <Link key={t.id} href={`/visa/${t.id}`} className={`block px-5 py-3 hover:bg-slate-50 transition-colors ${stats.newUploadsCount > 0 ? 'bg-emerald-50/50' : ''}`}>
@@ -211,6 +215,12 @@ NOTIFY pgrst, 'reload schema';`}</pre>
                             · 📤 {stats.totalUploads} doc dari {stats.totalPaxWithUploads} peserta
                           </span>
                         )}
+                      </p>
+                      <p className="text-xs mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                        <span className={bioScheduled >= pax.length && pax.length > 0 ? 'text-indigo-700 font-semibold' : 'text-slate-500'}>📅 Bio terjadwal: {bioScheduled}/{pax.length}</span>
+                        {vApproved > 0 && <span className="text-green-700 font-semibold">✓ Approved: {vApproved}</span>}
+                        {vProcess > 0 && <span className="text-purple-700 font-semibold">⏳ Proses: {vProcess}</span>}
+                        {vRejected > 0 && <span className="text-red-700 font-semibold">✗ Reject: {vRejected}</span>}
                       </p>
                     </div>
                     <div className="text-right">

@@ -164,9 +164,13 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
                       {statusCfgItem.label}
                     </span>
                   )}
-                  {biometricDate && (
+                  {biometricDate ? (
                     <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${bioDays != null && bioDays >= 0 && bioDays <= 7 ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-indigo-50 text-indigo-700'}`}>
-                      📅 Biometrik: {fmtDate(biometricDate)}{bioDays != null && bioDays >= 0 && ` (${bioDays}h)`}
+                      📅 Bio dijadwalkan: {fmtDate(biometricDate)}{bioDays != null && bioDays >= 0 && ` (${bioDays}h)`}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-500" title="Biometrik belum dijadwalkan">
+                      📅 Bio: belum dijadwalkan
                     </span>
                   )}
                   {missingDocs.length > 0 && (
