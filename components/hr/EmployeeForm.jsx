@@ -70,6 +70,7 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan' 
     bank_account_number: employee?.bank_account_number || '',
     bank_account_holder: employee?.bank_account_holder || '',
     avatar_url: employee?.avatar_url || '',
+    fonnte_token: employee?.fonnte_token || '',
     notes: employee?.notes || '',
   });
 
@@ -304,6 +305,9 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan' 
       <Section title="📝 Lainnya">
         <Field label="Avatar URL (opsional)">
           <input autoComplete="off" type="text" name="avatar_url" value={form.avatar_url} onChange={(e) => upd('avatar_url', e.target.value)} placeholder="https://..." className={inputCls} />
+        </Field>
+        <Field label="Token Fonnte (untuk kirim WA — khusus PIC Khasanah)">
+          <input autoComplete="off" type="text" name="fonnte_token" value={form.fonnte_token} onChange={(e) => upd('fonnte_token', e.target.value)} placeholder="Token Fonnte nomor WA PIC ini" className={inputCls} />
         </Field>
         <Field label="Catatan">
           <textarea autoComplete="off" name="notes" rows="3" value={form.notes} onChange={(e) => upd('notes', e.target.value)} className={inputCls + ' resize-y'} />
