@@ -46,8 +46,8 @@ export default async function InvoicesPage() {
     supabase.from('invoices').select('*').order('created_at', { ascending: false }).limit(500),
     // R215y² — tambahin payment_drive_* columns ke select trips
     supabase.from('trips').select('id, kode_trip, name, departure, status, pic, pic_email, payment_drive_parent_folder_id, payment_drive_trip_folder_id, payment_drive_trip_folder_url, payment_drive_last_sync_at'),
-    supabase.from('trip_passengers').select('id, trip_id, customer_id, family_group_id, is_family_head'),
-    supabase.from('customers').select('id, name, phone'),
+    supabase.from('trip_passengers').select('id, trip_id, customer_id, family_group_id, is_family_head').limit(10000),
+    supabase.from('customers').select('id, name, phone').limit(10000),
     serviceClient
       .from('invoice_payments')
       .select('*, invoices(id, invoice_no, milestone, trip_id, customer_name, trip_kode, amount)')
