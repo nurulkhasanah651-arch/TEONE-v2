@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import DownloadButtons from '@/components/common/DownloadButtons';
 import PaymentChecklistTable from '@/components/finance/PaymentChecklistTable';
 import { expectedPerPassenger } from '@/lib/utils/price-breakdown';
+import { getPicScope, filterTripsForPic } from '@/lib/auth/pic-scope';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,14 +15,16 @@ export default async function PaymentsListPage() {
   const supabase = createClient();
 
   const [tripsRes, passengersRes, paymentsRes] = await Promise.all([
-    supabase.from('trips').select('id, kode_trip, name, status, departure, quota, sold, price_breakdown').order('departure', { ascending: true }),
+    supabase.from('trips').select('id, kode_trip, name, status, departure, quota, sold, price_breakdown, pic, pic_email').order('departure', { ascending: true }),
     // R215y⁴: tambah transfer_status + refund_status biar bisa filter peserta aktif
     supabase.from('trip_passengers').select('id, trip_id, price_paid, room_type, discount_amount, transfer_status, refund_status'),
     // R215y⁴: tambah is_transferred biar bisa exclude payment yg udah dipindah
     supabase.from('participant_payments').select('passenger_id, amount, type, is_transferred'),
   ]);
 
-  const trips = tripsRes.data || [];
+  let trips = tripsRes.data || [];
+  // KHASANAH: PIC hanya lihat trip miliknya (teone tak terpengaruh — brand-gated di helper)
+  { const { data: { user } } = await supabase.auth.getUser(); const scope = await getPicScope(supabase, user); trips = filterTripsForPic(trips, scope); }
   const allPassengers = passengersRes.data || [];
   const allPayments = paymentsRes.data || [];
 

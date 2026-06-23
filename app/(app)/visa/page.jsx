@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate, daysUntil } from '@/lib/utils/format';
 import { VISA_STATUS_OPTS, STATUS_COLOR_CLASS } from '@/lib/utils/visa-constants';
+import { getPicScope, filterTripsForPic } from '@/lib/auth/pic-scope';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +30,9 @@ export default async function VisaListPage() {
     safeQuery(supabase.from('trip_passengers').select('id, trip_id, visa_docs, visa_uploaded_docs, visa_uploads_last_viewed_at')),
   ]);
 
-  const activeTrips = trips.filter((t) => t.status !== 'completed' && t.status !== 'cancelled');
+  let activeTrips = trips.filter((t) => t.status !== 'completed' && t.status !== 'cancelled');
+  // KHASANAH: PIC hanya lihat trip visanya sendiri (teone tak terpengaruh)
+  { const { data: { user } } = await supabase.auth.getUser(); const scope = await getPicScope(supabase, user); activeTrips = filterTripsForPic(activeTrips, scope); }
 
   const paxByTrip = {};
   for (const p of passengers) {

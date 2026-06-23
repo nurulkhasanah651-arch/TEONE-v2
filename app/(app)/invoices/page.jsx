@@ -22,6 +22,7 @@ import ManualInvoiceButton from '@/components/invoices/ManualInvoiceButton';
 import SignedFileLink from '@/components/common/SignedFileLink';
 import ManualTransferActions from '@/components/finance/ManualTransferActions';
 import { getManualTransfers } from '@/lib/shop/data';
+import { getPicScope, filterTripsForPic } from '@/lib/auth/pic-scope';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,7 +45,7 @@ export default async function InvoicesPage() {
   ] = await Promise.all([
     supabase.from('invoices').select('*').order('created_at', { ascending: false }).limit(500),
     // R215y² — tambahin payment_drive_* columns ke select trips
-    supabase.from('trips').select('id, kode_trip, name, departure, status, payment_drive_parent_folder_id, payment_drive_trip_folder_id, payment_drive_trip_folder_url, payment_drive_last_sync_at'),
+    supabase.from('trips').select('id, kode_trip, name, departure, status, pic, pic_email, payment_drive_parent_folder_id, payment_drive_trip_folder_id, payment_drive_trip_folder_url, payment_drive_last_sync_at'),
     supabase.from('trip_passengers').select('id, trip_id, customer_id, family_group_id, is_family_head'),
     supabase.from('customers').select('id, name, phone'),
     serviceClient
@@ -65,12 +66,12 @@ export default async function InvoicesPage() {
       .limit(200),
   ]);
 
-  const allInvoices = invoicesRes.data || [];
-  const trips = tripsRes.data || [];
+  let allInvoices = invoicesRes.data || [];
+  let trips = tripsRes.data || [];
   const allPassengers = passengersRes.data || [];
   const customers = customersRes.data || [];
-  const pendingPayments = pendingPaymentsRes.data || [];
-  const dpRequests = dpRequestsRes.data || [];
+  let pendingPayments = pendingPaymentsRes.data || [];
+  let dpRequests = dpRequestsRes.data || [];
   const familyGroups = familyGroupsRes.data || [];
 
   // Transfer Bank Manual dari etalase web yang menunggu verifikasi finance
@@ -103,9 +104,24 @@ export default async function InvoicesPage() {
       const trip = pax ? tripMap[pax.trip_id] : null;
       const lbl = String(p.label || '');
       const method = lbl.includes('·') ? lbl.split('·')[1].trim() : 'online';
-      return { id: p.id, name: cust?.name || ('#' + p.passenger_id), type: p.type, amount: p.amount, method, trip: trip ? (trip.kode_trip || trip.name || '') : '' };
+      return { id: p.id, name: cust?.name || ('#' + p.passenger_id), type: p.type, amount: p.amount, method, tripId: pax ? pax.trip_id : null, trip: trip ? (trip.kode_trip || trip.name || '') : '' };
     });
   } catch {}
+
+  // KHASANAH: PIC hanya lihat data trip miliknya (teone tak terpengaruh — brand-gated di helper)
+  {
+    const { data: { user } } = await supabase.auth.getUser();
+    const scope = await getPicScope(supabase, user);
+    if (scope.scoped) {
+      trips = filterTripsForPic(trips, scope);
+      const ok = new Set(trips.map((t) => t.id));
+      allInvoices = allInvoices.filter((i) => i.trip_id && ok.has(i.trip_id));
+      pendingPayments = pendingPayments.filter((pp) => pp.invoices && ok.has(pp.invoices.trip_id));
+      dpRequests = dpRequests.filter((d) => d.trip_id && ok.has(d.trip_id));
+      pendingManual = pendingManual.filter((b) => b.trip_id && ok.has(b.trip_id));
+      onlinePays = onlinePays.filter((o) => o.tripId && ok.has(o.tripId));
+    }
+  }
 
   const pendingDPCount = dpRequests.filter((r) => r.status === 'pending').length;
   const pendingPaymentCount = pendingPayments.length;

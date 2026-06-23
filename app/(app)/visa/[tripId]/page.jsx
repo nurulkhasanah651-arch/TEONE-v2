@@ -23,6 +23,8 @@ import VisaDriveSyncPanel from '@/components/visa/VisaDriveSyncPanel';
 import ManifestDownloadButton from '@/components/common/ManifestDownloadButton';
 // R215s — auto-mark uploads as viewed
 import { markTripUploadsAsViewed } from '@/lib/actions/visa-mark-viewed';
+import { getPicScope } from '@/lib/auth/pic-scope';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +33,10 @@ export default async function VisaTripPage({ params }) {
   const supabase = createClient();
   const { data: trip } = await supabase.from('trips').select('*').eq('id', tripId).maybeSingle();
   if (!trip) notFound();
+  // KHASANAH: PIC tak boleh buka visa trip yang bukan miliknya (teone tak terpengaruh)
+  { const { data: { user } } = await supabase.auth.getUser(); const scope = await getPicScope(supabase, user);
+    if (scope.scoped) { const em=(trip.pic_email||'').toLowerCase(), nm=(trip.pic||'').toLowerCase();
+      if (!((em && em===scope.email) || (nm && nm===scope.name))) redirect('/visa'); } }
 
   const { data: tp } = await supabase.from('trip_passengers').select('*').eq('trip_id', tripId).order('joined_at', { ascending: true });
   const allPassengers = tp || [];

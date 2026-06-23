@@ -12,6 +12,8 @@ import PaymentMatrix from '@/components/finance/PaymentMatrix';
 import DownloadButtons from '@/components/common/DownloadButtons';
 import DeliverySection from '@/components/checklist/DeliverySection';
 import { expectedPerPassenger } from '@/lib/utils/price-breakdown';
+import { getPicScope } from '@/lib/auth/pic-scope';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +23,10 @@ export default async function TripPaymentsPage({ params }) {
 
   const { data: trip } = await supabase.from('trips').select('*').eq('id', tripId).maybeSingle();
   if (!trip) notFound();
+  // KHASANAH: PIC tak boleh buka trip yang bukan miliknya (teone tak terpengaruh)
+  { const { data: { user } } = await supabase.auth.getUser(); const scope = await getPicScope(supabase, user);
+    if (scope.scoped) { const em=(trip.pic_email||'').toLowerCase(), nm=(trip.pic||'').toLowerCase();
+      if (!((em && em===scope.email) || (nm && nm===scope.name))) redirect('/finance/payments'); } }
 
   const { data: tp } = await supabase
     .from('trip_passengers')
