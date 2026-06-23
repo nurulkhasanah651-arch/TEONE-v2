@@ -397,7 +397,7 @@ export default async function PublicInvoicePage({ params }) {
         </div>
 
         {/* Bank Info */}
-        {!isLunas && (company.bank_account_no || company.bank_name) && (
+        {inv.status !== 'paid' && !inv.paid_at && (company.bank_account_no || company.bank_name) && (
           <div className="px-6 pt-4 pb-4">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-2">💳 Transfer ke:</p>
@@ -421,8 +421,8 @@ export default async function PublicInvoicePage({ params }) {
           </div>
         )}
 
-        {/* Payment Proof Form */}
-        {!isLunas && inv.status !== 'paid' && (
+        {/* Payment Proof Form — tampil utk SEMUA invoice yg belum lunas (pokok / visa / ongkir / cicilan) */}
+        {inv.status !== 'paid' && !inv.paid_at && (
           <div className="px-6 pb-6 no-print">
             {InvoicePayOnlineButton && <InvoicePayOnlineButton token={inv.public_token} amount={sisaInvoice || inv.amount} />}
             {PaymentProofForm && (
