@@ -44,11 +44,10 @@ export default async function CashflowDetailPage({ params }) {
   const supabase = createClient();
 
   // R215g — pakai select('*') untuk avoid query fail karena kolom belum exist
-  const [tripRes, itemsRes, passengersRes, customersRes, accRes] = await Promise.all([
+  const [tripRes, itemsRes, passengersRes, accRes] = await Promise.all([
     supabase.from('trips').select('*').eq('id', tripId).maybeSingle(),
     supabase.from('trip_finance_items').select('*').eq('trip_id', tripId).order('item_type').order('category'),
     supabase.from('trip_passengers').select('*').eq('trip_id', tripId),
-    supabase.from('customers').select('id, name, gender, sex').limit(10000),
     supabase.from('accounting_entries').select('type, amount, description, category, date').eq('trip_id', tripId).order('date', { ascending: false }),
   ]);
 
@@ -56,7 +55,14 @@ export default async function CashflowDetailPage({ params }) {
   const trip = tripRes.data;
   const items = itemsRes.data || [];
   const allPassengers = passengersRes.data || [];
-  const customers = customersRes.data || [];
+  // Anti-jebol: ambil HANYA customer peserta trip ini (by id), bukan semua customer.
+  // Skala berapa pun total customer (10rb/100rb) tetap aman karena per-trip cuma puluhan.
+  const _custIds = [...new Set(allPassengers.map((p) => p.customer_id).filter(Boolean))];
+  let customers = [];
+  for (let i = 0; i < _custIds.length; i += 500) {
+    const { data: cc } = await supabase.from('customers').select('id, name, gender, sex').in('id', _custIds.slice(i, i + 500));
+    if (Array.isArray(cc)) customers = customers.concat(cc);
+  }
 
   // R215g — Debug log (server-side, akan muncul di vercel logs)
   if (allPassengers.length === 0 && passengersRes.error) {
