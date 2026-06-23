@@ -141,7 +141,7 @@ export default async function PublicInvoicePage({ params }) {
   let addonPaidReal = 0;
   let sisaReal = 0;
   let discountReal = 0;
-  let famRoom = 0, famTips = 0, famCity = 0, famFlight = 0, famBaggage = 0, famBase = 0, famCount = 1;
+  let famRoom = 0, famTips = 0, famCity = 0, famFlight = 0, famBaggage = 0, famBase = 0, famCount = 1, famResolved = false;
   if (inv.trip_id && (inv.passenger_id || (Array.isArray(inv.covers_passenger_ids) && inv.covers_passenger_ids.length))) {
     try {
       const bill = await getInvoiceBilling(supabase, inv);
@@ -158,6 +158,7 @@ export default async function PublicInvoicePage({ params }) {
       famBaggage = bill.members.reduce((t, m) => t + (m.baggage || 0), 0);
       famBase = bill.members.reduce((t, m) => t + (m.baseFee || 0), 0);
       famCount = bill.count || 1;
+      famResolved = true;
     } catch (e) { errors.push(`summary: ${e.message}`); }
   } else {
     totalPaidReal = participantPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
@@ -172,8 +173,8 @@ export default async function PublicInvoicePage({ params }) {
   // Tour breakdown items
   const tourItems = [];
   const paxNote = famCount > 1 ? ` (${famCount} peserta)` : '';
-  const rTips = famCount > 1 ? famTips : (famTips || tips);
-  const rCity = famCount > 1 ? famCity : (famCity || cityTax);
+  const rTips = famResolved ? famTips : tips;
+  const rCity = famResolved ? famCity : cityTax;
   // Paket Tour = total pokok (harga jual/price_paid, sudah net diskon + diskon ditambah balik)
   //   dikurangi komponen yg ditampilkan terpisah → supaya baris2 PASTI menjumlah ke TOTAL PAKET.
   const _pokokGross = (Number(expectedTotalReal) || 0) + (Number(discountReal) || 0);
