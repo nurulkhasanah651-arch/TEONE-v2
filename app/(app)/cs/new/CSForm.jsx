@@ -283,8 +283,12 @@ export default function CSForm({ trips, mitraList = [] }) {
                       </select>
                     </label>
                     <label className="block">
-                      <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Harga Bayar Override (opsional)</span>
-                      <input autoComplete="off" type="number" value={p.price_paid} min="0" onChange={(e) => updParticipant(i, 'price_paid', e.target.value)} className={miniInput} placeholder="Auto dari breakdown kalau kosong" />
+                      <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Harga PAKET / peserta (opsional)</span>
+                      <input autoComplete="off" type="number" value={p.price_paid} min="0" onChange={(e) => updParticipant(i, 'price_paid', e.target.value)} className={miniInput} placeholder="Kosongkan = ikut harga paket trip" />
+                      <span className="block text-[9.5px] text-amber-700 mt-0.5">⚠ Ini HARGA PAKET, bukan DP. DP diisi di kolom DP di bawah. Kosongkan kalau harga normal.</span>
+                      {parseInt(p.price_paid) > 0 && parseInt(p.dp_amount) > 0 && parseInt(p.price_paid) === parseInt(p.dp_amount) && (
+                        <span className="block text-[10px] text-red-600 font-bold mt-0.5">⚠ Nilai ini sama dengan DP — yakin ini harga paket, bukan DP?</span>
+                      )}
                     </label>
                     <label className="block">
                       <span className="text-[11px] font-semibold text-emerald-700 block mb-0.5">💸 Diskon (Rp, opsional)</span>

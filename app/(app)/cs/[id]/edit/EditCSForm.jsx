@@ -254,8 +254,12 @@ export default function EditCSForm({ update, existingParticipants = [] }) {
                       </select>
                     </label>
                     <label className="block">
-                      <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Harga Bayar (IDR)</span>
-                      <input autoComplete="off" type="number" value={p.price_paid} min="0" onChange={(e) => updRow(i, 'price_paid', e.target.value)} className={miniInput} placeholder="50000000" />
+                      <span className="text-[11px] font-semibold text-slate-700 block mb-0.5">Harga PAKET / peserta</span>
+                      <input autoComplete="off" type="number" value={p.price_paid} min="0" onChange={(e) => updRow(i, 'price_paid', e.target.value)} className={miniInput} placeholder="Kosongkan = ikut harga paket trip" />
+                      <span className="block text-[9.5px] text-amber-700 mt-0.5">⚠ HARGA PAKET, bukan DP. DP diisi di kolom DP.</span>
+                      {parseInt(p.price_paid) > 0 && parseInt(p.dp_amount) > 0 && parseInt(p.price_paid) === parseInt(p.dp_amount) && (
+                        <span className="block text-[10px] text-red-600 font-bold mt-0.5">⚠ Sama dengan DP — yakin ini harga paket?</span>
+                      )}
                     </label>
                     <label className="block">
                       <span className="text-[11px] font-semibold text-emerald-700 block mb-0.5">💸 Diskon (Rp)</span>
