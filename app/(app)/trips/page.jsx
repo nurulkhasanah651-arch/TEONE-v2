@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { getPicScope, filterTripsForPic } from '@/lib/auth/pic-scope';
 import TripsMasterView from '@/components/trips/TripsMasterView';
 import { fmtRupiah } from '@/lib/utils/format';
 
@@ -14,7 +15,7 @@ try {
 
 export default async function TripsPage() {
   const supabase = createClient();
-  const { data: trips, error } = await supabase
+  let { data: trips, error } = await supabase
     .from('trips')
     .select('*')
     .order('departure', { ascending: true, nullsFirst: false });
@@ -29,6 +30,9 @@ export default async function TripsPage() {
       </div>
     );
   }
+
+  // KHASANAH: PIC hanya lihat trip miliknya (teone tak terpengaruh — brand-gated)
+  { const { data: { user } } = await supabase.auth.getUser(); const scope = await getPicScope(supabase, user); trips = filterTripsForPic(trips, scope); }
 
   // Fetch passengers (defensive)
   let allPax = [];

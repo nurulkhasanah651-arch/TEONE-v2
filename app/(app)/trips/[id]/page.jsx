@@ -6,6 +6,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { getPicScope } from '@/lib/auth/pic-scope';
+import { redirect } from 'next/navigation';
 import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
 import ParticipantsList from '@/components/trips/ParticipantsList';
@@ -24,6 +26,10 @@ export default async function TripDetailPage({ params }) {
   if (error || !trip) {
     notFound();
   }
+  // KHASANAH: PIC tak boleh buka trip yang bukan miliknya (teone tak terpengaruh)
+  { const { data: { user } } = await supabase.auth.getUser(); const scope = await getPicScope(supabase, user);
+    if (scope.scoped) { const em=(trip.pic_email||'').toLowerCase(), nm=(trip.pic||'').toLowerCase();
+      if (!((em && em===scope.email) || (nm && nm===scope.name))) redirect('/trips'); } }
 
   const s = statusCfg(trip.status);
   const days = daysUntil(trip.departure);
