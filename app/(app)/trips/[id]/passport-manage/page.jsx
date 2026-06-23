@@ -98,7 +98,7 @@ export default async function PassportManagePage({ params }) {
   }));
 
   // Stats
-  const withPassport = enrichedList.filter((p) => p?.customers?.passport_no || p?.customers?.passport_photo_url).length;
+  const withPassport = enrichedList.filter((p) => p?.customers?.passport_no || p?.customers?.passport_number || p?.customers?.passport_photo_url || p?.passport_upload_path).length;
   const withoutPassport = enrichedList.length - withPassport;
   const expiringSoon = enrichedList.filter((p) => {
     const exp = p?.customers?.passport_expiry;
@@ -191,7 +191,7 @@ export default async function PassportManagePage({ params }) {
               const c = p?.customers || {};
               const fullName = `${c.first_name || ''} ${c.surname || ''}`.trim() || c.name || `Peserta #${idx + 1}`;
               const ppStatus = passportStatus(c.passport_expiry);
-              const hasPassport = !!(c.passport_no || c.passport_photo_url);
+              const hasPassport = !!(c.passport_no || c.passport_number || c.passport_photo_url || p.passport_upload_path);
 
               return (
                 <div key={p.id} className="px-5 py-3 hover:bg-slate-50 flex items-center justify-between gap-3 flex-wrap">
@@ -217,7 +217,7 @@ export default async function PassportManagePage({ params }) {
                     </div>
                     {hasPassport && (
                       <p className="text-[11px] text-slate-500 flex items-center gap-2 flex-wrap">
-                        {c.passport_no && <span>📕 {c.passport_no}</span>}
+                        {(c.passport_no || c.passport_number) && <span>📕 {c.passport_no || c.passport_number}</span>}
                         {c.passport_expiry && <span>Exp: {fmtDate(c.passport_expiry)}</span>}
                         {c.nationality && <span>🌍 {c.nationality}</span>}
                         {c.passport_photo_url && (
