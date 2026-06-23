@@ -30,7 +30,7 @@ const TL_SUBTYPES = [
   { value: 'freelance', label: '🌍 Freelance (TL lepas/partner)' },
 ];
 
-const ROLES = ['owner', 'manager', 'cs', 'ops', 'finance', 'tl', 'designer', 'social_media', 'admin', 'other'];
+const ROLES = ['owner', 'manager', 'accounting', 'finance', 'ops', 'cs', 'pic', 'tl', 'designer', 'social_media', 'admin', 'other'];
 
 export default function EmployeeForm({ action, employee, submitLabel = 'Simpan' }) {
   const router = useRouter();
