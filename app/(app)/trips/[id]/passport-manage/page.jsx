@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { redirect } from 'next/navigation';
 import PassportDriveSyncPanel from '@/components/passport/PassportDriveSyncPanel';
+import PassportUploadManager from '@/components/passport/PassportUploadManager';
 
 function getServiceClient() {
   const url = brandSupabaseUrl();
@@ -85,6 +86,17 @@ export default async function PassportManagePage({ params }) {
     customers: customerMap[p.customer_id] || {},
   }));
 
+  // ADDITIVE: data ringkas utk panel Upload Paspor via WA (tidak mengubah daftar di bawah)
+  const uploadList = enrichedList.map((p) => ({
+    id: p.id,
+    name: p.customers?.name || `Peserta #${p.id}`,
+    familyId: p.family_group_id || null,
+    isHead: !!p.is_family_head,
+    uploaded: !!p.passport_upload_path,
+    uploadedAt: p.passport_uploaded_at || null,
+    autofilled: !!p.passport_autofilled,
+  }));
+
   // Stats
   const withPassport = enrichedList.filter((p) => p?.customers?.passport_no || p?.customers?.passport_photo_url).length;
   const withoutPassport = enrichedList.length - withPassport;
@@ -151,6 +163,9 @@ export default async function PassportManagePage({ params }) {
 
       {/* R215z — Passport Drive Sync Panel (per trip, folder per peserta) */}
       <PassportDriveSyncPanel trip={trip} />
+
+      {/* ADDITIVE: Upload Paspor via WA */}
+      <PassportUploadManager tripId={tripId} passengers={uploadList} />
 
       {/* Passenger list */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
