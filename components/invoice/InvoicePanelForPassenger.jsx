@@ -43,7 +43,7 @@ function buildMilestoneOptions(paymentTemplate, priceBreakdown = {}) {
     .sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
   const pKeys = templatePKeys.length > 0 ? templatePKeys : ['P1', 'P2', 'P3'];
 
-  const standard = ['DP', ...pKeys, 'Pelunasan', 'Visa', 'Asuransi'];
+  const standard = ['DP', ...pKeys, 'Pelunasan', 'Visa', 'Asuransi', 'All-in (Pelunasan+Visa+Asuransi)'];
   const seen = new Set(standard.map((x) => x.toLowerCase()));
 
   // Custom milestone bernama bebas dari template (selain DP/P*/standar)
@@ -170,6 +170,12 @@ export default function InvoicePanelForPassenger({
       return;
     }
 
+    if (milestone === 'All-in (Pelunasan+Visa+Asuransi)') {
+      const est = (Number(sisaPerPax) || 0) + (getPresetAmount('Visa') || 0) + (getPresetAmount('Asuransi') || 0);
+      if (isFamily) setAmountPerPax(String(est)); else setAmount(String(est));
+      return;
+    }
+
     const preset = getPresetAmount(milestone);
     if (preset > 0) {
       if (isFamily) {
@@ -222,7 +228,7 @@ export default function InvoicePanelForPassenger({
       }
     } else {
       totalAmt = parseInt(amount) || 0;
-      if (totalAmt <= 0) { alert('Amount harus > 0'); return; }
+      if (totalAmt <= 0 && finalMilestone !== 'All-in (Pelunasan+Visa+Asuransi)') { alert('Amount harus > 0'); return; }
     }
 
     startTransition(async () => {
@@ -256,6 +262,7 @@ export default function InvoicePanelForPassenger({
           customer_id: customer?.id || passenger.customer_id,
           milestone: finalMilestone, amount: totalAmt,
           due_date: dueDate || null, description: baseDesc,
+          allIn: finalMilestone === 'All-in (Pelunasan+Visa+Asuransi)',
           ...familyFields,
         });
       }
