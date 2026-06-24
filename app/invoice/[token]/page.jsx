@@ -157,7 +157,7 @@ export default async function PublicInvoicePage({ params }) {
   let addonPaidReal = 0;
   let sisaReal = 0;
   let discountReal = 0;
-  let famRoom = 0, famTips = 0, famCity = 0, famFlight = 0, famBaggage = 0, famBase = 0, famCount = 1, famResolved = false;
+  let famRoom = 0, famTips = 0, famCity = 0, famFlight = 0, famBaggage = 0, famBase = 0, famVisa = 0, famAsuransi = 0, famCount = 1, famResolved = false;
   if (inv.trip_id && (inv.passenger_id || (Array.isArray(inv.covers_passenger_ids) && inv.covers_passenger_ids.length))) {
     try {
       const bill = await getInvoiceBilling(supabase, inv);
@@ -173,6 +173,8 @@ export default async function PublicInvoicePage({ params }) {
       famFlight = bill.members.reduce((t, m) => t + (m.flight || 0), 0);
       famBaggage = bill.members.reduce((t, m) => t + (m.baggage || 0), 0);
       famBase = bill.members.reduce((t, m) => t + (m.baseFee || 0), 0);
+      famVisa = Number(bill.visaExpected) || 0;
+      famAsuransi = Number(bill.asuransiExpected) || 0;
       famCount = bill.count || 1;
       famResolved = true;
     } catch (e) { errors.push(`summary: ${e.message}`); }
@@ -181,8 +183,11 @@ export default async function PublicInvoicePage({ params }) {
   }
 
   const optItems = [];
-  if (paidTypes.has('Visa') && visaPrice > 0) optItems.push({ label: 'Visa', amount: visaPrice });
-  if (paidTypes.has('Asuransi') && asuransiPrice > 0) optItems.push({ label: 'Asuransi', amount: asuransiPrice });
+  // Family-aware: jumlahkan visa/asuransi semua anggota yang mengambilnya (bukan 1 orang)
+  const visaAmt = famResolved ? famVisa : (paidTypes.has('Visa') ? visaPrice : 0);
+  const asuransiAmt = famResolved ? famAsuransi : (paidTypes.has('Asuransi') ? asuransiPrice : 0);
+  if (visaAmt > 0) optItems.push({ label: famCount > 1 ? `Visa (${famCount} peserta)` : 'Visa', amount: visaAmt });
+  if (asuransiAmt > 0) optItems.push({ label: famCount > 1 ? `Asuransi (${famCount} peserta)` : 'Asuransi', amount: asuransiAmt });
 
   const isLunas = expectedTotalReal > 0 && sisaReal === 0;
 
