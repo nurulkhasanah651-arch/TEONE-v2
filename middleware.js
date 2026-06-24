@@ -38,6 +38,6 @@ export const config = {
     //        (webhook Supabase, public API endpoint, dll)
     // R186c: tambah |delivery|invoice|tl-assign|r ke negative lookahead
     // R215p: tambah |visa/upload — public portal peserta upload dokumen visa
-    '/((?!api|_next/static|_next/image|favicon.ico|delivery|invoice|tl-assign|r/|visa/upload|visa/hasil|visa/form|passport/upload|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|delivery|invoice|tl-assign|r/|visa/upload|visa/hasil|visa/form|visa-syarat|passport/upload|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
