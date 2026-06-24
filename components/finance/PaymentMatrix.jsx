@@ -21,6 +21,7 @@ export default function PaymentMatrix({
   breakdown = {},
   invoicesByPassenger = {},
   familyGroups = [],
+  visaRequirement = '',
 }) {
   const [pending, startTransition] = useTransition();
   const [editingCell, setEditingCell] = useState(null);
@@ -264,6 +265,11 @@ export default function PaymentMatrix({
                             >
                               {isPaid ? '✓' : '○'}
                             </button>
+                          )}
+                          {((m.key === 'visa' && p.include_visa) || (m.key === 'asuransi' && p.include_asuransi)) && (
+                            <span className="block text-[8px] mt-0.5 px-1 rounded bg-amber-100 text-amber-700 font-bold" title="Dipilih saat order/CS (tagihan)">
+                              {visaRequirement === 'group' && m.key === 'visa' ? 'INCLUDE•GRP' : 'INCLUDE'}
+                            </span>
                           )}
                           {isPaid && !isEditing && (
                             <p

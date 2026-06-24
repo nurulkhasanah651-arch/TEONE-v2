@@ -232,6 +232,7 @@ export default async function TripPaymentsPage({ params }) {
       <PaymentTemplateForm tripId={tripId} template={template} schedule={Array.isArray(trip.web_payment_schedule) ? trip.web_payment_schedule : []} />
 
       <PaymentMatrix
+        visaRequirement={trip?.visa_requirement || ''}
         tripId={tripId}
         passengers={passengersWithCustomers}
         paymentsByPassenger={paymentsByPassenger}

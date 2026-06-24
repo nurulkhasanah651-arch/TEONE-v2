@@ -38,7 +38,7 @@ function parseInput(s) {
 
 const BLANK_PAX = {
   first_name: '', last_name: '', phone: '', email: '',
-  source: 'whatsapp', room_type: '', price_paid: '', discount: '',
+  source: 'whatsapp', room_type: '', price_paid: '', discount: '', include_visa: false, include_asuransi: false,
   dp_amount: '', dp_date: new Date().toISOString().slice(0, 10),
   dp_method: 'transfer', dp_proof_url: '',
   family_name: '',
@@ -64,6 +64,11 @@ export default function CSForm({ trips, mitraList = [] }) {
   const [participants, setParticipants] = useState([]);
 
   const selectedTrip = trips.find((t) => String(t.id) === String(tripId));
+  const _visaReq = selectedTrip?.visa_requirement || '';
+  const _showVisaQ = _visaReq === 'individual' || _visaReq === 'group';
+  const _visaLocked = _visaReq === 'group';
+  const _asuransiPrice = Number(selectedTrip?.price_breakdown?.asuransi || 0);
+  const _showAsuransiQ = _asuransiPrice > 0;
   const totalTerjual = Object.values(sources).reduce((a, b) => a + (+b || 0), 0);
   const sisaSeat = selectedTrip ? selectedTrip.seat_left ?? 0 : 0;
 
@@ -294,6 +299,22 @@ export default function CSForm({ trips, mitraList = [] }) {
                       <span className="text-[11px] font-semibold text-emerald-700 block mb-0.5">💸 Diskon (Rp, opsional)</span>
                       <input autoComplete="off" type="number" value={p.discount} min="0" onChange={(e) => updParticipant(i, 'discount', e.target.value)} className={miniInput} placeholder="0" />
                     </label>
+                    {(_showVisaQ || _showAsuransiQ) && (
+                      <div className="block sm:col-span-2 mt-1 flex flex-wrap gap-4 bg-amber-50/40 border border-amber-200 rounded-lg px-2 py-1.5">
+                        {_showVisaQ && (
+                          <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold text-slate-700">
+                            <input type="checkbox" checked={_visaLocked ? true : !!p.include_visa} disabled={_visaLocked} onChange={(e) => updParticipant(i, 'include_visa', e.target.checked)} className="w-3.5 h-3.5" />
+                            Include Visa{_visaLocked ? ' (wajib group)' : ''}
+                          </label>
+                        )}
+                        {_showAsuransiQ && (
+                          <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold text-slate-700">
+                            <input type="checkbox" checked={!!p.include_asuransi} onChange={(e) => updParticipant(i, 'include_asuransi', e.target.checked)} className="w-3.5 h-3.5" />
+                            Include Asuransi
+                          </label>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* R150 v2: TIME-TO-CLOSING — langsung ketik angka */}

@@ -9,7 +9,7 @@ export default async function NewCSPage() {
   const supabase = createClient();
   const { data: trips } = await supabase
     .from('trips')
-    .select('id, kode_trip, name, status, seat_left')
+    .select('id, kode_trip, name, status, seat_left, visa_requirement, price_breakdown')
     .in('status', ['open selling', 'prepare to sell', 'closed selling', 'ongoing', 'confirmed'])
     .order('departure', { ascending: true });
   const { data: mitraList } = await supabase.from('mitra').select('id, name').eq('active', true).order('name');
