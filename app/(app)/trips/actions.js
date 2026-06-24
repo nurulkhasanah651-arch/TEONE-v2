@@ -66,6 +66,7 @@ function parseTripFields(formData) {
     roomlist: formData.get('roomlist') || 'pending',
     payment: formData.get('payment') || 'belum',
     briefing_tl: formData.get('briefing_tl') || 'belum',
+    visa_requirement: formData.get('visa_requirement') || null,
   };
 }
 

@@ -317,6 +317,14 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
               <option value="rejected">Rejected</option>
             </select>
           </Field>
+          <Field label="Kebutuhan Visa" hint="Menentukan pertanyaan Include Visa saat checkout/CS">
+            <select name="visa_requirement" defaultValue={initial.visa_requirement || ''} className={inputCls}>
+              <option value="">— Belum diset —</option>
+              <option value="none">Tidak butuh visa</option>
+              <option value="individual">Butuh visa</option>
+              <option value="group">Butuh visa GROUP (wajib include)</option>
+            </select>
+          </Field>
           <Field label="Manifest">
             <select name="manifest" defaultValue={initial.manifest || 'pending'} className={inputCls}>
               <option value="pending">Pending</option>
