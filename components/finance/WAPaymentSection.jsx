@@ -15,6 +15,7 @@ export default function WAPaymentSection({ tripId, passengers, paymentsByPasseng
   const [busyId, setBusyId] = useState(null);
   const [busyAction, setBusyAction] = useState(null);
   const [toast, setToast] = useState(null);
+  const [preview, setPreview] = useState(null); // {paxId, kind, message, phone, customerName}
 
   if (!passengers || passengers.length === 0) return null;
 
@@ -27,11 +28,11 @@ export default function WAPaymentSection({ tripId, passengers, paymentsByPasseng
     setBusyId(paxId);
     setBusyAction('invoice');
     startTransition(async () => {
-      const r = await sendInvoiceWA(paxId);
+      const r = await sendInvoiceWA(paxId, true); // preview only
       setBusyId(null);
       setBusyAction(null);
       if (r.error) showToast(`❌ ${r.error}`, 'error');
-      else showToast(`✅ Invoice terkirim ke ${r.target}`);
+      else setPreview({ paxId, kind: 'invoice', message: r.message, phone: r.phone, customerName: r.customerName });
     });
   };
 
@@ -39,11 +40,26 @@ export default function WAPaymentSection({ tripId, passengers, paymentsByPasseng
     setBusyId(paxId);
     setBusyAction('receipt');
     startTransition(async () => {
-      const r = await sendPaymentReceivedWA(paxId);
+      const r = await sendPaymentReceivedWA(paxId, true); // preview only
       setBusyId(null);
       setBusyAction(null);
       if (r.error) showToast(`❌ ${r.error}`, 'error');
-      else showToast(`✅ Bukti payment ${r.lunas ? '(LUNAS)' : ''} terkirim`);
+      else setPreview({ paxId, kind: 'receipt', message: r.message, phone: r.phone, customerName: r.customerName });
+    });
+  };
+
+  const confirmSend = () => {
+    if (!preview) return;
+    const { paxId, kind } = preview;
+    setBusyId(paxId);
+    setBusyAction(kind);
+    startTransition(async () => {
+      const r = kind === 'invoice' ? await sendInvoiceWA(paxId) : await sendPaymentReceivedWA(paxId);
+      setBusyId(null);
+      setBusyAction(null);
+      setPreview(null);
+      if (r.error) showToast(`❌ ${r.error}`, 'error');
+      else showToast(kind === 'invoice' ? `✅ Invoice terkirim ke ${r.target}` : `✅ Bukti payment ${r.lunas ? '(LUNAS)' : ''} terkirim`);
     });
   };
 
@@ -93,6 +109,29 @@ export default function WAPaymentSection({ tripId, passengers, paymentsByPasseng
       {toast && (
         <div className={`px-5 py-2 text-sm border-b ${toast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
           {toast.msg}
+        </div>
+      )}
+      {preview && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => !pending && setPreview(null)}>
+          <div className="bg-white rounded-xl max-w-lg w-full max-h-[85vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-3 border-b bg-gradient-to-r from-green-600 to-emerald-700 text-white flex items-center justify-between">
+              <p className="font-bold">👀 Preview {preview.kind === 'receipt' ? 'Bukti Pembayaran' : 'Invoice'} — cek sebelum kirim</p>
+              <button onClick={() => !pending && setPreview(null)} className="text-white/80 hover:text-white text-xl">×</button>
+            </div>
+            <div className="p-5 space-y-3">
+              <div className="text-xs text-slate-600 flex flex-wrap gap-x-4 gap-y-1">
+                <span>👤 <b>{preview.customerName || '-'}</b></span>
+                <span>📞 {preview.phone || <span className="text-red-600 font-semibold">belum ada no HP</span>}</span>
+              </div>
+              <div className="bg-[#e5ddd5] rounded-lg p-3">
+                <div className="bg-[#dcf8c6] rounded-lg p-3 text-[13px] text-slate-800 whitespace-pre-wrap leading-snug shadow-sm">{preview.message}</div>
+              </div>
+            </div>
+            <div className="px-5 py-3 border-t flex justify-end gap-2 bg-slate-50">
+              <button onClick={() => setPreview(null)} disabled={pending} className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-100 disabled:opacity-50">Batal</button>
+              <button onClick={confirmSend} disabled={pending || !preview.phone} className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-bold disabled:opacity-50">{pending ? 'Mengirim…' : '✓ Konfirmasi & Kirim'}</button>
+            </div>
+          </div>
         </div>
       )}
 
