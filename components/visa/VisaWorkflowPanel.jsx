@@ -18,6 +18,7 @@ import {
 } from '@/lib/actions/visa-workflow';
 import { uploadVisaResultFile, updateVisaReturnMethod } from '@/lib/actions/visa-storage';
 import { getTemplateOptions, renderTemplate, VISA_WA_TEMPLATES, autoDeadlineDoc } from '@/lib/utils/visa-templates';
+import { syaratLinksFor } from '@/lib/utils/visa-syarat-docs';
 
 function fmtRp(n) { return `Rp ${Number(n || 0).toLocaleString('id-ID')}`; }
 function fmtTime(t) { if (!t) return '—'; return String(t).slice(0, 5); }
@@ -232,6 +233,7 @@ function BulkWAPreviewModal({ trip, passengers, selectedIds, templateKey, family
     field_team_phone: trip.visa_field_team_phone,
     pickup_address: trip.visa_pickup_address,
     pdf_syarat_visa_url: trip.visa_pdf_syarat_url,
+    syarat_docs: syaratLinksFor(trip.visa_country, siteUrl),
     pdf_template_dokumen_url: trip.visa_pdf_template_url,
     list_dokumen: trip.visa_doc_template,   // SINKRON dgn Template Dokumen Visa
     deadline_dokumen: deadlineDoc,
