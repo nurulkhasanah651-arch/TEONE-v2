@@ -21,8 +21,9 @@ export default function CheckoutForm({ trip }) {
   const asuransiPrice = Number(trip.asuransiPrice || 0);
   const visaPrice = Number(trip.visaPrice || 0);
   const showAsuransiQ = asuransiPrice > 0;
-  const [incVisa, setIncVisa] = useState(visaReq === 'group');
+  const [visaChoice, setVisaChoice] = useState(visaReq === 'group' ? 'include' : '');
   const [incAsuransi, setIncAsuransi] = useState(false);
+  const [agreeTnc, setAgreeTnc] = useState(false);
   const allItems = [...(items.rooms || []), ...(items.specials || [])];
 
   const [qty, setQty] = useState(() => {
@@ -131,8 +132,10 @@ export default function CheckoutForm({ trip }) {
     fd.set('trip_id', trip.id);
     fd.set('pax_list', JSON.stringify(paxList));
     fd.set('payment_type', payType);
-    fd.set('include_visa', (showVisaQ && (visaLocked || incVisa)) ? '1' : '');
+    fd.set('include_visa', (showVisaQ && (visaLocked || visaChoice === 'include')) ? '1' : '');
+    fd.set('visa_ready', (showVisaQ && !visaLocked && visaChoice === 'ready') ? '1' : '');
     fd.set('include_asuransi', (showAsuransiQ && incAsuransi) ? '1' : '');
+    fd.set('agree_tnc', agreeTnc ? '1' : '');
     startTransition(async () => {
       const r = await createBooking(fd);
       if (r?.error) { setErr(r.error); setNeedLogin(!!r.needLogin); return; }
@@ -248,10 +251,18 @@ export default function CheckoutForm({ trip }) {
         <div className="border border-slate-200 rounded-2xl p-4 bg-white space-y-2">
           <p className="text-sm font-bold text-slate-800">Tambahan (ditagih bertahap bersama pelunasan)</p>
           {showVisaQ && (
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={visaLocked ? true : incVisa} disabled={visaLocked} onChange={(e) => setIncVisa(e.target.checked)} className="w-4 h-4" />
-              <span className="text-sm text-slate-700">Include Visa{visaPrice > 0 ? ` (${fmtRp(visaPrice)})` : ''}{visaLocked ? ' — wajib (visa group)' : ''}</span>
-            </label>
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold text-slate-700">Visa <span className="text-red-500">*</span></p>
+              {visaLocked ? (
+                <p className="text-sm text-slate-700">🛂 Urus visa lewat kami{visaPrice > 0 ? ` (${fmtRp(visaPrice)})` : ''} — <b>wajib (visa group)</b></p>
+              ) : (
+                <>
+                  <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="visaChoice" checked={visaChoice === 'include'} onChange={() => setVisaChoice('include')} className="w-4 h-4" /><span className="text-sm text-slate-700">Urus visa lewat kami{visaPrice > 0 ? ` (${fmtRp(visaPrice)})` : ''}</span></label>
+                  <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="visaChoice" checked={visaChoice === 'ready'} onChange={() => setVisaChoice('ready')} className="w-4 h-4" /><span className="text-sm text-slate-700">Sudah ready visa (saya sudah punya visa sendiri)</span></label>
+                  <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="visaChoice" checked={visaChoice === 'none'} onChange={() => setVisaChoice('none')} className="w-4 h-4" /><span className="text-sm text-slate-700">Tidak butuh / tidak include visa</span></label>
+                </>
+              )}
+            </div>
           )}
           {showAsuransiQ && (
             <label className="flex items-center gap-2 cursor-pointer">
@@ -298,9 +309,16 @@ export default function CheckoutForm({ trip }) {
       {info && <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">{info}</div>}
       {err && <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">⚠ {err}{needLogin && <> <a href="/masuk" className="font-bold underline">Masuk sekarang →</a></>}</div>}
 
-      <button type="submit" disabled={pending || pax < 1 || slots.some((s, i) => !!dobError(s.key, dobs[i]))} className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-bold text-lg">
+      <label className="flex items-start gap-2 cursor-pointer border border-slate-200 rounded-xl p-3 bg-slate-50">
+        <input type="checkbox" checked={agreeTnc} onChange={(e) => setAgreeTnc(e.target.checked)} className="w-4 h-4 mt-0.5" />
+        <span className="text-sm text-slate-700">Dengan melakukan pemesanan/DP, saya menyetujui <b>segala syarat &amp; ketentuan</b> yang berlaku. <span className="text-red-500">*</span></span>
+      </label>
+
+      <button type="submit" disabled={pending || pax < 1 || slots.some((s, i) => !!dobError(s.key, dobs[i])) || (showVisaQ && !visaChoice) || !agreeTnc} className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-bold text-lg">
         {pending ? 'Memproses...' : 'Lanjut ke Pembayaran →'}
       </button>
+      {(showVisaQ && !visaChoice) && <p className="text-[11px] text-center text-amber-600">Pilih opsi visa dulu untuk lanjut.</p>}
+      {!agreeTnc && <p className="text-[11px] text-center text-amber-600">Centang persetujuan syarat &amp; ketentuan untuk lanjut.</p>}
       <p className="text-[11px] text-center text-slate-400">Dengan memesan, kamu setuju dengan syarat & ketentuan trip.</p>
     </form>
   );

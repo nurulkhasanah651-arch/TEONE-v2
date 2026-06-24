@@ -271,6 +271,11 @@ export default function PaymentMatrix({
                               {visaRequirement === 'group' && String(m.key).toLowerCase() === 'visa' ? 'INCLUDE•GRP' : 'INCLUDE'}
                             </span>
                           )}
+                          {String(m.key).toLowerCase() === 'visa' && p.visa_ready && (
+                            <span className="block text-[8px] mt-0.5 px-1 rounded bg-green-100 text-green-700 font-bold" title="Peserta menyatakan sudah punya visa sendiri">
+                              READY VISA
+                            </span>
+                          )}
                           {isPaid && !isEditing && (
                             <p
                               onClick={() => setEditingCell({ passengerId: p.id, paymentId: payment.id, type: m.key })}
