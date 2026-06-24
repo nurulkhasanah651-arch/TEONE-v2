@@ -12,6 +12,7 @@ import Link from 'next/link';
 import OnlinePayFeed from '@/components/invoices/OnlinePayFeed';
 import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
 import { createClient } from '@/lib/supabase/server';
+import { fetchAll } from '@/lib/supabase/fetch-all';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { fmtRupiah } from '@/lib/utils/format';
 import DPApprovalPanel from '@/components/accounting/DPApprovalPanel';
@@ -46,8 +47,8 @@ export default async function InvoicesPage() {
     supabase.from('invoices').select('*').order('created_at', { ascending: false }).limit(500),
     // R215y² — tambahin payment_drive_* columns ke select trips
     supabase.from('trips').select('id, kode_trip, name, departure, status, pic, pic_email, payment_drive_parent_folder_id, payment_drive_trip_folder_id, payment_drive_trip_folder_url, payment_drive_last_sync_at'),
-    supabase.from('trip_passengers').select('id, trip_id, customer_id, family_group_id, is_family_head').limit(10000),
-    supabase.from('customers').select('id, name, phone').limit(10000),
+    fetchAll(() => supabase.from('trip_passengers').select('id, trip_id, customer_id, family_group_id, is_family_head')),
+    fetchAll(() => supabase.from('customers').select('id, name, phone')),
     serviceClient
       .from('invoice_payments')
       .select('*, invoices(id, invoice_no, milestone, trip_id, customer_name, trip_kode, amount)')
@@ -68,8 +69,8 @@ export default async function InvoicesPage() {
 
   let allInvoices = invoicesRes.data || [];
   let trips = tripsRes.data || [];
-  const allPassengers = passengersRes.data || [];
-  const customers = customersRes.data || [];
+  const allPassengers = passengersRes || [];
+  const customers = customersRes || [];
   let pendingPayments = pendingPaymentsRes.data || [];
   let dpRequests = dpRequestsRes.data || [];
   const familyGroups = familyGroupsRes.data || [];

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { fetchAll } from '@/lib/supabase/fetch-all';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import { statusCfg } from '@/lib/utils/trip-status';
 
@@ -12,17 +13,17 @@ export default async function RealCashflowGroupPage() {
 
   const [tripsRes, passRes, payRes, finItemsRes, accEntriesRes] = await Promise.all([
     supabase.from('trips').select('id, kode_trip, name, status, departure').order('departure', { ascending: false, nullsFirst: false }),
-    supabase.from('trip_passengers').select('id, trip_id, price_paid'),
-    supabase.from('participant_payments').select('passenger_id, amount'),
-    supabase.from('trip_finance_items').select('trip_id, item_type, total_amount, payment_status'),
-    supabase.from('accounting_entries').select('trip_id, type, amount'),
+    fetchAll(() => supabase.from('trip_passengers').select('id, trip_id, price_paid')),
+    fetchAll(() => supabase.from('participant_payments').select('passenger_id, amount')),
+    fetchAll(() => supabase.from('trip_finance_items').select('trip_id, item_type, total_amount, payment_status')),
+    fetchAll(() => supabase.from('accounting_entries').select('trip_id, type, amount')),
   ]);
 
   const trips = tripsRes.data || [];
-  const passengers = passRes.data || [];
-  const payments = payRes.data || [];
-  const finItems = finItemsRes.data || [];
-  const accEntries = accEntriesRes.data || [];
+  const passengers = passRes || [];
+  const payments = payRes || [];
+  const finItems = finItemsRes || [];
+  const accEntries = accEntriesRes || [];
 
   // Build paid-by-passenger lookup
   const paidByPassenger = {};

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { fetchAll } from '@/lib/supabase/fetch-all';
 import { fmtRupiah } from '@/lib/utils/format';
 import { computeIncomeProjection } from '@/lib/utils/price-breakdown';
 import { getManualTransfers } from '@/lib/shop/data';
@@ -16,7 +17,7 @@ export default async function FinancePage() {
     supabase.from('trips').select('id, status, price_breakdown'),
     supabase.from('trip_finance_items').select('trip_id, item_type, total_amount'),
     supabase.from('flight_inventory').select('id', { count: 'exact', head: true }),
-    supabase.from('trip_passengers').select('trip_id, room_type, price_paid, age_type'),
+    fetchAll(() => supabase.from('trip_passengers').select('trip_id, room_type, price_paid, age_type')),
     supabase.from('accounting_entries').select('type, amount'),
   ]);
 
@@ -27,7 +28,7 @@ export default async function FinancePage() {
     manualPendingCount = mt.filter((r) => r.manual_status === 'pending' && r.status !== 'paid').length;
   } catch {}
   const items = itemsRes.data || [];
-  const allPax = paxRes.data || [];
+  const allPax = paxRes || [];
   const totalTrips = trips.length;
   const totalPNR = pnrRes.count ?? 0;
 

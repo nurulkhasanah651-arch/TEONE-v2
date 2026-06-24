@@ -5,6 +5,7 @@
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { fetchAll } from '@/lib/supabase/fetch-all';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import { statusCfg } from '@/lib/utils/trip-status';
 import DownloadButtons from '@/components/common/DownloadButtons';
@@ -40,7 +41,7 @@ export default async function CashflowListPage({ searchParams }) {
   const [tripsRes, itemsRes, passengersRes, landtourRes, accRes] = await Promise.all([
     supabase.from('trips').select('id, kode_trip, name, status, departure, quota, sold, price_breakdown').order('departure', { ascending: true }),
     supabase.from('trip_finance_items').select('trip_id, item_type, total_amount'),
-    supabase.from('trip_passengers').select('id, trip_id, transfer_status, refund_status, room_type, price_paid, discount_amount'),
+    fetchAll(() => supabase.from('trip_passengers').select('id, trip_id, transfer_status, refund_status, room_type, price_paid, discount_amount')),
     // R215c — fetch Landtour vendor untuk "Operated by"
     supabase.from('trip_finance_items')
       .select('trip_id, vendor_name, component, category')
@@ -51,7 +52,7 @@ export default async function CashflowListPage({ searchParams }) {
 
   const trips = tripsRes.data || [];
   const items = itemsRes.data || [];
-  const allPassengers = passengersRes.data || [];
+  const allPassengers = passengersRes || [];
   const hppItemsForOperator = landtourRes.data || [];
 
   // R215c — derive "Operated by" per trip dari vendor Landtour

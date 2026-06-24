@@ -3,6 +3,7 @@
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { fetchAll } from '@/lib/supabase/fetch-all';
 import { fmtRupiah } from '@/lib/utils/format';
 import { aggregateAccountBalances, computePiutang, computeHutang, computePnrDeposits } from '@/lib/utils/accounting-aggregator';
 import DownloadButtons from '@/components/common/DownloadButtons';
@@ -13,19 +14,19 @@ export default async function BalanceSheetPage() {
   const supabase = createClient();
   const [accountsRes, accEntriesRes, payRes, passRes, finItemsRes, pnrRes] = await Promise.all([
     supabase.from('accounts').select('*').eq('active', true),
-    supabase.from('accounting_entries').select('account_id, type, amount'),
-    supabase.from('participant_payments').select('passenger_id, amount'),
-    supabase.from('trip_passengers').select('id, price_paid'),
-    supabase.from('trip_finance_items').select('item_type, total_amount, payment_status'),
+    fetchAll(() => supabase.from('accounting_entries').select('account_id, type, amount')),
+    fetchAll(() => supabase.from('participant_payments').select('passenger_id, amount')),
+    fetchAll(() => supabase.from('trip_passengers').select('id, price_paid')),
+    fetchAll(() => supabase.from('trip_finance_items').select('item_type, total_amount, payment_status')),
     supabase.from('flight_inventory').select('pnr, deposit_total, payoff_amount'),
   ]);
 
   const accounts = accountsRes.data || [];
-  const balances = aggregateAccountBalances(accounts, accEntriesRes.data || []);
+  const balances = aggregateAccountBalances(accounts, accEntriesRes || []);
   const totalBankCash = Object.values(balances).reduce((s, b) => s + b.balance, 0);
 
-  const piutang = computePiutang(passRes.data || [], payRes.data || []);
-  const hutang = computeHutang(finItemsRes.data || []);
+  const piutang = computePiutang(passRes || [], payRes || []);
+  const hutang = computeHutang(finItemsRes || []);
   const pnrDeposits = computePnrDeposits(pnrRes.data || []);
 
   const assets = [

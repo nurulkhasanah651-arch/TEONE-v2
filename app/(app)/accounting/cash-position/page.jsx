@@ -6,31 +6,32 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah } from '@/lib/utils/format';
 import { aggregateAccountBalances, computeTripCashBreakdown } from '@/lib/utils/accounting-aggregator';
 import DownloadButtons from '@/components/common/DownloadButtons';
+import { fetchAll } from '@/lib/supabase/fetch-all';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CashPositionPage() {
   const supabase = createClient();
-  const [accountsRes, entriesRes, payRes, passRes, finItemsRes, pnrRes, tripsRes] = await Promise.all([
+  const [accountsRes, entriesAll, payAll, passAll, finItemsAll, pnrRes, tripsRes] = await Promise.all([
     supabase.from('accounts').select('*').eq('active', true),
-    supabase.from('accounting_entries').select('account_id, type, amount'),
-    supabase.from('participant_payments').select('passenger_id, amount'),
-    supabase.from('trip_passengers').select('id, trip_id'),
-    supabase.from('trip_finance_items').select('trip_id, item_type, total_amount, payment_status'),
+    fetchAll(() => supabase.from('accounting_entries').select('account_id, type, amount')),
+    fetchAll(() => supabase.from('participant_payments').select('passenger_id, amount')),
+    fetchAll(() => supabase.from('trip_passengers').select('id, trip_id')),
+    fetchAll(() => supabase.from('trip_finance_items').select('trip_id, item_type, total_amount, payment_status')),
     supabase.from('flight_inventory').select('trip_id, deposit_total, payoff_amount'),
     supabase.from('trips').select('id, kode_trip, name, status, departure'),
   ]);
 
   const accounts = accountsRes.data || [];
-  const balances = aggregateAccountBalances(accounts, entriesRes.data || []);
+  const balances = aggregateAccountBalances(accounts, entriesAll || []);
   const totalBank = Object.values(balances).reduce((s, b) => s + b.balance, 0);
 
   const trips = tripsRes.data || [];
   const breakdown = computeTripCashBreakdown({
     trips,
-    passengers: passRes.data || [],
-    payments: payRes.data || [],
-    finItems: finItemsRes.data || [],
+    passengers: passAll || [],
+    payments: payAll || [],
+    finItems: finItemsAll || [],
     pnrs: pnrRes.data || [],
   });
 

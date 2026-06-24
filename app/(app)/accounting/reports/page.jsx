@@ -3,6 +3,7 @@
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { fetchAll } from '@/lib/supabase/fetch-all';
 import { fmtRupiah } from '@/lib/utils/format';
 import { buildMonthlyReport } from '@/lib/utils/monthly-report';
 import DownloadButtons from '@/components/common/DownloadButtons';
@@ -30,15 +31,15 @@ export default async function MonthlyReportsPage({ searchParams }) {
 
   const supabase = createClient();
   const [payRes, hppRes, accEntRes, accountsRes] = await Promise.all([
-    supabase.from('participant_payments').select('amount, paid_at'),
+    fetchAll(() => supabase.from('participant_payments').select('amount, paid_at')),
     supabase.from('trip_finance_items').select('total_amount, payment_status, payoff_date, dp_date, category, component').eq('item_type', 'hpp').eq('payment_status', 'lunas'),
-    supabase.from('accounting_entries').select('type, amount, category, date, account_id, description'),
+    fetchAll(() => supabase.from('accounting_entries').select('type, amount, category, date, account_id, description')),
     supabase.from('accounts').select('*').eq('active', true),
   ]);
 
-  const payments = payRes.data || [];
+  const payments = payRes || [];
   const hppLunas = hppRes.data || [];
-  const accEntries = accEntRes.data || [];
+  const accEntries = accEntRes || [];
   const accounts = accountsRes.data || [];
 
   const report = buildMonthlyReport({ month, payments, hppLunas, accEntries, accounts });

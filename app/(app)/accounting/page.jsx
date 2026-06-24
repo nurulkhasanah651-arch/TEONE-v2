@@ -7,6 +7,7 @@
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { fetchAll } from '@/lib/supabase/fetch-all';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import PaymentRequests from '@/components/accounting/PaymentRequests';
 import DownloadButtons from '@/components/common/DownloadButtons';
@@ -104,8 +105,8 @@ export default async function AccountingDashboard({ searchParams }) {
 
   const [accounts, accEntries, payments, hppLunas, passengers, customers, allFinItems, pnrs, trips, pendingRequests, tlRequests] = await Promise.all([
     safeQuery(supabase.from('accounts').select('*').eq('active', true)),
-    safeQuery(supabase.from('accounting_entries').select('*').order('date', { ascending: false })),
-    safeQuery(supabase.from('participant_payments').select('*').order('paid_at', { ascending: false, nullsFirst: false })),
+    fetchAll(() => supabase.from('accounting_entries').select('*').order('date', { ascending: false })),
+    fetchAll(() => supabase.from('participant_payments').select('*').order('paid_at', { ascending: false, nullsFirst: false })),
     safeQuery(supabase.from('trip_finance_items').select('*').eq('item_type', 'hpp').or('payment_status.eq.lunas,dp_paid.gt.0')),
     safeQuery(supabase.from('trip_passengers').select('id, trip_id, customer_id, price_paid')),
     safeQuery(supabase.from('customers').select('id, name')),
