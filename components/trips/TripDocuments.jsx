@@ -201,7 +201,7 @@ export default function TripDocuments({ tripId, documents, readOnly = false }) {
                     <div key={d.id} className="flex items-start justify-between gap-3 p-2 bg-slate-50 rounded">
                       <div className="flex-1 min-w-0">
                         <a
-                          href={d.file_url}
+                          href={d.file_path ? `/api/trip-docs/${d.id}/download/${encodeURIComponent((d.title || 'document').replace(/[^a-zA-Z0-9._-]+/g, '_'))}` : d.file_url}
                           target="_blank"
                           rel="noreferrer"
                           download={d.title || 'document'}
