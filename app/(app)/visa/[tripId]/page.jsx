@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { brandSupabaseUrl, brandServiceRoleKey } from '@/lib/supabase/service-env';
 import VisaFormManager from '@/components/visa/VisaFormManager';
+import VisaAIPanel from '@/components/visa/VisaAIPanel';
 import { fmtDate } from '@/lib/utils/format';
 import { statusCfg } from '@/lib/utils/trip-status';
 import VisaGroupForm from '@/components/visa/VisaGroupForm';
@@ -138,6 +139,13 @@ export default async function VisaTripPage({ params }) {
       }
     }
   } catch (e) {}
+  const visaAiList = passengersWithCustomers.map((p) => ({
+    id: p.id,
+    name: p.customers?.name || `Peserta #${p.id}`,
+    hasUploads: Array.isArray(p.visa_uploaded_docs) && p.visa_uploaded_docs.length > 0,
+    analysis: p.visa_ai_analysis || null,
+    analyzedAt: p.visa_ai_analyzed_at || null,
+  }));
   const visaFormList = passengersWithCustomers.map((p) => ({
     id: p.id,
     name: p.customers?.name || `Peserta #${p.id}`,
@@ -201,6 +209,9 @@ export default async function VisaTripPage({ params }) {
 
       {/* R215r — DOWNLOAD PANEL (view + ZIP per peserta) */}
       <VisaDocsDownloadPanel trip={trip} passengers={passengersWithCustomers} />
+
+      {/* ADDITIVE: Asisten AI Analisa Dokumen */}
+      <VisaAIPanel tripId={tripId} passengers={visaAiList} />
 
       {/* Existing — Matrix */}
       <VisaMatrix tripId={tripId} template={template} passengers={passengersWithCustomers} />
