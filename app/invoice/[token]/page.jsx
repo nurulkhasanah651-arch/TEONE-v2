@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation';
 import { createPublicClient as createClient } from '@/lib/supabase/server';
 import { getExpectedAndPaidForPassenger } from '@/lib/actions/invoices';
 import { getInvoiceBilling } from '@/lib/shop/invoice-bill';
+import { invoiceAllInOutstanding } from '@/lib/shop/fulfillment';
 
 export const dynamic = 'force-dynamic';
 
@@ -215,6 +216,8 @@ export default async function PublicInvoicePage({ params }) {
     .filter((p) => p.status === 'verified')
     .reduce((s, p) => s + Number(p.amount || 0), 0);
   const sisaInvoice = Math.max(Number(inv.amount || 0) - totalPaidThisInvoice, 0);
+  let allInAmount = 0;
+  try { allInAmount = (await invoiceAllInOutstanding(inv.id))?.total || 0; } catch {}
   const status = STATUS_BADGE[inv.status] || STATUS_BADGE.sent;
 
   const { PaymentProofForm, PrintInvoiceButton, InvoicePayOnlineButton, errors: clientErrors } = await loadClientComponents();
@@ -429,7 +432,7 @@ export default async function PublicInvoicePage({ params }) {
         {/* Payment Proof Form — tampil utk SEMUA invoice yg belum lunas (pokok / visa / ongkir / cicilan) */}
         {inv.status !== 'paid' && !inv.paid_at && (
           <div className="px-6 pb-6 no-print">
-            {InvoicePayOnlineButton && <InvoicePayOnlineButton token={inv.public_token} amount={sisaInvoice || inv.amount} />}
+            {InvoicePayOnlineButton && <InvoicePayOnlineButton token={inv.public_token} amount={sisaInvoice || inv.amount} allInAmount={allInAmount} />}
             {PaymentProofForm && (
               <>
                 <p className="text-[11px] text-slate-500 mt-3 mb-1 font-semibold">🏦 Apabila menggunakan transfer bank, upload bukti transfer di bawah ini:</p>

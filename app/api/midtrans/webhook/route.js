@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server';
 import { resolveBrandCode } from '@/lib/brand-shared';
 import { runWithBrand } from '@/lib/supabase/service-env';
 import { verifyNotificationSignature, mapTransactionStatus, midtransMethodLabel } from '@/lib/midtrans';
-import { fulfillPaidBooking, recordMilestonePayment, recordInvoiceMilestone, applyInvoiceOnlinePaid } from '@/lib/shop/fulfillment';
+import { fulfillPaidBooking, recordMilestonePayment, recordInvoiceMilestone, applyInvoiceOnlinePaid, applyInvoiceAllInPaid } from '@/lib/shop/fulfillment';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,7 +22,7 @@ export async function POST(request) {
   // === Tentukan brand dari order_id ===
   let code;
   let invIdx = 1; // index id invoice (format lama: INVID-<id>-...)
-  if (parts[0] === 'INVID' || parts[0] === 'INVP') {
+  if (parts[0] === 'INVID' || parts[0] === 'INVP' || parts[0] === 'INVALLIN') {
     if (parts[1] === 'KH' || parts[1] === 'TE') {
       code = parts[1] === 'KH' ? 'khasanah' : 'teone'; // format baru: INVID-KH-<id>-...
       invIdx = 2;
@@ -54,7 +54,9 @@ export async function POST(request) {
     try {
       // Jalankan fulfillment DALAM konteks brand → DB, WA Fonnte, & link sesuai brand.
       await runWithBrand(code, async () => {
-        if (parts[0] === 'INVID') {
+        if (parts[0] === 'INVALLIN') {
+          await applyInvoiceAllInPaid(parseInt(parts[invIdx]) || 0, n.gross_amount, method);
+        } else if (parts[0] === 'INVID') {
           await applyInvoiceOnlinePaid(parseInt(parts[invIdx]) || 0, n.gross_amount, method);
         } else if (parts[0] === 'INVP') {
           await recordInvoiceMilestone(parseInt(parts[invIdx]) || 0, parts[invIdx + 1], n.gross_amount, method);
