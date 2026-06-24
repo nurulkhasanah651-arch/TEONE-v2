@@ -15,6 +15,14 @@ export default function CheckoutForm({ trip }) {
 
   const items = trip.priceItems || { rooms: [], specials: [] };
   const adminFee = Number(trip.adminFee || 0);
+  const visaReq = trip.visaRequirement || '';
+  const showVisaQ = visaReq === 'individual' || visaReq === 'group';
+  const visaLocked = visaReq === 'group';
+  const asuransiPrice = Number(trip.asuransiPrice || 0);
+  const visaPrice = Number(trip.visaPrice || 0);
+  const showAsuransiQ = asuransiPrice > 0;
+  const [incVisa, setIncVisa] = useState(visaReq === 'group');
+  const [incAsuransi, setIncAsuransi] = useState(false);
   const allItems = [...(items.rooms || []), ...(items.specials || [])];
 
   const [qty, setQty] = useState(() => {
@@ -123,6 +131,8 @@ export default function CheckoutForm({ trip }) {
     fd.set('trip_id', trip.id);
     fd.set('pax_list', JSON.stringify(paxList));
     fd.set('payment_type', payType);
+    fd.set('include_visa', (showVisaQ && (visaLocked || incVisa)) ? '1' : '');
+    fd.set('include_asuransi', (showAsuransiQ && incAsuransi) ? '1' : '');
     startTransition(async () => {
       const r = await createBooking(fd);
       if (r?.error) { setErr(r.error); setNeedLogin(!!r.needLogin); return; }
@@ -233,6 +243,25 @@ export default function CheckoutForm({ trip }) {
           </button>
         </div>
       </div>
+
+      {(showVisaQ || showAsuransiQ) && (
+        <div className="border border-slate-200 rounded-2xl p-4 bg-white space-y-2">
+          <p className="text-sm font-bold text-slate-800">Tambahan (ditagih bertahap bersama pelunasan)</p>
+          {showVisaQ && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={visaLocked ? true : incVisa} disabled={visaLocked} onChange={(e) => setIncVisa(e.target.checked)} className="w-4 h-4" />
+              <span className="text-sm text-slate-700">Include Visa{visaPrice > 0 ? ` (${fmtRp(visaPrice)})` : ''}{visaLocked ? ' — wajib (visa group)' : ''}</span>
+            </label>
+          )}
+          {showAsuransiQ && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={incAsuransi} onChange={(e) => setIncAsuransi(e.target.checked)} className="w-4 h-4" />
+              <span className="text-sm text-slate-700">Include Asuransi ({fmtRp(asuransiPrice)})</span>
+            </label>
+          )}
+          <p className="text-[11px] text-slate-400">Pilihan ini dicatat di tagihan; dibayar bertahap, tidak menambah nominal DP saat ini.</p>
+        </div>
+      )}
 
       <div className="bg-slate-900 text-white rounded-2xl p-4 space-y-1.5">
         <div className="flex justify-between text-sm"><span className="opacity-80">Total peserta</span><span className="font-bold">{pax} orang</span></div>
