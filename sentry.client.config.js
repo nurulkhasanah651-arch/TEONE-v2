@@ -25,6 +25,10 @@ Sentry.init({
     'Network request failed',
     // User cancel
     'AbortError',
+    // In-app browser (Instagram/IG webview) — bukan bug app
+    'Java object is gone',
+    'webkit.messageHandlers',
+    'Can\'t find variable: webkit',
   ],
 
   // Filter URLs (gak capture error dari extension)
