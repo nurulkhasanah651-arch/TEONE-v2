@@ -10,6 +10,14 @@ function fmtRp(n) {
   return 'Rp ' + Number(n || 0).toLocaleString('id-ID');
 }
 
+function linkify(text) {
+  return String(text || '').split(/(https?:\/\/[^\s]+)/g).map((p, i) =>
+    /^https?:\/\//.test(p)
+      ? <a key={i} href={p} target="_blank" rel="noreferrer" className="text-blue-600 underline break-all">{p}</a>
+      : p
+  );
+}
+
 export default function WAPaymentSection({ tripId, passengers, paymentsByPassenger }) {
   const [pending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState(null);
@@ -124,7 +132,7 @@ export default function WAPaymentSection({ tripId, passengers, paymentsByPasseng
                 <span>📞 {preview.phone || <span className="text-red-600 font-semibold">belum ada no HP</span>}</span>
               </div>
               <div className="bg-[#e5ddd5] rounded-lg p-3">
-                <div className="bg-[#dcf8c6] rounded-lg p-3 text-[13px] text-slate-800 whitespace-pre-wrap leading-snug shadow-sm">{preview.message}</div>
+                <div className="bg-[#dcf8c6] rounded-lg p-3 text-[13px] text-slate-800 whitespace-pre-wrap leading-snug shadow-sm">{linkify(preview.message)}</div>
               </div>
             </div>
             <div className="px-5 py-3 border-t flex justify-end gap-2 bg-slate-50">

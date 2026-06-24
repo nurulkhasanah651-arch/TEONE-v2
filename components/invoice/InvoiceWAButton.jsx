@@ -5,6 +5,14 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { previewInvoiceWA, sendInvoiceWA } from '@/lib/actions/invoices';
 
+function linkify(text) {
+  return String(text || '').split(/(https?:\/\/[^\s]+)/g).map((p, i) =>
+    /^https?:\/\//.test(p)
+      ? <a key={i} href={p} target="_blank" rel="noreferrer" className="text-blue-600 underline break-all">{p}</a>
+      : p
+  );
+}
+
 export default function InvoiceWAButton({ invoiceId, isPaid = false, className = '', label }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -54,7 +62,7 @@ export default function InvoiceWAButton({ invoiceId, isPaid = false, className =
               </div>
               {preview.noPhone && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">⚠ Peserta belum punya no HP — tidak bisa dikirim. Lengkapi dulu di Master Trip.</p>}
               <div className="bg-[#e5ddd5] rounded-lg p-3">
-                <div className="bg-[#dcf8c6] rounded-lg p-3 text-[13px] text-slate-800 whitespace-pre-wrap leading-snug shadow-sm">{preview.message}</div>
+                <div className="bg-[#dcf8c6] rounded-lg p-3 text-[13px] text-slate-800 whitespace-pre-wrap leading-snug shadow-sm">{linkify(preview.message)}</div>
               </div>
               {err && <p className="text-xs text-red-700">⚠ {err}</p>}
             </div>

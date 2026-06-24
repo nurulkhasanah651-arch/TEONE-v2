@@ -31,6 +31,14 @@ const RETURN_METHODS = [
   { value: 'office_pickup', label: '🏢 Diambil di Kantor', desc: 'Peserta ambil sendiri di kantor TE saat jam kerja' },
 ];
 
+function linkify(text) {
+  return String(text || '').split(/(https?:\/\/[^\s]+)/g).map((p, i) =>
+    /^https?:\/\//.test(p)
+      ? <a key={i} href={p} target="_blank" rel="noreferrer" className="text-blue-600 underline break-all">{p}</a>
+      : p
+  );
+}
+
 export default function VisaWorkflowPanel({ trip, passengers = [] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -336,7 +344,7 @@ function BulkWAPreviewModal({ trip, passengers, selectedIds, templateKey, family
                 💬 Sample Message (pakai data: {samplePax.customers?.name || `#${samplePax.id}`})
               </p>
               <div className="p-4 bg-gradient-to-b from-emerald-50 to-white">
-                <pre className="text-xs text-slate-800 whitespace-pre-wrap font-sans">{sampleMessage}</pre>
+                <pre className="text-xs text-slate-800 whitespace-pre-wrap font-sans">{linkify(sampleMessage)}</pre>
               </div>
               <p className="px-3 py-2 text-[10px] text-slate-500 italic bg-slate-50 border-t border-slate-200">
                 ℹ Setiap peserta akan dapat message yg sama dgn data MASING-MASING (nama, link upload unique, dll).
