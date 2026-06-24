@@ -21,6 +21,7 @@ import { getTemplateOptions, renderTemplate, VISA_WA_TEMPLATES, autoDeadlineDoc 
 
 function fmtRp(n) { return `Rp ${Number(n || 0).toLocaleString('id-ID')}`; }
 function fmtTime(t) { if (!t) return '—'; return String(t).slice(0, 5); }
+function fmtDate(d) { if (!d) return '—'; try { return new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }); } catch { return d; } }
 
 const TEMPLATE_OPTIONS = getTemplateOptions();
 const RETURN_METHODS = [
@@ -523,6 +524,7 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
               {p.family_group_id && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-pink-100 text-pink-800">👨‍👩 Family</span>}
               {p.visa_result === 'approved' && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">✅ Approved</span>}
               {p.visa_result === 'rejected' && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-800">❌ Rejected</span>}
+              {p.visa_biometric_date && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700" title="Tanggal biometrik (sinkron dari matrix peserta)">📅 {fmtDate(p.visa_biometric_date)}</span>}
               {p.visa_biometric_time && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800">⏰ {fmtTime(p.visa_biometric_time)}</span>}
               {p.visa_upload_token && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-cyan-100 text-cyan-800">🎟 Token Ready</span>}
             </div>
@@ -543,6 +545,7 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
             <div className="mt-3 space-y-3">
               <div className="p-3 bg-indigo-50 rounded border border-indigo-200">
                 <p className="text-xs font-bold text-indigo-800 uppercase mb-1">📅 Tanggal & ⏰ Jam Biometrik</p>
+                <p className="text-[10px] text-indigo-600 mb-1.5">Tanggal tersinkron otomatis dari matrix peserta — cukup isi <b>jam</b>, lalu 💾 Simpan.</p>
                 <div className="flex gap-2 items-center flex-wrap">
                   <div><span className="block text-[10px] text-indigo-600 font-semibold">Tanggal</span>
                     <input autoComplete="off" type="date" value={biometricDate} onChange={(e) => setBiometricDate(e.target.value)} className="px-3 py-1.5 border border-slate-300 rounded text-sm" /></div>
