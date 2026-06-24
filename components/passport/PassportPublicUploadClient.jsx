@@ -36,9 +36,10 @@ function Row({ token, member }) {
       const out = await compressImage(file);
       const fd = new FormData();
       fd.append('file', out, out.name || 'passport');
-      const r = await saveUploadedPassport(token, member.id, fd);
-      if (r?.error) { setStatus('error'); setMsg(r.error); }
-      else { setStatus('done'); setMsg(r.autofilled ? 'Terbaca otomatis ✓' : 'Tersimpan ✓'); }
+      const r = (await saveUploadedPassport(token, member.id, fd)) || {};
+      if (r.error) { setStatus('error'); setMsg(r.error); }
+      else if (r.ok) { setStatus('done'); setMsg(r.autofilled ? 'Terbaca otomatis ✓' : 'Tersimpan ✓'); }
+      else { setStatus('error'); setMsg('Upload gagal — coba lagi.'); }
     } catch (err) {
       setStatus('error'); setMsg(err?.message || 'Gagal upload');
     }
