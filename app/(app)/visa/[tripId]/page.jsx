@@ -9,6 +9,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { brandSupabaseUrl, brandServiceRoleKey } from '@/lib/supabase/service-env';
+import VisaFormManager from '@/components/visa/VisaFormManager';
 import { fmtDate } from '@/lib/utils/format';
 import { statusCfg } from '@/lib/utils/trip-status';
 import VisaGroupForm from '@/components/visa/VisaGroupForm';
@@ -122,6 +125,29 @@ export default async function VisaTripPage({ params }) {
     visaPayment: visaPaymentByPassenger[p.id] || null,
   }));
 
+  // ADDITIVE: status Form Tambahan Visa (tabel RLS tanpa policy -> service client)
+  let formStatusMap = {};
+  try {
+    const _u = brandSupabaseUrl(); const _k = brandServiceRoleKey();
+    if (_u && _k) {
+      const _svc = createServiceClient(_u, _k, { auth: { persistSession: false, autoRefreshToken: false } });
+      const _pids = passengers.map((p) => p.id);
+      if (_pids.length) {
+        const { data: _fr } = await _svc.from('visa_form_responses').select('passenger_id, form_type, status, submitted_at').in('passenger_id', _pids);
+        for (const r of (_fr || [])) formStatusMap[r.passenger_id] = r;
+      }
+    }
+  } catch (e) {}
+  const visaFormList = passengersWithCustomers.map((p) => ({
+    id: p.id,
+    name: p.customers?.name || `Peserta #${p.id}`,
+    familyId: p.family_group_id || null,
+    isHead: !!p.is_family_head,
+    formStatus: formStatusMap[p.id]?.status || 'none',
+    formType: formStatusMap[p.id]?.form_type || p.visa_form_type || null,
+    formSubmittedAt: formStatusMap[p.id]?.submitted_at || null,
+  }));
+
   const template = trip.visa_doc_template || [];
   const s = statusCfg(trip.status);
 
@@ -178,6 +204,9 @@ export default async function VisaTripPage({ params }) {
 
       {/* Existing — Matrix */}
       <VisaMatrix tripId={tripId} template={template} passengers={passengersWithCustomers} />
+
+      {/* ADDITIVE: Form Tambahan Visa */}
+      <VisaFormManager tripId={tripId} passengers={visaFormList} />
 
       {/* R215m — Workflow Panel (cost, WA, hasil per peserta) */}
       <VisaWorkflowPanel trip={trip} passengers={passengersWithCustomers} />

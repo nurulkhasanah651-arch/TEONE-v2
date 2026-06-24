@@ -4,6 +4,8 @@
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { brandSupabaseUrl, brandServiceRoleKey } from '@/lib/supabase/service-env';
 import { fmtDate, daysUntil } from '@/lib/utils/format';
 import { VISA_STATUS_OPTS, STATUS_COLOR_CLASS } from '@/lib/utils/visa-constants';
 import { getPicScope, filterTripsForPic } from '@/lib/auth/pic-scope';
@@ -74,6 +76,17 @@ export default async function VisaListPage() {
   }
 
   // R215s — Trip-level upload stats
+  // ADDITIVE: jumlah Form Tambahan Visa yg sudah submit per trip (service client; tabel RLS tanpa policy)
+  const formSubmittedByTrip = {};
+  try {
+    const _u = brandSupabaseUrl(); const _k = brandServiceRoleKey();
+    if (_u && _k) {
+      const _svc = createServiceClient(_u, _k, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { data: _fr } = await _svc.from('visa_form_responses').select('trip_id, status').eq('status', 'submitted');
+      for (const r of (_fr || [])) formSubmittedByTrip[r.trip_id] = (formSubmittedByTrip[r.trip_id] || 0) + 1;
+    }
+  } catch (e) {}
+
   const tripStats = {};
   let globalNewUploads = 0;
   for (const t of activeTrips) {
@@ -218,6 +231,7 @@ NOTIFY pgrst, 'reload schema';`}</pre>
                       </p>
                       <p className="text-xs mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
                         <span className={bioScheduled >= pax.length && pax.length > 0 ? 'text-indigo-700 font-semibold' : 'text-slate-500'}>📅 Bio terjadwal: {bioScheduled}/{pax.length}</span>
+                        {(formSubmittedByTrip[t.id] || 0) > 0 && <span className="text-brand-700 font-semibold">📝 Form: {formSubmittedByTrip[t.id]}</span>}
                         {vApproved > 0 && <span className="text-green-700 font-semibold">✓ Approved: {vApproved}</span>}
                         {vProcess > 0 && <span className="text-purple-700 font-semibold">⏳ Proses: {vProcess}</span>}
                         {vRejected > 0 && <span className="text-red-700 font-semibold">✗ Reject: {vRejected}</span>}
