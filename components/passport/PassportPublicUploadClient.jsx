@@ -2,7 +2,8 @@
 
 // PUBLIC client — upload paspor per anggota keluarga. Kompres foto sebelum kirim.
 import { useState } from 'react';
-import { saveUploadedPassport } from '@/lib/actions/passport-upload';
+import { createClient } from '@supabase/supabase-js';
+import { createPassportUploadTicket, confirmPassportUpload } from '@/lib/actions/passport-upload';
 
 async function compressImage(file) {
   // Hanya untuk image; PDF/lainnya dikirim apa adanya.
@@ -34,11 +35,16 @@ function Row({ token, member }) {
     setStatus('uploading'); setMsg('');
     try {
       const out = await compressImage(file);
-      const fd = new FormData();
-      fd.append('file', out, out.name || 'passport');
-      const r = (await saveUploadedPassport(token, member.id, fd)) || {};
-      if (r.error) { setStatus('error'); setMsg(r.error); }
-      else if (r.ok) { setStatus('done'); setMsg(r.autofilled ? 'Terbaca otomatis ✓' : 'Tersimpan ✓'); }
+      const ct = out.type || 'application/octet-stream';
+      const t = (await createPassportUploadTicket(token, member.id, ct)) || {};
+      if (!t.ok) { setStatus('error'); setMsg(t.error || 'Gagal menyiapkan upload'); return; }
+      // Upload LANGSUNG dari browser ke storage (lewati batas body Vercel ~4.5MB)
+      const sb = createClient(t.supabaseUrl, t.anonKey);
+      const up = await sb.storage.from(t.bucket).uploadToSignedUrl(t.path, t.token, out, { contentType: ct, upsert: true });
+      if (up.error) { setStatus('error'); setMsg('Gagal upload file: ' + up.error.message); return; }
+      const c = (await confirmPassportUpload(token, member.id, t.path)) || {};
+      if (c.error) { setStatus('error'); setMsg(c.error); }
+      else if (c.ok) { setStatus('done'); setMsg(c.autofilled ? 'Terbaca otomatis ✓' : 'Tersimpan ✓'); }
       else { setStatus('error'); setMsg('Upload gagal — coba lagi.'); }
     } catch (err) {
       setStatus('error'); setMsg(err?.message || 'Gagal upload');
