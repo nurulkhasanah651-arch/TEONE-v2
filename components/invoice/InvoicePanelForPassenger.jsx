@@ -1,4 +1,5 @@
 'use client';
+import InvoiceWAButton from '@/components/invoice/InvoiceWAButton';
 
 // Round 102e + R206: InvoicePanel — dropdown milestone DINAMIS dari paymentTemplate
 // FIX: MILESTONE_OPTIONS computed inside component → P1-P7 dari template auto-muncul
@@ -365,18 +366,12 @@ export default function InvoicePanelForPassenger({
                       </div>
                       <div className="flex gap-1 flex-wrap">
                         {customer?.phone && (
-                          <button
-                            type="button"
-                            onClick={() => handleSendWA(inv.id, inv.status)}
-                            disabled={pending}
-                            className={`px-1.5 py-0.5 text-[10px] font-semibold rounded ${
-                              inv.status === 'paid'
-                                ? 'bg-blue-100 hover:bg-blue-200 text-blue-800'
-                                : 'bg-amber-100 hover:bg-amber-200 text-amber-800'
-                            }`}
-                          >
-                            📤 {inv.status === 'paid' ? 'Send Receipt WA' : (inv.status === 'sent' ? 'Resend Invoice WA' : 'Send Invoice WA')}
-                          </button>
+                          <InvoiceWAButton
+                            invoiceId={inv.id}
+                            isPaid={inv.status === 'paid'}
+                            className={`px-1.5 py-0.5 text-[10px] font-semibold rounded ${inv.status === 'paid' ? 'bg-blue-100 hover:bg-blue-200 text-blue-800' : 'bg-amber-100 hover:bg-amber-200 text-amber-800'}`}
+                            label={`📤 ${inv.status === 'paid' ? 'Send Receipt WA' : (inv.status === 'sent' ? 'Resend Invoice WA' : 'Send Invoice WA')}`}
+                          />
                         )}
                         {inv.status !== 'paid' && (
                           <button type="button" onClick={() => handleMarkPaid(inv.id, inv.invoice_no)} disabled={pending}

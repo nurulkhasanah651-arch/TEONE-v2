@@ -6,6 +6,7 @@
 // - Approve / Reject payment
 
 import { useState, useTransition } from 'react';
+import InvoiceWAButton from '@/components/invoice/InvoiceWAButton';
 import { useRouter } from 'next/navigation';
 import {
   sendInvoiceWA,
@@ -101,25 +102,16 @@ export default function InvoiceAdminActions({ invoice, paymentId, mode = 'invoic
     <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4 space-y-2">
       <p className="text-xs font-bold text-brand-700 uppercase tracking-wider">Actions</p>
       <div className="flex gap-2 flex-wrap">
+        <InvoiceWAButton invoiceId={invoice.id} isPaid={invoice.status === 'paid'} />
         {invoice.status !== 'paid' && (
-          <>
-            <button
-              type="button"
-              onClick={handleSendWA}
-              disabled={pending || !invoice.customer_phone}
-              className="px-4 py-2 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-semibold rounded-lg"
-            >
-              📤 Kirim WA
-            </button>
-            <button
-              type="button"
-              onClick={handleMarkPaid}
-              disabled={pending}
-              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-sm font-semibold rounded-lg"
-            >
-              ✓ Mark Paid Manual
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={handleMarkPaid}
+            disabled={pending}
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-sm font-semibold rounded-lg"
+          >
+            ✓ Mark Paid Manual
+          </button>
         )}
         <button
           type="button"
