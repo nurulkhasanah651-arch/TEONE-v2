@@ -5,7 +5,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { toggleMilestone, updatePaymentAmount, updatePaymentNotes } from '@/lib/actions/payments';
+import { toggleMilestone, updatePaymentAmount, updatePaymentNotes, settlePelunasanAll } from '@/lib/actions/payments';
 import { fmtRupiah } from '@/lib/utils/format';
 import { deriveMilestones, expectedPerPassenger, mainExpectedPerPassenger } from '@/lib/utils/price-breakdown';
 import InvoicePanelForPassenger from '@/components/invoice/InvoicePanelForPassenger';
@@ -78,6 +78,15 @@ export default function PaymentMatrix({
   function handleToggle(passengerId, type, tplAmount) {
     startTransition(async () => {
       const result = await toggleMilestone(passengerId, tripId, type, tplAmount);
+      if (result?.error) alert(result.error);
+      else router.refresh();
+    });
+  }
+
+  function handleSettleAll(passengerId, nm) {
+    if (!confirm(`Lunasi SEMUA tagihan ${nm || 'peserta'} sekaligus (sisa pokok + Visa + Asuransi yang di-include)?`)) return;
+    startTransition(async () => {
+      const result = await settlePelunasanAll(passengerId, tripId);
       if (result?.error) alert(result.error);
       else router.refresh();
     });
@@ -302,6 +311,11 @@ export default function PaymentMatrix({
                       )}
                       {remaining > 0 && (
                         <p className="text-[10px] text-amber-700 font-semibold">Sisa: {fmtRupiah(remaining)}</p>
+                      )}
+                      {totalPaid < expectedTotal && (
+                        <button onClick={() => handleSettleAll(p.id, c.name)} disabled={pending}
+                          className="mt-1 text-[10px] px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold disabled:opacity-50"
+                          title="Lunasi sisa pokok + Visa + Asuransi sekaligus">⚡ Lunasi semua</button>
                       )}
                     </td>
                   </tr>
