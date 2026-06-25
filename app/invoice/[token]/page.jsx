@@ -217,7 +217,7 @@ export default async function PublicInvoicePage({ params }) {
     .reduce((s, p) => s + Number(p.amount || 0), 0);
   const sisaInvoice = Math.max(Number(inv.amount || 0) - totalPaidThisInvoice, 0);
   let allInAmount = 0;
-  try { allInAmount = (await invoiceAllInOutstanding(inv.id))?.total || 0; } catch {}
+  if (inv.status !== 'paid' && !inv.paid_at) { try { allInAmount = (await invoiceAllInOutstanding(inv.id))?.total || 0; } catch {} }
   const status = STATUS_BADGE[inv.status] || STATUS_BADGE.sent;
 
   const { PaymentProofForm, PrintInvoiceButton, InvoicePayOnlineButton, errors: clientErrors } = await loadClientComponents();
