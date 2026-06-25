@@ -209,7 +209,9 @@ export default function InvoicePanelForPassenger({
     let passengerAmountsMap = null;
 
     if (isFamily) {
-      if (customPerPax) {
+      if (finalMilestone === 'All-in (Pelunasan+Visa+Asuransi)') {
+        totalAmt = 0; passengerAmountsMap = {};
+      } else if (customPerPax) {
         const map = {};
         for (const m of familyMembers) {
           const v = parseInt(perPaxAmounts[m.id]) || 0;
