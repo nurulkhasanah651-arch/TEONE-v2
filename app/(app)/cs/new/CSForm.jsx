@@ -11,7 +11,8 @@ import PassportUploadAI from '@/components/cs/PassportUploadAI';
 
 const ROOM_TYPES = [
   'Single', 'Twin', 'Double', 'Triple', 'Quad', 'Family',
-  'Child no Bed', 'Infant', 'Land Tour Only',
+  'Child no Bed', 'Infant',
+  'Land Tour Quad', 'Land Tour Triple', 'Land Tour Double', 'Land Tour Single', 'Land Tour Only',
 ];
 
 const SOURCES = [

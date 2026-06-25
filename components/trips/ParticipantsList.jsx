@@ -12,7 +12,7 @@ import { fmtRupiah, fmtDate, calcAge, passportStatus } from '@/lib/utils/format'
 import TransferPassengerButton from './TransferPassengerButton';
 import RefundPassengerButton from './RefundPassengerButton';
 
-const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Quad', 'Family', 'Child No Bed', 'Infant', 'Land Tour'];
+const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Quad', 'Family', 'Child No Bed', 'Infant', 'Land Tour Quad', 'Land Tour Triple', 'Land Tour Double', 'Land Tour Single', 'Land Tour Only'];
 
 export default function ParticipantsList(props) {
   const tripId = props?.tripId || '';
