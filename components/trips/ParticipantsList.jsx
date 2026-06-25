@@ -128,6 +128,7 @@ export default function ParticipantsList(props) {
                       passport_no: c.passport_no, passport_issued_at: c.passport_issued_at,
                       passport_issued_date: c.passport_issued_date, passport_expiry: c.passport_expiry,
                       room_type: p.room_type, price_paid: p.price_paid, mitra_id: p.mitra_id,
+                      include_visa: p.include_visa, visa_ready: p.visa_ready, include_asuransi: p.include_asuransi,
                     }}
                     onSubmit={(fd) => handleUpdate(p.id, p.customer_id, fd)}
                     onCancel={() => { setEditingId(null); setError(''); }}
