@@ -161,10 +161,18 @@ export default async function TripDetailPage({ params }) {
       {/* R216b — Import Peserta dari Excel Master Trip Travelops */}
       <ImportExcelPanel tripId={trip.id} trip={trip} />
 
+      {(() => {
+        const landCount = participants.filter((p) => String(p.room_type || '').toLowerCase().includes('land')).length;
+        const fullCount = participants.length - landCount;
+        return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Seat Terjual" value={`${participants.length} / ${trip.quota || 0}`} color="text-brand-700" />
         <StatCard label="Sisa Seat" value={Math.max((trip.quota || 0) - participants.length, 0)} color="text-amber-700" />
+        <StatCard label="Full Trip (with tiket)" value={`${fullCount} pax`} color="text-emerald-700" />
+        <StatCard label="Land Tour" value={`${landCount} pax`} color="text-sky-700" />
       </div>
+        );
+      })()}
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
