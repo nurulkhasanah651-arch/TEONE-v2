@@ -84,7 +84,7 @@ export default function PaymentMatrix({
   }
 
   function handleSettleAll(passengerId, nm) {
-    if (!confirm(`Lunasi SEMUA tagihan ${nm || 'peserta'} sekaligus (sisa pokok + Visa + Asuransi yang di-include)?`)) return;
+    if (!confirm(`Lunasi SEMUA tagihan ${nm || 'peserta'} sekaligus (sisa pokok + Visa + Asuransi yang di-include)?\n\nKalau peserta bagian KELUARGA, seluruh anggota keluarga ikut dilunasi.`)) return;
     startTransition(async () => {
       const result = await settlePelunasanAll(passengerId, tripId);
       if (result?.error) alert(result.error);
