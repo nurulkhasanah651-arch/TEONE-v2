@@ -407,6 +407,8 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
   const [resultReturnKurir, setResultReturnKurir] = useState(p.visa_return_kurir || 'JNE');
   const [resultReturnResi, setResultReturnResi] = useState(p.visa_return_resi || '');
   const [resultRejReason, setResultRejReason] = useState(p.visa_rejection_reason || '');
+  const [resultRejSolution, setResultRejSolution] = useState(p.visa_rejection_solution || '');
+  const [resultRefund, setResultRefund] = useState(p.visa_refund_amount || '');
   const [autoSendWA, setAutoSendWA] = useState(true);
 
   function handleSaveCost(type) {
@@ -506,7 +508,11 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
         if (resultValidUntil) extras.valid_until = resultValidUntil;
         if (resultEntryType) extras.entry_type = resultEntryType;
       }
-      if (resultType === 'rejected' && resultRejReason) extras.rejection_reason = resultRejReason;
+      if (resultType === 'rejected') {
+        extras.rejection_reason = resultRejReason || '';
+        extras.rejection_solution = resultRejSolution || '';
+        extras.refund_amount = resultRefund || 0;
+      }
       if (autoSendWA) extras.auto_send_wa = true;
 
       const r = await uploadVisaResult(p.id, uploadedFilePath, resultType, extras);
@@ -660,7 +666,14 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                       </>
                     )}
                     {resultType === 'rejected' && (
-                      <textarea autoComplete="off" value={resultRejReason} onChange={(e) => setResultRejReason(e.target.value)} placeholder="Alasan penolakan" rows="2" className="w-full px-2 py-1 border border-slate-300 rounded text-sm" />
+                      <>
+                      <textarea autoComplete="off" value={resultRejReason} onChange={(e) => setResultRejReason(e.target.value)} placeholder="Alasan penolakan (dari embassy)" rows="2" className="w-full px-2 py-1 border border-slate-300 rounded text-sm" />
+                      <textarea autoComplete="off" value={resultRejSolution} onChange={(e) => setResultRejSolution(e.target.value)} placeholder="Solusi yang ditawarkan (mis. re-apply / pindah trip / refund)" rows="2" className="w-full px-2 py-1 border border-slate-300 rounded text-sm mt-1" />
+                      <div className="mt-1">
+                        <label className="text-[10px] font-bold text-slate-600 uppercase block">Nominal bisa di-refund (Rp)</label>
+                        <input autoComplete="off" type="number" min="0" value={resultRefund} onChange={(e) => setResultRefund(e.target.value)} placeholder="0" className="w-full px-2 py-1 border border-slate-300 rounded text-sm font-mono" />
+                      </div>
+                      </>
                     )}
                     <label className="flex items-center gap-2 cursor-pointer"><input autoComplete="off" type="checkbox" checked={autoSendWA} onChange={(e) => setAutoSendWA(e.target.checked)} /><span className="text-xs font-semibold">📨 Auto-send WA + foto attached</span></label>
                     <button type="button" onClick={handleSaveResult} disabled={pending || uploading} className="w-full px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-bold rounded">

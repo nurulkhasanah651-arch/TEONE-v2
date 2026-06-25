@@ -374,6 +374,13 @@ export default function DeliverySection({
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+      {(counts.filled > 0 || counts.sent > 0 || counts.received > 0) && (
+        <div className="px-5 py-2 bg-amber-50 border-b border-amber-200 text-sm flex items-center gap-x-4 gap-y-1 flex-wrap">
+          {counts.filled > 0 && <span className="font-bold text-amber-800">🔔 {counts.filled} paspor/dokumen PERLU DIKIRIM (alamat sudah diisi)</span>}
+          {counts.sent > 0 && <span className="text-blue-700">🚚 {counts.sent} sudah dikirim</span>}
+          {counts.received > 0 && <span className="text-green-700">✅ {counts.received} sudah diterima/diambil</span>}
+        </div>
+      )}
       <div className="px-5 py-3 border-b border-slate-200 bg-gradient-to-r from-purple-50 to-pink-50 flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="font-bold text-purple-700">📦 Pengiriman Perlengkapan</h2>
