@@ -55,7 +55,8 @@ export default function CSForm({ trips, mitraList = [] }) {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const [tripId, setTripId] = useState('');
-  const [tanggalClosing, setTanggalClosing] = useState(new Date().toISOString().slice(0, 10));
+  // Hari bisnis CS: tutup jam 18:00 WIB. Closing setelah jam 18:00 default ke tanggal besok.
+  const [tanggalClosing, setTanggalClosing] = useState(new Date(Date.now() + 13 * 3600 * 1000).toISOString().slice(0, 10));
   const [sources, setSources] = useState({
     ig: 0, wa: 0, offline: 0, alumni: 0, mitra: 0,
     ads_meta: 0, ads_google: 0, ads_tiktok: 0,
@@ -143,7 +144,7 @@ export default function CSForm({ trips, mitraList = [] }) {
         </select>
       </Field>
 
-      <Field label="Tanggal Closing" required hint="Default hari ini. Dipakai untuk hitung 'Days to Close' per peserta.">
+      <Field label="Tanggal Closing" required hint="Default hari bisnis (closing setelah jam 18:00 WIB masuk tanggal besok). Dipakai untuk 'Days to Close'.">
         <input autoComplete="off"
           type="date"
           name="tanggal"
