@@ -505,11 +505,6 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
         if (resultValidFrom) extras.valid_from = resultValidFrom;
         if (resultValidUntil) extras.valid_until = resultValidUntil;
         if (resultEntryType) extras.entry_type = resultEntryType;
-        if (resultReturnMethod) extras.return_method = resultReturnMethod;
-        if (resultReturnMethod === 'kurir') {
-          if (resultReturnKurir) extras.return_kurir = resultReturnKurir;
-          if (resultReturnResi) extras.return_resi = resultReturnResi;
-        }
       }
       if (resultType === 'rejected' && resultRejReason) extras.rejection_reason = resultRejReason;
       if (autoSendWA) extras.auto_send_wa = true;
@@ -659,22 +654,8 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                             <option value="multiple">Multiple Entry</option>
                           </select>
                         </div>
-                        <div className="p-2 bg-cyan-50 rounded border border-cyan-200">
-                          <label className="text-[10px] font-bold text-cyan-800 uppercase block mb-1">🚚 Cara Pengiriman</label>
-                          <div className="space-y-1">
-                            {RETURN_METHODS.map((m) => (
-                              <label key={m.value} className="flex items-start gap-2 cursor-pointer p-1.5 bg-white rounded">
-                                <input autoComplete="off" type="radio" checked={resultReturnMethod === m.value} onChange={() => setResultReturnMethod(m.value)} className="mt-0.5" />
-                                <div><p className="text-xs font-bold text-slate-800">{m.label}</p><p className="text-[10px] text-slate-500">{m.desc}</p></div>
-                              </label>
-                            ))}
-                          </div>
-                          {resultReturnMethod === 'kurir' && (
-                            <div className="grid grid-cols-2 gap-2 mt-2">
-                              <input autoComplete="off" type="text" placeholder="Kurir" value={resultReturnKurir} onChange={(e) => setResultReturnKurir(e.target.value)} className="px-2 py-1 border border-slate-300 rounded text-sm" />
-                              <input autoComplete="off" type="text" placeholder="No Resi" value={resultReturnResi} onChange={(e) => setResultReturnResi(e.target.value)} className="px-2 py-1 border border-slate-300 rounded text-sm" />
-                            </div>
-                          )}
+                        <div className="p-2 bg-cyan-50 rounded border border-cyan-200 text-[11px] text-cyan-800">
+                          📮 Pengembalian paspor diatur otomatis lewat WA: peserta memilih <b>dikirim</b> (isi alamat via link) atau <b>dibawa Tour Leader</b> saat trip. Alamat yang diisi otomatis masuk ke <b>Finance Checklist</b>.
                         </div>
                       </>
                     )}
