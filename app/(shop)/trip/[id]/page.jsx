@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { resolveBrandCode } from '@/lib/brand-shared';
 import { storefrontConfig } from '@/lib/shop/storefront-config';
 import { defaultTermsFor } from '@/lib/shop/default-terms';
-import { getPublishedTrip, tripSeatLeft, tripPrice, tripRoomPrices, getStorefrontSettingsPublic, getFlashSaleTrips } from '@/lib/shop/data';
+import { getPublishedTrip, tripSeatLeft, tripPrice, tripRoomPrices, landTourFrom, getStorefrontSettingsPublic, getFlashSaleTrips } from '@/lib/shop/data';
 import HeroSlider from '@/components/shop/HeroSlider';
 import ShareTrip from '@/components/shop/ShareTrip';
 import TripCard from '@/components/shop/TripCard';
@@ -58,6 +58,7 @@ export default async function TripDetailPage({ params }) {
   const seatShown = seat > 10 ? 10 : seat; // tampilan maks 10; booking tetap pakai sisa asli
   const itin = Array.isArray(t.itinerary) ? t.itinerary : [];
   const rooms = tripRoomPrices(t);
+  const landTourMin = landTourFrom(t);
   const gallery = Array.isArray(t.gallery_images) ? t.gallery_images : [];
   const heroImgs = [t.cover_image_url, ...gallery].filter(Boolean);
   let brand = 'teone';
@@ -104,6 +105,12 @@ export default async function TripDetailPage({ params }) {
               </div>
             )}
 
+            {landTourMin > 0 && (
+              <div className="mt-3 border-t border-slate-100 pt-3 flex items-center justify-between text-sm">
+                <span className="text-slate-600">🚐 Land Tour (tanpa pesawat) mulai</span>
+                <span className="font-bold text-slate-800">{fmtRp(landTourMin)}</span>
+              </div>
+            )}
             <div className="mt-3 text-sm text-slate-600 space-y-1 border-t border-slate-100 pt-3">
               <p>📅 {fmtDate(t.departure)}{t.return_date ? ` – ${fmtDate(t.return_date)}` : ''}</p>
               <p className={seat > 0 ? 'text-emerald-700 font-semibold' : 'text-red-600 font-semibold'}>{seat > 0 ? `🎟 Sisa ${seatShown} seat` : '🚫 SOLD OUT'}</p>

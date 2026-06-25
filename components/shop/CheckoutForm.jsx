@@ -24,7 +24,8 @@ export default function CheckoutForm({ trip }) {
   const [visaChoice, setVisaChoice] = useState(visaReq === 'group' ? 'include' : '');
   const [incAsuransi, setIncAsuransi] = useState(false);
   const [agreeTnc, setAgreeTnc] = useState(false);
-  const allItems = [...(items.rooms || []), ...(items.specials || [])];
+  const [showLandTour, setShowLandTour] = useState(false);
+  const allItems = [...(items.rooms || []), ...(items.specials || []), ...(items.landTour || [])];
 
   const [qty, setQty] = useState(() => {
     const init = {};
@@ -202,6 +203,23 @@ export default function CheckoutForm({ trip }) {
           <p className="text-sm font-bold text-slate-800">👶 Kategori Khusus</p>
           <p className="text-[11px] text-slate-400 mb-1">Child no bed, infant, atau land tour only — bisa digabung dgn kamar.</p>
           {items.specials.map((it) => <Stepper key={it.key} it={it} />)}
+        </div>
+      )}
+
+      {items.landTour?.length > 0 && (
+        <div className="border border-slate-200 rounded-2xl p-4">
+          <button type="button" onClick={() => setShowLandTour((v) => !v)} className="w-full flex items-center justify-between gap-3 text-left">
+            <div>
+              <p className="text-sm font-bold text-slate-800">🚐 Land Tour (tanpa tiket pesawat)</p>
+              <p className="text-[11px] text-slate-500">Mulai dari <b>{fmtRp(Math.min(...items.landTour.map((x) => x.price)))}</b> / orang — klik untuk pilih tipe kamar</p>
+            </div>
+            <span className="text-slate-400 text-lg">{showLandTour ? '▲' : '▼'}</span>
+          </button>
+          {showLandTour && (
+            <div className="mt-2 border-t border-slate-100 pt-1">
+              {items.landTour.map((it) => <Stepper key={it.key} it={{ ...it, label: it.short || it.label }} />)}
+            </div>
+          )}
         </div>
       )}
 

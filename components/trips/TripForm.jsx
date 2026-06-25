@@ -6,7 +6,7 @@
 // - R198: Send WA Konfirmasi ke TL (di samping Tour Leader)
 
 import { useState, useEffect } from 'react';
-import { ROOM_KEYS, AGE_KEYS, ADDON_KEYS, autoDeadlineClose } from '@/lib/utils/price-breakdown';
+import { ROOM_KEYS, AGE_KEYS, ADDON_KEYS, LAND_TOUR_KEYS, autoDeadlineClose } from '@/lib/utils/price-breakdown';
 import TLSendWAButton from '@/components/master-trip/TLSendWAButton';
 
 let TLPicker;
@@ -40,7 +40,7 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
   const initialBreakdown = initial.price_breakdown || {};
   const [breakdown, setBreakdown] = useState(() => {
     const init = {};
-    [...ROOM_KEYS, ...AGE_KEYS, ...ADDON_KEYS].forEach((it) => {
+    [...ROOM_KEYS, ...AGE_KEYS, ...ADDON_KEYS, ...LAND_TOUR_KEYS].forEach((it) => {
       init[it.key] = initialBreakdown[it.key] || 0;
     });
     init._custom = Array.isArray(initialBreakdown._custom) ? initialBreakdown._custom : [];
@@ -181,6 +181,16 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
             <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">Anak / Bayi</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {AGE_KEYS.map((a) => (
+                <PriceField key={a.key} icon={a.icon} label={a.label} value={breakdown[a.key]} onChange={(v) => setBd(a.key, v)} />
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">🚐 Land Tour (per tipe kamar)</p>
+            <p className="text-[11px] text-slate-400 mb-2 -mt-1">Harga land tour tanpa tiket pesawat. Otomatis +tips +city tax. Tampil di web sebagai opsi "Land Tour" (harga termurah yang ditonjolkan).</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {LAND_TOUR_KEYS.map((a) => (
                 <PriceField key={a.key} icon={a.icon} label={a.label} value={breakdown[a.key]} onChange={(v) => setBd(a.key, v)} />
               ))}
             </div>
