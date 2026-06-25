@@ -16,7 +16,7 @@ import {
   uploadVisaResult,
   generateUploadToken,
 } from '@/lib/actions/visa-workflow';
-import { uploadVisaResultFile, updateVisaReturnMethod } from '@/lib/actions/visa-storage';
+import { uploadVisaResultFile, updateVisaReturnMethod, signedVisaResultUrl } from '@/lib/actions/visa-storage';
 import { getTemplateOptions, renderTemplate, VISA_WA_TEMPLATES, autoDeadlineDoc } from '@/lib/utils/visa-templates';
 import { syaratLinksFor } from '@/lib/utils/visa-syarat-docs';
 
@@ -399,6 +399,16 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
   const [resultType, setResultType] = useState('approved');
   const [uploadedFileUrl, setUploadedFileUrl] = useState('');
   const [uploadedFilePath, setUploadedFilePath] = useState(p.visa_result_photo_url || '');
+  const [viewingResult, setViewingResult] = useState(false);
+  async function handleViewResult() {
+    setViewingResult(true);
+    try {
+      const url = await signedVisaResultUrl(p.visa_result_photo_url);
+      if (url) window.open(url, '_blank');
+      else showMsg('Gagal membuka file hasil visa', true);
+    } catch (e) { showMsg('Gagal: ' + (e?.message || 'unknown'), true); }
+    setViewingResult(false);
+  }
   const [uploading, setUploading] = useState(false);
   const [resultValidFrom, setResultValidFrom] = useState(p.visa_valid_from || '');
   const [resultValidUntil, setResultValidUntil] = useState(p.visa_valid_until || '');
@@ -633,6 +643,12 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                     {showUploadResult ? '✕ Tutup' : '📷 Upload Hasil'}
                   </button>
                 </div>
+                {p.visa_result_photo_url && (
+                  <div className="mb-2 p-2 bg-white rounded border border-emerald-300 flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-emerald-800">✅ Foto hasil visa sudah diupload{p.visa_result ? ` — ${p.visa_result === 'approved' ? 'APPROVED' : 'REJECTED'}` : ''}</span>
+                    <button type="button" onClick={handleViewResult} disabled={viewingResult} className="px-2 py-0.5 rounded bg-emerald-100 border border-emerald-300 text-emerald-700 text-[11px] font-semibold disabled:opacity-50">{viewingResult ? '...' : '👁 Lihat'}</button>
+                  </div>
+                )}
                 {showUploadResult && (
                   <div className="space-y-2">
                     <div className="grid grid-cols-2 gap-2">
