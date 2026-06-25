@@ -38,7 +38,7 @@ function parseInput(s) {
 
 const BLANK_PAX = {
   first_name: '', last_name: '', phone: '', email: '',
-  source: 'whatsapp', room_type: '', price_paid: '', discount: '', include_visa: false, include_asuransi: false,
+  source: 'whatsapp', room_type: '', price_paid: '', discount: '', include_visa: false, visa_ready: false, include_asuransi: false,
   dp_amount: '', dp_date: new Date().toISOString().slice(0, 10),
   dp_method: 'transfer', dp_proof_url: '',
   family_name: '',
@@ -302,10 +302,16 @@ export default function CSForm({ trips, mitraList = [] }) {
                     {(_showVisaQ || _showAsuransiQ) && (
                       <div className="block sm:col-span-2 mt-1 flex flex-wrap gap-4 bg-amber-50/40 border border-amber-200 rounded-lg px-2 py-1.5">
                         {_showVisaQ && (
-                          <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold text-slate-700">
-                            <input type="checkbox" checked={_visaLocked ? true : !!p.include_visa} disabled={_visaLocked} onChange={(e) => updParticipant(i, 'include_visa', e.target.checked)} className="w-3.5 h-3.5" />
-                            Include Visa{_visaLocked ? ' (wajib group)' : ''}
-                          </label>
+                          <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold text-slate-700">
+                            <span className="text-slate-500">Visa:</span>
+                            {_visaLocked ? (
+                              <span>Urus visa lewat kami (wajib group)</span>
+                            ) : (<>
+                              <label className="flex items-center gap-1 cursor-pointer"><input type="radio" name={`visa_${i}`} checked={!!p.include_visa && !p.visa_ready} onChange={() => { updParticipant(i, 'include_visa', true); updParticipant(i, 'visa_ready', false); }} className="w-3.5 h-3.5" /> Include Visa</label>
+                              <label className="flex items-center gap-1 cursor-pointer"><input type="radio" name={`visa_${i}`} checked={!!p.visa_ready} onChange={() => { updParticipant(i, 'visa_ready', true); updParticipant(i, 'include_visa', false); }} className="w-3.5 h-3.5" /> Sudah ready visa</label>
+                              <label className="flex items-center gap-1 cursor-pointer"><input type="radio" name={`visa_${i}`} checked={!p.include_visa && !p.visa_ready} onChange={() => { updParticipant(i, 'include_visa', false); updParticipant(i, 'visa_ready', false); }} className="w-3.5 h-3.5" /> Tidak</label>
+                            </>)}
+                          </div>
                         )}
                         {_showAsuransiQ && (
                           <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold text-slate-700">

@@ -255,6 +255,16 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
               {mitraList.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
           </Field>
+          <Field label="Visa (connect ke Payment Checklist)">
+            <div className="flex flex-wrap gap-3 text-sm pt-1.5">
+              <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="visa_choice" value="include" defaultChecked={!!initial.include_visa && !initial.visa_ready} className="w-4 h-4" /> Include Visa</label>
+              <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="visa_choice" value="ready" defaultChecked={!!initial.visa_ready} className="w-4 h-4" /> Sudah ready visa</label>
+              <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="visa_choice" value="none" defaultChecked={!initial.include_visa && !initial.visa_ready} className="w-4 h-4" /> Tidak</label>
+            </div>
+          </Field>
+          <Field label="Asuransi">
+            <label className="flex items-center gap-1.5 cursor-pointer text-sm pt-2"><input type="checkbox" name="include_asuransi" value="1" defaultChecked={!!initial.include_asuransi} className="w-4 h-4" /> Include Asuransi</label>
+          </Field>
         </div>
       </FormSection>
 
