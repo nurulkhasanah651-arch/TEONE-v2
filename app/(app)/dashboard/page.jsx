@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { greeting, fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 import { mainExpectedPerPassenger } from '@/lib/utils/price-breakdown';
+import { fetchAll } from '@/lib/supabase/fetch-all';
 import { getRoleFromUser, filterNavByRole } from '@/lib/utils/roles';
 import { getBrandCode } from '@/lib/brand';
 import { BRAND_UI } from '@/lib/brand-shared';
@@ -40,16 +41,16 @@ export default async function DashboardPage() {
   const today = new Date().toISOString().slice(0, 10);
 
   // Fetch all data in parallel
-  const [tripsRes, allPaxRes, csTodayRes, dailyLeadsRes, adsTodayRes] = await Promise.all([
+  const [tripsRes, allPaxArr, csTodayRes, dailyLeadsRes, adsTodayRes] = await Promise.all([
     supabase.from('trips').select('*').order('departure', { ascending: true, nullsFirst: false }),
-    supabase.from('trip_passengers').select('*'),
+    fetchAll(() => supabase.from('trip_passengers').select('trip_id, room_type, age_type, price_paid, discount_amount, status, refund_status')),
     supabase.from('cs_daily_updates').select('*').eq('tanggal', today),
     supabase.from('cs_daily_leads').select('*').eq('tanggal', today).maybeSingle(),
     supabase.from('ads_entries').select('*').eq('date', today),
   ]);
 
   let trips = tripsRes.data || [];
-  let allPax = allPaxRes.data || [];
+  let allPax = allPaxArr || [];
 
   // Role PIC: dashboard hanya menampilkan trip yang di-assign ke dia
   let dbRole = role;
