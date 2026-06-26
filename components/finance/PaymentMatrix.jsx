@@ -163,7 +163,7 @@ export default function PaymentMatrix({
         <div>
           <h3 className="font-bold text-brand-700">Checklist Payment Group</h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            <span className="font-semibold">WAJIB</span>: room + tips + city tax + cicilan ·
+            <span className="font-semibold">WAJIB</span>: room + tips + city tax + tiket/bagasi domestik (jika diisi) + cicilan ·
             <span className="font-semibold ml-1">OPTIONAL</span>: visa/asuransi/customs — masuk expected setelah ✓
           </p>
         </div>
