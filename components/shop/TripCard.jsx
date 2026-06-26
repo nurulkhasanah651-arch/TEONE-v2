@@ -9,7 +9,7 @@ export default function TripCard({ t }) {
   const soldout = seat <= 0;
   const seatShown = seat > 10 ? 10 : seat; // tampilan: maks 10 (urgency); checkout tetap pakai sisa asli
   return (
-    <Link href={`/trip/${t.slug || t.id}`} className={`group rounded-2xl border overflow-hidden transition-shadow bg-white ${soldout ? 'border-slate-300 opacity-95' : 'border-slate-200 hover:shadow-lg'}`}>
+    <Link href={`/trip/${t.slug || t.id}`} prefetch={false} className={`group rounded-2xl border overflow-hidden transition-shadow bg-white ${soldout ? 'border-slate-300 opacity-95' : 'border-slate-200 hover:shadow-lg'}`}>
       <div className="aspect-[4/3] bg-gradient-to-br from-slate-700 to-slate-900 relative overflow-hidden">
         {t.cover_image_url
           ? <img src={t.cover_image_url} alt={t.name} className={`w-full h-full object-cover transition-transform ${soldout ? 'grayscale brightness-50' : 'group-hover:scale-105'}`} />
