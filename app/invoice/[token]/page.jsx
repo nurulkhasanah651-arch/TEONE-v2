@@ -184,9 +184,16 @@ export default async function PublicInvoicePage({ params }) {
   }
 
   const optItems = [];
+  // Visa & Asuransi HANYA dihitung di TOTAL PAKET bila invoice ini memang mencakupnya:
+  //  - Pelunasan ALL-IN (is_allin), atau invoice khusus Visa / Asuransi.
+  //  - Invoice "Pelunasan saja" / DP / cicilan pokok → visa & asuransi TIDAK dihitung.
+  const _msLower = String(inv.milestone || '').toLowerCase();
+  const _invAllIn = inv.is_allin === true;
+  const invHasVisa = _invAllIn || _msLower.includes('visa');
+  const invHasAsuransi = _invAllIn || _msLower.includes('asuransi');
   // Family-aware: jumlahkan visa/asuransi semua anggota yang mengambilnya (bukan 1 orang)
-  const visaAmt = famResolved ? famVisa : (paidTypes.has('Visa') ? visaPrice : 0);
-  const asuransiAmt = famResolved ? famAsuransi : (paidTypes.has('Asuransi') ? asuransiPrice : 0);
+  const visaAmt = invHasVisa ? (famResolved ? famVisa : (paidTypes.has('Visa') ? visaPrice : 0)) : 0;
+  const asuransiAmt = invHasAsuransi ? (famResolved ? famAsuransi : (paidTypes.has('Asuransi') ? asuransiPrice : 0)) : 0;
   if (visaAmt > 0) optItems.push({ label: famCount > 1 ? `Visa (${famCount} peserta)` : 'Visa', amount: visaAmt });
   if (asuransiAmt > 0) optItems.push({ label: famCount > 1 ? `Asuransi (${famCount} peserta)` : 'Asuransi', amount: asuransiAmt });
 
