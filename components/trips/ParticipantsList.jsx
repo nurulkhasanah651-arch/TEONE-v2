@@ -128,7 +128,7 @@ export default function ParticipantsList(props) {
                       passport_no: c.passport_no, passport_issued_at: c.passport_issued_at,
                       passport_issued_date: c.passport_issued_date, passport_expiry: c.passport_expiry,
                       room_type: p.room_type, price_paid: p.price_paid, mitra_id: p.mitra_id,
-                      include_visa: p.include_visa, visa_ready: p.visa_ready, include_asuransi: p.include_asuransi,
+                      include_visa: p.include_visa, visa_ready: p.visa_ready, include_asuransi: p.include_asuransi, visa_type: p.visa_type,
                     }}
                     onSubmit={(fd) => handleUpdate(p.id, p.customer_id, fd)}
                     onCancel={() => { setEditingId(null); setError(''); }}
@@ -261,6 +261,13 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
               <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="visa_choice" value="include" defaultChecked={!!initial.include_visa && !initial.visa_ready} className="w-4 h-4" /> Include Visa</label>
               <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="visa_choice" value="ready" defaultChecked={!!initial.visa_ready} className="w-4 h-4" /> Sudah ready visa</label>
               <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="visa_choice" value="none" defaultChecked={!initial.include_visa && !initial.visa_ready} className="w-4 h-4" /> Tidak</label>
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-[11px] font-semibold text-slate-500">Tipe (kalau include):</span>
+              <select name="visa_type" defaultValue={initial.visa_type || ''} className="px-2 py-1 border border-slate-300 rounded-lg text-xs">
+                <option value="">Visa Biasa</option>
+                <option value="epassport">Visa E-Paspor</option>
+              </select>
             </div>
           </Field>
           <Field label="Asuransi">

@@ -43,6 +43,7 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
     [...ROOM_KEYS, ...AGE_KEYS, ...ADDON_KEYS, ...LAND_TOUR_KEYS].forEach((it) => {
       init[it.key] = initialBreakdown[it.key] || 0;
     });
+    init.visa_epassport = initialBreakdown.visa_epassport || 0;
     init._custom = Array.isArray(initialBreakdown._custom) ? initialBreakdown._custom : [];
     return init;
   });
@@ -200,9 +201,11 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
             <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">Add-on</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
               {ADDON_KEYS.map((a) => (
-                <PriceField key={a.key} icon={a.icon} label={a.label} value={breakdown[a.key]} onChange={(v) => setBd(a.key, v)} />
+                <PriceField key={a.key} icon={a.icon} label={a.key === 'visa' ? 'Visa (Biasa)' : a.label} value={breakdown[a.key]} onChange={(v) => setBd(a.key, v)} />
               ))}
+              <PriceField icon="🛂" label="Visa E-Paspor" value={breakdown.visa_epassport} onChange={(v) => setBd('visa_epassport', v)} />
             </div>
+            <p className="text-[11px] text-slate-400 mt-1">Isi <b>Visa E-Paspor</b> hanya untuk trip yg punya 2 tipe visa (mis. Jepang). Kalau diisi, peserta bisa pilih e-paspor / biasa di web & saat input. Kosongkan kalau cuma 1 jenis visa.</p>
           </div>
 
           <div>

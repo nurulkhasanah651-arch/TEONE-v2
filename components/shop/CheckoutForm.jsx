@@ -20,8 +20,11 @@ export default function CheckoutForm({ trip }) {
   const visaLocked = visaReq === 'group';
   const asuransiPrice = Number(trip.asuransiPrice || 0);
   const visaPrice = Number(trip.visaPrice || 0);
+  const visaEpassportPrice = Number(trip.visaEpassportPrice || 0);
+  const hasTwoVisaTypes = visaEpassportPrice > 0;
   const showAsuransiQ = asuransiPrice > 0;
   const [visaChoice, setVisaChoice] = useState(visaReq === 'group' ? 'include' : '');
+  const [visaType, setVisaType] = useState('');
   const [incAsuransi, setIncAsuransi] = useState(false);
   const [agreeTnc, setAgreeTnc] = useState(false);
   const [showLandTour, setShowLandTour] = useState(false);
@@ -133,8 +136,10 @@ export default function CheckoutForm({ trip }) {
     fd.set('trip_id', trip.id);
     fd.set('pax_list', JSON.stringify(paxList));
     fd.set('payment_type', payType);
-    fd.set('include_visa', (showVisaQ && (visaLocked || visaChoice === 'include')) ? '1' : '');
+    const _visaIncluded = showVisaQ && (visaLocked || visaChoice === 'include');
+    fd.set('include_visa', _visaIncluded ? '1' : '');
     fd.set('visa_ready', (showVisaQ && !visaLocked && visaChoice === 'ready') ? '1' : '');
+    fd.set('visa_type', (_visaIncluded && hasTwoVisaTypes) ? visaType : '');
     fd.set('include_asuransi', (showAsuransiQ && incAsuransi) ? '1' : '');
     fd.set('agree_tnc', agreeTnc ? '1' : '');
     startTransition(async () => {
@@ -272,10 +277,24 @@ export default function CheckoutForm({ trip }) {
             <div className="space-y-1.5">
               <p className="text-sm font-semibold text-slate-700">Visa <span className="text-red-500">*</span></p>
               {visaLocked ? (
-                <p className="text-sm text-slate-700">🛂 Urus visa lewat kami{visaPrice > 0 ? ` (${fmtRp(visaPrice)})` : ''} — <b>wajib (visa group)</b></p>
+                <>
+                  <p className="text-sm text-slate-700">🛂 Urus visa lewat kami{!hasTwoVisaTypes && visaPrice > 0 ? ` (${fmtRp(visaPrice)})` : ''} — <b>wajib (visa group)</b></p>
+                  {hasTwoVisaTypes && (
+                    <div className="ml-5 mt-1 space-y-1">
+                      <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="visaType" checked={visaType === 'epassport'} onChange={() => setVisaType('epassport')} className="w-4 h-4" /><span className="text-sm text-slate-700">Visa E-Paspor ({fmtRp(visaEpassportPrice)})</span></label>
+                      <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="visaType" checked={visaType === 'biasa'} onChange={() => setVisaType('biasa')} className="w-4 h-4" /><span className="text-sm text-slate-700">Visa Biasa ({fmtRp(visaPrice)})</span></label>
+                    </div>
+                  )}
+                </>
               ) : (
                 <>
-                  <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="visaChoice" checked={visaChoice === 'include'} onChange={() => setVisaChoice('include')} className="w-4 h-4" /><span className="text-sm text-slate-700">Urus visa lewat kami{visaPrice > 0 ? ` (${fmtRp(visaPrice)})` : ''}</span></label>
+                  <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="visaChoice" checked={visaChoice === 'include'} onChange={() => setVisaChoice('include')} className="w-4 h-4" /><span className="text-sm text-slate-700">Urus visa lewat kami{!hasTwoVisaTypes && visaPrice > 0 ? ` (${fmtRp(visaPrice)})` : ''}</span></label>
+                  {hasTwoVisaTypes && visaChoice === 'include' && (
+                    <div className="ml-6 space-y-1">
+                      <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="visaType" checked={visaType === 'epassport'} onChange={() => setVisaType('epassport')} className="w-4 h-4" /><span className="text-sm text-slate-700">Visa E-Paspor ({fmtRp(visaEpassportPrice)})</span></label>
+                      <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="visaType" checked={visaType === 'biasa'} onChange={() => setVisaType('biasa')} className="w-4 h-4" /><span className="text-sm text-slate-700">Visa Biasa ({fmtRp(visaPrice)})</span></label>
+                    </div>
+                  )}
                   <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="visaChoice" checked={visaChoice === 'ready'} onChange={() => setVisaChoice('ready')} className="w-4 h-4" /><span className="text-sm text-slate-700">Sudah ready visa (saya sudah punya visa sendiri)</span></label>
                   <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="visaChoice" checked={visaChoice === 'none'} onChange={() => setVisaChoice('none')} className="w-4 h-4" /><span className="text-sm text-slate-700">Tidak butuh / tidak include visa</span></label>
                 </>
@@ -332,10 +351,11 @@ export default function CheckoutForm({ trip }) {
         <span className="text-sm text-slate-700">Dengan melakukan pemesanan/DP, saya menyetujui <b>segala syarat &amp; ketentuan</b> yang berlaku. <span className="text-red-500">*</span></span>
       </label>
 
-      <button type="submit" disabled={pending || pax < 1 || slots.some((s, i) => !!dobError(s.key, dobs[i])) || (showVisaQ && !visaChoice) || !agreeTnc} className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-bold text-lg">
+      <button type="submit" disabled={pending || pax < 1 || slots.some((s, i) => !!dobError(s.key, dobs[i])) || (showVisaQ && !visaLocked && !visaChoice) || (showVisaQ && (visaLocked || visaChoice === 'include') && hasTwoVisaTypes && !visaType) || !agreeTnc} className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-bold text-lg">
         {pending ? 'Memproses...' : 'Lanjut ke Pembayaran →'}
       </button>
-      {(showVisaQ && !visaChoice) && <p className="text-[11px] text-center text-amber-600">Pilih opsi visa dulu untuk lanjut.</p>}
+      {(showVisaQ && !visaLocked && !visaChoice) && <p className="text-[11px] text-center text-amber-600">Pilih opsi visa dulu untuk lanjut.</p>}
+      {(showVisaQ && (visaLocked || visaChoice === 'include') && hasTwoVisaTypes && !visaType) && <p className="text-[11px] text-center text-amber-600">Pilih tipe visa (E-Paspor / Biasa) dulu.</p>}
       {!agreeTnc && <p className="text-[11px] text-center text-amber-600">Centang persetujuan syarat &amp; ketentuan untuk lanjut.</p>}
       <p className="text-[11px] text-center text-slate-400">Dengan memesan, kamu setuju dengan syarat & ketentuan trip.</p>
     </form>

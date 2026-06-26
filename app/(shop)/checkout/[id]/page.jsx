@@ -32,7 +32,7 @@ export default async function CheckoutPage({ params }) {
       {seat <= 0 ? (
         <p className="mt-6 text-center text-red-600 font-bold">Maaf, seat trip ini sudah habis.</p>
       ) : (
-        <CheckoutForm trip={{ id: t.id, name: t.name, return_date: t.return_date || t.arrival || t.departure || null, dp_amount: Number(t.dp_amount || 0), seat, priceItems: tripPriceItems(t), adminFee: ADMIN_FEE, visaRequirement: t.visa_requirement || '', visaPrice: Number(t?.price_breakdown?.visa || 0), asuransiPrice: Number(t?.price_breakdown?.asuransi || 0) }} />
+        <CheckoutForm trip={{ id: t.id, name: t.name, return_date: t.return_date || t.arrival || t.departure || null, dp_amount: Number(t.dp_amount || 0), seat, priceItems: tripPriceItems(t), adminFee: ADMIN_FEE, visaRequirement: t.visa_requirement || '', visaPrice: Number(t?.price_breakdown?.visa || 0), visaEpassportPrice: Number(t?.price_breakdown?.visa_epassport || 0), asuransiPrice: Number(t?.price_breakdown?.asuransi || 0) }} />
       )}
     </div>
   );
