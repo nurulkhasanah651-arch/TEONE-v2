@@ -210,6 +210,7 @@ export default async function PublicInvoicePage({ params }) {
   if (rCity > 0) tourItems.push({ label: `City Tax${paxNote}`, amount: rCity });
   for (const opt of optItems) tourItems.push({ label: opt.label, amount: opt.amount, detail: 'opt-in' });
   if (discountReal > 0) tourItems.push({ label: 'Diskon', amount: -discountReal, detail: 'potongan' });
+  const tourTotal = tourItems.reduce((s2, it) => s2 + (Number(it.amount) || 0), 0);
 
   // Sisa untuk invoice ini
   const totalPaidThisInvoice = (payments || [])
@@ -314,7 +315,7 @@ export default async function PublicInvoicePage({ params }) {
               <tfoot className="border-t-2 border-blue-300">
                 <tr>
                   <td className="pt-2 text-sm font-bold text-blue-800">TOTAL PAKET</td>
-                  <td className="pt-2 text-right font-bold text-lg text-blue-800">{fmtRupiah(expectedTotalReal)}</td>
+                  <td className="pt-2 text-right font-bold text-lg text-blue-800">{fmtRupiah(tourTotal)}</td>
                 </tr>
               </tfoot>
             </table>
