@@ -53,6 +53,7 @@ function parseTripFields(formData) {
     price: (price_breakdown && Number(price_breakdown.dbl)) || 0,
     departure,
     arrival: formData.get('arrival') || null,
+    return_date: formData.get('arrival') || null,  // sinkron: web baca return_date
     deadline_close,
     publish_date: formData.get('publish_date') || null,
     closed_at,
@@ -100,7 +101,7 @@ export async function createTrip(formData) {
   let payload = { id: trip_id, ...fields, sold: 0, seat_left: fields.quota };
   let { error } = await supabase.from('trips').insert(payload);
 
-  if (error && /tl_id|publish_date|closed_at|price_breakdown|pnr|route/.test(error.message)) {
+  if (error && /tl_id|publish_date|closed_at|price_breakdown|pnr|route|return_date/.test(error.message)) {
     const stripped = stripOptional(fields);
     payload = { id: trip_id, ...stripped, sold: 0, seat_left: fields.quota };
     const retry = await supabase.from('trips').insert(payload);
@@ -130,7 +131,7 @@ export async function updateTrip(tripId, formData) {
   let updatePayload = { ...fields, seat_left: Math.max(fields.quota - sold, 0) };
   let { error } = await supabase.from('trips').update(updatePayload).eq('id', tripId);
 
-  if (error && /tl_id|publish_date|closed_at|price_breakdown|pnr|route/.test(error.message)) {
+  if (error && /tl_id|publish_date|closed_at|price_breakdown|pnr|route|return_date/.test(error.message)) {
     const stripped = stripOptional(fields);
     updatePayload = { ...stripped, seat_left: Math.max(fields.quota - sold, 0) };
     const retry = await supabase.from('trips').update(updatePayload).eq('id', tripId);

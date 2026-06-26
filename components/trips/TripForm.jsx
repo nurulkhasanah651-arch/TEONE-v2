@@ -148,7 +148,7 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
             <input autoComplete="off" type="date" name="departure" value={departure} onChange={(e) => setDeparture(e.target.value)} className={inputCls} />
           </Field>
           <Field label="Kepulangan">
-            <input autoComplete="off" type="date" name="arrival" defaultValue={initial.arrival || ''} className={inputCls} />
+            <input autoComplete="off" type="date" name="arrival" defaultValue={initial.arrival || initial.return_date || ''} className={inputCls} />
           </Field>
           <Field label="Deadline Tutup Booking" hint="Auto = departure − 45 hari (bisa override)">
             <input autoComplete="off" type="date" name="deadline_close" value={deadlineClose} onChange={(e) => setDeadlineClose(e.target.value)} className={inputCls} />
