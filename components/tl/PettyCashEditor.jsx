@@ -7,6 +7,7 @@
 import { useState, useTransition } from 'react';
 import { savePettyCash, recordPettyCashRefund } from '@/lib/actions/tlmanage';
 import FileUploadInput from './FileUploadInput';
+import SignedFileLink from '@/components/common/SignedFileLink';
 
 function parseNum(s) { return Number(String(s || '').replace(/[^0-9]/g, '')) || 0; }
 function formatNum(n) { return n ? Number(n).toLocaleString('id-ID') : ''; }
@@ -156,9 +157,9 @@ export default function PettyCashEditor({ tripId, current, canEdit = false, user
                   Refund {fmtRupiah(refundedAmount)} dari TL → masuk income group {current?.refund_at && `· ${fmtDate(current.refund_at)}`}
                 </p>
                 {current?.refund_proof_url && (
-                  <a href={current.refund_proof_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline mt-1 inline-block font-semibold">
+                  <SignedFileLink url={current.refund_proof_url} className="text-xs text-blue-600 hover:underline mt-1 inline-block font-semibold cursor-pointer">
                     📎 Bukti transfer refund
-                  </a>
+                  </SignedFileLink>
                 )}
                 {current?.settle_notes && (
                   <p className="text-xs text-green-700 italic mt-1">{current.settle_notes}</p>

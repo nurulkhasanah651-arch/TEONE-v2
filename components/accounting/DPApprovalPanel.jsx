@@ -4,7 +4,8 @@
 // Bukti yang di-upload CS muncul di card buat verifikasi sebelum approve
 // Path: components/accounting/DPApprovalPanel.jsx
 
-import { useState, useTransition } from 'react';
+import { useState, useEffect, useTransition } from 'react';
+import { getSignedFileUrl } from '@/lib/actions/signed-file';
 import { useRouter } from 'next/navigation';
 import { approveDPRequest, approveDPBatch, rejectDPRequest, deleteDPRequest } from '@/lib/actions/dp';
 
@@ -29,7 +30,28 @@ function isImage(url) {
   return /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(url);
 }
 
+async function openSignedProof(url) {
+  let w = null; try { w = window.open('', '_blank', 'noopener,noreferrer'); } catch { w = null; }
+  try {
+    const r = await getSignedFileUrl(url);
+    if (r?.error || !r?.url) { if (w) { try { w.close(); } catch {} } alert('Gagal membuka bukti: ' + (r?.error || 'tidak ditemukan')); return; }
+    if (w) { try { w.location.href = r.url; } catch { window.location.href = r.url; } } else { window.location.href = r.url; }
+  } catch (err) { if (w) { try { w.close(); } catch {} } alert('Gagal membuka bukti: ' + (err?.message || err)); }
+}
+function SignedImg({ url }) {
+  const [src, setSrc] = useState(null);
+  const [err, setErr] = useState(false);
+  useEffect(() => {
+    let on = true;
+    getSignedFileUrl(url).then((r) => { if (!on) return; if (r?.url) setSrc(r.url); else setErr(true); }).catch(() => { if (on) setErr(true); });
+    return () => { on = false; };
+  }, [url]);
+  if (err) return <span className="text-[10px] text-red-600">Gagal memuat bukti</span>;
+  if (!src) return <span className="text-[10px] text-slate-400">⏳ memuat bukti…</span>;
+  return <img src={src} alt="Bukti transfer" className="max-h-64 max-w-full rounded border border-slate-300" />;
+}
 function ProofLink({ url, compact = false }) {
+  const [loading, setLoading] = useState(false);
   if (!url) {
     return (
       <span className={`inline-flex items-center gap-1 ${compact ? 'text-[10px]' : 'text-xs'} text-amber-700 font-semibold`}>
@@ -37,14 +59,14 @@ function ProofLink({ url, compact = false }) {
       </span>
     );
   }
+  async function handle(e) { e.preventDefault(); setLoading(true); try { await openSignedProof(url); } finally { setLoading(false); } }
   return (
     <a
-      href={url}
-      target="_blank"
-      rel="noreferrer"
+      href="#"
+      onClick={handle}
       className={`inline-flex items-center gap-1 ${compact ? 'text-[10px]' : 'text-xs'} px-2 py-0.5 rounded bg-green-100 text-green-800 hover:bg-green-200 font-bold`}
     >
-      📎 Lihat Bukti Transfer ↗
+      {loading ? '⏳…' : '📎 Lihat Bukti Transfer ↗'}
     </a>
   );
 }
@@ -350,11 +372,7 @@ export default function DPApprovalPanel({
                         </button>
                         {previewProof === req.id && (
                           <div className="mt-2 inline-block p-2 bg-slate-50 border border-slate-200 rounded">
-                            <img
-                              src={req.dp_proof_url}
-                              alt="Bukti transfer"
-                              className="max-h-64 max-w-full rounded border border-slate-300"
-                            />
+                            <SignedImg url={req.dp_proof_url} />
                           </div>
                         )}
                       </div>
