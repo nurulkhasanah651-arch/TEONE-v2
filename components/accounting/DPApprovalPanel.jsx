@@ -51,7 +51,6 @@ function SignedImg({ url }) {
   return <img src={src} alt="Bukti transfer" className="max-h-64 max-w-full rounded border border-slate-300" />;
 }
 function ProofLink({ url, compact = false }) {
-  const [loading, setLoading] = useState(false);
   if (!url) {
     return (
       <span className={`inline-flex items-center gap-1 ${compact ? 'text-[10px]' : 'text-xs'} text-amber-700 font-semibold`}>
@@ -59,14 +58,14 @@ function ProofLink({ url, compact = false }) {
       </span>
     );
   }
-  async function handle(e) { e.preventDefault(); setLoading(true); try { await openSignedProof(url); } finally { setLoading(false); } }
   return (
     <a
-      href="#"
-      onClick={handle}
+      href={`/api/proof?u=${encodeURIComponent(url)}`}
+      target="_blank"
+      rel="noreferrer"
       className={`inline-flex items-center gap-1 ${compact ? 'text-[10px]' : 'text-xs'} px-2 py-0.5 rounded bg-green-100 text-green-800 hover:bg-green-200 font-bold`}
     >
-      {loading ? '⏳…' : '📎 Lihat Bukti Transfer ↗'}
+      📎 Lihat Bukti Transfer ↗
     </a>
   );
 }
