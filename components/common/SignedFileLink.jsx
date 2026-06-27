@@ -9,17 +9,27 @@ export default function SignedFileLink({ url, className = '', children }) {
   async function handle(e) {
     e.preventDefault();
     if (!url) return;
+    // Buka tab SINKRON dulu (dalam gesture klik) supaya tak diblok popup-blocker mobile,
+    // baru arahkan ke signed URL setelah didapat. Fallback: navigasi tab saat ini.
+    let w = null;
+    try { w = window.open('', '_blank', 'noopener,noreferrer'); } catch { w = null; }
     setLoading(true);
     try {
       const r = await getSignedFileUrl(url);
-      if (r?.error) { alert('Gagal membuka file: ' + r.error); return; }
-      if (r?.url) window.open(r.url, '_blank', 'noopener,noreferrer');
+      if (r?.error || !r?.url) {
+        if (w) { try { w.close(); } catch {} }
+        alert('Gagal membuka file: ' + (r?.error || 'tidak ditemukan'));
+        return;
+      }
+      if (w) { try { w.location.href = r.url; } catch { window.location.href = r.url; } }
+      else { window.location.href = r.url; }
     } catch (err) {
+      if (w) { try { w.close(); } catch {} }
       alert('Gagal membuka file: ' + (err?.message || err));
     } finally { setLoading(false); }
   }
   return (
-    <a href={url || '#'} onClick={handle} className={className}>
+    <a href="#" onClick={handle} className={className}>
       {loading ? '⏳…' : children}
     </a>
   );
