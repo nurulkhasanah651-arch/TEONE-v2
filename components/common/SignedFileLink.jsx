@@ -12,7 +12,7 @@ export default function SignedFileLink({ url, className = '', children }) {
     // Buka tab SINKRON dulu (dalam gesture klik) supaya tak diblok popup-blocker mobile,
     // baru arahkan ke signed URL setelah didapat. Fallback: navigasi tab saat ini.
     let w = null;
-    try { w = window.open('', '_blank', 'noopener,noreferrer'); } catch { w = null; }
+    try { w = window.open('', '_blank'); } catch { w = null; }
     setLoading(true);
     try {
       const r = await getSignedFileUrl(url);

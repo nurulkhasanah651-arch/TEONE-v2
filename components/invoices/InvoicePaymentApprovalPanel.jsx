@@ -35,7 +35,7 @@ function ProofLink({ url }) {
   }
   async function handle(e) {
     e.preventDefault();
-    let w = null; try { w = window.open('', '_blank', 'noopener,noreferrer'); } catch { w = null; }
+    let w = null; try { w = window.open('', '_blank'); } catch { w = null; }
     setLoading(true);
     try {
       const r = await getSignedFileUrl(url);

@@ -31,7 +31,7 @@ function isImage(url) {
 }
 
 async function openSignedProof(url) {
-  let w = null; try { w = window.open('', '_blank', 'noopener,noreferrer'); } catch { w = null; }
+  let w = null; try { w = window.open('', '_blank'); } catch { w = null; }
   try {
     const r = await getSignedFileUrl(url);
     if (r?.error || !r?.url) { if (w) { try { w.close(); } catch {} } alert('Gagal membuka bukti: ' + (r?.error || 'tidak ditemukan')); return; }
