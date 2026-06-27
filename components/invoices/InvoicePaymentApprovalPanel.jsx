@@ -8,6 +8,7 @@ import SignedImage from '@/components/common/SignedImage';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { approveInvoicePayment, rejectInvoicePayment, deleteInvoicePayment } from '@/lib/actions/invoice-payment';
+import { getSignedFileUrl } from '@/lib/actions/signed-file';
 
 function fmtRupiah(n) {
   return 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
@@ -24,6 +25,7 @@ function isImage(url) {
 }
 
 function ProofLink({ url }) {
+  const [loading, setLoading] = useState(false);
   if (!url) {
     return (
       <span className="inline-flex items-center gap-1 text-xs text-amber-700 font-semibold">
@@ -31,14 +33,24 @@ function ProofLink({ url }) {
       </span>
     );
   }
+  async function handle(e) {
+    e.preventDefault();
+    let w = null; try { w = window.open('', '_blank', 'noopener,noreferrer'); } catch { w = null; }
+    setLoading(true);
+    try {
+      const r = await getSignedFileUrl(url);
+      if (r?.error || !r?.url) { if (w) { try { w.close(); } catch {} } alert('Gagal membuka bukti: ' + (r?.error || 'tidak ditemukan')); return; }
+      if (w) { try { w.location.href = r.url; } catch { window.location.href = r.url; } } else { window.location.href = r.url; }
+    } catch (err) { if (w) { try { w.close(); } catch {} } alert('Gagal membuka bukti: ' + (err?.message || err)); }
+    finally { setLoading(false); }
+  }
   return (
     <a
-      href={url}
-      target="_blank"
-      rel="noreferrer"
-      className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-green-100 text-green-800 hover:bg-green-200 font-bold"
+      href="#"
+      onClick={handle}
+      className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-green-100 text-green-800 hover:bg-green-200 font-bold cursor-pointer"
     >
-      📎 Lihat Bukti Transfer ↗
+      {loading ? '⏳…' : '📎 Lihat Bukti Transfer ↗'}
     </a>
   );
 }
