@@ -206,7 +206,7 @@ export default function CheckoutForm({ trip }) {
       {items.specials?.length > 0 && (
         <div className="border border-slate-200 rounded-2xl p-4">
           <p className="text-sm font-bold text-slate-800">👶 Kategori Khusus</p>
-          <p className="text-[11px] text-slate-400 mb-1">Child no bed, infant, atau land tour only — bisa digabung dgn kamar.</p>
+          <p className="text-[11px] text-slate-400 mb-1">Child no bed atau infant — bisa digabung dgn kamar.</p>
           {items.specials.map((it) => <Stepper key={it.key} it={it} />)}
         </div>
       )}
