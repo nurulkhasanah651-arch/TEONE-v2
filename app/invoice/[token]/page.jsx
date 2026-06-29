@@ -218,6 +218,13 @@ export default async function PublicInvoicePage({ params }) {
   for (const opt of optItems) tourItems.push({ label: opt.label, amount: opt.amount, detail: 'opt-in' });
   if (discountReal > 0) tourItems.push({ label: 'Diskon', amount: -discountReal, detail: 'potongan' });
   const tourTotal = tourItems.reduce((s2, it) => s2 + (Number(it.amount) || 0), 0);
+  // RINGKASAN: utk invoice ALL-IN (Pelunasan+Visa+Asuransi) tampilkan total/dibayar/sisa SEMUA
+  //   supaya konsisten dgn nominal invoice (tidak membingungkan peserta). Invoice biasa = pokok saja.
+  const _allInRingkas = _invAllIn;
+  const ringkasTotal = _allInRingkas ? tourTotal : expectedTotalReal;
+  const ringkasPaid = _allInRingkas ? ((Number(pokokPaidReal) || 0) + (Number(addonPaidReal) || 0)) : pokokPaidReal;
+  const ringkasSisa = _allInRingkas ? Math.max(ringkasTotal - ringkasPaid, 0) : sisaReal;
+  const ringkasLunas = ringkasTotal > 0 && ringkasSisa === 0;
 
   // Sisa untuk invoice ini
   const totalPaidThisInvoice = (payments || [])
@@ -362,22 +369,22 @@ export default async function PublicInvoicePage({ params }) {
         {/* ============================================== */}
         {/* SELALU TAMPIL: Total Dibayar + Sisa Tagihan    */}
         {/* ============================================== */}
-        <div className={`p-6 border-t-2 border-b-2 ${isLunas ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-300'}`}>
-          <p className={`text-xs font-bold uppercase tracking-wider mb-3 ${isLunas ? 'text-green-800' : 'text-amber-800'}`}>
+        <div className={`p-6 border-t-2 border-b-2 ${ringkasLunas ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-300'}`}>
+          <p className={`text-xs font-bold uppercase tracking-wider mb-3 ${ringkasLunas ? 'text-green-800' : 'text-amber-800'}`}>
             📊 Ringkasan Pembayaran Trip
           </p>
           <div className="space-y-2 text-sm">
             {expectedTotalReal > 0 && (
               <div className="flex justify-between">
-                <span className="text-slate-700">Total Tagihan Pokok Trip:</span>
-                <span className="font-bold text-slate-800">{fmtRupiah(expectedTotalReal)}</span>
+                <span className="text-slate-700">{_allInRingkas ? 'Total Tagihan (Pelunasan + Visa + Asuransi):' : 'Total Tagihan Pokok Trip:'}</span>
+                <span className="font-bold text-slate-800">{fmtRupiah(ringkasTotal)}</span>
               </div>
             )}
             <div className="flex justify-between">
-              <span className="text-green-700 font-semibold">✅ Dibayar (pokok):</span>
-              <span className="font-bold text-green-700 text-lg">{fmtRupiah(pokokPaidReal)}</span>
+              <span className="text-green-700 font-semibold">{_allInRingkas ? '✅ Dibayar:' : '✅ Dibayar (pokok):'}</span>
+              <span className="font-bold text-green-700 text-lg">{fmtRupiah(ringkasPaid)}</span>
             </div>
-            {addonPaidReal > 0 && (
+            {!_allInRingkas && addonPaidReal > 0 && (
               <div className="flex justify-between">
                 <span className="text-sky-700 font-semibold">➕ Pembayaran lain (visa/ongkir/optional):</span>
                 <span className="font-bold text-sky-700">{fmtRupiah(addonPaidReal)}</span>
@@ -396,12 +403,12 @@ export default async function PublicInvoicePage({ params }) {
             {participantPayments.length === 0 && (
               <p className="ml-3 text-xs italic text-slate-500">Belum ada pembayaran tercatat</p>
             )}
-            <div className={`flex justify-between pt-3 mt-2 border-t-2 ${isLunas ? 'border-green-400' : 'border-amber-400'}`}>
-              <span className={`font-bold text-base ${isLunas ? 'text-green-800' : 'text-amber-800'}`}>
-                {isLunas ? '🎉 POKOK LUNAS' : '⚠ Sisa Pembayaran Pokok:'}
+            <div className={`flex justify-between pt-3 mt-2 border-t-2 ${ringkasLunas ? 'border-green-400' : 'border-amber-400'}`}>
+              <span className={`font-bold text-base ${ringkasLunas ? 'text-green-800' : 'text-amber-800'}`}>
+                {ringkasLunas ? (_allInRingkas ? '🎉 LUNAS' : '🎉 POKOK LUNAS') : (_allInRingkas ? '⚠ Sisa Pembayaran:' : '⚠ Sisa Pembayaran Pokok:')}
               </span>
-              <span className={`font-bold text-2xl ${isLunas ? 'text-green-700' : 'text-amber-700'}`}>
-                {isLunas ? '✓' : fmtRupiah(sisaReal)}
+              <span className={`font-bold text-2xl ${ringkasLunas ? 'text-green-700' : 'text-amber-700'}`}>
+                {ringkasLunas ? '✓' : fmtRupiah(ringkasSisa)}
               </span>
             </div>
             {expectedTotalReal === 0 && (
