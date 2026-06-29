@@ -181,14 +181,14 @@ export default async function TripDetailPage({ params }) {
           {isKh && reasons.length > 0 && (
             <div>
               <h2 className="text-xl font-bold text-slate-900 mb-3">Kenapa harus umroh bareng Khasanah Travel?</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <ul className="space-y-2.5">
                 {reasons.map((r, i) => (
-                  <div key={i} className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 flex items-start gap-2.5">
-                    <div className="shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center mt-0.5">✓</div>
-                    <p className="text-sm text-slate-700 leading-snug">{r}</p>
-                  </div>
+                  <li key={i} className="flex items-start gap-3">
+                    <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-sm flex items-center justify-center mt-1">✓</span>
+                    <span className="text-lg font-bold text-slate-800 leading-snug">{r}</span>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
           )}
           {isKh && (
