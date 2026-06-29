@@ -6,7 +6,7 @@ import LeadsQuickForm from '@/components/cs/LeadsQuickForm';
 import LeadsHistoryTable from '@/components/cs/LeadsHistoryTable';
 import ClosingHistoryTable from '@/components/cs/ClosingHistoryTable';
 import CsRecapPanel from '@/components/cs/CsRecapPanel';
-import { getCsRecapGroup } from '@/lib/actions/cs-recap';
+import { getCsRecapGroup, buildCsRecap } from '@/lib/actions/cs-recap';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +46,13 @@ export default async function CSPage() {
   const todayLeadsOrganic = sumOrganic(todayLeads);
   const todayLeadsAds = sumAdsLeads(todayLeads);
   const todayLeadsTotal = todayLeadsOrganic + todayLeadsAds;
+  // Samakan kartu dgn Rekap WA (cutoff bisnis 18:00 + sumber peserta/web aktual)
+  let _rec = null; try { _rec = await buildCsRecap(); } catch { _rec = null; }
+  const cardClosing = (_rec && _rec.ok && typeof _rec.totalClosing === 'number') ? _rec.totalClosing : todayClosing;
+  const cardLeadsTotal = (_rec && _rec.ok && typeof _rec.leadsTotal === 'number') ? _rec.leadsTotal : todayLeadsTotal;
+  const cardLeadsOrg = (_rec && _rec.ok && typeof _rec.leadsOrganic === 'number') ? _rec.leadsOrganic : todayLeadsOrganic;
+  const cardLeadsAds = (_rec && _rec.ok && typeof _rec.leadsAds === 'number') ? _rec.leadsAds : todayLeadsAds;
+  const cardTripAktif = (_rec && _rec.ok && typeof _rec.tripAktif === 'number') ? _rec.tripAktif : todayUpdates.length;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -63,12 +70,12 @@ export default async function CSPage() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <SummaryCard label="Closing Hari Ini" value={todayClosing} color="text-green-700" bg="bg-green-50" />
-        <SummaryCard label="Leads Hari Ini" value={todayLeadsTotal} sub={`${todayLeadsOrganic} organic + ${todayLeadsAds} ads`} color="text-blue-700" bg="bg-blue-50" />
-        <SummaryCard label="Trip Aktif Hari Ini" value={todayUpdates.length} color="text-brand-700" bg="bg-brand-50" />
+        <SummaryCard label="Closing Hari Ini" value={cardClosing} color="text-green-700" bg="bg-green-50" />
+        <SummaryCard label="Leads Hari Ini" value={cardLeadsTotal} sub={`${cardLeadsOrg} organic + ${cardLeadsAds} ads`} color="text-blue-700" bg="bg-blue-50" />
+        <SummaryCard label="Trip Aktif Hari Ini" value={cardTripAktif} color="text-brand-700" bg="bg-brand-50" />
         <SummaryCard
           label="Conv. Rate Hari Ini"
-          value={todayLeadsTotal > 0 ? `${Math.round((todayClosing / todayLeadsTotal) * 100)}%` : '—'}
+          value={cardLeadsTotal > 0 ? `${Math.round((cardClosing / cardLeadsTotal) * 100)}%` : '—'}
           color="text-purple-700"
           bg="bg-purple-50"
         />
