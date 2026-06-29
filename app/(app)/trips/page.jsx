@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getPicScope, filterTripsForPic } from '@/lib/auth/pic-scope';
 import TripsMasterView from '@/components/trips/TripsMasterView';
 import { fmtRupiah } from '@/lib/utils/format';
+import { fetchAll } from '@/lib/supabase/fetch-all';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,8 +38,11 @@ export default async function TripsPage() {
   // Fetch passengers (defensive)
   let allPax = [];
   try {
-    const { data } = await supabase.from('trip_passengers').select('*');
-    allPax = data || [];
+    // R: fetchAll (paginasi) — hindari cap 1000 yg bikin trip dgn peserta di baris >1000
+    //    tampil 0 (mis. 536). Kolom minimal: cukup utk hitung aktif + revenue.
+    allPax = await fetchAll(() => supabase
+      .from('trip_passengers')
+      .select('trip_id, transfer_status, refund_status, room_type, age_type, price_paid, discount_amount'));
   } catch {}
   const isActivePax = (p) => p.transfer_status !== 'transferred'
     && p.refund_status !== 'refunded' && p.refund_status !== 'partial_refund';
