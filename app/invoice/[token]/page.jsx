@@ -220,7 +220,7 @@ export default async function PublicInvoicePage({ params }) {
   const tourTotal = tourItems.reduce((s2, it) => s2 + (Number(it.amount) || 0), 0);
   // RINGKASAN: utk invoice ALL-IN (Pelunasan+Visa+Asuransi) tampilkan total/dibayar/sisa SEMUA
   //   supaya konsisten dgn nominal invoice (tidak membingungkan peserta). Invoice biasa = pokok saja.
-  const _allInRingkas = _invAllIn;
+  const _allInRingkas = _invAllIn || (_msLower.includes('pelunasan') && (_msLower.includes('visa') || _msLower.includes('asuransi')));
   const ringkasTotal = _allInRingkas ? tourTotal : expectedTotalReal;
   const ringkasPaid = _allInRingkas ? ((Number(pokokPaidReal) || 0) + (Number(addonPaidReal) || 0)) : pokokPaidReal;
   const ringkasSisa = _allInRingkas ? Math.max(ringkasTotal - ringkasPaid, 0) : sisaReal;
