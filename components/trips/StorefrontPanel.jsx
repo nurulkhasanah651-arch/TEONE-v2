@@ -262,6 +262,8 @@ export default function StorefrontPanel({ trip }) {
           <input name="highlights" value={highlights} onChange={(e) => setHighlights(e.target.value)} placeholder="Menara Eiffel · Seine Cruise · Keukenhof" className={inp} /></label>
         <label className="block"><span className="text-xs font-bold text-slate-600">Deskripsi</span>
           <textarea name="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={inp} /></label>
+        <label className="block"><span className="text-xs font-bold text-slate-600">3 Alasan pilih kami <span className="font-normal text-slate-400">(khusus tampilan Khasanah — 1 alasan per baris, maks 3)</span></span>
+          <textarea name="web_reasons" defaultValue={trip.web_reasons || ''} rows={3} placeholder={"Pembimbing berpengalaman & amanah\nHotel dekat Masjidil Haram\nKuota terbatas, pelayanan lebih personal"} className={inp} /></label>
 
         {/* ITINERARY per hari + foto */}
         <div>

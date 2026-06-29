@@ -144,6 +144,12 @@ export default async function TripDetailPage({ params }) {
     },
   };
 
+  const isKh = brand === 'khasanah';
+  const _ttl = t.public_title || t.name;
+  const _waDaftar = `https://wa.me/${csWa}?text=${encodeURIComponent(`Halo Khasanah Travel, saya mau *daftar* trip ${t.kode_trip ? t.kode_trip + ' ' : ''}${_ttl}${t.departure ? ` (${fmtDate(t.departure)})` : ''}. Mohon info & langkah pendaftarannya ya 🙏`)}`;
+  const _waTanya = `https://wa.me/${csWa}?text=${encodeURIComponent(`Halo Khasanah Travel, saya mau *tanya* tentang trip ${t.kode_trip ? t.kode_trip + ' ' : ''}${_ttl}.`)}`;
+  const reasons = String(t.web_reasons || '').split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 3);
+
   return (
     <div>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(_jsonLd) }} />
@@ -172,6 +178,30 @@ export default async function TripDetailPage({ params }) {
               <p className="text-slate-600 whitespace-pre-line leading-relaxed">{t.description}</p>
             </div>
           )}
+          {isKh && reasons.length > 0 && (
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 mb-3">Kenapa harus umroh bareng Khasanah Travel?</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {reasons.map((r, i) => (
+                  <div key={i} className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                    <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center mb-2">{i + 1}</div>
+                    <p className="text-sm text-slate-700 leading-snug">{r}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {isKh && (
+            <a href={_waDaftar} target="_blank" rel="noreferrer" className="block text-center w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-lg shadow-lg shadow-emerald-200">
+              📲 Daftar Lewat CS WhatsApp
+            </a>
+          )}
+          {isKh && <div className="lg:hidden">{priceCard}</div>}
+          {isKh && (
+            <a href={_waTanya} target="_blank" rel="noreferrer" className="block text-center w-full py-3 rounded-xl border-2 border-emerald-500 text-emerald-700 font-bold hover:bg-emerald-50">
+              💬 Pesan / tanya dulu lewat WhatsApp
+            </a>
+          )}
           {itin.length > 0 && (
             <div>
               <h2 className="text-xl font-bold text-slate-900 mb-3">Itinerary</h2>
@@ -195,8 +225,8 @@ export default async function TripDetailPage({ params }) {
               </ol>
             </div>
           )}
-          {/* Harga — di HP muncul tepat di bawah itinerary */}
-          <div className="lg:hidden">{priceCard}</div>
+          {/* Harga — di HP muncul tepat di bawah itinerary (TEONE) */}
+          {!isKh && <div className="lg:hidden">{priceCard}</div>}
           {(t.included || t.excluded) && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {t.included && (
@@ -282,6 +312,11 @@ export default async function TripDetailPage({ params }) {
             </div>
           )}
 
+          {isKh && (
+            <a href={_waTanya} target="_blank" rel="noreferrer" className="block text-center w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-lg shadow-lg shadow-emerald-200">
+              💬 Tanya CS WhatsApp
+            </a>
+          )}
           <div className="pt-1">
             <p className="text-xs font-bold text-slate-400 mb-1.5">Suka paket ini?</p>
             <ShareTrip title={t.public_title || t.name} />
