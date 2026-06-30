@@ -225,7 +225,7 @@ function BulkWAPreviewModal({ trip, passengers, selectedIds, templateKey, family
   const sampleCust = samplePax?.customers || {};
   const deadlineDoc = trip.visa_deadline_doc || autoDeadlineDoc(trip.departure);
 
-  const sampleToken = samplePax?.visa_upload_token || '{{AKAN_AUTO_GENERATE}}';
+  const sampleToken = samplePax?.visa_upload_token || null;
   const siteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://teone.dev';
 
   const sampleVars = {
@@ -245,7 +245,7 @@ function BulkWAPreviewModal({ trip, passengers, selectedIds, templateKey, family
     pdf_template_dokumen_url: trip.visa_pdf_template_url,
     list_dokumen: trip.visa_doc_template,   // SINKRON dgn Template Dokumen Visa
     deadline_dokumen: deadlineDoc,
-    upload_portal_url: `${siteUrl}/visa/upload/${sampleToken}`,
+    upload_portal_url: sampleToken ? `${siteUrl}/visa/upload/${sampleToken}` : '(link upload otomatis dibuat saat WA dikirim — jangan copy dari preview)',
     return_method: samplePax?.visa_return_method || 'kurir',
     visa_valid_from: samplePax?.visa_valid_from,
     visa_valid_until: samplePax?.visa_valid_until,
