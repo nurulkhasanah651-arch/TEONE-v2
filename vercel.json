@@ -18,6 +18,10 @@
     {
       "path": "/api/cron/reconcile-midtrans",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/fonnte-health",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
