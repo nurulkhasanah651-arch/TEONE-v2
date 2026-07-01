@@ -53,14 +53,22 @@ export default async function CeoPage() {
       {/* KPI utama */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Omzet Masuk Bln Ini</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Omzet Masuk (MTD)</p>
           <p className="text-xl font-bold text-slate-800 mt-1">{fmtRupiah(m.omzetThisMonth)}</p>
-          <div className="mt-1"><Delta v={m.omzetDelta} /></div>
+          <div className="mt-1 flex items-center gap-1.5">
+            <Delta v={m.omzetDelta} />
+            <span className="text-[10px] text-slate-400">vs periode sama bln lalu</span>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-1">Hari {m.dayOfMonth}/{m.daysInMonth} · proyeksi ~{fmtShort(m.omzetProjection)}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Closing Bln Ini</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Closing (MTD)</p>
           <p className="text-xl font-bold text-slate-800 mt-1">{m.closeThisMonth} <span className="text-sm font-medium text-slate-400">pax</span></p>
-          <div className="mt-1"><Delta v={m.closeDelta} /></div>
+          <div className="mt-1 flex items-center gap-1.5">
+            <Delta v={m.closeDelta} />
+            <span className="text-[10px] text-slate-400">vs periode sama bln lalu</span>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-1">Hari {m.dayOfMonth}/{m.daysInMonth} · proyeksi ~{m.closeProjection} pax</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Conversion Rate</p>
