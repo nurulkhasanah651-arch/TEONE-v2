@@ -43,7 +43,7 @@ export default async function AppLayout({ children }) {
     redirect(defaultPathForRole(role));
   }
 
-  const _wa = await waOutboxSummary().catch(() => ({ count: 0, depts: [] }));
+  const _wa = await waOutboxSummary().catch(() => ({ count: 0, offlineDepts: [] }));
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -51,9 +51,13 @@ export default async function AppLayout({ children }) {
       <div className="md:pl-60">
         <Header user={user} role={role} />
         <main className="p-3 sm:p-6">
-          {_wa.count > 0 && (
+          {(_wa.count > 0 || _wa.offlineDepts?.length > 0) && (
             <a href="/wa-pending" className="block mb-4 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 font-bold hover:bg-red-100">
-              ⚠ {_wa.count} pesan WA belum terkirim{_wa.depts?.length ? ` — nomor ${_wa.depts.join(', ').toUpperCase()} kemungkinan terputus dari Fonnte` : ''}. Klik untuk lihat &amp; Kirim Ulang →
+              ⚠ {_wa.count > 0
+                ? `${_wa.count} pesan WA belum terkirim`
+                : `Nomor ${_wa.offlineDepts.join(', ').toUpperCase()} kemungkinan terputus dari Fonnte`}
+              {_wa.count > 0 && _wa.offlineDepts?.length ? ` — nomor ${_wa.offlineDepts.join(', ').toUpperCase()} kemungkinan terputus dari Fonnte` : ''}
+              . Klik untuk lihat &amp; kelola →
             </a>
           )}
           {children}

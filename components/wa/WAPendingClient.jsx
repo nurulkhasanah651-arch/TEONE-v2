@@ -1,7 +1,7 @@
 'use client';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { resendWA, resendAllWA, dismissWA } from '@/lib/actions/wa-outbox';
+import { resendWA, resendAllWA, dismissWA, clearOfflineMarkers } from '@/lib/actions/wa-outbox';
 
 function fmt(s) { try { return new Date(s).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch { return s; } }
 const DEPT = { finance: '💰 Finance', cs: '📞 CS', visa: '🛂 Visa', ops: '🧭 Ops', tl: '🧭 TL' };
@@ -25,6 +25,15 @@ export default function WAPendingClient({ rows = [] }) {
     if (!confirm('Tandai selesai tanpa kirim (mis. nomor peserta memang salah)?')) return;
     setBusy(id);
     start(async () => { await dismissWA(id); setBusy(null); router.refresh(); });
+  }
+  function doConnected(context) {
+    setBusy('conn-' + context); setMsg('');
+    start(async () => {
+      const r = await clearOfflineMarkers(context);
+      setBusy(null);
+      setMsg(r?.ok ? '✅ Ditandai tersambung — peringatan dibersihkan.' : ('Gagal: ' + (r?.error || '')));
+      router.refresh();
+    });
   }
   function doAll() {
     if (!confirm('Kirim ulang SEMUA pesan tertunda? Pastikan nomor Fonnte sudah login lagi.')) return;
@@ -60,6 +69,11 @@ export default function WAPendingClient({ rows = [] }) {
                 {r.kind !== 'device_offline' && (
                   <button onClick={() => doResend(r.id)} disabled={pending} className="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold disabled:opacity-50">
                     {busy === r.id && pending ? '…' : 'Kirim Ulang'}
+                  </button>
+                )}
+                {r.kind === 'device_offline' && (
+                  <button onClick={() => doConnected(r.context)} disabled={pending} className="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold disabled:opacity-50">
+                    {busy === ('conn-' + r.context) && pending ? '…' : '✅ Sudah tersambung'}
                   </button>
                 )}
                 <button onClick={() => doDismiss(r.id)} disabled={pending} className="px-3 py-1 rounded border border-slate-300 text-slate-500 text-xs font-semibold disabled:opacity-50">Abaikan</button>

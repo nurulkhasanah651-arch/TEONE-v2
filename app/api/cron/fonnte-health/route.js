@@ -61,16 +61,14 @@ export async function GET(request) {
       if (!token) continue;
       const connected = await deviceConnected(token);
       if (connected === false) {
-        // pastikan tanda terputus ada (dedup)
-        const { data: exist } = await db.from('wa_outbox')
-          .select('id').eq('brand', code).eq('context', dep.ctx).eq('kind', 'device_offline').eq('status', 'failed').limit(1);
-        if (!exist || !exist.length) {
-          await db.from('wa_outbox').insert({
-            brand: code, context: dep.ctx, kind: 'device_offline', status: 'failed',
-            reason: 'Device Fonnte terputus (hasil cek otomatis)',
-            message: `⚠ Nomor ${dep.ctx.toUpperCase()} terputus dari Fonnte. Login ulang perangkat di dashboard Fonnte agar pesan pembayaran/notifikasi terkirim lagi.`,
-          });
-        }
+        // idempoten: hapus marker lama utk brand+ctx, sisakan tepat 1 (cegah menumpuk)
+        await db.from('wa_outbox').delete()
+          .eq('brand', code).eq('context', dep.ctx).eq('kind', 'device_offline').eq('status', 'failed');
+        await db.from('wa_outbox').insert({
+          brand: code, context: dep.ctx, kind: 'device_offline', status: 'failed',
+          reason: 'Device Fonnte terputus (hasil cek otomatis)',
+          message: `⚠ Nomor ${dep.ctx.toUpperCase()} terputus dari Fonnte. Login ulang perangkat di dashboard Fonnte agar pesan pembayaran/notifikasi terkirim lagi.`,
+        });
         out.push({ brand: code, ctx: dep.ctx, status: 'offline' });
       } else if (connected === true) {
         // hapus tanda terputus + kirim ulang pesan tertunda departemen ini
