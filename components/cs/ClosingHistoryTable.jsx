@@ -240,7 +240,7 @@ export default function ClosingHistoryTable({ allUpdates = [], participants = []
       </div>
 
       {view === 'daily' && (
-        <DailyClosingList rows={dailyRows} onDelete={handleDelete} pending={pending} />
+        <DailyClosingList closingPax={closingPax} rows={dailyRows} onDelete={handleDelete} pending={pending} />
       )}
       {view === 'weekly' && (
         <WeeklyClosingTable rows={weeklyRows} />
@@ -264,7 +264,7 @@ function ViewBtn({ active, onClick, children }) {
   );
 }
 
-function DailyClosingList({ rows, onDelete, pending }) {
+function DailyClosingList({ rows, onDelete, pending, closingPax = {} }) {
   if (!rows || rows.length === 0) {
     return (
       <div className="p-12 text-center">
