@@ -41,6 +41,23 @@ export default async function CSPage() {
   const todayLeads = todayLeadsRes.data;
   const allParticipants = paxRes.data || [];
 
+  // Closing per (trip+tanggal) = jumlah PESERTA aktual masuk dalam window bisnis tanggal itu
+  // (per orang, konsisten dgn kartu "Closing Hari Ini"). Window: [D-1 18:00 WIB, D 18:00 WIB).
+  const _bizWin = (dStr) => { const d0 = new Date(dStr + 'T00:00:00Z').getTime(); return { s: d0 - 13 * 3600 * 1000, e: d0 + 11 * 3600 * 1000 }; };
+  const _activePax = allParticipants.filter((p) => p.transfer_status !== 'transferred' && p.refund_status !== 'refunded' && p.refund_status !== 'partial_refund');
+  const closingPaxByUpdate = {};
+  for (const u of allUpdates) {
+    if (!u.tanggal) continue;
+    const { s: _s, e: _e } = _bizWin(u.tanggal);
+    let n = 0;
+    for (const p of _activePax) {
+      if (p.trip_id !== u.trip_id) continue;
+      const j = p.joined_at ? new Date(p.joined_at).getTime() : 0;
+      if (j >= _s && j < _e) n++;
+    }
+    closingPaxByUpdate[u.id] = n;
+  }
+
   const todayUpdates = allUpdates.filter((u) => u.tanggal === today);
   const todayClosing = todayUpdates.reduce((s, u) => s + sumClosing(u), 0);
   const todayLeadsOrganic = sumOrganic(todayLeads);
@@ -101,7 +118,7 @@ export default async function CSPage() {
           <h2 className="font-bold text-brand-700">📝 Update Closing per Trip</h2>
           <p className="text-xs text-slate-500 mt-0.5">30 hari terakhir di tab Daily. Setelah lewat sebulan, data otomatis muncul di rekap bulanan. Download Excel include detail peserta.</p>
         </div>
-        <ClosingHistoryTable allUpdates={allUpdates} participants={allParticipants} />
+        <ClosingHistoryTable allUpdates={allUpdates} participants={allParticipants} closingPax={closingPaxByUpdate} />
       </section>
     </div>
   );

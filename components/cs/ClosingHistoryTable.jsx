@@ -92,7 +92,7 @@ function downloadCSV(filename, rows) {
   URL.revokeObjectURL(url);
 }
 
-export default function ClosingHistoryTable({ allUpdates = [], participants = [] }) {
+export default function ClosingHistoryTable({ allUpdates = [], participants = [], closingPax = {} }) {
   const safe = Array.isArray(allUpdates) ? allUpdates : [];
   const pax = Array.isArray(participants) ? participants : [];
   const [view, setView] = useState('daily');
@@ -286,7 +286,7 @@ function DailyClosingList({ rows, onDelete, pending }) {
               <p className="text-xs text-slate-500 mt-0.5">{fmtDate(u.tanggal)}</p>
             </div>
             <div className="flex gap-2 text-xs flex-wrap items-center">
-              <span className="px-2 py-1 rounded bg-green-50 text-green-700 font-semibold">Terjual: {totalClosing(u)}</span>
+              <span className="px-2 py-1 rounded bg-green-50 text-green-700 font-semibold">Terjual: {closingPax[u.id] != null ? closingPax[u.id] : totalClosing(u)}</span>
               {(u.from_website || 0) > 0 && <span className="px-2 py-1 rounded bg-indigo-50 text-indigo-700 font-semibold">🌐 Web: {u.from_website}</span>}
               <span className="px-2 py-1 rounded bg-blue-50 text-blue-700 font-semibold">Leads: {u.jumlah_leads || 0}</span>
               <span className="px-2 py-1 rounded bg-amber-50 text-amber-700 font-semibold">Sisa: {u.sisa_seat || 0}</span>
