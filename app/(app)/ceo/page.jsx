@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtShort, fmtDate, daysUntil } from '@/lib/utils/format';
 import { getRoleFromUser } from '@/lib/utils/roles';
 import { buildCeoMetrics, monthLabel } from '@/lib/actions/ceo-metrics';
+import CeoAiBriefing from '@/components/ceo/CeoAiBriefing';
 import CeoAiChat from '@/components/ceo/CeoAiChat';
 
 export const dynamic = 'force-dynamic';
@@ -38,8 +39,8 @@ export default async function CeoPage() {
       </div>
       <p className="text-sm text-slate-500 mb-5">Ringkasan eksekutif + CEO AI · {m.brandLabel} · {monthLabel(m.curMonth)}</p>
 
-      {/* CEO AI — analyst, advisor, chat */}
-      <CeoAiChat />
+      {/* CEO AI — analyst & advisor otomatis (di atas) */}
+      <CeoAiBriefing />
 
       {/* Ringkasan angka cepat */}
       <div className="rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 text-white p-5 mb-6">
@@ -151,6 +152,9 @@ export default async function CeoPage() {
           </div>
         </div>
       </div>
+
+      {/* Kolom chat — paling bawah */}
+      <CeoAiChat />
     </div>
   );
 }

@@ -1,8 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { getCeoAdvisorAnalysis, askCeoAI } from '@/lib/actions/ceo-ai';
+import { askCeoAI } from '@/lib/actions/ceo-ai';
 
-// Render ringan: **bold**, baris, dan bullet (-, •, angka).
 function RichText({ text }) {
   const lines = String(text || '').split('\n');
   return (
@@ -27,27 +26,12 @@ const SUGGESTED = [
 ];
 
 export default function CeoAiChat() {
-  const [brief, setBrief] = useState(null);
-  const [briefLoading, setBriefLoading] = useState(true);
-  const [briefErr, setBriefErr] = useState(null);
-  const [genAt, setGenAt] = useState(null);
-
-  const [msgs, setMsgs] = useState([]); // {role, content}
+  const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [chatErr, setChatErr] = useState(null);
   const endRef = useRef(null);
 
-  async function loadBrief() {
-    setBriefLoading(true); setBriefErr(null);
-    try {
-      const r = await getCeoAdvisorAnalysis();
-      if (r?.ok) { setBrief(r.text); setGenAt(r.generatedAt); }
-      else setBriefErr(r?.error || 'Gagal memuat analisa.');
-    } catch (e) { setBriefErr(e?.message || 'Gagal memuat analisa.'); }
-    setBriefLoading(false);
-  }
-  useEffect(() => { loadBrief(); }, []);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, sending]);
 
   async function send(text) {
@@ -66,37 +50,15 @@ export default function CeoAiChat() {
   }
 
   return (
-    <div className="rounded-2xl border border-indigo-200 bg-white overflow-hidden mb-6">
-      <div className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-5 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">🧠</span>
-          <div>
-            <p className="font-semibold leading-tight">CEO AI · Business Analyst & Advisor</p>
-            <p className="text-[11px] text-indigo-100">Analisa & diskusi strategi berbasis data perusahaan</p>
-          </div>
+    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden mt-6">
+      <div className="bg-slate-800 text-white px-5 py-3 flex items-center gap-2">
+        <span className="text-lg">💬</span>
+        <div>
+          <p className="font-semibold leading-tight">Diskusi dengan CEO AI</p>
+          <p className="text-[11px] text-slate-300">Tanya apa saja soal bisnis — jawaban berbasis data perusahaan</p>
         </div>
-        <button onClick={loadBrief} disabled={briefLoading}
-          className="text-xs bg-white/15 hover:bg-white/25 disabled:opacity-50 rounded-lg px-3 py-1.5 font-medium">
-          {briefLoading ? 'Menganalisa…' : '↻ Analisa ulang'}
-        </button>
       </div>
-
-      {/* Briefing advisor */}
-      <div className="px-5 py-4 border-b border-slate-100">
-        {briefLoading && <p className="text-sm text-slate-500 animate-pulse">CEO AI sedang menganalisa data perusahaan…</p>}
-        {briefErr && <p className="text-sm text-rose-600">{briefErr}</p>}
-        {brief && !briefLoading && (
-          <>
-            <RichText text={brief} />
-            {genAt && <p className="text-[10px] text-slate-400 mt-3">Dianalisa {new Date(genAt).toLocaleString('id-ID')}</p>}
-          </>
-        )}
-      </div>
-
-      {/* Chat */}
       <div className="px-5 py-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">💬 Diskusi dengan CEO AI</p>
-
         {msgs.length === 0 && (
           <div className="flex flex-wrap gap-2 mb-3">
             {SUGGESTED.map((s) => (
@@ -108,7 +70,7 @@ export default function CeoAiChat() {
           </div>
         )}
 
-        <div className="space-y-3 max-h-[420px] overflow-y-auto">
+        <div className="space-y-3 max-h-[460px] overflow-y-auto">
           {msgs.map((m, i) => (
             <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 ${m.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-800'}`}>
@@ -128,7 +90,7 @@ export default function CeoAiChat() {
 
         <form onSubmit={(e) => { e.preventDefault(); send(); }} className="mt-3 flex gap-2">
           <input value={input} onChange={(e) => setInput(e.target.value)} disabled={sending}
-            placeholder="Tanya apa saja soal bisnis: strategi, cashflow, ads, target…"
+            placeholder="Tanya apa saja soal bisnis: strategi, cashflow, ads, target, ekspansi…"
             className="flex-1 rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:outline-none focus:border-indigo-400 disabled:bg-slate-50" />
           <button type="submit" disabled={sending || !input.trim()}
             className="rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-4 py-2.5 text-sm font-medium">
