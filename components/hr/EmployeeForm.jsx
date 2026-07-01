@@ -306,7 +306,7 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan' 
         <Field label="Avatar URL (opsional)">
           <input autoComplete="off" type="text" name="avatar_url" value={form.avatar_url} onChange={(e) => upd('avatar_url', e.target.value)} placeholder="https://..." className={inputCls} />
         </Field>
-        <Field label="Token Fonnte (untuk kirim WA — khusus PIC Khasanah)">
+        <Field label="Token Fonnte (untuk kirim WA — dipakai kalau karyawan ini jadi PIC trip)">
           <input autoComplete="off" type="text" name="fonnte_token" value={form.fonnte_token} onChange={(e) => upd('fonnte_token', e.target.value)} placeholder="Token Fonnte nomor WA PIC ini" className={inputCls} />
         </Field>
         <Field label="Catatan">
