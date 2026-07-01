@@ -47,8 +47,8 @@ export default async function CSPage() {
   const _bizWin = (dStr) => { const d0 = new Date(dStr + 'T00:00:00Z').getTime(); return { s: d0 - 13 * 3600 * 1000, e: d0 + 11 * 3600 * 1000 }; };
   const _sinceIso = new Date(Date.now() - 32 * 24 * 3600 * 1000).toISOString();
   const _recentPax = await fetchAll(() => supabase.from('trip_passengers')
-    .select('trip_id, joined_at, transfer_status, refund_status').gte('joined_at', _sinceIso));
-  const _activePax = (_recentPax || []).filter((p) => p.transfer_status !== 'transferred' && p.refund_status !== 'refunded' && p.refund_status !== 'partial_refund');
+    .select('trip_id, joined_at, transfer_status, refund_status, lead_source').gte('joined_at', _sinceIso));
+  const _activePax = (_recentPax || []).filter((p) => p.transfer_status !== 'transferred' && p.refund_status !== 'refunded' && p.refund_status !== 'partial_refund' && p.lead_source !== 'master');
   const closingPaxByUpdate = {};
   for (const u of allUpdates) {
     if (!u.tanggal) continue;
