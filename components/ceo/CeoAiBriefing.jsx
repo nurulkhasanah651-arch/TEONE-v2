@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { getCeoAdvisorAnalysis } from '@/lib/actions/ceo-ai';
 
 function RichText({ text }) {
@@ -20,7 +20,7 @@ function RichText({ text }) {
 
 export default function CeoAiBriefing() {
   const [brief, setBrief] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
   const [genAt, setGenAt] = useState(null);
 
@@ -33,7 +33,6 @@ export default function CeoAiBriefing() {
     } catch (e) { setErr(e?.message || 'Gagal memuat analisa.'); }
     setLoading(false);
   }
-  useEffect(() => { load(); }, []);
 
   return (
     <div className="rounded-2xl border border-indigo-200 bg-white overflow-hidden mb-6">
@@ -42,17 +41,32 @@ export default function CeoAiBriefing() {
           <span className="text-lg">🧠</span>
           <div>
             <p className="font-semibold leading-tight">CEO AI · Business Analyst & Advisor</p>
-            <p className="text-[11px] text-indigo-100">Analisa otomatis kondisi, arahan & peluang ekspansi — berbasis data perusahaan</p>
+            <p className="text-[11px] text-indigo-100">Analisa kondisi, arahan & peluang ekspansi — berbasis data perusahaan</p>
           </div>
         </div>
-        <button onClick={load} disabled={loading}
-          className="text-xs bg-white/15 hover:bg-white/25 disabled:opacity-50 rounded-lg px-3 py-1.5 font-medium">
-          {loading ? 'Menganalisa…' : '↻ Analisa ulang'}
-        </button>
+        {(brief || loading) && (
+          <button onClick={load} disabled={loading}
+            className="text-xs bg-white/15 hover:bg-white/25 disabled:opacity-50 rounded-lg px-3 py-1.5 font-medium">
+            {loading ? 'Menganalisa…' : '↻ Analisa ulang'}
+          </button>
+        )}
       </div>
       <div className="px-5 py-4">
+        {!brief && !loading && !err && (
+          <div className="text-center py-6">
+            <p className="text-sm text-slate-500 mb-3">Klik untuk minta CEO AI menganalisa situasi perusahaan, arahan & peluang ekspansi berdasarkan data terkini.</p>
+            <button onClick={load}
+              className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-5 py-2.5 text-sm font-semibold">
+              🧠 Buat Analisa Sekarang
+            </button>
+          </div>
+        )}
         {loading && <p className="text-sm text-slate-500 animate-pulse">CEO AI sedang menganalisa situasi perusahaan & menyusun arahan…</p>}
-        {err && <p className="text-sm text-rose-600">{err}</p>}
+        {err && (
+          <div className="text-sm text-rose-600">
+            {err} <button onClick={load} className="underline ml-1">Coba lagi</button>
+          </div>
+        )}
         {brief && !loading && (
           <>
             <RichText text={brief} />
