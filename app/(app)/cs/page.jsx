@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import LeadsQuickForm from '@/components/cs/LeadsQuickForm';
 import LeadsHistoryTable from '@/components/cs/LeadsHistoryTable';
 import ClosingHistoryTable from '@/components/cs/ClosingHistoryTable';
+import { fetchAll } from '@/lib/supabase/fetch-all';
 import CsRecapPanel from '@/components/cs/CsRecapPanel';
 import { getCsRecapGroup, buildCsRecap } from '@/lib/actions/cs-recap';
 
@@ -44,14 +45,17 @@ export default async function CSPage() {
   // Closing per (trip+tanggal) = jumlah PESERTA aktual masuk dalam window bisnis tanggal itu
   // (per orang, konsisten dgn kartu "Closing Hari Ini"). Window: [D-1 18:00 WIB, D 18:00 WIB).
   const _bizWin = (dStr) => { const d0 = new Date(dStr + 'T00:00:00Z').getTime(); return { s: d0 - 13 * 3600 * 1000, e: d0 + 11 * 3600 * 1000 }; };
-  const _activePax = allParticipants.filter((p) => p.transfer_status !== 'transferred' && p.refund_status !== 'refunded' && p.refund_status !== 'partial_refund');
+  const _sinceIso = new Date(Date.now() - 32 * 24 * 3600 * 1000).toISOString();
+  const _recentPax = await fetchAll(() => supabase.from('trip_passengers')
+    .select('trip_id, joined_at, transfer_status, refund_status').gte('joined_at', _sinceIso));
+  const _activePax = (_recentPax || []).filter((p) => p.transfer_status !== 'transferred' && p.refund_status !== 'refunded' && p.refund_status !== 'partial_refund');
   const closingPaxByUpdate = {};
   for (const u of allUpdates) {
     if (!u.tanggal) continue;
     const { s: _s, e: _e } = _bizWin(u.tanggal);
     let n = 0;
     for (const p of _activePax) {
-      if (p.trip_id !== u.trip_id) continue;
+      if (String(p.trip_id) !== String(u.trip_id)) continue;
       const j = p.joined_at ? new Date(p.joined_at).getTime() : 0;
       if (j >= _s && j < _e) n++;
     }
