@@ -129,7 +129,7 @@ export default async function StorefrontHome() {
         <div className="flex items-end justify-between mb-6">
           <div>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-indigo-600">❄️ Trip Spesial Liburan Akhir Tahun</h2>
-            <p className="text-slate-500 mt-1">Rayakan pergantian tahun di luar negeri — keberangkatan 15 Desember 2026 sampai 5 Januari 2027.</p>
+            <p className="text-slate-500 mt-1">Amanin liburan akhir tahunmu dari sekarang! Belasan trip liburan akhir tahun sudah sold out — sisa ini aja!</p>
           </div>
           <Link href="/trip" className="hidden sm:inline text-sm font-bold text-indigo-600 hover:text-indigo-700">Lihat semua →</Link>
         </div>
