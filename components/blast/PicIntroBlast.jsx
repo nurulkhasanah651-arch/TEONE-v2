@@ -27,6 +27,7 @@ export default function PicIntroBlast() {
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState(null);
   const [err, setErr] = useState(null);
+  const [showList, setShowList] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -97,6 +98,28 @@ export default function PicIntroBlast() {
             Akan dikirim ke <b className="text-violet-700">{recips.families.length}</b> kontak (<b>{recips.totalPax}</b> peserta) di <b>{recips.tripCount}</b> trip
             {recips.noPhone > 0 ? ` · ${recips.noPhone} peserta tanpa nomor (dilewati)` : ''}.
             {recips.tripCount === 0 && <span className="text-amber-700 block mt-1">⚠ Belum ada trip yang di-assign ke PIC ini.</span>}
+            {recips.tripKodes?.length > 0 && <p className="text-[11px] text-slate-500 mt-1">Trip: {recips.tripKodes.join(', ')}</p>}
+            {recips.families.length > 0 && (
+              <button type="button" onClick={() => setShowList((v) => !v)} className="text-[11px] font-semibold text-violet-700 hover:underline mt-1">
+                {showList ? '▾ Sembunyikan daftar penerima' : `▸ Lihat daftar penerima (${recips.families.length} kontak)`}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Preview daftar penerima */}
+        {recips && showList && recips.families.length > 0 && (
+          <div className="max-h-56 overflow-y-auto rounded-xl border border-slate-100 divide-y divide-slate-100">
+            {recips.families.map((f) => (
+              <div key={f.key} className="flex items-start justify-between gap-3 px-3 py-1.5 text-sm">
+                <div className="min-w-0">
+                  <span className="text-slate-800 font-medium">{f.headName || '(tanpa nama)'}</span>
+                  {f.count > 1 && <span className="ml-1 text-[10px] text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">Keluarga {f.count} org</span>}
+                  {f.count > 1 && <p className="text-[11px] text-slate-500 truncate">{f.members.map((m) => m.name).join(', ')}</p>}
+                </div>
+                <span className="text-xs text-slate-400 whitespace-nowrap">{f.phone}</span>
+              </div>
+            ))}
           </div>
         )}
 
