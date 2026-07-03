@@ -43,7 +43,8 @@ export default async function AppLayout({ children }) {
     redirect(defaultPathForRole(role));
   }
 
-  const _wa = await waOutboxSummary().catch(() => ({ count: 0, offlineDepts: [] }));
+  // Portal TL tidak menampilkan notif Fonnte
+  const _wa = role === 'tour_leader' ? { count: 0, offlineDepts: [] } : await waOutboxSummary().catch(() => ({ count: 0, offlineDepts: [] }));
 
   return (
     <div className="min-h-screen bg-slate-50">
