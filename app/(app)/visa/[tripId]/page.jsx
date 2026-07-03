@@ -154,6 +154,7 @@ export default async function VisaTripPage({ params }) {
     formStatus: formStatusMap[p.id]?.status || 'none',
     formType: formStatusMap[p.id]?.form_type || p.visa_form_type || null,
     formSubmittedAt: formStatusMap[p.id]?.submitted_at || null,
+    include_visa: p.include_visa, visa_ready: p.visa_ready,
   }));
 
   const template = trip.visa_doc_template || [];

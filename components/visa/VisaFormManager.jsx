@@ -47,6 +47,9 @@ export default function VisaFormManager({ tripId, passengers = [] }) {
   }
 
   function Badge({ p }) {
+    // Peserta yang sudah ready / tidak diurus di kita -> tak perlu form, tampilkan keterangan saja
+    if (p.visa_ready) return <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800" title="Sudah punya visa">✅ Visa Ready</span>;
+    if (!p.include_visa) return <span className="text-[11px] px-2 py-0.5 rounded bg-slate-200 text-slate-600" title="Visa tidak diurus di kita">🚫 Visa tidak diurus di sini</span>;
     if (p.formStatus === 'submitted') return <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">📝 Form submitted {fmt(p.formSubmittedAt)}</span>;
     if (p.formStatus === 'draft') return <span className="text-[11px] px-2 py-0.5 rounded bg-amber-50 text-amber-700">✏ Draft</span>;
     return <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-500">— Form belum diisi</span>;

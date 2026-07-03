@@ -63,7 +63,8 @@ export default function VisaWorkflowPanel({ trip, passengers = [] }) {
       return next;
     });
   }
-  function selectAll() { setSelectedIds(new Set(passengers.map((p) => p.id))); }
+  // Hanya peserta yang visanya DIURUS di kita (include_visa). Yang sudah ready / tidak diurus dikecualikan.
+  function selectAll() { setSelectedIds(new Set(passengers.filter((p) => p.include_visa).map((p) => p.id))); }
   function clearAll() { setSelectedIds(new Set()); }
 
   // R215q — Open preview instead of direct send
@@ -543,6 +544,8 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
               <span className="font-bold text-slate-800">{c.name || `#${p.id}`}</span>
               {c.phone && <span className="text-xs text-slate-500">📞 {c.phone}</span>}
               {p.family_group_id && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-pink-100 text-pink-800">👨‍👩 Family</span>}
+              {p.visa_ready && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800" title="Peserta sudah punya visa — tidak perlu diproses/di-blast">✅ Visa Ready</span>}
+              {!p.include_visa && !p.visa_ready && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-600" title="Visa peserta ini tidak diurus di kita — tidak perlu di-blast form/persyaratan">🚫 Visa tidak diurus di sini</span>}
               {p.visa_result === 'approved' && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">✅ Approved</span>}
               {p.visa_result === 'rejected' && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-800">❌ Rejected</span>}
               {p.visa_biometric_date && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700" title="Tanggal biometrik (sinkron dari matrix peserta)">📅 {fmtDate(p.visa_biometric_date)}</span>}
