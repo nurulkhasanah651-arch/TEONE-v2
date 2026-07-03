@@ -1,6 +1,7 @@
 // /visa/[tripId]/roomlist.csv — Round 49: include room_assignment
 
 import { createClient } from '@/lib/supabase/server';
+import { roomlistFlatRows } from '@/lib/utils/roomlist';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -21,33 +22,21 @@ export async function GET(req, { params }) {
     .from('trip_passengers')
     .select('*')
     .eq('trip_id', tripId)
-    .order('room_assignment', { ascending: true, nullsFirst: false })
     .order('joined_at', { ascending: true });
 
   const passengers = tp || [];
   const customerIds = passengers.map((p) => p.customer_id).filter(Boolean);
-  let custMap = {};
+  let customers = [];
   if (customerIds.length > 0) {
     const { data: cust } = await supabase.from('customers').select('*').in('id', customerIds);
-    custMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
+    customers = cust || [];
   }
 
+  // Roomlist SAMA dengan proyeksi income ops (generateRoomlist auto live)
   const header = ['No', 'Room', 'Tipe', 'Nama', 'Gender', 'No HP', 'Passport No', 'Passport Expiry', 'Tanggal Lahir', 'Notes'];
-  const rows = passengers.map((p, i) => {
-    const c = custMap[p.customer_id] || {};
-    return [
-      i + 1,
-      p.room_assignment || '',
-      p.room_type || '',
-      c.name || '',
-      c.gender || '',
-      c.phone || '',
-      c.passport_no || '',
-      c.passport_expiry || '',
-      c.birthday || '',
-      p.room_notes || '',
-    ];
-  });
+  const rows = roomlistFlatRows(passengers, customers).map((r) => [
+    r.no, r.room, r.room_type, r.name, r.gender, r.phone, r.passport_no, r.passport_expiry, r.birthday, r.notes,
+  ]);
 
   const csv = '﻿' + [header, ...rows].map((r) => r.map(csvEscape).join(',')).join('\r\n');
 

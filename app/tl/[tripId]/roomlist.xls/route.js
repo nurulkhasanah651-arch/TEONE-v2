@@ -2,6 +2,7 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { roomlistFlatRows } from '@/lib/utils/roomlist';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,47 +19,38 @@ export async function GET(_request, { params }) {
 
   const { data: tp } = await supabase
     .from('trip_passengers').select('*').eq('trip_id', tripId)
-    .order('room_assignment', { ascending: true, nullsFirst: false })
     .order('joined_at', { ascending: true });
 
   const passengers = tp || [];
   const customerIds = passengers.map((p) => p.customer_id).filter(Boolean);
-  let custMap = {};
+  let customers = [];
   if (customerIds.length > 0) {
     const { data: cust } = await supabase.from('customers').select('*').in('id', customerIds);
-    custMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
+    customers = cust || [];
   }
 
-  const byRoom = {};
-  for (const p of passengers) {
-    const room = p.room_assignment || '(belum di-assign)';
-    if (!byRoom[room]) byRoom[room] = [];
-    byRoom[room].push(p);
-  }
-
+  // Roomlist SAMA dengan proyeksi income ops (generateRoomlist auto live)
+  const flat = roomlistFlatRows(passengers, customers);
   const tableRows = [];
-  let idx = 1;
-  for (const roomKey of Object.keys(byRoom).sort((a, b) => {
-    if (a.startsWith('(')) return 1;
-    if (b.startsWith('(')) return -1;
-    return a.localeCompare(b);
-  })) {
-    const list = byRoom[roomKey];
-    tableRows.push(`<tr style="background:#0570de;color:white;font-weight:bold"><td colspan="9">🛏 ${esc(roomKey)} (${list.length} pax)</td></tr>`);
-    for (const p of list) {
-      const c = custMap[p.customer_id] || {};
-      tableRows.push(`<tr>
-        <td>${idx++}</td>
-        <td>${esc(c.name)}</td>
-        <td>${esc(p.room_type)}</td>
-        <td>${esc(c.gender)}</td>
-        <td>${esc(c.phone)}</td>
-        <td>${esc(c.passport_no)}</td>
-        <td>${esc(c.passport_expiry)}</td>
-        <td>${esc(c.birthday)}</td>
-        <td>${esc(p.room_notes)}</td>
-      </tr>`);
+  let curRoom = null; let count = 0; let headerIdx = -1;
+  const roomCounts = {};
+  for (const r of flat) roomCounts[r.room] = (roomCounts[r.room] || 0) + 1;
+  for (const r of flat) {
+    if (r.room !== curRoom) {
+      curRoom = r.room;
+      tableRows.push(`<tr style="background:#0570de;color:white;font-weight:bold"><td colspan="9">🛏 ${esc(r.room)} (${roomCounts[r.room]} pax)</td></tr>`);
     }
+    tableRows.push(`<tr>
+      <td>${r.no}</td>
+      <td>${esc(r.name)}</td>
+      <td>${esc(r.room_type)}</td>
+      <td>${esc(r.gender)}</td>
+      <td>${esc(r.phone)}</td>
+      <td>${esc(r.passport_no)}</td>
+      <td>${esc(r.passport_expiry)}</td>
+      <td>${esc(r.birthday)}</td>
+      <td>${esc(r.notes)}</td>
+    </tr>`);
   }
 
   const html = `<!DOCTYPE html>

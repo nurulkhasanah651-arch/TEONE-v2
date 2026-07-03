@@ -8,6 +8,7 @@
 //   <VisaPDFDownloads trip={trip} passengers={passengersWithCustomers} />
 
 import { useState } from 'react';
+import { generateRoomlist, normalizeGender } from '@/lib/utils/roomlist';
 
 function fmtDateID(d) {
   if (!d) return '-';
@@ -173,7 +174,8 @@ export default function VisaPDFDownloads({ trip, passengers = [] }) {
       if (!jspdf) throw new Error('jsPDF gak ke-load');
       const { jsPDF } = jspdf;
       const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-      const rows = getPaxRows(passengers);
+      const customers = passengers.map((p) => p.customers).filter(Boolean);
+      const roomsGen = generateRoomlist(passengers, customers);
 
       setHeader(doc, 'ROOMLIST', trip);
 
@@ -187,58 +189,40 @@ export default function VisaPDFDownloads({ trip, passengers = [] }) {
       doc.text(`Kode: ${tripLabel}  ·  Berangkat: ${fmtDateID(departure)}${arrival ? `  ·  Pulang: ${fmtDateID(arrival)}` : ''}`, 14, y);
       y += 4;
 
-      // Group by room_type
-      const groups = {};
-      for (const r of rows) {
-        const key = r.room_type || 'Belum di-set';
-        if (!groups[key]) groups[key] = [];
-        groups[key].push(r);
-      }
-      const groupKeys = Object.keys(groups).sort();
-
-      // Summary line
-      const summaryParts = groupKeys.map((k) => `${k}: ${groups[k].length}`);
-      doc.text(`Total: ${rows.length} pax · ${summaryParts.join(' · ')}`, 14, y);
+      // Roomlist SAMA dengan proyeksi income ops (generateRoomlist auto live) — per kamar
+      doc.text(`Total: ${passengers.length} pax · ${roomsGen.length} kamar`, 14, y);
       y += 2;
 
-      // Table for each group
-      for (const key of groupKeys) {
-        const groupRows = groups[key];
-
-        // Group header
-        const headers = [['#', 'Nama', 'Room Type', 'Room Mate', 'Phone', 'Catatan']];
-        const tableRows = groupRows.map((r, idx) => [
-          idx + 1,
-          r.name,
-          r.room_type,
-          r.room_mate,
-          r.phone,
-          r.notes || '',
-        ]);
+      for (const r of roomsGen) {
+        const label = `Kamar ${r.room_no} · ${(r.room_type || '').toUpperCase()}${r.is_family ? ' (Family)' : r.gender === 'M' ? ' (Cowok)' : r.gender === 'F' ? ' (Cewek)' : ''}`;
+        const headers = [['#', 'Nama', 'Gender', 'Phone', 'Catatan']];
+        const tableRows = (r.pax || []).map((px, idx) => {
+          const c = px.customers || {};
+          const g = normalizeGender({ ...px, gender: c.gender || c.sex });
+          return [idx + 1, c.name || '-', g === 'M' ? 'L' : g === 'F' ? 'P' : '-', c.phone || c.whatsapp || '-', r.needs_upgrade ? (r.upgrade_note || '') : ''];
+        });
 
         doc.autoTable({
           startY: y + 4,
           head: headers,
           body: tableRows,
           styles: { fontSize: 9, cellPadding: 2 },
-          headStyles: { fillColor: [168, 85, 247], textColor: 255, fontStyle: 'bold' }, // purple
+          headStyles: { fillColor: [168, 85, 247], textColor: 255, fontStyle: 'bold' },
           alternateRowStyles: { fillColor: [250, 245, 255] },
           margin: { left: 14, right: 14 },
           didDrawPage: (data) => {
-            // Add group title above table on first page
             doc.setFontSize(11);
             doc.setFont(undefined, 'bold');
             doc.setTextColor(126, 34, 206);
-            doc.text(`🛏 ${key} (${groupRows.length})`, 14, data.cursor.y - 6);
+            doc.text(`🛏 ${label} (${(r.pax || []).length})`, 14, data.cursor.y - 6);
             doc.setTextColor(30);
           },
           columnStyles: {
             0: { cellWidth: 10 },
-            1: { cellWidth: 50 },
-            2: { cellWidth: 28 },
-            3: { cellWidth: 40 },
-            4: { cellWidth: 28 },
-            5: { cellWidth: 25 },
+            1: { cellWidth: 70 },
+            2: { cellWidth: 20 },
+            3: { cellWidth: 35 },
+            4: { cellWidth: 45 },
           },
         });
         y = doc.lastAutoTable.finalY + 4;

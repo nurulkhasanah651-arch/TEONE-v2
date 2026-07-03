@@ -33,24 +33,10 @@ function tlMemberDetail(c = {}, pax = {}) {
 export default function TLManifestRoomlist({ trip, passengers = [], customerMap = {} }) {
   const [tab, setTab] = useState('manifest');
 
+  // Roomlist SAMA dengan proyeksi income ops: selalu generateRoomlist (auto live),
+  // tidak lagi memakai final_roomlist tersimpan yang bisa basi.
   const rooms = useMemo(() => {
     const customers = Object.values(customerMap);
-    const custByName = {}; for (const c of customers) { if (c?.name) custByName[String(c.name).toLowerCase()] = c; }
-    const saved = trip?.final_roomlist?.rooms;
-    if (Array.isArray(saved) && saved.length > 0) {
-      return saved.map((r, i) => ({
-        room_no: r.room_no || i + 1,
-        room_type: r.room_type,
-        label: r.label,
-        is_family: r.is_family,
-        members: (r.members || []).map((m) => {
-          const c = custByName[String(m.name || '').toLowerCase()] || {};
-          const d = tlMemberDetail(c, { gender: m.gender });
-          return { ...d, name: m.name || d.name, gender: m.gender || d.gender };
-        }),
-        note: r.note,
-      }));
-    }
     return generateRoomlist(passengers, customers).map((r) => ({
       room_no: r.room_no,
       room_type: r.room_type,
@@ -59,9 +45,9 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
       members: (r.pax || []).map((p) => tlMemberDetail(customerMap[p.customer_id] || {}, p)),
       note: r.needs_upgrade ? r.upgrade_note : '',
     }));
-  }, [trip, passengers, customerMap]);
+  }, [passengers, customerMap]);
 
-  const isSavedFinal = Array.isArray(trip?.final_roomlist?.rooms) && trip.final_roomlist.rooms.length > 0;
+  const isSavedFinal = false;
 
   async function downloadManifestPdf() {
     try {
