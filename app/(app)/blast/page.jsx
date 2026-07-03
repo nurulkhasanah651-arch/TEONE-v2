@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getRoleFromUser } from '@/lib/utils/roles';
 import { listBlastTrips } from '@/lib/actions/blast';
 import BlastClient from '@/components/blast/BlastClient';
+import PicIntroBlast from '@/components/blast/PicIntroBlast';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +27,8 @@ export default async function BlastPage() {
         <span className="text-2xl">📣</span>
         <h1 className="text-2xl font-bold text-slate-800">Blast WA</h1>
       </div>
-      <p className="text-sm text-slate-500 mb-5">Kirim satu pesan ke semua peserta aktif dalam satu trip. Personalisasi nama otomatis, nomor pengirim CS.</p>
+      <p className="text-sm text-slate-500 mb-5">Kirim pesan WA ke peserta. Perkenalan PIC (semua trip PIC) atau blast per-trip.</p>
+      <PicIntroBlast />
       <BlastClient trips={trips} />
     </div>
   );
