@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { resolveBrandCode } from '@/lib/brand-shared';
 import { storefrontConfig } from '@/lib/shop/storefront-config';
 import { effectiveRegions } from '@/lib/shop/regions';
-import { getFlashSaleTrips, getBestSellerTrips, getYearEndSpecialTrips, getStorefrontSettingsPublic } from '@/lib/shop/data';
+import { getFlashSaleTrips, getBestSellerTrips, getYearEndSpecialTrips, getAvailableDepartureMonths, getStorefrontSettingsPublic } from '@/lib/shop/data';
 import { getGoogleReviews } from '@/lib/shop/google-reviews';
 import TripCard from '@/components/shop/TripCard';
 import HeroSlider from '@/components/shop/HeroSlider';
@@ -27,6 +27,7 @@ export default async function StorefrontHome() {
   const regions = effectiveRegions(settings?.regions);
   const flashSale = await getFlashSaleTrips(20);
   const yearEnd = await getYearEndSpecialTrips(30);
+  const availMonths = await getAvailableDepartureMonths();
   const bestSeller = await getBestSellerTrips(20);
   const live = await getGoogleReviews(cfg.googlePlaceId);
   const rating = live?.rating || cfg.googleRating;
@@ -51,6 +52,8 @@ export default async function StorefrontHome() {
     }),
   };
   const _siteLd = { '@context': 'https://schema.org', '@type': 'WebSite', name: _orgName, url: _orgUrl };
+  const _MON = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  const _monthLabel = (ym) => { const [y, m] = ym.split('-'); return `${_MON[Number(m) - 1]} ${y}`; };
 
   return (
     <div>
@@ -106,6 +109,21 @@ export default async function StorefrontHome() {
           </div>
         </div>
       </section>
+
+      {/* PILIH BULAN KEBERANGKATAN — pill kecil, arah ke daftar trip terfilter */}
+      {availMonths.length > 0 && (
+      <section className="max-w-6xl mx-auto px-4 pt-10 pb-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-bold text-slate-700 mr-1">📅 Berangkat bulan:</span>
+          {availMonths.map((ym) => (
+            <Link key={ym} prefetch={false} href={`/trip?month=${ym}`} className="px-3 py-1 rounded-full text-xs font-semibold border bg-white text-slate-600 border-slate-200 hover:border-blue-500 hover:text-blue-700 transition-colors">
+              {_monthLabel(ym)}
+            </Link>
+          ))}
+          <Link prefetch={false} href="/trip" className="px-3 py-1 rounded-full text-xs font-bold border border-blue-600 bg-blue-600 text-white hover:bg-blue-700">Semua →</Link>
+        </div>
+      </section>
+      )}
 
       {/* FLASH SALE — promo/diskon */}
       {flashSale.length > 0 && (
