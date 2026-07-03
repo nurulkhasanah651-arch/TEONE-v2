@@ -34,7 +34,14 @@ export async function GET(_request, { params }) {
     return new Response('Trip not found', { status: 404 });
   }
   const trip = tripRes.data;
-  const passengers = paxRes.data || [];
+  const passengers = (paxRes.data || []).filter((p) =>
+    p.status !== 'cancelled' && p.transfer_status !== 'transferred' &&
+    p.refund_status !== 'refunded' && p.refund_status !== 'partial_refund');
+  const _famCount = {};
+  for (const p of passengers) if (p.family_group_id) _famCount[p.family_group_id] = (_famCount[p.family_group_id] || 0) + 1;
+  const _famNo = {}; let _fc = 0;
+  for (const p of passengers) { const fg = p.family_group_id; if (fg && _famCount[fg] >= 2 && !(fg in _famNo)) _famNo[fg] = ++_fc; }
+  const _ket = (p) => (p.family_group_id && _famCount[p.family_group_id] >= 2) ? `Keluarga ${_famNo[p.family_group_id]} (${_famCount[p.family_group_id]} org)` : '-';
   const customerIds = passengers.map((p) => p.customer_id).filter(Boolean);
 
   let customerMap = {};
@@ -48,7 +55,7 @@ export async function GET(_request, { params }) {
     'No', 'Nama Lengkap', 'Nama Depan', 'Nama Belakang',
     'Gender', 'Tempat Lahir', 'Tanggal Lahir', 'Umur',
     'No Passport', 'Passport Diterbitkan', 'Tanggal Issue Passport', 'Tanggal Expiry Passport',
-    'No HP', 'Email', 'Tipe Kamar',
+    'No HP', 'Email', 'Tipe Kamar', 'Keterangan',
   ];
 
   const rows = [headers.map(escapeCsv).join(',')];
@@ -71,6 +78,7 @@ export async function GET(_request, { params }) {
       c.phone || '',
       c.email || '',
       p.room_type || '',
+      _ket(p),
     ];
     rows.push(row.map(escapeCsv).join(','));
   });
