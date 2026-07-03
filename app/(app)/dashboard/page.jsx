@@ -132,6 +132,20 @@ export default async function DashboardPage() {
     .sort((a, b) => new Date(a.departure) - new Date(b.departure))
     .slice(0, 5);
 
+  // Trip baru dibuat (30 hari terakhir) — urut created_at terbaru
+  const _now = Date.now();
+  const newTrips = [...trips]
+    .filter((t) => t.created_at)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .filter((t) => (_now - new Date(t.created_at).getTime()) <= 30 * 86400000)
+    .slice(0, 8);
+  const _agoLabel = (iso) => {
+    const days = Math.floor((_now - new Date(iso).getTime()) / 86400000);
+    if (days <= 0) return 'hari ini';
+    if (days === 1) return 'kemarin';
+    return `${days} hari lalu`;
+  };
+
   const name = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'User';
   const visibleQuick = filterNavByRole(ALL_QUICK, role);
 
@@ -200,6 +214,36 @@ export default async function DashboardPage() {
           ))}
         </div>
       </div>
+
+      {/* Trip baru dibuat */}
+      {newTrips.length > 0 && (
+      <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
+          <h2 className="font-bold text-brand-700">🆕 Trip Baru Dibuat ({newTrips.length})</h2>
+          <Link href="/trips" className="text-xs font-semibold text-brand-600 hover:underline">Kelola di Master Trip →</Link>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {newTrips.map((t) => {
+            const pax = (paxByTrip[t.id] || []).length;
+            return (
+              <Link key={t.id} href={`/trips/${t.id}`} className="block px-5 py-3 hover:bg-slate-50">
+                <div className="flex items-start justify-between gap-2 flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-mono font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded">{t.kode_trip || `#${t.id}`}</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">🆕 {_agoLabel(t.created_at)}</span>
+                      {t.status && <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">{t.status}</span>}
+                    </div>
+                    <p className="mt-1 text-sm font-bold text-slate-800">{t.name}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{t.departure ? `Berangkat ${fmtDate(t.departure)}` : 'Tanggal belum diisi'} · {pax} peserta · {t.destination || '—'}</p>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+      )}
 
       {/* Upcoming trips */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
