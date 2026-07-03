@@ -20,7 +20,7 @@ function getServiceClient() {
 async function sendTLConfirmWA(phone, message) {
   try {
     let brand = ''; try { brand = currentBrandCode(); } catch {}
-    const { token } = getFonnteToken('ops', brand);
+    const { token } = getFonnteToken('cs', brand);
     if (!token || !phone) return;
     await fetch('https://api.fonnte.com/send', {
       method: 'POST',
