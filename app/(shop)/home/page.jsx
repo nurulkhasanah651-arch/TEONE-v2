@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { resolveBrandCode } from '@/lib/brand-shared';
 import { storefrontConfig } from '@/lib/shop/storefront-config';
 import { effectiveRegions } from '@/lib/shop/regions';
-import { getFlashSaleTrips, getBestSellerTrips, getStorefrontSettingsPublic } from '@/lib/shop/data';
+import { getFlashSaleTrips, getBestSellerTrips, getYearEndSpecialTrips, getStorefrontSettingsPublic } from '@/lib/shop/data';
 import { getGoogleReviews } from '@/lib/shop/google-reviews';
 import TripCard from '@/components/shop/TripCard';
 import HeroSlider from '@/components/shop/HeroSlider';
@@ -26,6 +26,7 @@ export default async function StorefrontHome() {
   const heroImages = (settings?.hero_images && settings.hero_images.length) ? settings.hero_images : (cfg.heroImages || (cfg.heroImage ? [cfg.heroImage] : []));
   const regions = effectiveRegions(settings?.regions);
   const flashSale = await getFlashSaleTrips(20);
+  const yearEnd = await getYearEndSpecialTrips(30);
   const bestSeller = await getBestSellerTrips(20);
   const live = await getGoogleReviews(cfg.googlePlaceId);
   const rating = live?.rating || cfg.googleRating;
@@ -118,6 +119,22 @@ export default async function StorefrontHome() {
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
           {flashSale.map((t) => <TripCard key={t.id} t={t} />)}
+        </div>
+      </section>
+      )}
+
+      {/* TRIP SPESIAL LIBURAN AKHIR TAHUN — berangkat 15 Des 2026 - 5 Jan 2027 */}
+      {yearEnd.length > 0 && (
+      <section className="max-w-6xl mx-auto px-4 py-14">
+        <div className="flex items-end justify-between mb-6">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-indigo-600">❄️ Trip Spesial Liburan Akhir Tahun</h2>
+            <p className="text-slate-500 mt-1">Rayakan pergantian tahun di luar negeri — keberangkatan 15 Desember 2026 sampai 5 Januari 2027.</p>
+          </div>
+          <Link href="/trip" className="hidden sm:inline text-sm font-bold text-indigo-600 hover:text-indigo-700">Lihat semua →</Link>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+          {yearEnd.map((t) => <TripCard key={t.id} t={t} />)}
         </div>
       </section>
       )}
