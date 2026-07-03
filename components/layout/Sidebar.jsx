@@ -44,7 +44,7 @@ const GROUPS = [
     label: 'Operasional',
     items: [
       { href: '/operasional',   label: 'Operasional',  icon: '🛠', roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
-      { href: '/plan',          label: 'Plan Trip',    icon: '🗺', roles: ['owner', 'accounting', 'manager', 'ops'] },
+      { href: '/plan',          label: 'Plan Trip',    icon: '🗺', roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
       { href: '/private-trips', label: 'Request Trip', icon: '📨', roles: ALL_ROLES },
     ],
   },
@@ -66,7 +66,7 @@ const GROUPS = [
     items: [
       { href: '/tl',           label: 'Portal TL',    icon: '👤', roles: [...ALL_ROLES, 'tour_leader'] },
       { href: '/tl-master',    label: 'Master TL',    icon: '👥', roles: ALL_ROLES },
-      { href: '/mitra-master', label: 'Master Mitra', icon: '🤝', roles: ['owner', 'accounting', 'manager', 'ops', 'cs'] },
+      { href: '/mitra-master', label: 'Master Mitra', icon: '🤝', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'] },
     ],
   },
   {
