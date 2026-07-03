@@ -27,7 +27,7 @@ export default function TLAssignButton({ trip }) {
         setError(r.error);
         return;
       }
-      alert(`✓ Notif WA terkirim ke ${r.tlName} (${r.phone})`);
+      alert(`✓ Notif WA terkirim ke ${r.tlName} (${r.phone})\n\nDikirim via token: ${r.sentVia || '-'}`);
       router.refresh();
     });
   }
