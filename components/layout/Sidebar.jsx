@@ -79,16 +79,18 @@ const GROUPS = [
   },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ role: roleProp = null }) {
   const [brandUi, setBrandUi] = useState(BRAND_UI.teone);
   useEffect(() => { setBrandUi(BRAND_UI[resolveBrandCodeBrowser()] || BRAND_UI.teone); }, []);
   const pathname = usePathname();
-  const [role, setRole] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState(roleProp);
+  const [loading, setLoading] = useState(!roleProp);
   const [open, setOpen] = useState({}); // { groupKey: bool }
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
+    // Utamakan role OTORITATIF dari layout (dihitung dari employees) — anti metadata basi.
+    if (roleProp) { setRole(roleProp); setLoading(false); return; }
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       let r = user?.app_metadata?.role || user?.user_metadata?.role || null;
@@ -100,7 +102,7 @@ export default function Sidebar() {
       setRole(r || 'pending');
       setLoading(false);
     });
-  }, []);
+  }, [roleProp]);
 
   // Inisialisasi state buka-tutup: ambil dari localStorage, lalu pastikan grup aktif kebuka
   useEffect(() => {
