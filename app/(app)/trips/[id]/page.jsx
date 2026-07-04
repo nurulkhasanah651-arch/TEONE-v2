@@ -16,6 +16,7 @@ import FamilyGroupManager from '@/components/families/FamilyGroupManager';
 // R216b: Import Excel panel
 import ImportExcelPanel from '@/components/trips/ImportExcelPanel';
 import TripExcelDownloadButton from '@/components/trips/TripExcelDownloadButton';
+import CopyWaTemplateButton from '@/components/trips/CopyWaTemplateButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -165,6 +166,7 @@ export default async function TripDetailPage({ params }) {
           <p className="text-xs text-slate-500">Client Data, Payment Checklist, Manifest, Status Visa, Roomlist (terbaru), Refund — 1 file Excel.</p>
         </div>
         <TripExcelDownloadButton tripId={trip.id} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-card" />
+        <CopyWaTemplateButton tripId={trip.id} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-card" />
       </div>
 
       {/* R216b — Import Peserta dari Excel Master Trip Travelops */}
