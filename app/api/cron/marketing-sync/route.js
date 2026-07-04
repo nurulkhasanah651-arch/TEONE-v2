@@ -5,6 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 import {
   WINDSOR_BRANDS, META_AD_ACCOUNTS, brandForCampaign,
   fetchMetaAdsAll, fetchInstagramOverview, fetchActiveAds,
@@ -88,7 +89,18 @@ export async function GET(request) {
   const provided = url.searchParams.get('secret') || (auth.startsWith('Bearer ') ? auth.slice(7) : '');
   const cronSecret = process.env.CRON_SECRET;
   const windsorKey = process.env.WINDSOR_API_KEY;
-  const ok = (!!cronSecret && provided === cronSecret) || (!!windsorKey && provided === windsorKey);
+  let ok = (!!cronSecret && provided === cronSecret) || (!!windsorKey && provided === windsorKey);
+  if (!ok) {
+    // Izinkan owner yang sedang login untuk memicu sync manual dari browser.
+    try {
+      const sb = createServerClient();
+      const { data: { user } } = await sb.auth.getUser();
+      if (user) {
+        const { data: u } = await sb.from('users').select('role').eq('id', user.id).maybeSingle();
+        if (u?.role === 'owner') ok = true;
+      }
+    } catch {}
+  }
   if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
 
   const onlyBrand = url.searchParams.get('brand'); // 'teone' | 'khasanah'
