@@ -8,7 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import {
   WINDSOR_BRANDS, META_AD_ACCOUNTS, brandForCampaign,
-  fetchMetaAdsAll, fetchInstagramOverview, fetchActiveAds,
+  fetchMetaAdsAll, fetchInstagramOverview, fetchActiveAds, extractTripCode,
 } from '@/lib/windsor';
 
 export const dynamic = 'force-dynamic';
@@ -42,9 +42,26 @@ async function writeAds(brand, rows, errors) {
   // Hapus SEMUA baris windsor-sync brand ini dulu (bersihkan yg pindah brand / stale), lalu isi ulang
   await c.db.from('ads_entries').delete().eq('created_by', 'windsor-sync');
   if (!rows.length) return 0;
+  // Map kode_trip -> trip.id + override manual campaign->trip (biar per-trip auto ke-link)
+  const kodeToId = {};
+  try {
+    const { data: trips } = await c.db.from('trips').select('id, kode_trip');
+    for (const t of (trips || [])) if (t.kode_trip) kodeToId[String(t.kode_trip).toUpperCase()] = t.id;
+  } catch {}
+  const overrideKeys = new Set(); const override = {};
+  try {
+    const { data: maps } = await c.db.from('ad_campaign_map').select('campaign_name, trip_id').eq('brand_id', c.brand_id);
+    for (const m of (maps || [])) { overrideKeys.add(m.campaign_name); override[m.campaign_name] = m.trip_id; }
+  } catch {}
+  const tripFor = (campaign) => {
+    if (overrideKeys.has(campaign)) return override[campaign] || null; // override menang (null = sengaja tanpa trip)
+    const code = extractTripCode(campaign);
+    return code ? (kodeToId[code] || null) : null;
+  };
   const payload = rows.map((r) => ({
     date: r.date, platform: 'meta', campaign_name: r.campaign_name,
     spend: r.spend, impressions: r.impressions, clicks: r.clicks, leads: r.leads,
+    trip_id: tripFor(r.campaign_name),
     notes: 'Auto-sync Windsor', created_by: 'windsor-sync', brand_id: c.brand_id,
   }));
   for (let i = 0; i < payload.length; i += 200) {

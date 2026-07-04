@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import AdsManager from '@/components/ads/AdsManager';
 import ManagerAiChat from '@/components/ads/ManagerAiChat';
+import CampaignTripLinker from '@/components/ads/CampaignTripLinker';
 import { getRoleFromUser } from '@/lib/utils/roles';
 
 export const dynamic = 'force-dynamic';
@@ -657,6 +658,8 @@ export default async function AdsManagerPage({ searchParams }) {
           </div>
         </section>
       )}
+
+      {_canManagerAi && <CampaignTripLinker />}
 
       <AdsManager entries={adsEntries.slice(0, 50)} trips={trips} />
 
