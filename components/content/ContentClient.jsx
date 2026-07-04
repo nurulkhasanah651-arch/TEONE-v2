@@ -37,10 +37,10 @@ export default function ContentClient({ posts, trips, ig, igFetchedAt, igConnect
           <h1 className="text-xl font-bold text-slate-800">📱 Konten Manager</h1>
           <p className="text-xs text-slate-500">Rencanakan konten per trip & campaign, pantau performa Instagram</p>
         </div>
-        <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+        <div className="flex gap-1 bg-slate-100 rounded-lg p-1 overflow-x-auto max-w-full">
           {[['jadwal', '🗓 Jadwal Konten'], ['kalender', '📅 Kalender'], ['ig', '📈 Performa IG'], ['koneksi', '⚙️ Koneksi']].map(([k, label]) => (
             <button key={k} onClick={() => setTab(k)}
-              className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${tab === k ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+              className={`px-4 py-1.5 rounded-md text-sm font-bold whitespace-nowrap shrink-0 transition-colors ${tab === k ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
               {label}
             </button>
           ))}
@@ -391,7 +391,7 @@ function IgTab({ ig, igFetchedAt, posts, campaignStats, onRefresh, pending }) {
       {Object.keys(campaignStats).length > 0 && (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">📢 Campaign × Konten</div>
-          <table className="w-full text-xs">
+          <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-xs whitespace-nowrap">
             <thead><tr className="text-left text-slate-500 border-b border-slate-100">
               <th className="px-4 py-2">Campaign</th><th className="px-2 py-2">Spend</th><th className="px-2 py-2">Leads</th><th className="px-2 py-2">Konten tertaut</th><th className="px-2 py-2">Engagement IG</th>
             </tr></thead>
@@ -413,7 +413,7 @@ function IgTab({ ig, igFetchedAt, posts, campaignStats, onRefresh, pending }) {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
 
@@ -543,7 +543,7 @@ function TopIgMediaPerforma({ media }) {
       {ranked.length === 0 ? (
         <p className="px-4 py-6 text-center text-xs text-slate-400">Belum ada post IG di periode ini.</p>
       ) : (
-        <table className="w-full text-xs">
+        <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-xs whitespace-nowrap">
           <thead><tr className="text-left text-slate-500 border-b border-slate-100">
             <th className="px-4 py-2">#</th><th className="px-2 py-2">Konten</th><th className="px-2 py-2">Tgl</th>
             <th className="px-2 py-2 text-right">Interaksi</th><th className="px-2 py-2 text-right">👁 Reach</th><th className="px-2 py-2"></th>
@@ -560,7 +560,7 @@ function TopIgMediaPerforma({ media }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       )}
       <p className="px-4 py-1.5 text-[10px] text-slate-400 border-t border-slate-100">Interaksi = likes + komentar + saves. Diambil dari post IG terbaru.</p>
     </div>
@@ -598,7 +598,7 @@ function TopContentPerforma({ posts }) {
       {ranked.length === 0 ? (
         <p className="px-4 py-6 text-center text-xs text-slate-400">Belum ada konten dengan angka performa di periode ini. Isi performa di tab 📅 Kalender (tombol ✏️ Edit).</p>
       ) : (
-        <table className="w-full text-xs">
+        <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-xs whitespace-nowrap">
           <thead><tr className="text-left text-slate-500 border-b border-slate-100">
             <th className="px-4 py-2">#</th><th className="px-2 py-2">Konten</th><th className="px-2 py-2">Tgl</th>
             <th className="px-2 py-2 text-right">Interaksi</th><th className="px-2 py-2 text-right">👁 Reach</th><th className="px-2 py-2"></th>
@@ -615,7 +615,7 @@ function TopContentPerforma({ posts }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       )}
       <p className="px-4 py-1.5 text-[10px] text-slate-400 border-t border-slate-100">Interaksi = likes + komentar + saves. Periode dihitung dari tanggal posting (atau jadwal).</p>
     </div>
@@ -655,7 +655,7 @@ function ManualPerformance({ posts, campaignStats }) {
         {withMetrics.length === 0 ? (
           <p className="px-4 py-8 text-center text-xs text-slate-400">Belum ada konten dengan angka performa. Edit konten di tab 📅 Kalender, isi bagian 📊 Performa.</p>
         ) : (
-          <table className="w-full text-xs">
+          <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-xs whitespace-nowrap">
             <thead><tr className="text-left text-slate-500 border-b border-slate-100">
               <th className="px-4 py-2">Konten</th><th className="px-2 py-2">Campaign</th>
               <th className="px-2 py-2">❤️</th><th className="px-2 py-2">💬</th><th className="px-2 py-2">👁</th><th className="px-2 py-2">🔖</th>
@@ -672,7 +672,7 @@ function ManualPerformance({ posts, campaignStats }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
 
@@ -680,7 +680,7 @@ function ManualPerformance({ posts, campaignStats }) {
       {Object.keys(campaignStats).length > 0 && (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">📢 Campaign × Konten</div>
-          <table className="w-full text-xs">
+          <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-xs whitespace-nowrap">
             <thead><tr className="text-left text-slate-500 border-b border-slate-100">
               <th className="px-4 py-2">Campaign</th><th className="px-2 py-2">Spend</th><th className="px-2 py-2">Leads</th><th className="px-2 py-2">Konten</th><th className="px-2 py-2">Engagement</th>
             </tr></thead>
@@ -699,7 +699,7 @@ function ManualPerformance({ posts, campaignStats }) {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
     </div>

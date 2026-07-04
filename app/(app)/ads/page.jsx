@@ -347,7 +347,7 @@ export default async function AdsManagerPage({ searchParams }) {
           <p className="text-xs text-slate-500 mt-0.5">Bulan {filterMonth} · {Object.keys(CHANNELS).length} channels · ⏱ = Avg hari chat→closing</p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[860px] text-sm whitespace-nowrap">
             <thead className="bg-slate-50 text-[11px] font-bold text-slate-600 uppercase">
               <tr>
                 <th className="px-3 py-2 text-left">Channel</th>
@@ -476,7 +476,7 @@ export default async function AdsManagerPage({ searchParams }) {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[860px] text-sm whitespace-nowrap">
               <thead className="bg-slate-50 text-[11px] font-bold text-slate-600 uppercase">
                 <tr>
                   <th className="px-3 py-2 text-left">Trip</th>
