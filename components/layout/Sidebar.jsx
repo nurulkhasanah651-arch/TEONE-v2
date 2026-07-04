@@ -57,6 +57,7 @@ const GROUPS = [
       { href: '/ads',           label: 'Ads Manager',      icon: '📢', roles: ALL_ROLES },
       { href: '/content',       label: 'Konten',           icon: '📱', roles: ALL_ROLES },
       { href: '/blast',         label: 'Blast WA',         icon: '📣', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'] },
+      { href: '/wa-history',    label: 'History WA',       icon: '💬', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'] },
       { href: '/etalase',       label: 'Etalase Web',      icon: '🖼', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'] },
     ],
   },
