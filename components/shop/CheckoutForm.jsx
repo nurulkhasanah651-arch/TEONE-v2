@@ -100,6 +100,18 @@ export default function CheckoutForm({ trip }) {
   }
 
   const subtotalFull = allItems.reduce((s, it) => s + it.price * (qty[it.key] || 0), 0);
+  // Rincian harga pokok kamar + biaya wajib (tips, city tax, bagasi/tiket domestik) -> jelas kenapa total naik
+  const pokokKamarTotal = allItems.reduce((s, it) => s + (Number(it.base) || 0) * (qty[it.key] || 0), 0);
+  const wajibBreakdown = {};
+  for (const it of allItems) {
+    const q = qty[it.key] || 0;
+    if (!q) continue;
+    for (const a of (it.addons || [])) {
+      if (!a || !a.value) continue;
+      wajibBreakdown[a.label] = (wajibBreakdown[a.label] || 0) + (Number(a.value) || 0) * q;
+    }
+  }
+  const wajibEntries = Object.entries(wajibBreakdown).filter(([, v]) => v > 0);
   const dp = Number(trip.dp_amount || 0);
   const dpBase = dp > 0 ? dp * pax : Math.round(subtotalFull * 0.2);
   const base = payType === 'full' ? subtotalFull : dpBase;
@@ -313,7 +325,15 @@ export default function CheckoutForm({ trip }) {
 
       <div className="bg-slate-900 text-white rounded-2xl p-4 space-y-1.5">
         <div className="flex justify-between text-sm"><span className="opacity-80">Total peserta</span><span className="font-bold">{pax} orang</span></div>
-        <div className="flex justify-between text-sm"><span className="opacity-80">Harga paket</span><span className="font-bold">{fmtRp(subtotalFull)}</span></div>
+        {pax > 0 && (
+          <div className="border-t border-white/10 pt-1.5 mt-1 space-y-1">
+            <div className="flex justify-between text-[13px]"><span className="opacity-70">Harga pokok kamar</span><span className="opacity-90">{fmtRp(pokokKamarTotal)}</span></div>
+            {wajibEntries.map(([label, val]) => (
+              <div key={label} className="flex justify-between text-[12px] opacity-60"><span>+ {label}</span><span>{fmtRp(val)}</span></div>
+            ))}
+          </div>
+        )}
+        <div className="flex justify-between text-sm pt-1.5 border-t border-white/10 mt-1"><span className="opacity-80">Harga paket</span><span className="font-bold">{fmtRp(subtotalFull)}</span></div>
         {payType === 'dp' && <div className="flex justify-between text-sm"><span className="opacity-80">DP ({fmtRp(dp)} × {pax})</span><span className="font-bold">{fmtRp(dpBase)}</span></div>}
         <p className="text-[11px] opacity-70">Biaya admin {fmtRp(adminFee)} hanya untuk pembayaran ONLINE (kartu/VA/e-wallet). Transfer bank manual tanpa biaya admin.</p>
         <div className="flex justify-between pt-2 mt-1 border-t border-white/20">
