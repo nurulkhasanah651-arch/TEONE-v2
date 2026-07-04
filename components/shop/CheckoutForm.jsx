@@ -156,12 +156,12 @@ export default function CheckoutForm({ trip }) {
   }
 
   const inp = 'w-full mt-1 px-3 py-2.5 border border-slate-300 rounded-xl text-sm';
-  const Stepper = ({ it }) => (
+  const Stepper = ({ it, showBase = false }) => (
     <div className="flex items-center justify-between gap-3 py-2 border-b border-slate-100 last:border-0">
       <div className="pr-2">
         <p className="text-sm font-semibold text-slate-800">{it.label}</p>
-        <p className="text-xs font-bold text-slate-700">{fmtRp(it.price)} / orang</p>
-        {it.addons?.length > 0 && it.base > 0 && (
+        <p className="text-xs font-bold text-slate-700">{fmtRp(showBase && it.base > 0 ? it.base : it.price)} / orang</p>
+        {!showBase && it.addons?.length > 0 && it.base > 0 && (
           <p className="text-[10px] text-slate-400 mt-0.5 leading-snug">
             {it.label} {fmtRp(it.base)}{it.addons.map((a, k) => ` + ${a.label} ${fmtRp(a.value)}`).join('')}
           </p>
@@ -199,7 +199,7 @@ export default function CheckoutForm({ trip }) {
         <div className="border border-slate-200 rounded-2xl p-4">
           <p className="text-sm font-bold text-slate-800">🛏 Kamar (pilih jumlah orang)</p>
           <p className="text-[11px] text-slate-400 mb-1">Double = 2 orang, Triple = 3 orang, dst. Harga per orang.</p>
-          {items.rooms.map((it) => <Stepper key={it.key} it={it} />)}
+          {items.rooms.map((it) => <Stepper key={it.key} it={it} showBase />)}
         </div>
       )}
 
