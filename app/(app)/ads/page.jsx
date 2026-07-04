@@ -62,7 +62,7 @@ export default async function AdsManagerPage({ searchParams }) {
   const { data: { user: _mgrUser } } = await supabase.auth.getUser();
   let _mgrRole = getRoleFromUser(_mgrUser);
   try { const { data: _u } = await supabase.from('users').select('role').eq('id', _mgrUser?.id).maybeSingle(); if (_u?.role) _mgrRole = _u.role; } catch {}
-  const _canManagerAi = ['owner','manager','ops','accounting'].includes(_mgrRole);
+  const _canManagerAi = ['owner','manager','ops','accounting','cs'].includes(_mgrRole);
   const [adsEntries, csUpdates, trips, trip_passengers, activeAds] = await Promise.all([
     safeQuery(supabase.from('ads_entries').select('*').order('date', { ascending: false })),
     safeQuery(supabase.from('cs_daily_updates').select('*')),
