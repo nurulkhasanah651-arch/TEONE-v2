@@ -28,7 +28,8 @@ export default function WaHistoryView({ rows = [] }) {
       return (r.target_phone || '').toLowerCase().includes(s)
         || (r.contact_name || '').toLowerCase().includes(s)
         || (r.message || '').toLowerCase().includes(s)
-        || (r.context || '').toLowerCase().includes(s);
+        || (r.context || '').toLowerCase().includes(s)
+        || (r.sender || '').toLowerCase().includes(s);
     });
   }, [rows, q, fState]);
 
@@ -68,6 +69,7 @@ export default function WaHistoryView({ rows = [] }) {
               <th className="px-3 py-2 text-left">Waktu</th>
               <th className="px-3 py-2 text-left">Tujuan</th>
               <th className="px-3 py-2 text-left">Konteks</th>
+              <th className="px-3 py-2 text-left">Dikirim dari</th>
               <th className="px-3 py-2 text-left">Isi pesan</th>
               <th className="px-3 py-2 text-center">Status</th>
             </tr>
@@ -83,6 +85,7 @@ export default function WaHistoryView({ rows = [] }) {
                     <div className="text-[11px] text-slate-400 font-mono">{r.target_phone || '-'}</div>
                   </td>
                   <td className="px-3 py-2 text-xs text-slate-500 whitespace-nowrap">{r.context || '-'}{r.kind ? ` · ${r.kind}` : ''}</td>
+                  <td className="px-3 py-2 text-xs text-slate-600 whitespace-nowrap font-medium">{r.sender || '—'}</td>
                   <td className="px-3 py-2 text-xs text-slate-700 max-w-[360px]"><div className="line-clamp-3 whitespace-pre-wrap">{r.message || ''}</div></td>
                   <td className="px-3 py-2 text-center whitespace-nowrap">
                     <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${b.cls}`}>{b.label}</span>
@@ -92,7 +95,7 @@ export default function WaHistoryView({ rows = [] }) {
               );
             })}
             {filtered.length === 0 && (
-              <tr><td colSpan={5} className="px-3 py-10 text-center text-sm text-slate-400">Belum ada pesan cocok.</td></tr>
+              <tr><td colSpan={6} className="px-3 py-10 text-center text-sm text-slate-400">Belum ada pesan cocok.</td></tr>
             )}
           </tbody>
         </table>

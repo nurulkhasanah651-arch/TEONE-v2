@@ -24,7 +24,7 @@ export default async function WaHistoryPage() {
   }
 
   const { data: rows } = await supabase.from('wa_log')
-    .select('id, created_at, target_phone, context, kind, trip_id, message, status, state, reason, fonnte_id')
+    .select('id, created_at, target_phone, context, kind, trip_id, message, status, state, reason, fonnte_id, sender')
     .order('created_at', { ascending: false }).limit(300);
   const logs = rows || [];
 
