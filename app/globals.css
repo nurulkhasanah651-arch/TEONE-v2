@@ -57,7 +57,13 @@
     max-width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    white-space: nowrap;      /* isi sel tidak membungkus -> tabel melebar -> bisa digeser & terbaca */
   }
+  /* Sel yang sengaja dibuat membungkus tetap dihormati */
+  main table td.whitespace-normal,
+  main table th.whitespace-normal { white-space: normal; }
+  /* Jangan paksa pecah kata di dalam sel tabel (biar rapi saat digeser) */
+  main table td, main table th { overflow-wrap: normal; }
   /* Elemen lebar (grid kartu) tidak memaksa lebar layar */
   main { overflow-x: hidden; }
 }
