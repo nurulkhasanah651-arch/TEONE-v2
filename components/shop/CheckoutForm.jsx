@@ -228,13 +228,13 @@ export default function CheckoutForm({ trip }) {
           <button type="button" onClick={() => setShowLandTour((v) => !v)} className="w-full flex items-center justify-between gap-3 text-left">
             <div>
               <p className="text-sm font-bold text-slate-800">🚐 Land Tour (tanpa tiket pesawat)</p>
-              <p className="text-[11px] text-slate-500">Mulai dari <b>{fmtRp(Math.min(...items.landTour.map((x) => x.price)))}</b> / orang — klik untuk pilih tipe kamar</p>
+              <p className="text-[11px] text-slate-500">Mulai dari <b>{fmtRp(Math.min(...items.landTour.map((x) => (Number(x.base) || 0) > 0 ? x.base : x.price)))}</b> / orang — klik untuk pilih tipe kamar</p>
             </div>
             <span className="text-slate-400 text-lg">{showLandTour ? '▲' : '▼'}</span>
           </button>
           {showLandTour && (
             <div className="mt-2 border-t border-slate-100 pt-1">
-              {items.landTour.map((it) => <Stepper key={it.key} it={{ ...it, label: it.short || it.label }} />)}
+              {items.landTour.map((it) => <Stepper key={it.key} it={{ ...it, label: it.short || it.label }} showBase />)}
             </div>
           )}
         </div>
