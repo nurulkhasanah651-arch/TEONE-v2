@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import AdsManager from '@/components/ads/AdsManager';
+import ManagerAiChat from '@/components/ads/ManagerAiChat';
+import { getRoleFromUser } from '@/lib/utils/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,6 +59,10 @@ export default async function AdsManagerPage({ searchParams }) {
   const filterMonth = sp?.month || new Date().toISOString().slice(0, 7);
 
   const supabase = createClient();
+  const { data: { user: _mgrUser } } = await supabase.auth.getUser();
+  let _mgrRole = getRoleFromUser(_mgrUser);
+  try { const { data: _u } = await supabase.from('users').select('role').eq('id', _mgrUser?.id).maybeSingle(); if (_u?.role) _mgrRole = _u.role; } catch {}
+  const _canManagerAi = ['owner','manager','ops','accounting'].includes(_mgrRole);
   const [adsEntries, csUpdates, trips, trip_passengers, activeAds] = await Promise.all([
     safeQuery(supabase.from('ads_entries').select('*').order('date', { ascending: false })),
     safeQuery(supabase.from('cs_daily_updates').select('*')),
@@ -653,6 +659,8 @@ export default async function AdsManagerPage({ searchParams }) {
       )}
 
       <AdsManager entries={adsEntries.slice(0, 50)} trips={trips} />
+
+      {_canManagerAi && <ManagerAiChat />}
     </div>
   );
 }
