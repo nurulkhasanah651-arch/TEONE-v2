@@ -9,6 +9,8 @@ import AdsManager from '@/components/ads/AdsManager';
 import ManagerAiChat from '@/components/ads/ManagerAiChat';
 import CampaignTripLinker from '@/components/ads/CampaignTripLinker';
 import { getRoleFromUser } from '@/lib/utils/roles';
+import { mainExpectedPerPassenger } from '@/lib/utils/price-breakdown';
+import { fetchAll } from '@/lib/supabase/fetch-all';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,12 +66,13 @@ export default async function AdsManagerPage({ searchParams }) {
   let _mgrRole = getRoleFromUser(_mgrUser);
   try { const { data: _u } = await supabase.from('users').select('role').eq('id', _mgrUser?.id).maybeSingle(); if (_u?.role) _mgrRole = _u.role; } catch {}
   const _canManagerAi = ['owner','manager','ops','accounting','cs'].includes(_mgrRole);
-  const [adsEntries, csUpdates, trips, trip_passengers, activeAds] = await Promise.all([
+  const [adsEntries, csUpdates, trips, trip_passengers, activeAds, participantPayments] = await Promise.all([
     safeQuery(supabase.from('ads_entries').select('*').order('date', { ascending: false })),
     safeQuery(supabase.from('cs_daily_updates').select('*')),
-    safeQuery(supabase.from('trips').select('id, kode_trip, name, status, publish_date, closed_at, departure, sold, quota, price')),
-    safeQuery(supabase.from('trip_passengers').select('id, trip_id, customer_id, price_paid, lead_source, days_to_close, closing_date')),
+    safeQuery(supabase.from('trips').select('id, kode_trip, name, status, publish_date, closed_at, departure, sold, quota, price, price_breakdown')),
+    fetchAll(() => supabase.from('trip_passengers').select('id, trip_id, customer_id, price_paid, lead_source, days_to_close, closing_date, room_type, age_type, transfer_status, refund_status')).catch(() => []),
     safeQuery(supabase.from('active_ads').select('*').order('spend', { ascending: false })),
+    fetchAll(() => supabase.from('participant_payments').select('passenger_id, amount')).catch(() => []),
   ]);
 
   const adsThisMonth = adsEntries.filter((e) => (e.date || '').startsWith(filterMonth));
@@ -81,6 +84,24 @@ export default async function AdsManagerPage({ searchParams }) {
   }
   const csThisMonth = csUpdates.filter((c) => (c.tanggal || '').startsWith(filterMonth));
   const pxThisMonth = trip_passengers.filter((p) => (p.closing_date || '').startsWith(filterMonth));
+  // === REVENUE BOOKED (pax aktif x harga paket) + CASH MASUK (pembayaran nyata) per trip ===
+  const bdByTrip = {};
+  for (const t of trips) bdByTrip[t.id] = t.price_breakdown || {};
+  const bookedRevByTrip = {};
+  const paxTripById = {};
+  for (const p of trip_passengers) {
+    paxTripById[p.id] = p.trip_id;
+    if (!p.trip_id) continue;
+    if (p.transfer_status === 'transferred') continue;
+    if (p.refund_status === 'refunded' || p.refund_status === 'partial_refund') continue;
+    bookedRevByTrip[p.trip_id] = (bookedRevByTrip[p.trip_id] || 0) + mainExpectedPerPassenger(p, bdByTrip[p.trip_id] || {});
+  }
+  const cashByTrip = {};
+  for (const pay of (participantPayments || [])) {
+    const tripId = paxTripById[pay.passenger_id];
+    if (!tripId) continue;
+    cashByTrip[tripId] = (cashByTrip[tripId] || 0) + (Number(pay.amount) || 0);
+  }
 
   // ============ CHANNEL STATS (all channels, bulan ini) ============
   const stats = {};
@@ -207,18 +228,19 @@ export default async function AdsManagerPage({ searchParams }) {
     if (c.leads_ads_tiktok) { ts.leads += c.leads_ads_tiktok; ts.byChannel.tiktok.leads += c.leads_ads_tiktok; }
   }
 
-  // trip_passengers → revenue + days per trip
+  // trip_passengers → speed-to-close per trip (revenue dihitung terpisah dari booked value)
   for (const p of pxThisMonth) {
     if (!p.trip_id) continue;
     const ts = ensureTrip(p.trip_id);
-    ts.revenue += Number(p.price_paid) || 0;
     if (p.days_to_close != null) ts.days_arr.push(p.days_to_close);
   }
 
   const tripMetrics = Object.entries(tripStats).map(([tripId, ts]) => {
     const trip = ts.trip;
+    const revenueBooked = bookedRevByTrip[tripId] || 0;   // nilai kontrak (pax aktif x harga paket)
+    const cashIn = cashByTrip[tripId] || 0;               // uang riil yg sudah masuk
     const cacT = ts.closings > 0 ? ts.spend / ts.closings : 0;
-    const roasT = ts.spend > 0 ? ts.revenue / ts.spend : (ts.closings > 0 ? Infinity : 0);
+    const roasT = ts.spend > 0 ? revenueBooked / ts.spend : (revenueBooked > 0 ? Infinity : 0);
     const avgDays = ts.days_arr.length > 0
       ? Math.round((ts.days_arr.reduce((a, b) => a + b, 0) / ts.days_arr.length) * 10) / 10
       : null;
@@ -234,7 +256,8 @@ export default async function AdsManagerPage({ searchParams }) {
       spend: ts.spend,
       leads: ts.leads,
       closings: ts.closings,
-      revenue: ts.revenue,
+      revenue: revenueBooked,
+      cash: cashIn,
       cac: cacT,
       roas: roasT,
       avgDays,
@@ -493,7 +516,8 @@ export default async function AdsManagerPage({ searchParams }) {
                   <th className="px-3 py-2 text-right">Total Ads<div className="text-[9px] font-normal normal-case text-slate-400">all-time</div></th>
                   <th className="px-3 py-2 text-right">Leads</th>
                   <th className="px-3 py-2 text-right">Closings</th>
-                  <th className="px-3 py-2 text-right">Revenue</th>
+                  <th className="px-3 py-2 text-right">Revenue<div className="text-[9px] font-normal normal-case text-slate-400">booked</div></th>
+                  <th className="px-3 py-2 text-right">Cash Masuk<div className="text-[9px] font-normal normal-case text-slate-400">diterima</div></th>
                   <th className="px-3 py-2 text-right">CAC</th>
                   <th className="px-3 py-2 text-right">ROAS</th>
                   <th className="px-3 py-2 text-right">⏱ Avg</th>
@@ -554,7 +578,8 @@ export default async function AdsManagerPage({ searchParams }) {
                       <td className="px-3 py-2 text-right font-mono text-xs font-bold text-slate-700">{(allTimeSpendByTrip[t.tripId] || 0) > 0 ? fmtRupiah(allTimeSpendByTrip[t.tripId]) : <span className="text-slate-400 font-normal">—</span>}</td>
                       <td className="px-3 py-2 text-right font-mono">{t.leads || <span className="text-slate-400">—</span>}</td>
                       <td className="px-3 py-2 text-right font-bold">{t.closings}</td>
-                      <td className="px-3 py-2 text-right font-mono text-xs text-green-700">{fmtRupiah(t.revenue)}</td>
+                      <td className="px-3 py-2 text-right font-mono text-xs text-green-700">{t.revenue > 0 ? fmtRupiah(t.revenue) : <span className="text-slate-400">—</span>}</td>
+                      <td className="px-3 py-2 text-right font-mono text-xs text-emerald-600">{t.cash > 0 ? fmtRupiah(t.cash) : <span className="text-slate-400">—</span>}</td>
                       <td className="px-3 py-2 text-right font-mono text-xs">{t.closings > 0 && t.spend > 0 ? fmtRupiah(t.cac) : '—'}</td>
                       <td className="px-3 py-2 text-right">
                         {t.spend > 0
