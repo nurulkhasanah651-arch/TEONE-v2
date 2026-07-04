@@ -24,7 +24,7 @@ function overlaps(a, b) {
   return a1 <= (b2 || b1) && b1 <= (a2 || a1);
 }
 
-export default function TlPlottingView({ trips = [] }) {
+export default function TlPlottingView({ trips = [], tlOptions = [] }) {
   const [tab, setTab] = useState('cards');
   const [brand, setBrand] = useState('all');
   const [q, setQ] = useState('');
@@ -40,6 +40,7 @@ export default function TlPlottingView({ trips = [] }) {
 
   return (
     <div className="max-w-7xl mx-auto space-y-4">
+      <datalist id="tl-plan-options">{tlOptions.map((n) => <option key={n} value={n} />)}</datalist>
       <div className="flex items-start justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-2xl font-bold text-brand-700">🗺 Plotting TL</h1>
@@ -150,7 +151,7 @@ function PlotRow({ t }) {
       <td className="px-3 py-2 text-center text-xs whitespace-nowrap">{t.terisi}/{t.seat}</td>
       <td className="px-3 py-2">
         <input value={name} onChange={(e)=>setName(e.target.value)} onBlur={saveDraft} disabled={pending}
-          placeholder="nama TL rencana…" className="w-full max-w-[200px] px-2 py-1.5 border border-slate-300 rounded text-xs disabled:opacity-50" />
+          list="tl-plan-options" placeholder="pilih / ketik nama TL…" className="w-full max-w-[200px] px-2 py-1.5 border border-slate-300 rounded text-xs disabled:opacity-50" />
         {saved && <div className="text-[10px] text-emerald-600 mt-0.5">✓ {saved}</div>}
         {err && <div className="text-[10px] text-rose-600 mt-0.5">⚠ {err}</div>}
       </td>

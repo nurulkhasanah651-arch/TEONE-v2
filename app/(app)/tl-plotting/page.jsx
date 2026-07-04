@@ -7,5 +7,5 @@ export default async function TlPlottingPage() {
   if (r?.error) {
     return <div className="max-w-2xl mx-auto p-6 text-sm text-slate-500">{r.error === 'Akses khusus management' ? 'Halaman ini khusus management (owner/manager/ops).' : 'Perlu login.'}</div>;
   }
-  return <TlPlottingView trips={r.trips || []} />;
+  return <TlPlottingView trips={r.trips || []} tlOptions={r.tlOptions || []} />;
 }
