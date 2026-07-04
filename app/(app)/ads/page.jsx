@@ -73,6 +73,12 @@ export default async function AdsManagerPage({ searchParams }) {
   ]);
 
   const adsThisMonth = adsEntries.filter((e) => (e.date || '').startsWith(filterMonth));
+  // Total spend ads per trip SEPANJANG WAKTU (semua tanggal & campaign) — akumulatif, tak terpengaruh ganti campaign
+  const allTimeSpendByTrip = {};
+  for (const e of adsEntries) {
+    if (!e.trip_id) continue;
+    allTimeSpendByTrip[e.trip_id] = (allTimeSpendByTrip[e.trip_id] || 0) + (Number(e.spend) || 0);
+  }
   const csThisMonth = csUpdates.filter((c) => (c.tanggal || '').startsWith(filterMonth));
   const pxThisMonth = trip_passengers.filter((p) => (p.closing_date || '').startsWith(filterMonth));
 
@@ -483,7 +489,8 @@ export default async function AdsManagerPage({ searchParams }) {
                   <th className="px-3 py-2 text-left">Trip</th>
                   <th className="px-3 py-2 text-center">Status</th>
                   <th className="px-3 py-2 text-right">Sold / Quota</th>
-                  <th className="px-3 py-2 text-right">Spend</th>
+                  <th className="px-3 py-2 text-right">Spend (bln)</th>
+                  <th className="px-3 py-2 text-right">Total Ads<div className="text-[9px] font-normal normal-case text-slate-400">all-time</div></th>
                   <th className="px-3 py-2 text-right">Leads</th>
                   <th className="px-3 py-2 text-right">Closings</th>
                   <th className="px-3 py-2 text-right">Revenue</th>
@@ -544,6 +551,7 @@ export default async function AdsManagerPage({ searchParams }) {
                         <div className="text-[10px] text-slate-400">{quotaPct.toFixed(0)}% filled</div>
                       </td>
                       <td className="px-3 py-2 text-right font-mono text-xs">{t.spend > 0 ? fmtRupiah(t.spend) : <span className="text-slate-400">—</span>}</td>
+                      <td className="px-3 py-2 text-right font-mono text-xs font-bold text-slate-700">{(allTimeSpendByTrip[t.tripId] || 0) > 0 ? fmtRupiah(allTimeSpendByTrip[t.tripId]) : <span className="text-slate-400 font-normal">—</span>}</td>
                       <td className="px-3 py-2 text-right font-mono">{t.leads || <span className="text-slate-400">—</span>}</td>
                       <td className="px-3 py-2 text-right font-bold">{t.closings}</td>
                       <td className="px-3 py-2 text-right font-mono text-xs text-green-700">{fmtRupiah(t.revenue)}</td>

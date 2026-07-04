@@ -39,8 +39,7 @@ function dbClient(brand) {
 async function writeAds(brand, rows, errors) {
   const c = dbClient(brand);
   if (!c) { errors.push(`${brand}: supabase env kurang`); return 0; }
-  // Hapus SEMUA baris windsor-sync brand ini dulu (bersihkan yg pindah brand / stale), lalu isi ulang
-  await c.db.from('ads_entries').delete().eq('created_by', 'windsor-sync');
+  // AKUMULASI HISTORI: kalau tak ada data, JANGAN hapus apa pun (histori aman).
   if (!rows.length) return 0;
   // Map kode_trip -> trip.id + override manual campaign->trip (biar per-trip auto ke-link)
   const kodeToId = {};
@@ -58,6 +57,12 @@ async function writeAds(brand, rows, errors) {
     const code = extractTripCode(campaign);
     return code ? (kodeToId[code] || null) : null;
   };
+  // Refresh HANYA tanggal yang ada di data tarikan ini (mis. 7 hari terakhir).
+  // Tanggal lebih lama TIDAK disentuh -> spend histori tetap tersimpan & menumpuk lintas campaign.
+  const syncDates = [...new Set(rows.map((r) => r.date).filter(Boolean))];
+  if (syncDates.length) {
+    await c.db.from('ads_entries').delete().eq('created_by', 'windsor-sync').in('date', syncDates);
+  }
   const payload = rows.map((r) => ({
     date: r.date, platform: 'meta', campaign_name: r.campaign_name,
     spend: r.spend, impressions: r.impressions, clicks: r.clicks, leads: r.leads,
@@ -122,6 +127,8 @@ export async function GET(request) {
 
   const onlyBrand = url.searchParams.get('brand'); // 'teone' | 'khasanah'
   const only = url.searchParams.get('only');       // 'ads' | 'ig'
+  const _rangeReq = url.searchParams.get('range'); // opsional: last_7d|last_14d|last_30d|last_90d (seed histori)
+  const adsRange = ['last_7d','last_14d','last_30d','last_90d'].includes(_rangeReq) ? _rangeReq : 'last_7d';
   const errors = [];
   const out = { teone: { ads_rows: 0, active_ads: 0, ig_media: 0 }, khasanah: { ads_rows: 0, active_ads: 0, ig_media: 0 } };
 
@@ -130,7 +137,7 @@ export async function GET(request) {
   // ── ADS (ads_entries) ──
   if (!only || only === 'ads') jobs.push((async () => {
     try {
-      const all = await fetchMetaAdsAll(META_AD_ACCOUNTS, 'last_7d');
+      const all = await fetchMetaAdsAll(META_AD_ACCOUNTS, adsRange);
       const part = { teone: [], khasanah: [] };
       for (const r of all) part[brandForCampaign(r.campaign_name)].push(r);
       for (const brand of ['teone', 'khasanah']) {
