@@ -1,5 +1,6 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useTransition } from 'react';
+import { setTlPlan, finalPlotTl } from '@/lib/actions/tl-plotting';
 
 const MON = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 const MONSHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
@@ -47,12 +48,12 @@ export default function TlPlottingView({ trips = [] }) {
       </div>
 
       <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 text-[13px] text-amber-800">
-        ⚠️ Ini <b>rencana plotting (belum final)</b> — nama TL bisa berubah. Penugasan resmi tetap dilakukan di <b>Master Trip</b>. Klik kartu trip untuk membuka Master Trip-nya.
+        ⚠️ Ini <b>rencana plotting (belum final)</b>. Isi <b>nama TL rencana</b> di tab “Rencana Plot” (draft, belum menyentuh Master Trip). Klik <b>Final Plot</b> untuk mendorong nama itu ke <b>Master Trip</b>. Penugasan resmi/undangan WA tetap dilakukan di Master Trip.
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex gap-1 bg-slate-100 rounded-lg p-1 overflow-x-auto">
-          {[['cards','🗂 Card Trip'],['calendar','📅 Kalender TL'],['bytl','📋 Jadwal per TL']].map(([k,l]) => (
+          {[['cards','📝 Rencana Plot'],['calendar','📅 Kalender TL'],['bytl','📋 Jadwal per TL']].map(([k,l]) => (
             <button key={k} onClick={() => setTab(k)} className={`px-3 py-1.5 rounded-md text-sm font-bold whitespace-nowrap ${tab===k?'bg-white text-brand-700 shadow-sm':'text-slate-500'}`}>{l}</button>
           ))}
         </div>
@@ -69,7 +70,7 @@ export default function TlPlottingView({ trips = [] }) {
   );
 }
 
-// ── 1) CARD TRIP (grup bulan -> brand) ──
+// ── 1) RENCANA PLOT (list trip + isi nama TL draft + Final Plot) ──
 function CardsSection({ trips }) {
   const byMonth = useMemo(() => {
     const m = {};
@@ -79,34 +80,94 @@ function CardsSection({ trips }) {
   const months = Object.keys(byMonth).sort();
   if (!months.length) return <p className="text-center text-sm text-slate-400 py-10">Tidak ada trip.</p>;
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {months.map((mk) => {
         const [y, mo] = mk.split('-');
         const list = byMonth[mk].sort((a,b)=> (d(a.departure)-d(b.departure)) || a.brand.localeCompare(b.brand));
         return (
           <div key={mk}>
             <h2 className="text-sm font-extrabold text-slate-700 mb-2">📍 {MON[Number(mo)-1]} {y} <span className="text-slate-400 font-normal">· {list.length} trip</span></h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {list.map((t) => (
-                <a key={t.brand+t.id} href={masterUrl(t)} target={t.brand==='KT'?'_blank':undefined} rel="noreferrer"
-                  className="block bg-white rounded-xl border border-slate-200 p-3 hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${BR[t.brand].cls}`}>{BR[t.brand].label}</span>
-                    <span className="text-xs font-mono font-bold text-slate-700">{t.kode}</span>
-                    <span className="ml-auto text-[11px] text-slate-500">{t.terisi}/{t.seat} seat</span>
-                  </div>
-                  <p className="text-sm font-bold text-slate-800 leading-tight line-clamp-2">{t.name || t.kategori}</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">{fmt(t.departure)} – {fmt(t.return_date)}{t.kategori && t.name ? ` · ${t.kategori}` : ''}</p>
-                  <div className="mt-2">
-                    <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded border ${tlColor(t.tl)}`}>👤 {t.tl || 'Belum ada TL'} <span className="opacity-60">(rencana)</span></span>
-                  </div>
-                </a>
-              ))}
+            <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+              <table className="w-full text-sm min-w-[760px]">
+                <thead className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Trip</th>
+                    <th className="px-3 py-2 text-left">Tanggal</th>
+                    <th className="px-3 py-2 text-center">Seat</th>
+                    <th className="px-3 py-2 text-left">Rencana TL (draft)</th>
+                    <th className="px-3 py-2 text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {list.map((t) => <PlotRow key={t.brand+t.id} t={t} />)}
+                </tbody>
+              </table>
             </div>
           </div>
         );
       })}
     </div>
+  );
+}
+
+function PlotRow({ t }) {
+  const [name, setName] = useState(t.tl_plan || t.tl || '');
+  const [saved, setSaved] = useState('');
+  const [connected, setConnected] = useState(t.connected);
+  const [connName, setConnName] = useState(t.tl || '');
+  const [err, setErr] = useState('');
+  const [pending, start] = useTransition();
+
+  function saveDraft() {
+    if ((name || '').trim() === (t.tl_plan || '').trim()) return;
+    start(async () => {
+      const r = await setTlPlan(t.brand, t.id, name);
+      if (r?.ok) { setSaved('draft tersimpan'); setTimeout(()=>setSaved(''), 1500); } else setErr(r?.error || 'gagal simpan');
+    });
+  }
+  function doFinal() {
+    if (!(name || '').trim()) { setErr('Isi nama TL dulu'); return; }
+    setErr('');
+    start(async () => {
+      const r1 = await setTlPlan(t.brand, t.id, name);
+      if (r1?.error) { setErr(r1.error); return; }
+      const r = await finalPlotTl(t.brand, t.id);
+      if (r?.ok) { setConnected(true); setConnName(r.tl_name); }
+      else setErr(r?.error || 'gagal final');
+    });
+  }
+
+  return (
+    <tr className="hover:bg-slate-50 align-middle">
+      <td className="px-3 py-2">
+        <div className="flex items-center gap-2">
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${BR[t.brand].cls}`}>{t.brand}</span>
+          <a href={masterUrl(t)} target={t.brand==='KT'?'_blank':undefined} rel="noreferrer" className="text-xs font-mono font-bold text-brand-700 hover:underline">{t.kode}</a>
+        </div>
+        <div className="text-[11px] text-slate-600 max-w-[240px] truncate">{t.name || t.kategori}</div>
+      </td>
+      <td className="px-3 py-2 text-[11px] text-slate-500 whitespace-nowrap">{fmt(t.departure)} – {fmt(t.return_date)}</td>
+      <td className="px-3 py-2 text-center text-xs whitespace-nowrap">{t.terisi}/{t.seat}</td>
+      <td className="px-3 py-2">
+        <input value={name} onChange={(e)=>setName(e.target.value)} onBlur={saveDraft} disabled={pending}
+          placeholder="nama TL rencana…" className="w-full max-w-[200px] px-2 py-1.5 border border-slate-300 rounded text-xs disabled:opacity-50" />
+        {saved && <div className="text-[10px] text-emerald-600 mt-0.5">✓ {saved}</div>}
+        {err && <div className="text-[10px] text-rose-600 mt-0.5">⚠ {err}</div>}
+      </td>
+      <td className="px-3 py-2 text-center whitespace-nowrap">
+        {connected ? (
+          <div className="text-[11px]">
+            <span className="inline-block px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold">✓ Final: {connName}</span>
+            <div className="mt-1"><button onClick={doFinal} disabled={pending} className="text-[10px] text-slate-400 hover:text-slate-600 underline">update lagi</button></div>
+          </div>
+        ) : (
+          <button onClick={doFinal} disabled={pending}
+            className="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold disabled:opacity-50">
+            {pending ? '…' : '✔ Final Plot'}
+          </button>
+        )}
+      </td>
+    </tr>
   );
 }
 
@@ -142,9 +203,9 @@ function CalendarSection({ trips }) {
             {day && <div className="text-[10px] text-slate-400 mb-0.5">{day}</div>}
             {(byDay[day]||[]).map((t)=>(
               <a key={t.brand+t.id} href={masterUrl(t)} target={t.brand==='KT'?'_blank':undefined} rel="noreferrer"
-                title={`${t.kode} ${t.name} · TL ${t.tl||'-'} · s/d ${fmt(t.return_date)}`}
-                className={`block text-[10px] leading-tight px-1 py-0.5 rounded mb-0.5 border ${tlColor(t.tl)} truncate`}>
-                {t.kode} · {t.tl || 'TL?'}
+                title={`${t.kode} ${t.name} · TL ${(t.tl_plan||t.tl)||'-'} · s/d ${fmt(t.return_date)}`}
+                className={`block text-[10px] leading-tight px-1 py-0.5 rounded mb-0.5 border ${tlColor(t.tl_plan||t.tl)} truncate`}>
+                {t.kode} · {(t.tl_plan||t.tl) || 'TL?'}
               </a>
             ))}
           </div>
@@ -159,7 +220,7 @@ function CalendarSection({ trips }) {
 function ByTlSection({ trips }) {
   const byTl = useMemo(() => {
     const m = {};
-    for (const t of trips) { const k = t.tl || '— Belum ada TL —'; (m[k]=m[k]||[]).push(t); }
+    for (const t of trips) { const k = (t.tl_plan || t.tl) || '— Belum ada TL —'; (m[k]=m[k]||[]).push(t); }
     for (const k in m) m[k].sort((a,b)=> d(a.departure)-d(b.departure));
     return m;
   }, [trips]);
