@@ -29,6 +29,21 @@ export default async function TripListPage({ searchParams }) {
   if (month) trips = trips.filter((t) => (t.departure || '').slice(0, 7) === month);
   // Available di atas, SOLD OUT di paling bawah (urutan tanggal tetap di tiap grup)
   trips = [...trips].sort((a, b) => ((tripSeatLeft(a) <= 0 ? 1 : 0) - (tripSeatLeft(b) <= 0 ? 1 : 0)));
+  // Region punya sub-kategori (Asia/Eropa) & belum pilih sub tertentu → kelompokkan card per sub-kategori.
+  const groupBySub = !!region && subcats.length > 0 && !sub;
+  let subGroups = [];
+  if (groupBySub) {
+    const byKey = {};
+    const other = [];
+    for (const t of trips) {
+      const sk = tripSubcat(t, region);
+      if (sk) { (byKey[sk] = byKey[sk] || []).push(t); } else { other.push(t); }
+    }
+    subGroups = subcats
+      .filter((sc) => (byKey[sc.key] || []).length > 0)
+      .map((sc) => ({ key: sc.key, icon: sc.icon, label: sc.label, trips: byKey[sc.key] }));
+    if (other.length) subGroups.push({ key: '_other', icon: '📍', label: `${activeLabel} Lainnya`, trips: other });
+  }
   const activeSubLabel = (region && sub) ? subcatLabel(region, sub) : null;
   const heading = activeSubLabel ? `Open Trip — ${activeSubLabel}` : (activeLabel ? `Open Trip — ${activeLabel}` : 'Open Trip');
 
@@ -91,6 +106,26 @@ export default async function TripListPage({ searchParams }) {
                 </div>
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
                   {c.trips.map((t) => <TripCard key={t.id} t={t} />)}
+                </div>
+              </section>
+            ))}
+          </div>
+        )
+      ) : groupBySub ? (
+        subGroups.length === 0 ? (
+          <div className="text-center py-20 text-slate-400">
+            <p className="text-5xl mb-3">🧳</p>
+            <p className="font-bold text-slate-600">{`Belum ada trip untuk ${activeLabel}`}</p>
+          </div>
+        ) : (
+          <div className="space-y-10">
+            {subGroups.map((g) => (
+              <section key={g.key} id={`sub-${g.key}`}>
+                <div className="mb-3">
+                  <h2 className="text-lg sm:text-xl font-extrabold text-slate-900"><span className="mr-1.5">{g.icon}</span>{g.label}</h2>
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+                  {g.trips.map((t) => <TripCard key={t.id} t={t} />)}
                 </div>
               </section>
             ))}
