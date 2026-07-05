@@ -33,6 +33,7 @@ export default async function StorefrontHome() {
   const asiaHematTrips = await getCategoryTrips(['hongkong','hong kong','macau','macao','makau','vietnam','korea','korean','seoul'], 20);
   const japanTrips = await getCategoryTrips(['jepang','japan'], 20);
   const chinaTrips = await getCategoryTrips(['china','tiongkok'], 20);
+  const nextLevelTrips = await getCategoryTrips(['canada','kanada','usa','amerika','america','united states','new york','west coast','east coast','bhutan','nepal'], 20);
   const live = await getGoogleReviews(cfg.googlePlaceId);
   const rating = live?.rating || cfg.googleRating;
   const count = live?.count || cfg.googleCount;
@@ -217,6 +218,21 @@ export default async function StorefrontHome() {
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
           {chinaTrips.map((t) => <TripCard key={t.id} t={t} />)}
+        </div>
+      </section>
+      )}
+
+      {nextLevelTrips.length > 0 && (
+      <section className="max-w-6xl mx-auto px-4 py-14">
+        <div className="flex items-end justify-between mb-6">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">🧭 Destinasi untuk The Next Level Travelers</h2>
+            <p className="text-slate-500 mt-1">Buat kamu yang cari destinasi beda — Amerika, Canada, Bhutan & lainnya.</p>
+          </div>
+          <Link href="/trip" className="hidden sm:inline text-sm font-bold text-slate-700 hover:text-slate-900">Lihat semua →</Link>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+          {nextLevelTrips.map((t) => <TripCard key={t.id} t={t} />)}
         </div>
       </section>
       )}
