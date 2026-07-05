@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { resolveBrandCode } from '@/lib/brand-shared';
 import { storefrontConfig } from '@/lib/shop/storefront-config';
 import { effectiveRegions } from '@/lib/shop/regions';
-import { getFlashSaleTrips, getBestSellerTrips, getYearEndSpecialTrips, getAvailableDepartureMonths, getStorefrontSettingsPublic } from '@/lib/shop/data';
+import { getFlashSaleTrips, getBestSellerTrips, getYearEndSpecialTrips, getAvailableDepartureMonths, getStorefrontSettingsPublic, getCategoryTrips } from '@/lib/shop/data';
 import { getGoogleReviews } from '@/lib/shop/google-reviews';
 import TripCard from '@/components/shop/TripCard';
 import HeroSlider from '@/components/shop/HeroSlider';
@@ -29,6 +29,10 @@ export default async function StorefrontHome() {
   const yearEnd = await getYearEndSpecialTrips(30);
   const availMonths = await getAvailableDepartureMonths();
   const bestSeller = await getBestSellerTrips(20);
+  const auroraTrips = await getCategoryTrips(['aurora','russia','rusia','scandi','iceland','islandia','norwegia','norway','finlandia','finland','swedia','sweden','tromso','lapland'], 20);
+  const asiaHematTrips = await getCategoryTrips(['hongkong','hong kong','macau','macao','makau','vietnam'], 20);
+  const japanTrips = await getCategoryTrips(['jepang','japan'], 20);
+  const chinaTrips = await getCategoryTrips(['china','tiongkok'], 20);
   const live = await getGoogleReviews(cfg.googlePlaceId);
   const rating = live?.rating || cfg.googleRating;
   const count = live?.count || cfg.googleCount;
@@ -153,6 +157,66 @@ export default async function StorefrontHome() {
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
           {yearEnd.map((t) => <TripCard key={t.id} t={t} />)}
+        </div>
+      </section>
+      )}
+
+      {auroraTrips.length > 0 && (
+      <section className="max-w-6xl mx-auto px-4 py-14">
+        <div className="flex items-end justify-between mb-6">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-purple-600">🌌 Trip Hunting Aurora</h2>
+            <p className="text-slate-500 mt-1">Kejar cahaya utara — trip Russia, Scandinavia & Iceland.</p>
+          </div>
+          <Link href="/trip" className="hidden sm:inline text-sm font-bold text-purple-600 hover:text-purple-700">Lihat semua →</Link>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+          {auroraTrips.map((t) => <TripCard key={t.id} t={t} />)}
+        </div>
+      </section>
+      )}
+
+      {asiaHematTrips.length > 0 && (
+      <section className="max-w-6xl mx-auto px-4 py-14">
+        <div className="flex items-end justify-between mb-6">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-amber-600">🏮 Trip Spesial Asia Hemat</h2>
+            <p className="text-slate-500 mt-1">Hongkong, Macau & Vietnam — liburan Asia hemat!</p>
+          </div>
+          <Link href="/trip" className="hidden sm:inline text-sm font-bold text-amber-600 hover:text-amber-700">Lihat semua →</Link>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+          {asiaHematTrips.map((t) => <TripCard key={t.id} t={t} />)}
+        </div>
+      </section>
+      )}
+
+      {japanTrips.length > 0 && (
+      <section className="max-w-6xl mx-auto px-4 py-14">
+        <div className="flex items-end justify-between mb-6">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-pink-600">🌸 Trip Jepang Hemat — Rute Antimainstream!</h2>
+            <p className="text-slate-500 mt-1">Bukan backpacker, tapi hemat! Rute anti-mainstream ke Jepang.</p>
+          </div>
+          <Link href="/trip" className="hidden sm:inline text-sm font-bold text-pink-600 hover:text-pink-700">Lihat semua →</Link>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+          {japanTrips.map((t) => <TripCard key={t.id} t={t} />)}
+        </div>
+      </section>
+      )}
+
+      {chinaTrips.length > 0 && (
+      <section className="max-w-6xl mx-auto px-4 py-14">
+        <div className="flex items-end justify-between mb-6">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-red-600">🐉 Trip China Mewah Include Makan — Harga Hemat</h2>
+            <p className="text-slate-500 mt-1">Mewah, include makan, tapi harga tetap hemat.</p>
+          </div>
+          <Link href="/trip" className="hidden sm:inline text-sm font-bold text-red-600 hover:text-red-700">Lihat semua →</Link>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+          {chinaTrips.map((t) => <TripCard key={t.id} t={t} />)}
         </div>
       </section>
       )}
