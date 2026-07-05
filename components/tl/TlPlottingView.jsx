@@ -170,9 +170,12 @@ function PlotRow({ t }) {
         {connected ? (
           <div className="text-[11px]">
             <span className="inline-block px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold">✓ Final: {connName}</span>
-            <div className="mt-1 flex items-center justify-center gap-2">
+            <div className="mt-1 flex items-center justify-center gap-2 flex-wrap">
               <button onClick={doFinal} disabled={pending} className="text-[10px] text-slate-400 hover:text-slate-600 underline">update lagi</button>
               <button onClick={resendWA} disabled={pending} className="text-[10px] px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold disabled:opacity-50">{wa || '📲 Kirim WA'}</button>
+              {t.assign_status === 'approved' && <span className="text-[10px] px-2 py-0.5 rounded bg-green-100 text-green-700 font-bold">✅ TL Approved</span>}
+              {t.assign_status === 'rejected' && <span className="text-[10px] px-2 py-0.5 rounded bg-rose-100 text-rose-700 font-bold">❌ TL Reject</span>}
+              {t.assign_status !== 'approved' && t.assign_status !== 'rejected' && <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-bold">⏳ Belum konfirmasi</span>}
             </div>
           </div>
         ) : (
