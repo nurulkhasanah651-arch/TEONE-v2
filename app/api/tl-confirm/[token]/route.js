@@ -30,6 +30,10 @@ async function sendTLConfirmWA(phone, message) {
   } catch { /* best-effort */ }
 }
 
+function brandLabelTL() {
+  try { return currentBrandCode() === 'khasanah' ? 'Khasanah Travel' : 'Traveling Eropa'; } catch { return 'Traveling Eropa'; }
+}
+
 function normPhoneTL(p) {
   let x = String(p || '').replace(/[^0-9]/g, '');
   if (x.startsWith('0')) x = '62' + x.slice(1);
@@ -132,7 +136,7 @@ function htmlPage(title, body, color = '#10B981') {
 <body>
   <div class="card">
     ${body}
-    <div class="footer">TEONE — Traveling Eropa</div>
+    <div class="footer">${brandLabelTL()}</div>
   </div>
 </body>
 </html>`;
@@ -237,7 +241,6 @@ export async function GET(request, context) {
          <p style="margin: 0;">🌍 <b>${displayName}</b></p>
          ${trip.destination ? `<p style="margin: 4px 0 0 0;">📍 ${trip.destination}</p>` : ''}
          ${tripStart ? `<p style="margin: 4px 0 0 0;">📅 ${tripStart}${tripEnd ? ` → ${tripEnd}` : ''}</p>` : ''}
-         ${pax !== '-' ? `<p style="margin: 4px 0 0 0;">👥 ${pax} pax</p>` : ''}
        </div>
 
        <div class="actions">
@@ -366,7 +369,7 @@ export async function POST(request, context) {
       loginUrl = `${base}/login?tab=tl`;
       const { data: tl } = await supabase.from('tour_leaders').select('name, phone').eq('id', trip.tl_id).maybeSingle();
       if (tl?.phone) {
-        const msg = `Halo ${tl.name || 'Kak'} 🙏\n\nPenugasan sebagai Tour Leader untuk trip *${displayName}* sudah kamu *KONFIRMASI* ✅\n\nSilakan login ke web untuk pantau tripmu (peserta, dokumen, manifest, roomlist, expense):\n🔗 ${loginUrl}\n\n(Login pakai akun Google yang sudah didaftarkan Ops.)\n\n📞 PIC Ops (jika ada kendala):\nLuthfi 081290199059\nYuyun 0895348816125\n\n— Traveling Eropa One System`;
+        const msg = `Halo ${tl.name || 'Kak'} 🙏\n\nPenugasan sebagai Tour Leader untuk trip *${displayName}* sudah kamu *KONFIRMASI* ✅\n\nSilakan login ke web untuk pantau tripmu (peserta, dokumen, manifest, roomlist, expense):\n🔗 ${loginUrl}\n\n(Login pakai akun Google yang sudah didaftarkan Ops.)\n\n📞 PIC Ops (jika ada kendala):\nLuthfi 081290199059\nYuyun 0895348816125\n\n— ${brandLabelTL()} One System`;
         await sendTLConfirmWA(normPhoneTL(tl.phone), msg);
       }
     } catch { /* best-effort */ }
