@@ -1,6 +1,6 @@
 'use client';
 import { useState, useMemo, useTransition } from 'react';
-import { setTlPlan, finalPlotTl } from '@/lib/actions/tl-plotting';
+import { setTlPlan, finalPlotTl, resendTlAssignmentWA } from '@/lib/actions/tl-plotting';
 
 const MON = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 const MONSHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
@@ -137,6 +137,17 @@ function PlotRow({ t }) {
       else setErr(r?.error || 'gagal final');
     });
   }
+  const [wa, setWa] = useState('');
+  function resendWA() {
+    const who = connName || t.tl || 'TL';
+    if (!confirm(`Kirim ulang WA konfirmasi ke ${who} untuk trip ${t.kode}?`)) return;
+    setErr(''); setWa('…');
+    start(async () => {
+      const r = await resendTlAssignmentWA(t.brand, t.id);
+      if (r?.ok) { setWa('terkirim ✓'); setTimeout(()=>setWa(''), 3000); }
+      else { setWa(''); setErr(r?.error || 'gagal kirim WA'); }
+    });
+  }
 
   return (
     <tr className="hover:bg-slate-50 align-middle">
@@ -159,7 +170,10 @@ function PlotRow({ t }) {
         {connected ? (
           <div className="text-[11px]">
             <span className="inline-block px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold">✓ Final: {connName}</span>
-            <div className="mt-1"><button onClick={doFinal} disabled={pending} className="text-[10px] text-slate-400 hover:text-slate-600 underline">update lagi</button></div>
+            <div className="mt-1 flex items-center justify-center gap-2">
+              <button onClick={doFinal} disabled={pending} className="text-[10px] text-slate-400 hover:text-slate-600 underline">update lagi</button>
+              <button onClick={resendWA} disabled={pending} className="text-[10px] px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold disabled:opacity-50">{wa || '📲 Kirim WA'}</button>
+            </div>
           </div>
         ) : (
           <button onClick={doFinal} disabled={pending}
