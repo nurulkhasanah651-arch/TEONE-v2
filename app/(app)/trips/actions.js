@@ -138,10 +138,20 @@ export async function updateTrip(tripId, formData) {
   if (!fields.name) return { error: 'Nama trip wajib diisi' };
   Object.assign(fields, await resolveTlContact(supabase, fields.tl_id));
 
-  const { data: current } = await supabase.from('trips').select('sold').eq('id', tripId).single();
+  const { data: current } = await supabase.from('trips').select('sold, tl_id').eq('id', tripId).single();
   const sold = current?.sold || 0;
 
   let updatePayload = { ...fields, seat_left: Math.max(fields.quota - sold, 0) };
+  // Kalau TL berganti (atau dikosongkan), reset status konfirmasi supaya TL baru mulai fresh
+  // & tidak terbawa status (approved/rejected) TL lama.
+  const _tlChanged = String(fields.tl_id ?? '') !== String(current?.tl_id ?? '');
+  if (_tlChanged) {
+    updatePayload.tl_assignment_status = null;
+    updatePayload.tl_assignment_token = null;
+    updatePayload.tl_assignment_sent_at = null;
+    updatePayload.tl_assignment_responded_at = null;
+    updatePayload.tl_assignment_response_note = null;
+  }
   let { error } = await supabase.from('trips').update(updatePayload).eq('id', tripId);
 
   if (error && /tl_id|tl_phone|tl_email|publish_date|closed_at|price_breakdown|pnr|route|return_date/.test(error.message)) {
