@@ -74,12 +74,23 @@ function parseTripFields(formData) {
 function stripOptional(fields) {
   const out = { ...fields };
   delete out.tl_id;
+  delete out.tl_phone;
+  delete out.tl_email;
   delete out.publish_date;
   delete out.closed_at;
   delete out.price_breakdown;
   delete out.pnr;
   delete out.route;
   return out;
+}
+
+async function resolveTlContact(supabase, tl_id) {
+  if (!tl_id) return {};
+  try {
+    const { data } = await supabase.from('tour_leaders').select('phone, email').eq('id', tl_id).maybeSingle();
+    if (data) return { tl_phone: data.phone || null, tl_email: data.email || null };
+  } catch {}
+  return {};
 }
 
 export async function createTrip(formData) {
@@ -89,6 +100,7 @@ export async function createTrip(formData) {
 
   const fields = parseTripFields(formData);
   if (!fields.name) return { error: 'Nama trip wajib diisi' };
+  Object.assign(fields, await resolveTlContact(supabase, fields.tl_id));
 
   let trip_id;
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -101,7 +113,7 @@ export async function createTrip(formData) {
   let payload = { id: trip_id, ...fields, sold: 0, seat_left: fields.quota };
   let { error } = await supabase.from('trips').insert(payload);
 
-  if (error && /tl_id|publish_date|closed_at|price_breakdown|pnr|route|return_date/.test(error.message)) {
+  if (error && /tl_id|tl_phone|tl_email|publish_date|closed_at|price_breakdown|pnr|route|return_date/.test(error.message)) {
     const stripped = stripOptional(fields);
     payload = { id: trip_id, ...stripped, sold: 0, seat_left: fields.quota };
     const retry = await supabase.from('trips').insert(payload);
@@ -124,6 +136,7 @@ export async function updateTrip(tripId, formData) {
 
   const fields = parseTripFields(formData);
   if (!fields.name) return { error: 'Nama trip wajib diisi' };
+  Object.assign(fields, await resolveTlContact(supabase, fields.tl_id));
 
   const { data: current } = await supabase.from('trips').select('sold').eq('id', tripId).single();
   const sold = current?.sold || 0;
@@ -131,7 +144,7 @@ export async function updateTrip(tripId, formData) {
   let updatePayload = { ...fields, seat_left: Math.max(fields.quota - sold, 0) };
   let { error } = await supabase.from('trips').update(updatePayload).eq('id', tripId);
 
-  if (error && /tl_id|publish_date|closed_at|price_breakdown|pnr|route|return_date/.test(error.message)) {
+  if (error && /tl_id|tl_phone|tl_email|publish_date|closed_at|price_breakdown|pnr|route|return_date/.test(error.message)) {
     const stripped = stripOptional(fields);
     updatePayload = { ...stripped, seat_left: Math.max(fields.quota - sold, 0) };
     const retry = await supabase.from('trips').update(updatePayload).eq('id', tripId);
