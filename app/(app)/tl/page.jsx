@@ -269,7 +269,7 @@ export default async function TLPortalPage() {
 const BRAND_BADGE = { teone: { label: 'TEONE', cls: 'bg-blue-100 text-blue-700' }, khasanah: { label: 'Khasanah', cls: 'bg-emerald-100 text-emerald-700' } };
 function TripRow({ trip: t, isMine }) {
   const brand = BRAND_BADGE[t._brand] || null;
-  const href = t._brand ? `/tl/${t.id}?brand=${t._brand}` : `/tl/${t.id}`;
+  const href = t._brand ? `/tl/${t.id}?tb=${t._brand}` : `/tl/${t.id}`;
   const s = statusCfg(t.status);
   const days = daysUntil(t.departure);
   const checklist = tripChecklist(t);

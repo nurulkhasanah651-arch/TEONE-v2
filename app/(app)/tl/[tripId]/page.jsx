@@ -37,7 +37,7 @@ function getServiceClient() {
 export default async function TLTripDetailPage({ params, searchParams }) {
   const { tripId } = await params;
   const sp = (await searchParams) || {};
-  const brandParam = String(sp.brand || '').toLowerCase();
+  const brandParam = String(sp.tb || '').toLowerCase();
   const crossBrand = BRAND_CODES.includes(brandParam) && brandParam !== currentBrandCode();
   const brandCode = crossBrand ? brandParam : currentBrandCode();
   const supabase = createClient();

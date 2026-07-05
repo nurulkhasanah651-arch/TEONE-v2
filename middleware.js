@@ -17,7 +17,12 @@ export async function middleware(request) {
   const queryBrand = request.nextUrl.searchParams.get('brand');
   const cookieBrand = request.cookies.get('brand')?.value;
   const host = request.headers.get('host') || '';
-  const brand = resolveBrandCode({ queryParam: queryBrand, cookie: cookieBrand, host });
+  const hostBrand = resolveBrandCode({ host });
+  let brand = resolveBrandCode({ queryParam: queryBrand, cookie: cookieBrand, host });
+  // SELF-HEAL: kalau cookie brand 'nyangkut' beda dari domain & TANPA ?brand eksplisit,
+  // paksa ikut brand domain. Cegah sesi lintas-project bikin loop login (TEONE vs Khasanah).
+  let healCookie = false;
+  if (!queryBrand && brand !== hostBrand) { brand = hostBrand; healCookie = true; }
   request.headers.set('x-brand', brand);
 
   const response = await updateSession(request);
@@ -27,6 +32,8 @@ export async function middleware(request) {
     // Simpan pilihan brand dari query param ke cookie (untuk preview/testing)
     if (queryBrand && BRAND_CODES.includes(queryBrand) && queryBrand !== cookieBrand) {
       response.cookies.set('brand', queryBrand, { path: '/', maxAge: 60 * 60 * 24 * 365 });
+    } else if (healCookie) {
+      response.cookies.set('brand', hostBrand, { path: '/', maxAge: 60 * 60 * 24 * 365 });
     }
   }
   return response;
