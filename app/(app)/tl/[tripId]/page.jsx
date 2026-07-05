@@ -64,6 +64,8 @@ export default async function TLTripDetailPage({ params, searchParams }) {
     const _ownCode = crossBrand ? brandParam : currentBrandCode();
     const identity = await resolveTlIdentity(user).catch(() => null);
     if (!identity || !tlOwnsTrip(identity, trip, _ownCode)) notFound();
+    // TL yang sudah menolak trip ini tidak boleh buka lagi (bukan tanggung jawabnya).
+    if (isTL && trip.tl_assignment_status === 'rejected') notFound();
   }
 
   const { data: tp } = await db.from('trip_passengers').select('*').eq('trip_id', tripId);
