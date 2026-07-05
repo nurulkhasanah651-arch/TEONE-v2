@@ -30,7 +30,7 @@ export default async function StorefrontHome() {
   const availMonths = await getAvailableDepartureMonths();
   const bestSeller = await getBestSellerTrips(20);
   const auroraTrips = await getCategoryTrips(['aurora','russia','rusia','scandi','iceland','islandia','norwegia','norway','finlandia','finland','swedia','sweden','tromso','lapland'], 20);
-  const asiaHematTrips = await getCategoryTrips(['hongkong','hong kong','macau','macao','makau','vietnam'], 20);
+  const asiaHematTrips = await getCategoryTrips(['hongkong','hong kong','macau','macao','makau','vietnam','korea','korean','seoul'], 20);
   const japanTrips = await getCategoryTrips(['jepang','japan'], 20);
   const chinaTrips = await getCategoryTrips(['china','tiongkok'], 20);
   const live = await getGoogleReviews(cfg.googlePlaceId);
