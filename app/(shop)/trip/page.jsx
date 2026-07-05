@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getPublishedTrips, getStorefrontSettingsPublic, tripSeatLeft } from '@/lib/shop/data';
+import { getPublishedTrips, getCategorizedTrips, getStorefrontSettingsPublic, tripSeatLeft } from '@/lib/shop/data';
 import { effectiveRegions, subcatsForRegion, subcatLabel, tripSubcat } from '@/lib/shop/regions';
 import TripCard from '@/components/shop/TripCard';
 
@@ -9,7 +9,9 @@ export default async function TripListPage({ searchParams }) {
   const region = searchParams?.region || null;
   const sub = searchParams?.sub || null;
   const month = searchParams?.month || null;
+  const noFilter = !region && !sub && !month;
   let trips = await getPublishedTrips(region);
+  const categories = noFilter ? await getCategorizedTrips() : [];
   const settings = await getStorefrontSettingsPublic();
   const regions = effectiveRegions(settings?.regions);
   const activeLabel = region ? (regions.find((r) => r.key === region)?.label || region) : null;
@@ -73,7 +75,28 @@ export default async function TripListPage({ searchParams }) {
         </div>
       )}
 
-      {trips.length === 0 ? (
+      {noFilter ? (
+        categories.length === 0 ? (
+          <div className="text-center py-20 text-slate-400">
+            <p className="text-5xl mb-3">🧳</p>
+            <p className="font-bold text-slate-600">Belum ada trip yang dipublikasikan</p>
+          </div>
+        ) : (
+          <div className="space-y-10">
+            {categories.map((c) => (
+              <section key={c.key} id={`kat-${c.key}`}>
+                <div className="mb-3">
+                  <h2 className="text-lg sm:text-xl font-extrabold text-slate-900"><span className="mr-1.5">{c.icon}</span>{c.title}</h2>
+                  {c.subtitle && <p className="text-slate-500 text-xs sm:text-sm mt-0.5">{c.subtitle}</p>}
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+                  {c.trips.map((t) => <TripCard key={t.id} t={t} />)}
+                </div>
+              </section>
+            ))}
+          </div>
+        )
+      ) : trips.length === 0 ? (
         <div className="text-center py-20 text-slate-400">
           <p className="text-5xl mb-3">🧳</p>
           <p className="font-bold text-slate-600">{activeSubLabel ? `Belum ada trip untuk ${activeSubLabel}` : activeLabel ? `Belum ada trip untuk ${activeLabel}` : 'Belum ada trip yang dipublikasikan'}</p>
