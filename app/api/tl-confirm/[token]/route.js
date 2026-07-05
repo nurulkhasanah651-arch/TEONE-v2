@@ -368,7 +368,10 @@ export async function POST(request, context) {
     try {
       const { data: tl } = await supabase.from('tour_leaders').select('name, phone').eq('id', trip.tl_id).maybeSingle();
       if (tl?.phone) {
-        const msg = `Halo ${tl.name || 'Kak'} 🙏\n\nPenugasan sebagai Tour Leader untuk trip *${displayName}* sudah kamu *KONFIRMASI* ✅\n\nSilakan login ke web untuk pantau tripmu (peserta, dokumen, manifest, roomlist, expense):\n🔗 ${loginUrl}\n\n(Login pakai akun Google yang sudah didaftarkan Ops.)\n\n📞 PIC Ops (jika ada kendala):\nLuthfi 081290199059\nYuyun 0895348816125\n\n— ${brandLabelTL()} One System`;
+        const _isKT = (() => { try { return currentBrandCode() === 'khasanah'; } catch { return false; } })();
+        const _pic = _isKT ? 'Luthfi (KT) 083131949772' : 'Luthfi 081290199059\nYuyun 0895348816125';
+        const _sig = _isKT ? 'Khasanah Global Group One System' : `${brandLabelTL()} One System`;
+        const msg = `Halo ${tl.name || 'Kak'} 🙏\n\nPenugasan sebagai Tour Leader untuk trip *${displayName}* sudah kamu *KONFIRMASI* ✅\n\nSilakan login ke web untuk pantau tripmu (peserta, dokumen, manifest, roomlist, expense):\n🔗 ${loginUrl}\n\n(Login pakai akun Google yang sudah didaftarkan Ops.)\n\n📞 PIC (jika ada kendala):\n${_pic}\n\n— ${_sig}`;
         await sendTLConfirmWA(normPhoneTL(tl.phone), msg);
       }
     } catch { /* best-effort */ }
