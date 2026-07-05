@@ -58,9 +58,12 @@ export default async function TLTripDetailPage({ params, searchParams }) {
   const { data: trip } = await db.from('trips').select('*').eq('id', tripId).maybeSingle();
   if (!trip) notFound();
   // Lintas-brand: pastikan trip ini memang di-assign ke TL yang login.
-  if (crossBrand) {
+  // #2: TL (tour_leader) hanya boleh membuka trip MILIKNYA (se-brand & lintas-brand).
+  //     Cross-brand oleh siapa pun juga wajib pemilik (kunci lintas-brand).
+  if (crossBrand || isTL) {
+    const _ownCode = crossBrand ? brandParam : currentBrandCode();
     const identity = await resolveTlIdentity(user).catch(() => null);
-    if (!identity || !tlOwnsTrip(identity, trip, brandParam)) notFound();
+    if (!identity || !tlOwnsTrip(identity, trip, _ownCode)) notFound();
   }
 
   const { data: tp } = await db.from('trip_passengers').select('*').eq('trip_id', tripId);
@@ -112,7 +115,7 @@ export default async function TLTripDetailPage({ params, searchParams }) {
         {crossBrand && (<span className="ml-2 text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 align-middle">{brandParam === 'khasanah' ? 'Khasanah' : brandParam.toUpperCase()}</span>)}
         <div className="mt-2 flex items-center gap-2 flex-wrap">
           <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${s.bg} ${s.text}`}>{trip.kode_trip || `#${trip.id}`}</span>
-          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${s.bg} ${s.text} border ${s.border}`}>{s.label}</span>
+          {!isTL && <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${s.bg} ${s.text} border ${s.border}`}>{s.label}</span>}
           {days != null && days >= 0 && (
             <span className={`text-[11px] px-2 py-0.5 rounded font-bold ${days <= 14 ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-amber-100 text-amber-700'}`}>⏰ {days}h lagi</span>
           )}

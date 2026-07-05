@@ -286,9 +286,7 @@ function TripRow({ trip: t, isMine }) {
             <span className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded ${s.bg} ${s.text}`}>
               {t.kode_trip || `#${t.id}`}
             </span>
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${s.bg} ${s.text}`}>
-              {s.label}
-            </span>
+            {/* status jualan disembunyikan dari TL */}
             {days != null && days >= 0 && (
               <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${days <= 14 ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-amber-100 text-amber-700'}`}>
                 ⏰ {days}h lagi
