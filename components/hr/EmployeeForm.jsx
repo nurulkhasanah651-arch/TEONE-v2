@@ -32,7 +32,7 @@ const TL_SUBTYPES = [
 
 const ROLES = ['owner', 'manager', 'accounting', 'finance', 'ops', 'cs', 'pic', 'tl', 'designer', 'social_media', 'admin', 'other'];
 
-export default function EmployeeForm({ action, employee, submitLabel = 'Simpan' }) {
+export default function EmployeeForm({ action, employee, submitLabel = 'Simpan', defaultType = '' }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState('');
@@ -51,7 +51,7 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan' 
     gender: employee?.gender || '',
     marital_status: employee?.marital_status || '',
     emergency_contact: employee?.emergency_contact || '',
-    employment_type: employee?.employment_type || 'fulltime',
+    employment_type: employee?.employment_type || defaultType || 'fulltime',
     tl_subtype: employee?.tl_subtype || 'inhouse',  // R175
     role: employee?.role || '',
     department: employee?.department || '',

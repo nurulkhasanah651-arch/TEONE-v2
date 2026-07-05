@@ -82,7 +82,7 @@ export default async function TLMasterPage(props) {
             Tambah/edit TL akan mempengaruhi data di HR juga.
           </p>
         </div>
-        <Link href="/hr/employees/new" className="px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-card">
+        <Link href="/hr/employees/new?type=tour_leader" className="px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-card">
           + Tambah TL Baru
         </Link>
       </div>
@@ -139,7 +139,7 @@ export default async function TLMasterPage(props) {
               : 'Klik "+ Tambah TL Baru" untuk mulai. Pilih employment_type = "tour_leader" di form.'}
           </p>
           {totalAll === 0 && (
-            <Link href="/hr/employees/new" className="mt-4 inline-block px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg">
+            <Link href="/hr/employees/new?type=tour_leader" className="mt-4 inline-block px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg">
               + Tambah Sekarang
             </Link>
           )}
