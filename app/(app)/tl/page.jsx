@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { fmtDate, daysUntil, fmtRupiah } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
+import { getTlTripsAllBrands } from '@/lib/tl-cross-brand';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,8 @@ export default async function TLPortalPage() {
   const { data: { user } } = await supabase.auth.getUser();
   const role = user?.app_metadata?.role || user?.user_metadata?.role || user?.app_metadata?.role || 'pending';
   const isInternal = ['manager', 'owner', 'accounting', 'ops', 'cs', 'pic'].includes(role);
+  // Portal TL (bukan internal): kumpulkan trip dari SEMUA brand (TE + Khasanah)
+  const tlTrips = isInternal ? [] : await getTlTripsAllBrands(user).catch(() => []);
 
   // Fetch all active trips
   let activeTrips = [];
@@ -244,10 +247,10 @@ export default async function TLPortalPage() {
 
       <section className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 bg-brand-50">
-          <h2 className="font-bold text-brand-700">Trip Kamu ({myTrips.length})</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Auto-detect dari nama TL di trip yang match dengan akun kamu.</p>
+          <h2 className="font-bold text-brand-700">Trip Kamu ({tlTrips.length})</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Gabungan trip dari TEONE & Khasanah yang di-assign ke kamu (match by WA/email).</p>
         </div>
-        {myTrips.length === 0 ? (
+        {tlTrips.length === 0 ? (
           <div className="p-8 text-center">
             <p className="text-3xl mb-2">👤</p>
             <p className="text-sm text-slate-500">Belum ada trip yang di-assign ke kamu.</p>
@@ -255,7 +258,7 @@ export default async function TLPortalPage() {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {myTrips.map((t) => <TripRow key={t.id} trip={t} isMine />)}
+            {tlTrips.map((t) => <TripRow key={`${t._brand}-${t.id}`} trip={t} isMine />)}
           </div>
         )}
       </section>
@@ -263,7 +266,10 @@ export default async function TLPortalPage() {
   );
 }
 
+const BRAND_BADGE = { teone: { label: 'TEONE', cls: 'bg-blue-100 text-blue-700' }, khasanah: { label: 'Khasanah', cls: 'bg-emerald-100 text-emerald-700' } };
 function TripRow({ trip: t, isMine }) {
+  const brand = BRAND_BADGE[t._brand] || null;
+  const href = t._brand ? `/tl/${t.id}?brand=${t._brand}` : `/tl/${t.id}`;
   const s = statusCfg(t.status);
   const days = daysUntil(t.departure);
   const checklist = tripChecklist(t);
@@ -271,7 +277,7 @@ function TripRow({ trip: t, isMine }) {
 
   return (
     <Link
-      href={`/tl/${t.id}`}
+      href={href}
       className="block px-5 py-3 hover:bg-slate-50 transition-colors"
     >
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -286,6 +292,11 @@ function TripRow({ trip: t, isMine }) {
             {days != null && days >= 0 && (
               <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${days <= 14 ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-amber-100 text-amber-700'}`}>
                 ⏰ {days}h lagi
+              </span>
+            )}
+            {brand && (
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${brand.cls}`}>
+                {brand.label}
               </span>
             )}
             {isMine && (

@@ -14,6 +14,7 @@ function formatNum(n) { return n ? Number(n).toLocaleString('id-ID') : ''; }
 function fmtRupiah(n) { return 'Rp ' + (Number(n) || 0).toLocaleString('id-ID'); }
 
 export default function TLExpenseForm({
+  brand,
   tripId, pettyCash, userEmail = '', userName = '', userRole = 'tour_leader',
 }) {
   const [pending, startTransition] = useTransition();
@@ -82,6 +83,7 @@ export default function TLExpenseForm({
 
     startTransition(async () => {
       const r = await addTLExpense({
+        brand,
         tripId, category, description: desc,
         amount: amt, receiptUrl, spentAt,
         notes: notes.trim(), userEmail, userName, userRole,

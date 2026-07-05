@@ -2,7 +2,9 @@
 // Path: app/(app)/tl/[tripId]/page.jsx
 
 import Link from 'next/link';
-import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
+import { brandServiceRoleKey, brandSupabaseUrl, currentBrandCode, serviceClientFor } from '@/lib/supabase/service-env';
+import { BRAND_CODES } from '@/lib/brand-shared';
+import { resolveTlIdentity, tlOwnsTrip } from '@/lib/tl-cross-brand';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
@@ -32,10 +34,17 @@ function getServiceClient() {
   });
 }
 
-export default async function TLTripDetailPage({ params }) {
+export default async function TLTripDetailPage({ params, searchParams }) {
   const { tripId } = await params;
+  const sp = (await searchParams) || {};
+  const brandParam = String(sp.brand || '').toLowerCase();
+  const crossBrand = BRAND_CODES.includes(brandParam) && brandParam !== currentBrandCode();
+  const brandCode = crossBrand ? brandParam : currentBrandCode();
   const supabase = createClient();
-  const serviceClient = getServiceClient() || supabase;
+  // Lintas-brand: baca/tulis ke DB brand trip (service client), bukan sesi user (beda project).
+  const svcCross = crossBrand ? serviceClientFor(brandParam) : null;
+  const db = svcCross || supabase;                       // trip/peserta/customer
+  const serviceClient = svcCross || getServiceClient() || supabase;
 
   const { data: { user } } = await supabase.auth.getUser();
   const role = user?.app_metadata?.role || user?.user_metadata?.role || user?.app_metadata?.role || 'pending';
@@ -46,10 +55,15 @@ export default async function TLTripDetailPage({ params }) {
   const userEmail = user?.email || '';
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
 
-  const { data: trip } = await supabase.from('trips').select('*').eq('id', tripId).maybeSingle();
+  const { data: trip } = await db.from('trips').select('*').eq('id', tripId).maybeSingle();
   if (!trip) notFound();
+  // Lintas-brand: pastikan trip ini memang di-assign ke TL yang login.
+  if (crossBrand) {
+    const identity = await resolveTlIdentity(user).catch(() => null);
+    if (!identity || !tlOwnsTrip(identity, trip, brandParam)) notFound();
+  }
 
-  const { data: tp } = await supabase.from('trip_passengers').select('*').eq('trip_id', tripId);
+  const { data: tp } = await db.from('trip_passengers').select('*').eq('trip_id', tripId);
   const allPassengers = tp || [];
   const passengers = allPassengers.filter((p) => {
     const isT = p.transfer_status === 'transferred';
@@ -60,7 +74,7 @@ export default async function TLTripDetailPage({ params }) {
   const customerIds = passengers.map((p) => p.customer_id).filter(Boolean);
   let customerMap = {};
   if (customerIds.length > 0) {
-    const { data: cust } = await supabase.from('customers').select('*').in('id', customerIds);
+    const { data: cust } = await db.from('customers').select('*').in('id', customerIds);
     customerMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
   }
 
@@ -95,6 +109,7 @@ export default async function TLTripDetailPage({ params }) {
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
         <Link href="/tl" className="text-sm text-brand-600 font-medium hover:underline">← Portal TL</Link>
+        {crossBrand && (<span className="ml-2 text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 align-middle">{brandParam === 'khasanah' ? 'Khasanah' : brandParam.toUpperCase()}</span>)}
         <div className="mt-2 flex items-center gap-2 flex-wrap">
           <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${s.bg} ${s.text}`}>{trip.kode_trip || `#${trip.id}`}</span>
           <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${s.bg} ${s.text} border ${s.border}`}>{s.label}</span>
@@ -135,6 +150,7 @@ export default async function TLTripDetailPage({ params }) {
 
       {/* PRE-DEPARTURE CHECKLIST */}
       <PreDepartureChecklist
+        brand={brandCode}
         tripId={tripId}
         checklist={checklist || {}}
         canEdit={isTL || isInternal}
@@ -152,6 +168,7 @@ export default async function TLTripDetailPage({ params }) {
       {/* TL EXPENSE FORM */}
       {(isTL || isInternal) && (
         <TLExpenseForm
+          brand={brandCode}
           tripId={tripId}
           pettyCash={pettyCash}
           userEmail={userEmail}
@@ -216,6 +233,7 @@ export default async function TLTripDetailPage({ params }) {
       {/* FINAL REPORT */}
       {(tripCompleted || finalReport || isTL || isInternal) && (
         <FinalReportForm
+          brand={brandCode}
           tripId={tripId}
           report={finalReport}
           canEdit={isTL || isInternal}
@@ -226,6 +244,7 @@ export default async function TLTripDetailPage({ params }) {
 
       {/* VENDOR REVIEWS */}
       <VendorReviewSection
+        brand={brandCode}
         tripId={tripId}
         reviews={vendorReviews}
         canEdit={isTL || isInternal}

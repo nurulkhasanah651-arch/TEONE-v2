@@ -24,7 +24,7 @@ function fmtDate(s) {
   catch { return s; }
 }
 
-export default function PreDepartureChecklist({ tripId, checklist = {}, canEdit = true, userEmail = '' }) {
+export default function PreDepartureChecklist({ tripId, checklist = {}, canEdit = true, userEmail = '', brand }) {
   const [pending, startTransition] = useTransition();
   const [notes, setNotes] = useState(checklist?.pre_departure_notes || '');
   const [savingNotes, setSavingNotes] = useState(false);
@@ -36,7 +36,7 @@ export default function PreDepartureChecklist({ tripId, checklist = {}, canEdit 
   function handleToggle(field, currentValue) {
     if (!canEdit) return;
     startTransition(async () => {
-      const r = await toggleChecklistItem(tripId, field, !currentValue, userEmail);
+      const r = await toggleChecklistItem(tripId, field, !currentValue, userEmail, brand);
       if (r?.error) alert(r.error);
     });
   }
@@ -45,7 +45,7 @@ export default function PreDepartureChecklist({ tripId, checklist = {}, canEdit 
     if (!canEdit) return;
     setSavingNotes(true);
     startTransition(async () => {
-      const r = await saveChecklistNotes(tripId, notes);
+      const r = await saveChecklistNotes(tripId, notes, brand);
       setSavingNotes(false);
       if (r?.error) alert(r.error);
     });

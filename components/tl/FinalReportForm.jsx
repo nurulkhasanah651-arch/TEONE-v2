@@ -15,6 +15,7 @@ function fmtDate(s) {
 }
 
 export default function FinalReportForm({
+  brand,
   tripId, report, canEdit = true, canReview = false, userEmail = '',
 }) {
   const [pending, startTransition] = useTransition();
@@ -43,6 +44,7 @@ export default function FinalReportForm({
     }
     startTransition(async () => {
       const r = await saveFinalReport({
+        brand,
         tripId,
         documentationLink: documentationLink.trim(),
         reviewUploadLink: reviewUploadFile,

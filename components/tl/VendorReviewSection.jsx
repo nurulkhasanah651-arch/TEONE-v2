@@ -21,7 +21,7 @@ const RECOMMEND = [
   { value: 'not_recommend', label: '👎 Not Recommend', color: 'bg-red-100 text-red-800' },
 ];
 
-export default function VendorReviewSection({ tripId, reviews = [], canEdit = true, userEmail = '' }) {
+export default function VendorReviewSection({ tripId, reviews = [], canEdit = true, userEmail = '', brand }) {
   const [pending, startTransition] = useTransition();
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
@@ -50,6 +50,7 @@ export default function VendorReviewSection({ tripId, reviews = [], canEdit = tr
     if (!vendorName.trim()) { setError('Vendor name wajib'); return; }
     startTransition(async () => {
       const r = await addVendorReview({
+        brand,
         tripId, vendorType, vendorName: vendorName.trim(),
         cityCountry: cityCountry.trim(),
         rating, serviceRating, cleanlinessRating, valueRating,
@@ -66,7 +67,7 @@ export default function VendorReviewSection({ tripId, reviews = [], canEdit = tr
   function handleDelete(id, name) {
     if (!confirm(`Hapus review "${name}"?`)) return;
     startTransition(async () => {
-      const r = await deleteVendorReview(id, tripId);
+      const r = await deleteVendorReview(id, tripId, brand);
       if (r?.error) alert(r.error);
     });
   }
