@@ -12,6 +12,12 @@ Sentry.init({
   ignoreErrors: [
     'NEXT_NOT_FOUND',         // 404 not error
     'NEXT_REDIRECT',          // redirect not error
+    // Auth session-expiry noise (bukan bug): sesi Supabase kedaluwarsa / cookie
+    // kebersih → getUser() gagal & middleware redirect ke /login (perilaku benar).
+    'Invalid Refresh Token',
+    'refresh_token_not_found',
+    'Auth session missing',
+    'code verifier',          // PKCE: login mulai di device/domain lain / storage kebersih
   ],
 
   beforeSend(event, hint) {
