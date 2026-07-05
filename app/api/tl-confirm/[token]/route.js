@@ -22,11 +22,18 @@ async function sendTLConfirmWA(phone, message) {
     let brand = ''; try { brand = currentBrandCode(); } catch {}
     const { token } = getFonnteToken('cs', brand);
     if (!token || !phone) return;
-    await fetch('https://api.fonnte.com/send', {
+    const res = await fetch('https://api.fonnte.com/send', {
       method: 'POST',
       headers: { 'Authorization': token, 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ target: phone, message, countryCode: '62' }),
     });
+    // R227: catat ke History WA (wa_log) — sebelumnya balasan konfirmasi TL tidak tercatat
+    try {
+      const data = await res.json().catch(() => null);
+      const _wfid = Array.isArray(data?.id) ? data.id[0] : (data?.id || null);
+      const _wm = await import('@/lib/wa-outbox-log');
+      await _wm.logWA({ context: 'cs', phone, message, kind: 'tl_confirm', status: 'sent', state: 'sent', fonnteId: _wfid, senderToken: token });
+    } catch {}
   } catch { /* best-effort */ }
 }
 
