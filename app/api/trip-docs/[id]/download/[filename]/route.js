@@ -1,8 +1,9 @@
 // Stream download dokumen trip via domain sendiri dengan header attachment.
 // Nama file asli jadi segmen URL terakhir → HP menyimpan dengan nama benar
 // walau Content-Disposition diabaikan. Andal di desktop & mobile.
-import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
+import { brandServiceRoleKey, brandSupabaseUrl, currentBrandCode } from '@/lib/supabase/service-env';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { assertTLTripAccess } from '@/lib/tl-guard';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,8 +35,12 @@ export async function GET(req, { params }) {
   if (!supabase) return new Response('Service unavailable', { status: 503 });
 
   const { data: doc } = await supabase
-    .from('trip_documents').select('file_url, file_path, title').eq('id', id).maybeSingle();
+    .from('trip_documents').select('file_url, file_path, title, trip_id').eq('id', id).maybeSingle();
   if (!doc) return new Response('Not found', { status: 404 });
+
+  // Otorisasi: hanya staf internal atau TL pemilik trip yg boleh unduh dokumen (tutup IDOR anonim).
+  const _access = await assertTLTripAccess(doc.trip_id, currentBrandCode());
+  if (_access?.error) return new Response('Forbidden', { status: 403 });
 
   let path = doc.file_path || null;
   let bucket = null;
