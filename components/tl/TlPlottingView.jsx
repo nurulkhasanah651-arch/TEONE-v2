@@ -199,7 +199,20 @@ function CalendarSection({ trips }) {
   const dim = new Date(y, mo, 0).getDate();
   const byDay = useMemo(() => {
     const m = {};
-    for (const t of trips) { const dt = d(t.departure); if (dt && dt.getFullYear()===y && dt.getMonth()===mo-1) (m[dt.getDate()]=m[dt.getDate()]||[]).push(t); }
+    for (const t of trips) {
+      const s = d(t.departure); if (!s) continue;
+      const e = d(t.return_date) || s;
+      const cur = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+      const end = new Date(e.getFullYear(), e.getMonth(), e.getDate());
+      let guard = 0;
+      while (cur <= end && guard < 400) {
+        if (cur.getFullYear()===y && cur.getMonth()===mo-1) {
+          const isStart = cur.getDate()===s.getDate() && cur.getMonth()===s.getMonth() && cur.getFullYear()===s.getFullYear();
+          (m[cur.getDate()]=m[cur.getDate()]||[]).push({ t, isStart });
+        }
+        cur.setDate(cur.getDate()+1); guard++;
+      }
+    }
     return m;
   }, [trips, ym]);
   const cells = []; for (let i=0;i<startDow;i++) cells.push(null); for (let day=1;day<=dim;day++) cells.push(day);
@@ -219,17 +232,17 @@ function CalendarSection({ trips }) {
         {cells.map((day, i) => (
           <div key={i} className={`min-h-[72px] rounded border ${day?'border-slate-100':'border-transparent'} p-1`}>
             {day && <div className="text-[10px] text-slate-400 mb-0.5">{day}</div>}
-            {(byDay[day]||[]).map((t)=>(
-              <a key={t.brand+t.id} href={masterUrl(t)} target={t.brand==='KT'?'_blank':undefined} rel="noreferrer"
-                title={`${t.kode} ${t.name} · TL ${(t.tl_plan||t.tl)||'-'} · s/d ${fmt(t.return_date)}`}
-                className={`block text-[10px] leading-tight px-1 py-0.5 rounded mb-0.5 border ${tlColor(t.tl_plan||t.tl)} truncate`}>
-                {t.kode} · {(t.tl_plan||t.tl) || 'TL?'}
+            {(byDay[day]||[]).map(({t, isStart}, idx)=>(
+              <a key={`${t.brand}-${t.id}-${idx}`} href={masterUrl(t)} target={t.brand==='KT'?'_blank':undefined} rel="noreferrer"
+                title={`${t.kode} ${t.name} · TL ${(t.tl_plan||t.tl)||'-'} · ${fmt(t.departure)} → ${fmt(t.return_date)}`}
+                className={`block mb-0.5 border truncate ${tlColor(t.tl_plan||t.tl)} ${isStart ? 'text-[10px] leading-tight px-1 py-0.5 rounded' : 'h-2 rounded-sm opacity-80'}`}>
+                {isStart ? `${t.kode} · ${(t.tl_plan||t.tl) || 'TL?'}` : '\u00A0'}
               </a>
             ))}
           </div>
         ))}
       </div>
-      <p className="text-[11px] text-slate-400 mt-2">Chip diletakkan di tanggal keberangkatan, warna per TL. Hover untuk detail. Klik → Master Trip.</p>
+      <p className="text-[11px] text-slate-400 mt-2">Warna membentang dari tanggal berangkat sampai pulang (per TL). Label kode+TL di hari berangkat; hari lain jadi bar warna. Hover untuk detail, klik → Master Trip.</p>
     </div>
   );
 }
