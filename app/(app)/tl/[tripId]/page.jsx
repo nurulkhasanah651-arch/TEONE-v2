@@ -124,16 +124,16 @@ export default async function TLTripDetailPage({ params, searchParams }) {
         </div>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.name}</h1>
         <p className="mt-1 text-slate-600">
-          {trip.tl_name && <>👤 TL: <b>{trip.tl_name}</b> · </>}
-          {passengers.length} peserta aktif
-          {trip.destination && ` · 📍 ${trip.destination}`}
+          {trip.tl_name && <>👤 TL: <b>{trip.tl_name}</b>{(isInternal || trip.destination) && ' · '}</>}
+          {isInternal && <>{passengers.length} peserta aktif{trip.destination && ' · '}</>}
+          {trip.destination && `📍 ${trip.destination}`}
         </p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <InfoCard label="📅 Keberangkatan" value={fmtDate(trip.departure)} />
         <InfoCard label="📅 Kepulangan" value={fmtDate(trip.arrival)} />
-        <InfoCard label="🪑 Seat" value={`${trip.sold || 0} / ${trip.quota || 0}`} />
+        {isInternal && <InfoCard label="🪑 Seat" value={`${trip.sold || 0} / ${trip.quota || 0}`} />}
         <InfoCard label="✅ Status" value={`${okCount}/${tripChecklistData.length}`} />
       </div>
 
