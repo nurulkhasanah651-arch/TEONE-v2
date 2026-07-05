@@ -362,11 +362,10 @@ export async function POST(request, context) {
 
   if (newStatus === 'approved') {
     // Kirim WA konfirmasi + link login Portal TL (best-effort)
-    let loginUrl = '/login?tab=tl';
+    // Portal TL = HUB TEONE (semua akun TL login di 1 project TEONE), BUKAN domain brand trip.
+    const hubBase = siteUrlFor('teone') || process.env.NEXT_PUBLIC_APP_URL || 'https://teone.dev';
+    let loginUrl = `${hubBase}/login?tab=tl`;
     try {
-      let brand = ''; try { brand = currentBrandCode(); } catch {}
-      const base = siteUrlFor(brand) || 'https://teone.dev';
-      loginUrl = `${base}/login?tab=tl`;
       const { data: tl } = await supabase.from('tour_leaders').select('name, phone').eq('id', trip.tl_id).maybeSingle();
       if (tl?.phone) {
         const msg = `Halo ${tl.name || 'Kak'} 🙏\n\nPenugasan sebagai Tour Leader untuk trip *${displayName}* sudah kamu *KONFIRMASI* ✅\n\nSilakan login ke web untuk pantau tripmu (peserta, dokumen, manifest, roomlist, expense):\n🔗 ${loginUrl}\n\n(Login pakai akun Google yang sudah didaftarkan Ops.)\n\n📞 PIC Ops (jika ada kendala):\nLuthfi 081290199059\nYuyun 0895348816125\n\n— ${brandLabelTL()} One System`;
