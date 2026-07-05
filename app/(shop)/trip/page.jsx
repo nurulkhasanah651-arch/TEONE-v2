@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getPublishedTrips, getCategorizedTrips, getStorefrontSettingsPublic, tripSeatLeft } from '@/lib/shop/data';
+import { getPublishedTrips, getCategorizedTrips, getStorefrontSettingsPublic, tripSeatLeft, TRIP_CATEGORY_DEFS } from '@/lib/shop/data';
 import { effectiveRegions, subcatsForRegion, subcatLabel, tripSubcat } from '@/lib/shop/regions';
 import TripCard from '@/components/shop/TripCard';
 
@@ -43,6 +43,21 @@ export default async function TripListPage({ searchParams }) {
       .filter((sc) => (byKey[sc.key] || []).length > 0)
       .map((sc) => ({ key: sc.key, icon: sc.icon, label: sc.label, trips: byKey[sc.key] }));
     if (other.length) subGroups.push({ key: '_other', icon: '📍', label: `${activeLabel} Lainnya`, trips: other });
+  }
+  // Bulan dipilih di level atas (tanpa region) → kelompokkan card per kategori etalase
+  // (West Europe Best Seller, China Mewah, dll) — first-match-wins, sama seperti Open Trip.
+  const groupByCategory = !!month && !region;
+  let catGroups = [];
+  if (groupByCategory) {
+    const buckets = TRIP_CATEGORY_DEFS.map((c) => ({ ...c, trips: [] }));
+    const other = [];
+    for (const t of trips) {
+      const hay = `${t.name || ''} ${t.destination || ''}`;
+      const hit = buckets.find((c) => c.re.test(hay));
+      (hit ? hit.trips : other).push(t);
+    }
+    catGroups = buckets.filter((c) => c.trips.length > 0);
+    if (other.length) catGroups.push({ key: 'next-level', icon: '🧭', title: 'Destinasi untuk The Next Level Travelers', subtitle: 'Destinasi beda — Amerika, Canada, Bhutan & lainnya', trips: other });
   }
   const activeSubLabel = (region && sub) ? subcatLabel(region, sub) : null;
   const heading = activeSubLabel ? `Open Trip — ${activeSubLabel}` : (activeLabel ? `Open Trip — ${activeLabel}` : 'Open Trip');
@@ -126,6 +141,27 @@ export default async function TripListPage({ searchParams }) {
                 </div>
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
                   {g.trips.map((t) => <TripCard key={t.id} t={t} />)}
+                </div>
+              </section>
+            ))}
+          </div>
+        )
+      ) : groupByCategory ? (
+        catGroups.length === 0 ? (
+          <div className="text-center py-20 text-slate-400">
+            <p className="text-5xl mb-3">🧳</p>
+            <p className="font-bold text-slate-600">Belum ada trip untuk bulan ini</p>
+          </div>
+        ) : (
+          <div className="space-y-10">
+            {catGroups.map((c) => (
+              <section key={c.key} id={`kat-${c.key}`}>
+                <div className="mb-3">
+                  <h2 className="text-lg sm:text-xl font-extrabold text-slate-900"><span className="mr-1.5">{c.icon}</span>{c.title}</h2>
+                  {c.subtitle && <p className="text-slate-500 text-xs sm:text-sm mt-0.5">{c.subtitle}</p>}
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+                  {c.trips.map((t) => <TripCard key={t.id} t={t} />)}
                 </div>
               </section>
             ))}
