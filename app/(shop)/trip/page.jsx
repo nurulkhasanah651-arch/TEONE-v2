@@ -58,6 +58,10 @@ export default async function TripListPage({ searchParams }) {
     }
     catGroups = buckets.filter((c) => c.trips.length > 0);
     if (other.length) catGroups.push({ key: 'next-level', icon: '🧭', title: 'Destinasi untuk The Next Level Travelers', subtitle: 'Destinasi beda — Amerika, Canada, Bhutan & lainnya', trips: other });
+    // Prioritaskan kategori yang MASIH ada seat di urutan atas; kategori yang semua trip-nya
+    // sold out turun ke bawah. (urutan kategori default dipertahankan sbg tie-breaker via stable sort)
+    const _hasSeat = (c) => c.trips.some((t) => tripSeatLeft(t) > 0);
+    catGroups.sort((a, b) => (_hasSeat(a) ? 0 : 1) - (_hasSeat(b) ? 0 : 1));
   }
   const activeSubLabel = (region && sub) ? subcatLabel(region, sub) : null;
   const heading = activeSubLabel ? `Open Trip — ${activeSubLabel}` : (activeLabel ? `Open Trip — ${activeLabel}` : 'Open Trip');
