@@ -22,6 +22,9 @@ export default function TripCard({ t }) {
         ) : (
           <span className="absolute top-2 left-2 text-[10px] sm:text-[11px] font-bold px-2 py-0.5 sm:py-1 rounded-full bg-emerald-500 text-white">Sisa {seatShown} seat</span>
         )}
+        {!soldout && t.promo_badge && (
+          <span className="absolute top-2 right-2 text-[10px] sm:text-[11px] font-extrabold px-2 py-0.5 sm:py-1 rounded-full bg-red-600 text-white shadow-md">{t.promo_badge}</span>
+        )}
       </div>
       <div className={`p-3 sm:p-4 ${soldout ? 'bg-slate-50' : ''}`}>
         {t.destination && <p className={`text-[11px] font-bold uppercase tracking-wider ${soldout ? 'text-slate-400' : 'text-slate-400'}`}>{t.destination}</p>}
