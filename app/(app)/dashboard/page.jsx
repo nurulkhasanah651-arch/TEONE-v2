@@ -9,6 +9,7 @@ import { fetchAll } from '@/lib/supabase/fetch-all';
 import { getRoleFromUser, filterNavByRole } from '@/lib/utils/roles';
 import { getBrandCode } from '@/lib/brand';
 import { BRAND_UI } from '@/lib/brand-shared';
+import ReviewPendingCard from '@/components/common/ReviewPendingCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -155,6 +156,8 @@ export default async function DashboardPage() {
         <h1 className="text-3xl font-bold text-brand-700">{greeting()}, {name} 👋</h1>
         <p className="mt-1 text-slate-600">{(BRAND_UI[getBrandCode()] || BRAND_UI.teone).welcome}</p>
       </div>
+
+      <ReviewPendingCard />
 
       {/* HERO STATS — 3 card aja */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
