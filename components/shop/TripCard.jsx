@@ -20,13 +20,10 @@ export default function TripCard({ t }) {
             <span className="mt-1 text-[11px] font-semibold text-white/70 uppercase tracking-wide">Seat Habis</span>
           </div>
         ) : (
-          <span className="absolute top-2 left-2 text-[10px] sm:text-[11px] font-bold px-2 py-0.5 sm:py-1 rounded-full bg-emerald-500 text-white">Sisa {seatShown} seat</span>
+          <span className={`absolute ${t.promo_badge ? 'top-9' : 'top-2'} left-2 text-[10px] sm:text-[11px] font-bold px-2 py-0.5 sm:py-1 rounded-full bg-emerald-500 text-white`}>Sisa {seatShown} seat</span>
         )}
         {!soldout && t.promo_badge && (
-          <span
-            className="absolute top-9 left-0 z-10 text-xs sm:text-sm font-extrabold pl-2.5 pr-4 py-1 bg-red-600 text-white shadow-md uppercase tracking-wide"
-            style={{ clipPath: 'polygon(0 0, 100% 0, calc(100% - 9px) 50%, 100% 100%, 0 100%)' }}
-          >{t.promo_badge}</span>
+          <div className="absolute top-0 left-0 right-0 z-10 bg-red-600 text-white text-center font-extrabold text-xs sm:text-sm py-1 uppercase tracking-wide shadow-md">{t.promo_badge}</div>
         )}
       </div>
       <div className={`p-3 sm:p-4 ${soldout ? 'bg-slate-50' : ''}`}>
