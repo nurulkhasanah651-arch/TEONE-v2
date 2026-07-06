@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getPublishedTrips, getCategorizedTrips, getStorefrontSettingsPublic, tripSeatLeft, TRIP_CATEGORY_DEFS } from '@/lib/shop/data';
+import { getPublishedTrips, getCategorizedTrips, getStorefrontSettingsPublic, tripSeatLeft, TRIP_CATEGORY_DEFS, getEarlyBooking2027Trips } from '@/lib/shop/data';
 import { effectiveRegions, subcatsForRegion, subcatLabel, tripSubcat } from '@/lib/shop/regions';
 import TripCard from '@/components/shop/TripCard';
 
@@ -12,6 +12,10 @@ export default async function TripListPage({ searchParams }) {
   const noFilter = !region && !sub && !month;
   let trips = await getPublishedTrips(region);
   const categories = noFilter ? await getCategorizedTrips() : [];
+  if (noFilter) {
+    const early2027 = await getEarlyBooking2027Trips(30);
+    if (early2027.length) categories.push({ key: 'early-2027', icon: '🎟️', title: 'Early Booking Trip 2027', subtitle: 'Amankan kursi lebih awal untuk keberangkatan sepanjang 2027', trips: early2027 });
+  }
   const settings = await getStorefrontSettingsPublic();
   const regions = effectiveRegions(settings?.regions);
   const activeLabel = region ? (regions.find((r) => r.key === region)?.label || region) : null;

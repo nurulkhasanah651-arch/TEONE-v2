@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { resolveBrandCode } from '@/lib/brand-shared';
 import { storefrontConfig } from '@/lib/shop/storefront-config';
 import { effectiveRegions } from '@/lib/shop/regions';
-import { getFlashSaleTrips, getBestSellerTrips, getYearEndSpecialTrips, getAvailableDepartureMonths, getStorefrontSettingsPublic, getCategoryTrips } from '@/lib/shop/data';
+import { getFlashSaleTrips, getBestSellerTrips, getYearEndSpecialTrips, getAvailableDepartureMonths, getStorefrontSettingsPublic, getCategoryTrips, getEarlyBooking2027Trips } from '@/lib/shop/data';
 import { getGoogleReviews } from '@/lib/shop/google-reviews';
 import TripCard from '@/components/shop/TripCard';
 import HeroSlider from '@/components/shop/HeroSlider';
@@ -35,6 +35,7 @@ export default async function StorefrontHome() {
   const chinaTrips = await getCategoryTrips(['china','tiongkok'], 20);
   const newZealandTrips = await getCategoryTrips(['new zealand','selandia baru','lupin'], 20);
   const nextLevelTrips = await getCategoryTrips(['canada','kanada','usa','amerika','america','united states','new york','west coast','east coast','bhutan','nepal'], 20);
+  const early2027 = await getEarlyBooking2027Trips(30);
   const live = await getGoogleReviews(cfg.googlePlaceId);
   const rating = live?.rating || cfg.googleRating;
   const count = live?.count || cfg.googleCount;
@@ -249,6 +250,21 @@ export default async function StorefrontHome() {
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
           {nextLevelTrips.map((t) => <TripCard key={t.id} t={t} />)}
+        </div>
+      </section>
+      )}
+
+      {early2027.length > 0 && (
+      <section className="max-w-6xl mx-auto px-4 py-14">
+        <div className="flex items-end justify-between mb-6">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-blue-600">🎟️ Early Booking Trip 2027</h2>
+            <p className="text-slate-500 mt-1">Amankan kursi lebih awal untuk keberangkatan sepanjang 2027.</p>
+          </div>
+          <Link href="/trip" className="hidden sm:inline text-sm font-bold text-blue-600 hover:text-blue-700">Lihat semua →</Link>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+          {early2027.map((t) => <TripCard key={t.id} t={t} />)}
         </div>
       </section>
       )}
