@@ -1,5 +1,6 @@
 // Tab Review internal — hasil review after-trip. Akses: staf internal.
-import { getReviews } from '@/lib/actions/reviews';
+import { getReviews, getReviewSendableTrips } from '@/lib/actions/reviews';
+import ReviewSendPanel from '@/components/common/ReviewSendPanel';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -23,6 +24,7 @@ function avg(arr, key) {
 export default async function ReviewsPage({ searchParams }) {
   const tripId = searchParams?.trip || null;
   const r = await getReviews(tripId);
+  const sendable = await getReviewSendableTrips();
   if (r?.error) {
     return <div className="max-w-2xl mx-auto p-6 text-sm text-slate-500">Halaman ini khusus tim internal.</div>;
   }
@@ -35,6 +37,8 @@ export default async function ReviewsPage({ searchParams }) {
         <h1 className="text-2xl font-extrabold text-slate-900">⭐ Review Trip</h1>
         <p className="text-slate-500 text-sm mt-0.5">Hasil review peserta setelah trip selesai.</p>
       </div>
+
+      {!sendable?.error && <ReviewSendPanel trips={sendable?.trips || []} />}
 
       {/* Ringkasan rata-rata */}
       <div className="grid grid-cols-3 gap-3 mb-5">
