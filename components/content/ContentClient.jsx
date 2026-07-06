@@ -520,15 +520,35 @@ function ConnectTab({ igConnected, ig }) {
 
 
 // ═══════════════ TOP PERFORMA (IG tersambung — dari media asli) ═══════════════
+// Interaksi = likes + komentar + saves (akumulasi). Kolom metrik breakdown dari API.
+// Header metrik clickable: klik 1x = terbesar→terkecil (desc), klik lagi = kebalikannya (asc).
+const IG_METRIC_COLS = [
+  { key: 'eng',      label: 'Interaksi', get: (m) => (m.like_count || 0) + (m.comments_count || 0) + (m.saved || 0), accent: true },
+  { key: 'reach',    label: '👁 Reach',  get: (m) => m.reach },
+  { key: 'views',    label: '▶️ Views',  get: (m) => (m.views ?? m.impressions ?? m.plays ?? null) },
+  { key: 'likes',    label: '❤️ Likes',  get: (m) => m.like_count },
+  { key: 'comments', label: '💬 Komentar', get: (m) => m.comments_count },
+  { key: 'saves',    label: '🔖 Saves',  get: (m) => m.saved },
+  { key: 'shares',   label: '📤 Shares', get: (m) => m.shares },
+];
 function TopIgMediaPerforma({ media }) {
   const [period, setPeriod] = useState('week');
+  const [sort, setSort] = useState({ key: 'eng', dir: 'desc' });
   const days = period === 'week' ? 7 : period === 'month' ? 30 : null;
   const cutoff = days ? Date.now() - days * 86400000 : null;
-  const eng = (m) => (m.like_count || 0) + (m.comments_count || 0) + (m.saved || 0);
+  const engCol = IG_METRIC_COLS[0];
+  const active = IG_METRIC_COLS.find((c) => c.key === sort.key) || engCol;
+  const numOf = (v) => (v == null ? -Infinity : (Number(v) || 0));
+  const onSort = (key) => setSort((s) => (s.key === key ? { key, dir: s.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' }));
+  const arrow = (key) => (sort.key === key ? (sort.dir === 'desc' ? ' ↓' : ' ↑') : '');
   const ranked = (media || [])
     .filter((m) => { if (!cutoff) return true; if (!m.timestamp) return false; return new Date(m.timestamp).getTime() >= cutoff; })
-    .sort((a, b) => eng(b) - eng(a) || (b.reach || 0) - (a.reach || 0))
-    .slice(0, 8);
+    .slice()
+    .sort((a, b) => {
+      const av = numOf(active.get(a)), bv = numOf(active.get(b));
+      if (av !== bv) return sort.dir === 'desc' ? bv - av : av - bv;
+      return numOf(engCol.get(b)) - numOf(engCol.get(a)); // tie-break: interaksi tertinggi
+    });
   const periods = [['week', '7 Hari'], ['month', '30 Hari'], ['all', 'Semua']];
   return (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
@@ -543,26 +563,33 @@ function TopIgMediaPerforma({ media }) {
       {ranked.length === 0 ? (
         <p className="px-4 py-6 text-center text-xs text-slate-400">Belum ada post IG di periode ini.</p>
       ) : (
-        <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-xs whitespace-nowrap">
+        <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-xs whitespace-nowrap">
           <thead><tr className="text-left text-slate-500 border-b border-slate-100">
             <th className="px-4 py-2">#</th><th className="px-2 py-2">Konten</th><th className="px-2 py-2">Tgl</th>
-            <th className="px-2 py-2 text-right">Interaksi</th><th className="px-2 py-2 text-right">👁 Reach</th><th className="px-2 py-2"></th>
+            {IG_METRIC_COLS.map((c) => (
+              <th key={c.key} onClick={() => onSort(c.key)} title="Klik untuk urutkan"
+                className={`px-2 py-2 text-right cursor-pointer select-none hover:text-slate-800 ${sort.key === c.key ? 'text-slate-800 font-bold' : ''}`}>
+                {c.label}{arrow(c.key)}
+              </th>
+            ))}
+            <th className="px-2 py-2"></th>
           </tr></thead>
           <tbody>
             {ranked.map((m, i) => (
               <tr key={m.id} className="border-b border-slate-50 hover:bg-slate-50">
                 <td className="px-4 py-2 font-bold text-amber-600">{i + 1}</td>
-                <td className="px-2 py-2 text-slate-700 max-w-[260px] truncate">{m.caption || `(${(m.media_type || 'post').toLowerCase()})`}</td>
+                <td className="px-2 py-2 text-slate-700 max-w-[240px] truncate">{m.caption || `(${(m.media_type || 'post').toLowerCase()})`}</td>
                 <td className="px-2 py-2 text-slate-400">{m.timestamp ? new Date(m.timestamp).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : '—'}</td>
-                <td className="px-2 py-2 text-right font-bold text-pink-600">{fmtNum(eng(m))}</td>
-                <td className="px-2 py-2 text-right">{m.reach != null ? fmtNum(m.reach) : '—'}</td>
+                {IG_METRIC_COLS.map((c) => { const v = c.get(m); return (
+                  <td key={c.key} className={`px-2 py-2 text-right ${c.accent ? 'font-bold text-pink-600' : ''} ${sort.key === c.key ? 'bg-amber-50/60' : ''}`}>{v != null ? fmtNum(v) : '—'}</td>
+                ); })}
                 <td className="px-2 py-2">{m.permalink && <a href={m.permalink} target="_blank" className="text-brand-600 hover:underline">↗</a>}</td>
               </tr>
             ))}
           </tbody>
         </table></div>
       )}
-      <p className="px-4 py-1.5 text-[10px] text-slate-400 border-t border-slate-100">Interaksi = likes + komentar + saves. Diambil dari post IG terbaru.</p>
+      <p className="px-4 py-1.5 text-[10px] text-slate-400 border-t border-slate-100">Interaksi = likes + komentar + saves (akumulasi). Klik header metrik untuk urutkan (klik lagi untuk balik urutan). Metrik breakdown dari Instagram API; kolom yg tak didukung akun tampil "—".</p>
     </div>
   );
 }
