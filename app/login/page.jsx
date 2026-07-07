@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { resolveBrandCodeBrowser, BRAND_UI } from '@/lib/brand-shared';
+import { getMyStaffRole } from '@/lib/actions/auth-role';
 
 export default function LoginPage() {
   const [brandUi, setBrandUi] = useState(BRAND_UI.teone);
@@ -58,6 +59,12 @@ export default function LoginPage() {
       if (role) {
         await supabase.auth.updateUser({ data: { ...u.user_metadata, role } });
       }
+    }
+
+    // Fallback terakhir: resolusi otoritatif dari master `employees` (server-side),
+    // supaya akun staf yg cuma ada di employees (mis. ops baru) tetap dikenali.
+    if (!role || role === 'pending') {
+      try { const r = await getMyStaffRole(); if (r?.role) role = r.role; } catch {}
     }
 
     if (!role || role === 'pending') {
