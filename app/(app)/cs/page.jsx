@@ -8,6 +8,7 @@ import ClosingHistoryTable from '@/components/cs/ClosingHistoryTable';
 import { fetchAll } from '@/lib/supabase/fetch-all';
 import CsRecapPanel from '@/components/cs/CsRecapPanel';
 import { getCsRecapGroup, buildCsRecap } from '@/lib/actions/cs-recap';
+import ClosingRangePanel from '@/components/cs/ClosingRangePanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -103,6 +104,8 @@ export default async function CSPage() {
       </div>
 
       <CsRecapPanel initialGroup={recapGroup?.group || ''} />
+
+      <ClosingRangePanel defaultFrom={today.slice(0, 8) + '01'} defaultTo={today} />
 
       {/* === LEADS HARIAN === */}
       <section className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
