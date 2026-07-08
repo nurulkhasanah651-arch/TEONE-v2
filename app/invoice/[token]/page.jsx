@@ -192,8 +192,11 @@ export default async function PublicInvoicePage({ params }) {
   const invHasVisa = _invAllIn || _msLower.includes('visa');
   const invHasAsuransi = _invAllIn || _msLower.includes('asuransi');
   // Family-aware: jumlahkan visa/asuransi semua anggota yang mengambilnya (bukan 1 orang)
-  const visaAmt = invHasVisa ? (famResolved ? famVisa : (paidTypes.has('Visa') ? visaPrice : 0)) : 0;
-  const asuransiAmt = invHasAsuransi ? (famResolved ? famAsuransi : (paidTypes.has('Asuransi') ? asuransiPrice : 0)) : 0;
+  // R228: Visa/Asuransi ikut TOTAL berdasarkan FLAG include peserta (include_visa/include_asuransi
+  //        dari web/CS daily/master trip) — bukan lagi tergantung milestone invoice.
+  //        famVisa/famAsuransi = bill.visaExpected/asuransiExpected yg sudah dihitung dari flag include.
+  const visaAmt = famResolved ? famVisa : ((invHasVisa || paidTypes.has('Visa')) ? visaPrice : 0);
+  const asuransiAmt = famResolved ? famAsuransi : ((invHasAsuransi || paidTypes.has('Asuransi')) ? asuransiPrice : 0);
   if (visaAmt > 0) optItems.push({ label: famCount > 1 ? `Visa (${famCount} peserta)` : 'Visa', amount: visaAmt });
   if (asuransiAmt > 0) optItems.push({ label: famCount > 1 ? `Asuransi (${famCount} peserta)` : 'Asuransi', amount: asuransiAmt });
 
@@ -220,7 +223,9 @@ export default async function PublicInvoicePage({ params }) {
   const tourTotal = tourItems.reduce((s2, it) => s2 + (Number(it.amount) || 0), 0);
   // RINGKASAN: utk invoice ALL-IN (Pelunasan+Visa+Asuransi) tampilkan total/dibayar/sisa SEMUA
   //   supaya konsisten dgn nominal invoice (tidak membingungkan peserta). Invoice biasa = pokok saja.
-  const _allInRingkas = _invAllIn || (_msLower.includes('pelunasan') && (_msLower.includes('visa') || _msLower.includes('asuransi')));
+  // R228: kalau peserta include visa/asuransi (visaAmt/asuransiAmt > 0), Total Tagihan = pokok+visa+asuransi
+  //        dan Sisa = total − semua yg sudah dibayar (pokok + addon). Nominal per-invoice tetap.
+  const _allInRingkas = _invAllIn || visaAmt > 0 || asuransiAmt > 0 || (_msLower.includes('pelunasan') && (_msLower.includes('visa') || _msLower.includes('asuransi')));
   const ringkasTotal = _allInRingkas ? tourTotal : expectedTotalReal;
   const ringkasPaid = _allInRingkas ? ((Number(pokokPaidReal) || 0) + (Number(addonPaidReal) || 0)) : pokokPaidReal;
   const ringkasSisa = _allInRingkas ? Math.max(ringkasTotal - ringkasPaid, 0) : sisaReal;
