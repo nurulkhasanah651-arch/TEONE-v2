@@ -43,7 +43,7 @@ function buildMilestoneOptions(paymentTemplate, priceBreakdown = {}) {
     .sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
   const pKeys = templatePKeys.length > 0 ? templatePKeys : ['P1', 'P2', 'P3'];
 
-  const standard = ['DP', ...pKeys, 'Pelunasan', 'Visa', 'Asuransi', 'All-in (Pelunasan+Visa+Asuransi)'];
+  const standard = ['DP', ...pKeys, 'Pelunasan', 'Visa', 'Asuransi', 'All-in (Pelunasan+Visa+Asuransi)', 'All-in (Pelunasan+Visa)'];
   const seen = new Set(standard.map((x) => x.toLowerCase()));
 
   // Custom milestone bernama bebas dari template (selain DP/P*/standar)
@@ -176,6 +176,12 @@ export default function InvoicePanelForPassenger({
       return;
     }
 
+    if (milestone === 'All-in (Pelunasan+Visa)') {
+      const est = (Number(sisaPerPax) || 0) + (getPresetAmount('Visa') || 0);
+      if (isFamily) setAmountPerPax(String(est)); else setAmount(String(est));
+      return;
+    }
+
     const preset = getPresetAmount(milestone);
     if (preset > 0) {
       if (isFamily) {
@@ -202,6 +208,10 @@ export default function InvoicePanelForPassenger({
     const finalMilestone = milestone === 'Custom' ? customMilestone : milestone;
     if (!finalMilestone) { alert('Pilih milestone'); return; }
 
+    // All-in mencakup 2 varian: (+Visa+Asuransi) dan (+Visa saja, tanpa asuransi)
+    const isAllIn = finalMilestone === 'All-in (Pelunasan+Visa+Asuransi)' || finalMilestone === 'All-in (Pelunasan+Visa)';
+    const allInSkipAsuransi = finalMilestone === 'All-in (Pelunasan+Visa)';
+
     const isFamily = mode === 'family_invoice' || mode === 'family_receipt';
     const isReceipt = mode === 'receipt' || mode === 'family_receipt';
 
@@ -209,7 +219,7 @@ export default function InvoicePanelForPassenger({
     let passengerAmountsMap = null;
 
     if (isFamily) {
-      if (finalMilestone === 'All-in (Pelunasan+Visa+Asuransi)') {
+      if (isAllIn) {
         totalAmt = 0; passengerAmountsMap = {};
       } else if (customPerPax) {
         const map = {};
@@ -230,7 +240,7 @@ export default function InvoicePanelForPassenger({
       }
     } else {
       totalAmt = parseInt(amount) || 0;
-      if (totalAmt <= 0 && finalMilestone !== 'All-in (Pelunasan+Visa+Asuransi)') { alert('Amount harus > 0'); return; }
+      if (totalAmt <= 0 && !isAllIn) { alert('Amount harus > 0'); return; }
     }
 
     startTransition(async () => {
@@ -264,7 +274,8 @@ export default function InvoicePanelForPassenger({
           customer_id: customer?.id || passenger.customer_id,
           milestone: finalMilestone, amount: totalAmt,
           due_date: dueDate || null, description: baseDesc,
-          allIn: finalMilestone === 'All-in (Pelunasan+Visa+Asuransi)',
+          allIn: isAllIn,
+          skipAsuransi: allInSkipAsuransi,
           ...familyFields,
         });
       }
