@@ -19,7 +19,7 @@ function parseRupiah(s) {
   return String(s).replace(/[^0-9]/g, '');
 }
 
-export default function PaymentProofForm({ token, expectedAmount }) {
+export default function PaymentProofForm({ token, expectedAmount, allInAmount = 0 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [showForm, setShowForm] = useState(false);
@@ -32,6 +32,8 @@ export default function PaymentProofForm({ token, expectedAmount }) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [success, setSuccess] = useState(false);
+  const hasAllIn = Number(allInAmount) > Number(expectedAmount) + 1;
+  const [allMode, setAllMode] = useState(false);
 
   async function handleFileUpload(rawFile) {
     const file = await compressImage(rawFile);
@@ -72,6 +74,7 @@ export default function PaymentProofForm({ token, expectedAmount }) {
       fd.set('note', note);
       fd.set('proof_url', proofUrl);
       fd.set('proof_file_name', proofFileName);
+      fd.set('all_in', allMode ? '1' : '0');
 
       const r = await uploadPaymentProof(token, fd);
       if (r?.error) {
@@ -117,6 +120,20 @@ export default function PaymentProofForm({ token, expectedAmount }) {
           Batal
         </button>
       </div>
+
+      {hasAllIn && (
+        <div className="border border-slate-200 rounded-lg p-3 bg-white space-y-2">
+          <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">Yang mau dibayar</p>
+          <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+            <input type="radio" name="proofPayMode" checked={!allMode} onChange={() => { setAllMode(false); setAmount(String(expectedAmount || '')); }} className="w-4 h-4" />
+            <span>Tagihan ini saja — <b>Rp {fmtRupiah(expectedAmount)}</b></span>
+          </label>
+          <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+            <input type="radio" name="proofPayMode" checked={allMode} onChange={() => { setAllMode(true); setAmount(String(allInAmount || '')); }} className="w-4 h-4" />
+            <span>Bayar <b>SEMUA sekaligus</b> (pelunasan + visa + asuransi) — <b>Rp {fmtRupiah(allInAmount)}</b></span>
+          </label>
+        </div>
+      )}
 
       <div>
         <label className="block">

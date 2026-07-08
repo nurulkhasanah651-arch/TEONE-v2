@@ -456,7 +456,7 @@ export default async function PublicInvoicePage({ params }) {
             {PaymentProofForm && (
               <>
                 <p className="text-[11px] text-slate-500 mt-3 mb-1 font-semibold">🏦 Apabila menggunakan transfer bank, upload bukti transfer di bawah ini:</p>
-                <PaymentProofForm token={inv.public_token} expectedAmount={sisaInvoice || inv.amount} />
+                <PaymentProofForm token={inv.public_token} expectedAmount={sisaInvoice || inv.amount} allInAmount={allInAmount} />
               </>
             )}
           </div>
