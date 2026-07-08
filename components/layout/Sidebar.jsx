@@ -36,6 +36,7 @@ const GROUPS = [
       { href: '/finance',    label: 'Finance',    icon: '$',  roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
       { href: '/invoices',   label: 'Invoices',   icon: '🧾', roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
       { href: '/accounting', label: 'Accounting', icon: '📊', roles: ['owner', 'accounting'] },
+      { href: '/finance/pnr', label: 'PNR Inventory', icon: '🎟', roles: ALL_ROLES },
       { href: '/refunds',    label: 'Refunds',    icon: '💸', roles: ALL_ROLES },
     ],
   },

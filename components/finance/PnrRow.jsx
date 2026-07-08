@@ -5,6 +5,7 @@ import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { deletePnr, convertPnrToTrip, unlinkPnrFromTrip } from '@/lib/actions/pnr';
 import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
+import EticketPanel from '@/components/finance/EticketPanel';
 
 export default function PnrRow({ pnr }) {
   const [pending, startTransition] = useTransition();
@@ -102,6 +103,8 @@ export default function PnrRow({ pnr }) {
           </button>
         </div>
       </div>
+
+      <EticketPanel pnrId={pnr.id} initialDocs={pnr.eticket_docs || []} />
     </div>
   );
 }
