@@ -92,6 +92,15 @@ export default function PaymentMatrix({
     });
   }
 
+  function handleSettleVisa(passengerId, nm) {
+    if (!confirm(`Lunasi tagihan ${nm || 'peserta'}: sisa pokok + Visa saja (TANPA Asuransi)?\n\nVisa akan tercentang lunas → terhubung ke tim visa untuk dijadwalkan.\nKalau peserta bagian KELUARGA, seluruh anggota keluarga ikut.`)) return;
+    startTransition(async () => {
+      const result = await settlePelunasanAll(passengerId, tripId, { skipAsuransi: true });
+      if (result?.error) alert(result.error);
+      else router.refresh();
+    });
+  }
+
   async function handleSaveAmount(paymentId, newAmount) {
     startTransition(async () => {
       const result = await updatePaymentAmount(paymentId, tripId, newAmount);
@@ -313,9 +322,14 @@ export default function PaymentMatrix({
                         <p className="text-[10px] text-amber-700 font-semibold">Sisa: {fmtRupiah(remaining)}</p>
                       )}
                       {totalPaid < expectedTotal && (
-                        <button onClick={() => handleSettleAll(p.id, c.name)} disabled={pending}
-                          className="mt-1 text-[10px] px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold disabled:opacity-50"
-                          title="Lunasi sisa pokok + Visa + Asuransi sekaligus">⚡ Lunasi semua</button>
+                        <span className="inline-flex flex-wrap gap-1 mt-1">
+                          <button onClick={() => handleSettleAll(p.id, c.name)} disabled={pending}
+                            className="text-[10px] px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold disabled:opacity-50"
+                            title="Lunasi sisa pokok + Visa + Asuransi sekaligus">⚡ Lunasi semua</button>
+                          <button onClick={() => handleSettleVisa(p.id, c.name)} disabled={pending}
+                            className="text-[10px] px-2 py-0.5 rounded bg-sky-600 hover:bg-sky-700 text-white font-bold disabled:opacity-50"
+                            title="Lunasi sisa pokok + Visa saja (tanpa Asuransi)">⚡ Lunasi + Visa</button>
+                        </span>
                       )}
                     </td>
                   </tr>
