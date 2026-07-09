@@ -10,8 +10,10 @@ export default async function WaManualPage() {
     <div className="p-6 max-w-3xl">
       <h1 className="text-2xl font-bold text-brand-700">WA Menunggu Dikirim Manual</h1>
       <p className="text-sm text-slate-500 mt-1 mb-5">
-        Pesan dari pembayaran online, ongkir, dan reminder untuk trip yang PIC-nya belum
-        tersambung ke WhatsApp. Salin nomor & pesannya, kirim dari WA PIC, lalu tandai sudah dikirim.
+        Khusus pembayaran online peserta (DP, P1, P2, pelunasan, dll) untuk trip yang PIC-nya
+        belum tersambung ke WhatsApp. Salin nomor &amp; pesannya, kirim dari WA PIC, lalu tandai
+        sudah dikirim. Perlengkapan/ongkir tidak masuk sini — templatenya langsung muncul
+        di panel Perlengkapan saat tombolnya diklik.
       </p>
 
       {r?.error ? (

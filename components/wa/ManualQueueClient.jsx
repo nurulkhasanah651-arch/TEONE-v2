@@ -6,7 +6,6 @@ import { markManualWaSent } from '@/lib/actions/wa-manual';
 
 const KIND_LABEL = {
   manual_pending_online: '💳 Pembayaran online',
-  manual_pending_ongkir: '📦 Blast link alamat (massal)',
   manual_pending_reminder: '⏰ Reminder tagihan',
   manual_pending: '✉️ Lainnya',
 };
