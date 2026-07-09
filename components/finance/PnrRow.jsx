@@ -7,12 +7,15 @@ import { deletePnr, convertPnrToTrip, unlinkPnrFromTrip } from '@/lib/actions/pn
 import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 import EticketPanel from '@/components/finance/EticketPanel';
 
-export default function PnrRow({ pnr }) {
+export default function PnrRow({ pnr, trip = null }) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const isFit = pnr.ticket_type === 'fit';
+  const isDomestic = pnr.ticket_type === 'domestic';
+  const tripLabel = trip ? `${trip.kode_trip || trip.id}${trip.name ? ` — ${trip.name}` : ''}` : pnr.trip_id;
   const seats = Number(pnr.pax ?? pnr.seats) || 0;
   const pricePerSeat = Number(pnr.price_per_pax ?? pnr.ticket_price) || 0;
-  const totalCost = pnr.ticket_type === 'fit' ? (Number(pnr.total_amount) || 0) : (seats * pricePerSeat);
+  const totalCost = isFit ? (Number(pnr.total_amount) || 0) : (seats * pricePerSeat);
   const depositPaid = Number(pnr.deposit_total) || 0;
   const balance = Math.max(totalCost - depositPaid, 0); // sisa pelunasan = total - deposit
   const isPaid = totalCost > 0 && depositPaid >= totalCost;
@@ -36,7 +39,7 @@ export default function PnrRow({ pnr }) {
   }
 
   async function handleUnlink() {
-    if (!confirm(`Unlink PNR dari trip ${pnr.trip_id}?`)) return;
+    if (!confirm(`Unlink PNR dari trip ${tripLabel}?`)) return;
     startTransition(async () => {
       const result = await unlinkPnrFromTrip(pnr.id);
       if (result?.error) alert(result.error);
@@ -50,13 +53,15 @@ export default function PnrRow({ pnr }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-mono font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded">{pnr.pnr}</span>
-            {pnr.ticket_type === 'fit'
+            {isFit
               ? <span className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-bold">🎫 FIT</span>
-              : <span className="text-xs px-2 py-0.5 rounded bg-sky-100 text-sky-700 font-bold">✈ GROUP</span>}
+              : isDomestic
+                ? <span className="text-xs px-2 py-0.5 rounded bg-teal-100 text-teal-700 font-bold">🛫 DOMESTIK</span>
+                : <span className="text-xs px-2 py-0.5 rounded bg-sky-100 text-sky-700 font-bold">✈ GROUP</span>}
             {pnr.vendor && <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">{pnr.vendor}</span>}
             {pnr.trip_id && (
-              <Link href={`/trips/${pnr.trip_id}`} className="text-xs px-2 py-0.5 rounded bg-green-50 text-green-700 hover:bg-green-100 font-semibold">
-                🔗 Linked: {pnr.trip_id}
+              <Link href={`/trips/${pnr.trip_id}`} className="text-xs px-2 py-0.5 rounded bg-green-50 text-green-700 hover:bg-green-100 font-semibold max-w-[280px] truncate" title={tripLabel}>
+                🔗 Trip {tripLabel}
               </Link>
             )}
             {isPaid && <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-semibold">✓ Lunas</span>}
@@ -93,7 +98,7 @@ export default function PnrRow({ pnr }) {
             <button onClick={handleUnlink} disabled={pending} className="text-xs px-2.5 py-1 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 font-semibold transition-colors disabled:opacity-50">
               🔓 Unlink
             </button>
-          ) : pnr.ticket_type !== 'fit' ? (
+          ) : (!isFit && !isDomestic) ? (
             <button onClick={handleConvert} disabled={pending} className="text-xs px-2.5 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold transition-colors disabled:opacity-50">
               → Convert to Trip
             </button>

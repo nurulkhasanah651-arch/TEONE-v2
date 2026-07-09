@@ -35,12 +35,13 @@ export default async function PnrListPage() {
   const totalPayoff = (pnrs || []).reduce((s, p) => s + (p.payoff_amount || 0), 0);
   const unlinked = (pnrs || []).filter((p) => !p.trip_id).length;
   const linked = (pnrs || []).filter((p) => p.trip_id).length;
-  const groupCount = (pnrs || []).filter((p) => p.ticket_type !== 'fit').length;
-  const fitCount = (pnrs || []).filter((p) => p.ticket_type === 'fit').length;
-
-  // Pisahkan daftar: Group (PNR rombongan) vs FIT (individu)
-  const groupPnrs = (pnrs || []).filter((p) => p.ticket_type !== 'fit');
+  // Pisahkan daftar: Group (rombongan) · FIT (individu) · Domestik
+  const groupPnrs = (pnrs || []).filter((p) => !['fit', 'domestic'].includes(p.ticket_type));
   const fitPnrs = (pnrs || []).filter((p) => p.ticket_type === 'fit');
+  const domesticPnrs = (pnrs || []).filter((p) => p.ticket_type === 'domestic');
+  const groupCount = groupPnrs.length;
+  const fitCount = fitPnrs.length;
+  const domesticCount = domesticPnrs.length;
 
   // R156: prep rows untuk download
   const fmtMoney = (v) => `Rp ${Number(v || 0).toLocaleString('id-ID')}`;
@@ -53,6 +54,7 @@ export default async function PnrListPage() {
       route: p.route || '-',
       departure_date: p.departure_date || '-',
       trip: trip ? `${trip.kode_trip || ''} ${trip.name}`.trim() : '(unlinked)',
+      ticket_type: p.ticket_type === 'fit' ? 'FIT' : p.ticket_type === 'domestic' ? 'Domestik' : 'Group',
       pax_count: p.pax_count || 0,
       deposit: p.deposit_total || 0,
       payoff: p.payoff_amount || 0,
@@ -84,6 +86,7 @@ export default async function PnrListPage() {
             ]}
             columns={[
               { key: 'pnr', label: 'PNR' },
+              { key: 'ticket_type', label: 'Tipe' },
               { key: 'vendor', label: 'Vendor' },
               { key: 'airline', label: 'Airline' },
               { key: 'route', label: 'Route' },
@@ -114,9 +117,10 @@ export default async function PnrListPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <StatCard label="✈ Group (PNR)" value={groupCount} color="text-sky-700" bg="bg-sky-50" />
         <StatCard label="🎫 FIT" value={fitCount} color="text-purple-700" bg="bg-purple-50" />
+        <StatCard label="🛫 Domestik" value={domesticCount} color="text-teal-700" bg="bg-teal-50" />
         <StatCard label="Linked to Trip" value={linked} color="text-green-700" bg="bg-green-50" />
         <StatCard label="Total Deposit" value={fmtRupiah(totalDeposit)} color="text-amber-700" bg="bg-amber-50" small />
         <StatCard label="Total Pelunasan" value={fmtRupiah(totalPayoff)} color="text-blue-700" bg="bg-blue-50" small />
@@ -137,6 +141,7 @@ export default async function PnrListPage() {
             subtitle="Tiket rombongan / blok kursi"
             accent="text-sky-700"
             list={groupPnrs}
+            tripMap={tripMap}
             emptyText="Belum ada PNR group."
           />
           <PnrSection
@@ -144,7 +149,16 @@ export default async function PnrListPage() {
             subtitle="Tiket individu (Free Individual Traveller)"
             accent="text-purple-700"
             list={fitPnrs}
+            tripMap={tripMap}
             emptyText="Belum ada tiket FIT."
+          />
+          <PnrSection
+            title="🛫 Tiket Domestik"
+            subtitle="Penerbangan domestik penjemputan / lanjutan — bisa disambungkan ke trip"
+            accent="text-teal-700"
+            list={domesticPnrs}
+            tripMap={tripMap}
+            emptyText="Belum ada tiket domestik."
           />
         </>
       )}
@@ -152,7 +166,7 @@ export default async function PnrListPage() {
   );
 }
 
-function PnrSection({ title, subtitle, accent, list, emptyText }) {
+function PnrSection({ title, subtitle, accent, list, emptyText, tripMap = {} }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between gap-3 flex-wrap">
@@ -166,7 +180,7 @@ function PnrSection({ title, subtitle, accent, list, emptyText }) {
         <div className="p-8 text-center text-sm text-slate-400">{emptyText}</div>
       ) : (
         <div className="divide-y divide-slate-100">
-          {list.map((p) => <PnrRow key={p.id} pnr={p} />)}
+          {list.map((p) => <PnrRow key={p.id} pnr={p} trip={tripMap[p.trip_id] || null} />)}
         </div>
       )}
     </div>
