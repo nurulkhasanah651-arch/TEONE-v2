@@ -19,8 +19,9 @@ function clientFor(code) {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 function tokenFor(base, code) {
-  const suffix = code === 'khasanah' ? '_KHASANAH' : '';
-  return process.env[base + suffix] || (code === 'khasanah' ? process.env[base] : null) || null;
+  // ISOLASI BRAND: Khasanah hanya cek device token *_KHASANAH miliknya sendiri.
+  if (code === 'khasanah') return process.env[base + '_KHASANAH'] || null;
+  return process.env[base] || null;
 }
 
 const DEPTS = [
