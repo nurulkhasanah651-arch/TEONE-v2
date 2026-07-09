@@ -8,7 +8,6 @@ import { useRouter } from 'next/navigation';
 import { toggleMilestone, updatePaymentAmount, updatePaymentNotes, settlePelunasanAll } from '@/lib/actions/payments';
 import { fmtRupiah } from '@/lib/utils/format';
 import { deriveMilestones, expectedPerPassenger, mainExpectedPerPassenger } from '@/lib/utils/price-breakdown';
-import { resolveBrandCodeBrowser } from '@/lib/brand-shared';
 import InvoicePanelForPassenger from '@/components/invoice/InvoicePanelForPassenger';
 import DiscountPanel from '@/components/finance/DiscountPanel';
 import { useWaManual } from '@/components/wa/WaManualProvider';
@@ -33,8 +32,6 @@ export default function PaymentMatrix({
   const [expandedRow, setExpandedRow] = useState(null);
   const showWaManual = useWaManual();
   const [q, setQ] = useState('');
-  const [brandCode, setBrandCode] = useState('');
-  useEffect(() => { setBrandCode(resolveBrandCodeBrowser() || ''); }, []);
 
   const router = useRouter();
 
