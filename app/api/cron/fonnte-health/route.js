@@ -88,6 +88,36 @@ export async function GET(request) {
         }
       }
     }
+
+    // === PIC devices: sebelumnya TIDAK dipantau, jadi device PIC putus tak ketahuan
+    //     (pesan diam-diam jatuh ke nomor Finance). Sekarang ikut dicek per PIC. ===
+    try {
+      const { data: pics } = await db.from('employees')
+        .select('id, full_name, email, fonnte_token').eq('role', 'pic');
+      for (const p of (pics || [])) {
+        const tok = (p.fonnte_token || '').trim();
+        if (!tok) continue;
+        const ctxKey = `pic:${p.email || p.id}`;
+        const connected = await deviceConnected(tok);
+        if (connected === false) {
+          await db.from('wa_outbox').delete()
+            .eq('brand', code).eq('context', ctxKey).eq('kind', 'device_offline').eq('status', 'failed');
+          await db.from('wa_outbox').insert({
+            brand: code, context: ctxKey, kind: 'device_offline', status: 'failed',
+            reason: 'Device Fonnte PIC terputus (hasil cek otomatis)',
+            message: `⚠ Nomor PIC ${p.full_name || p.email} terputus dari Fonnte. Konfirmasi pembayaran trip-nya akan terkirim dari nomor Finance sampai perangkat login ulang.`,
+          });
+          out.push({ brand: code, ctx: ctxKey, pic: p.full_name || p.email, status: 'offline' });
+        } else if (connected === true) {
+          const { data: markers } = await db.from('wa_outbox')
+            .select('id').eq('brand', code).eq('context', ctxKey).eq('kind', 'device_offline').eq('status', 'failed');
+          if (markers && markers.length) {
+            await db.from('wa_outbox').update({ status: 'sent', sent_at: new Date().toISOString() }).in('id', markers.map((m) => m.id));
+            out.push({ brand: code, ctx: ctxKey, pic: p.full_name || p.email, status: 'reconnected' });
+          }
+        }
+      }
+    } catch (e) { out.push({ brand: code, pic_check_error: e?.message || 'unknown' }); }
   }
   return NextResponse.json({ ok: true, checked: out });
 }
