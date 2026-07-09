@@ -20,15 +20,15 @@ export default function ManifestDownloadButton({ tripId, label = '📥 Download 
         [`Keberangkatan: ${trip.departure || '—'}   Kepulangan: ${trip.return || '—'}`],
         [''],
         ['No.', 'First Name', 'Last Name', 'Gender', 'Tempat Lahir', 'Tgl Lahir', 'Umur',
-         'No. Paspor', 'Tgl Issue', 'Issuing Office', 'Tgl Expired', 'No. HP', 'Keterangan'],
+         'No. Paspor', 'Tgl Issue', 'Issuing Office', 'Tgl Expired', 'No. HP', 'Keterangan', 'Catatan / Request'],
         ...rows.map((r) => [
           r.no, r.first_name, r.last_name, r.gender, r.place_of_birth, r.birth_date, r.age,
-          r.passport_no, r.issue_date, r.issuing_office, r.expiry_date, r.phone, r.keterangan,
+          r.passport_no, r.issue_date, r.issuing_office, r.expiry_date, r.phone, r.keterangan, r.catatan || '',
         ]),
       ];
       const ws = XLSX.utils.aoa_to_sheet(aoa);
       ws['!cols'] = [{ wch: 5 }, { wch: 18 }, { wch: 18 }, { wch: 7 }, { wch: 16 }, { wch: 13 }, { wch: 6 },
-        { wch: 18 }, { wch: 13 }, { wch: 18 }, { wch: 13 }, { wch: 16 }, { wch: 20 }];
+        { wch: 18 }, { wch: 13 }, { wch: 18 }, { wch: 13 }, { wch: 16 }, { wch: 20 }, { wch: 32 }];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Manifest');
       XLSX.writeFile(wb, `Manifest - ${trip.kode_trip || trip.name || 'trip'}.xlsx`);

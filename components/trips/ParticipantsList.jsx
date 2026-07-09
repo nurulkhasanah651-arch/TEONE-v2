@@ -129,6 +129,7 @@ export default function ParticipantsList(props) {
                       passport_issued_date: c.passport_issued_date, passport_expiry: c.passport_expiry,
                       room_type: p.room_type, price_paid: p.price_paid, mitra_id: p.mitra_id,
                       include_visa: p.include_visa, visa_ready: p.visa_ready, include_asuransi: p.include_asuransi, visa_type: p.visa_type,
+                      notes: p.notes,
                     }}
                     onSubmit={(fd) => handleUpdate(p.id, p.customer_id, fd)}
                     onCancel={() => { setEditingId(null); setError(''); }}
@@ -161,6 +162,11 @@ export default function ParticipantsList(props) {
                       {c.phone && <span className="mr-3">📞 {c.phone}</span>}
                       {c.email && <span className="mr-3">✉ {c.email}</span>}
                     </p>
+                    {p.notes && (
+                      <p className="mt-1 text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded px-2 py-1 inline-block max-w-full">
+                        📝 {p.notes}
+                      </p>
+                    )}
                     {(c.passport_no || c.passport_expiry) && (
                       <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
                         {c.passport_no && <span>📕 {c.passport_no}</span>}
@@ -272,6 +278,11 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
           </Field>
           <Field label="Asuransi">
             <label className="flex items-center gap-1.5 cursor-pointer text-sm pt-2"><input type="checkbox" name="include_asuransi" value="1" defaultChecked={!!initial.include_asuransi} className="w-4 h-4" /> Include Asuransi</label>
+          </Field>
+          <Field label="Catatan / Permintaan Khusus" className="md:col-span-2"
+            hint="Ikut tampil di manifest & downloadnya. Contoh: halal meals, kursi roda, alergi seafood, duduk dekat jendela.">
+            <textarea autoComplete="off" name="notes" defaultValue={initial.notes || ''} rows="2"
+              className={inputCls + ' resize-none'} placeholder="cth: request halal meals, alergi kacang" />
           </Field>
         </div>
       </FormSection>

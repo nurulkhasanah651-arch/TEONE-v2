@@ -131,6 +131,7 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
                 <th className="px-3 py-2">Issue</th>
                 <th className="px-3 py-2">Office</th>
                 <th className="px-3 py-2">Expired</th>
+                <th className="px-3 py-2">Catatan</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -153,11 +154,14 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
                     <td className="px-3 py-2">{fmtDate(c.passport_issued_date || c.issue_date)}</td>
                     <td className="px-3 py-2">{c.passport_issued_at || c.issuing_office || '—'}</td>
                     <td className="px-3 py-2">{fmtDate(c.passport_expiry || c.expiry_date)}</td>
+                    <td className="px-3 py-2 max-w-[220px] whitespace-normal">
+                      {p.notes ? <span className="text-amber-900">📝 {p.notes}</span> : '—'}
+                    </td>
                   </tr>
                 );
               })}
               {shownPassengers.length === 0 && (
-                <tr><td colSpan={11} className="px-3 py-6 text-center text-slate-500">Belum ada peserta.</td></tr>
+                <tr><td colSpan={12} className="px-3 py-6 text-center text-slate-500">Belum ada peserta.</td></tr>
               )}
             </tbody>
           </table>

@@ -55,7 +55,7 @@ export async function GET(_request, { params }) {
     'No', 'Nama Lengkap', 'Nama Depan', 'Nama Belakang',
     'Gender', 'Tempat Lahir', 'Tanggal Lahir', 'Umur',
     'No Passport', 'Passport Diterbitkan', 'Tanggal Issue Passport', 'Tanggal Expiry Passport',
-    'No HP', 'Email', 'Tipe Kamar', 'Keterangan',
+    'No HP', 'Email', 'Tipe Kamar', 'Keterangan', 'Catatan / Request',
   ];
 
   const rows = [headers.map(escapeCsv).join(',')];
@@ -79,6 +79,7 @@ export async function GET(_request, { params }) {
       c.email || '',
       p.room_type || '',
       _ket(p),
+      (p.notes || '').trim(),
     ];
     rows.push(row.map(escapeCsv).join(','));
   });

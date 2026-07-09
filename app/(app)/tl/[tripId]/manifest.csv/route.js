@@ -52,7 +52,7 @@ export async function GET(_request, { params }) {
     custMap = Object.fromEntries((cust || []).map((c) => [c.id, c]));
   }
 
-  const header = ['No', 'Nama', 'Gender', 'Tanggal Lahir', 'Umur', 'No HP', 'Email', 'Passport No', 'Passport Expiry', 'Tipe Kamar', 'Keterangan'];
+  const header = ['No', 'Nama', 'Gender', 'Tanggal Lahir', 'Umur', 'No HP', 'Email', 'Passport No', 'Passport Expiry', 'Tipe Kamar', 'Keterangan', 'Catatan / Request'];
   const rows = passengers.map((p, i) => {
     const c = custMap[p.customer_id] || {};
     return [
@@ -67,6 +67,7 @@ export async function GET(_request, { params }) {
       c.passport_expiry || '',
       p.room_type || '',
       _ket(p),
+      (p.notes || '').trim(),
     ];
   });
 
