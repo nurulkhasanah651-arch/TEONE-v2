@@ -4,6 +4,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { previewInvoiceWA, sendInvoiceWA } from '@/lib/actions/invoices';
+import WaManualModal from '@/components/wa/WaManualModal';
 
 function linkify(text) {
   return String(text || '').split(/(https?:\/\/[^\s]+)/g).map((p, i) =>
@@ -19,6 +20,7 @@ export default function InvoiceWAButton({ invoiceId, isPaid = false, className =
   const [preview, setPreview] = useState(null); // {message, phone, customerName, invoiceNo, noPhone, isPaid}
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+  const [waManual, setWaManual] = useState(null);
 
   const btnLabel = label || (isPaid ? '📤 Kirim Tanda Terima' : '📤 Kirim WA');
 
@@ -35,12 +37,14 @@ export default function InvoiceWAButton({ invoiceId, isPaid = false, className =
       const r = await sendInvoiceWA(invoiceId);
       if (r?.error) { setErr(r.error); return; }
       setPreview(null);
+      if (r.wa_manual) setWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name });
       router.refresh();
     });
   }
 
   return (
     <>
+      <WaManualModal data={waManual} onClose={() => setWaManual(null)} title="Kirim invoice manual" />
       <button type="button" onClick={openPreview} disabled={loading || pending}
         className={className || 'px-4 py-2 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-semibold rounded-lg'}>
         {loading ? 'Memuat…' : btnLabel}

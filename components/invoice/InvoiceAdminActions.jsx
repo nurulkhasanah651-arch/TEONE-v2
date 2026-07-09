@@ -8,6 +8,7 @@
 import { useState, useTransition } from 'react';
 import InvoiceWAButton from '@/components/invoice/InvoiceWAButton';
 import { useRouter } from 'next/navigation';
+import WaManualModal from '@/components/wa/WaManualModal';
 import {
   sendInvoiceWA,
   markInvoicePaidManual,
@@ -20,6 +21,7 @@ export default function InvoiceAdminActions({ invoice, paymentId, mode = 'invoic
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState('');
+  const [waManual, setWaManual] = useState(null);
 
   function handleSendWA() {
     if (!confirm(`Kirim invoice via WhatsApp ke ${invoice.customer_name} (${invoice.customer_phone})?`)) return;
@@ -27,6 +29,7 @@ export default function InvoiceAdminActions({ invoice, paymentId, mode = 'invoic
       setError('');
       const r = await sendInvoiceWA(invoice.id);
       if (r?.error) setError(r.error);
+      else if (r.wa_manual) setWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name });
       router.refresh();
     });
   }
@@ -37,6 +40,7 @@ export default function InvoiceAdminActions({ invoice, paymentId, mode = 'invoic
       setError('');
       const r = await markInvoicePaidManual(invoice.id);
       if (r?.error) setError(r.error);
+      else if (r.wa_manual) setWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name });
       router.refresh();
     });
   }
@@ -99,6 +103,8 @@ export default function InvoiceAdminActions({ invoice, paymentId, mode = 'invoic
 
   // Invoice mode — main actions
   return (
+    <>
+    <WaManualModal data={waManual} onClose={() => setWaManual(null)} title="Kirim WA manual" />
     <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4 space-y-2">
       <p className="text-xs font-bold text-brand-700 uppercase tracking-wider">Actions</p>
       <div className="flex gap-2 flex-wrap">
@@ -127,5 +133,6 @@ export default function InvoiceAdminActions({ invoice, paymentId, mode = 'invoic
       )}
       {error && <p className="text-xs text-red-700">{error}</p>}
     </div>
+    </>
   );
 }

@@ -7,6 +7,7 @@ import InvoiceWAButton from '@/components/invoice/InvoiceWAButton';
 import { useState, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import WaManualModal from '@/components/wa/WaManualModal';
 import {
   createInvoice, createInvoiceAsPaid, sendInvoiceWA,
   markInvoicePaidManual, deleteInvoice,
@@ -93,6 +94,7 @@ export default function InvoicePanelForPassenger({
   const [dueDate, setDueDate] = useState('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [error, setError] = useState('');
+  const [waManual, setWaManual] = useState(null);
   const [customPerPax, setCustomPerPax] = useState(false);
   const [perPaxAmounts, setPerPaxAmounts] = useState({});
 
@@ -294,6 +296,7 @@ export default function InvoicePanelForPassenger({
     startTransition(async () => {
       const r = await sendInvoiceWA(invoiceId);
       if (r?.error) alert(r.error);
+      else if (r.wa_manual) setWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name || customer?.name });
       else alert(`✓ ${status === 'paid' ? 'Receipt' : 'Invoice'} terkirim ke WA`);
       router.refresh();
     });
@@ -303,6 +306,7 @@ export default function InvoicePanelForPassenger({
     if (!confirm(`Mark ${invoiceNo} sebagai LUNAS?\n\nReceipt + info sisa pembayaran auto-kirim WA.`)) return;
     startTransition(async () => {
       const r = await markInvoicePaidManual(invoiceId);
+      if (r?.wa_manual) setWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name || customer?.name });
       if (r?.error) alert(r.error);
       router.refresh();
     });
@@ -330,6 +334,8 @@ export default function InvoicePanelForPassenger({
   const templateKeys = Object.keys(paymentTemplate || {}).filter((k) => Number(paymentTemplate[k]) > 0);
 
   return (
+    <>
+    <WaManualModal data={waManual} onClose={() => setWaManual(null)} title="Kirim WA manual" />
     <div className="mt-2">
       <button
         type="button"
@@ -666,5 +672,6 @@ export default function InvoicePanelForPassenger({
         </div>
       )}
     </div>
+    </>
   );
 }

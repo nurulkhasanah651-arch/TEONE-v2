@@ -10,6 +10,7 @@ import { fmtRupiah } from '@/lib/utils/format';
 import { deriveMilestones, expectedPerPassenger, mainExpectedPerPassenger } from '@/lib/utils/price-breakdown';
 import InvoicePanelForPassenger from '@/components/invoice/InvoicePanelForPassenger';
 import DiscountPanel from '@/components/finance/DiscountPanel';
+import WaManualModal from '@/components/wa/WaManualModal';
 
 export default function PaymentMatrix({
   tripId,
@@ -27,6 +28,7 @@ export default function PaymentMatrix({
   const [editingCell, setEditingCell] = useState(null);
   const [editingNotes, setEditingNotes] = useState(null);
   const [expandedRow, setExpandedRow] = useState(null);
+  const [waManual, setWaManual] = useState(null);
   const router = useRouter();
 
   const allPayments = Object.values(paymentsByPassenger).flat();
@@ -88,7 +90,10 @@ export default function PaymentMatrix({
     startTransition(async () => {
       const result = await settlePelunasanAll(passengerId, tripId);
       if (result?.error) alert(result.error);
-      else router.refresh();
+      else {
+        if (result.wa_manual) setWaManual({ message: result.wa_message, phone: result.wa_phone, name: result.customer_name || nm });
+        router.refresh();
+      }
     });
   }
 
@@ -159,6 +164,8 @@ export default function PaymentMatrix({
   }
 
   return (
+    <>
+    <WaManualModal data={waManual} onClose={() => setWaManual(null)} title="Pelunasan tercatat — kirim WA manual" />
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
         <div>
@@ -421,5 +428,6 @@ export default function PaymentMatrix({
         </table>
       </div>
     </div>
+    </>
   );
 }
