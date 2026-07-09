@@ -8,6 +8,7 @@
 import Link from 'next/link';
 import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
 import { createClient } from '@/lib/supabase/server';
+import ClientNameFilter from '@/components/common/ClientNameFilter';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { redirect } from 'next/navigation';
 import PassportDriveSyncPanel from '@/components/passport/PassportDriveSyncPanel';
@@ -186,7 +187,10 @@ export default async function PassportManagePage({ params }) {
             </Link>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <ClientNameFilter names={enrichedList.map((p) => {
+            const c = p?.customers || {};
+            return `${c.first_name || ''} ${c.surname || ''}`.trim() || c.name || '';
+          })}>
             {enrichedList.map((p, idx) => {
               const c = p?.customers || {};
               const fullName = `${c.first_name || ''} ${c.surname || ''}`.trim() || c.name || `Peserta #${idx + 1}`;
@@ -242,7 +246,7 @@ export default async function PassportManagePage({ params }) {
                 </div>
               );
             })}
-          </div>
+          </ClientNameFilter>
         )}
       </div>
     </div>

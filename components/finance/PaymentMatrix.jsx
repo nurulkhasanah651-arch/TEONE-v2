@@ -12,6 +12,7 @@ import { resolveBrandCodeBrowser } from '@/lib/brand-shared';
 import InvoicePanelForPassenger from '@/components/invoice/InvoicePanelForPassenger';
 import DiscountPanel from '@/components/finance/DiscountPanel';
 import { useWaManual } from '@/components/wa/WaManualProvider';
+import PaxSearch, { matchesName } from '@/components/common/PaxSearch';
 
 export default function PaymentMatrix({
   brand = '',
@@ -31,6 +32,7 @@ export default function PaymentMatrix({
   const [editingNotes, setEditingNotes] = useState(null);
   const [expandedRow, setExpandedRow] = useState(null);
   const showWaManual = useWaManual();
+  const [q, setQ] = useState('');
   const [brandCode, setBrandCode] = useState('');
   useEffect(() => { setBrandCode(resolveBrandCodeBrowser() || ''); }, []);
 
@@ -134,6 +136,9 @@ export default function PaymentMatrix({
     });
   }
 
+  // Filter cari nama (tidak mengubah urutan/pengelompokan keluarga)
+  const shownPassengers = orderedPassengers.filter((p) => matchesName((p.customers || {}).name, q));
+
   if (passengers.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-card">
@@ -189,6 +194,10 @@ export default function PaymentMatrix({
         </div>
       </div>
 
+      <div className="px-5 py-3 border-b border-slate-200 bg-slate-50/60">
+        <PaxSearch value={q} onChange={setQ} shown={shownPassengers.length} total={orderedPassengers.length} />
+      </div>
+
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-slate-200">
@@ -204,7 +213,7 @@ export default function PaymentMatrix({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {orderedPassengers.map((p, idx) => {
+            {shownPassengers.map((p, idx) => {
               const c = p.customers || {};
               const pays = paymentsByPassenger[p.id] || [];
               const totalPaid = pays.reduce((s, x) => s + (x.amount || 0), 0);

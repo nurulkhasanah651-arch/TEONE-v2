@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { toggleParticipantDoc, updateParticipantDocNotes, updateParticipantVisaNotes, updateParticipantVisaStatus } from '@/lib/actions/visa';
 import { fmtDate, daysUntil } from '@/lib/utils/format';
 import { VISA_STATUS_OPTS, STATUS_COLOR_CLASS } from '@/lib/utils/visa-constants';
+import PaxSearch, { matchesName } from '@/components/common/PaxSearch';
 
 const STATUS_MAP = Object.fromEntries(VISA_STATUS_OPTS.map((s) => [s.value, s]));
 
@@ -17,6 +18,7 @@ function fmtRupiah(n) {
 
 export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
   const [pending, startTransition] = useTransition();
+  const [q, setQ] = useState('');
   const [expandedRow, setExpandedRow] = useState(null);
   const [editingNote, setEditingNote] = useState(null);
   const router = useRouter();
@@ -91,6 +93,9 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
   const totalVisaPaid = passengers.filter((p) => p.visaPayment && Number(p.visaPayment.amount) > 0).length;
   const totalBiometricScheduled = passengers.filter((p) => p.visa_biometric_date).length;
 
+
+  const shownPassengers = passengers.filter((p) => matchesName((p.customers || {}).name, q));
+
   return (
     <div className="space-y-4">
       {/* ROUND 128: Top banner — Visa payment progress */}
@@ -111,8 +116,15 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
         </div>
       </div>
 
+      <div className="mb-3">
+        <PaxSearch value={q} onChange={setQ} shown={shownPassengers.length} total={passengers.length} />
+      </div>
+
       {/* Per-participant CARDS */}
-      {passengers.map((p, idx) => {
+      {shownPassengers.length === 0 && q.trim() && (
+        <p className="py-8 text-center text-sm text-slate-400">Tidak ada peserta bernama “{q}”.</p>
+      )}
+      {shownPassengers.map((p, idx) => {
         const c = p.customers || {};
         const docs = Array.isArray(p.visa_docs) ? p.visa_docs : [];
         const completeDocs = template.filter((doc) => docs.find((d) => d.name === doc && d.complete));

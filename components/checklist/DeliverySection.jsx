@@ -22,6 +22,7 @@ import {
 } from '@/lib/actions/delivery-items';
 import { createAndSendOngkirInvoice } from '@/lib/actions/delivery-ongkir';
 import { useWaManual } from '@/components/wa/WaManualProvider';
+import PaxSearch, { matchesName } from '@/components/common/PaxSearch';
 
 function fmtDate(d) {
   if (!d) return '-';
@@ -83,6 +84,7 @@ export default function DeliverySection({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const showWaManual = useWaManual();
+  const [q, setQ] = useState('');
   const [openSent, setOpenSent] = useState(null);
   const [courier, setCourier] = useState('JNE');
   const [resi, setResi] = useState('');
@@ -392,6 +394,9 @@ export default function DeliverySection({
     else setCewekItems(cewekItems.filter((_, i) => i !== idx));
   }
 
+
+  const shownPassengers = passengers.filter((p) => matchesName((p.customers || {}).name, q));
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
       {(counts.filled > 0 || counts.sent > 0 || counts.received > 0) && (
@@ -491,11 +496,17 @@ export default function DeliverySection({
         </div>
       )}
 
+      <div className="px-5 py-3 border-b border-slate-200 bg-slate-50/60">
+        <PaxSearch value={q} onChange={setQ} shown={shownPassengers.length} total={passengers.length} />
+      </div>
+
       <div className="divide-y divide-slate-100">
         {passengers.length === 0 ? (
           <p className="p-6 text-center text-sm text-slate-400">Belum ada peserta</p>
+        ) : shownPassengers.length === 0 ? (
+          <p className="p-6 text-center text-sm text-slate-400">Tidak ada peserta bernama “{q}”.</p>
         ) : (
-          passengers.map((p) => {
+          shownPassengers.map((p) => {
             const c = p.customers || {};
             const fg = familyByPaxId[p.id];
             const isHead = isFamilyHead(p);

@@ -8,6 +8,7 @@ import { generateRoomlist, normalizeGender } from '@/lib/utils/roomlist';
 import { calcAge } from '@/lib/utils/format';
 import { downloadRoomlistPDF } from '@/lib/utils/roomlist-pdf';
 import { downloadManifestPDF } from '@/lib/utils/manifest-pdf';
+import PaxSearch, { matchesName } from '@/components/common/PaxSearch';
 
 function fmtDate(s) {
   if (!s) return '—';
@@ -31,6 +32,7 @@ function tlMemberDetail(c = {}, pax = {}) {
 }
 
 export default function TLManifestRoomlist({ trip, passengers = [], customerMap = {} }) {
+  const [q, setQ] = useState('');
   const [tab, setTab] = useState('manifest');
 
   // Roomlist SAMA dengan proyeksi income ops: selalu generateRoomlist (auto live),
@@ -89,6 +91,9 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
     }
   }
 
+
+  const shownPassengers = passengers.filter((p) => matchesName((customerMap[p.customer_id] || {}).name, q));
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
@@ -109,6 +114,9 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
 
       {tab === 'manifest' ? (
         <div className="overflow-x-auto">
+          <div className="px-3 py-3">
+            <PaxSearch value={q} onChange={setQ} shown={shownPassengers.length} total={passengers.length} />
+          </div>
           <table className="min-w-[860px] w-full text-xs [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
             <thead className="bg-slate-50 border-b border-slate-200 text-left text-[11px] font-bold text-slate-600 uppercase">
               <tr>
@@ -126,7 +134,7 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {passengers.map((p, idx) => {
+              {shownPassengers.map((p, idx) => {
                 const c = customerMap[p.customer_id] || {};
                 const g = normalizeGender({ gender: p.gender || p.sex || c.gender || c.sex });
                 const first = c.first_name || (c.name ? c.name.split(' ')[0] : '');
@@ -148,7 +156,7 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
                   </tr>
                 );
               })}
-              {passengers.length === 0 && (
+              {shownPassengers.length === 0 && (
                 <tr><td colSpan={11} className="px-3 py-6 text-center text-slate-500">Belum ada peserta.</td></tr>
               )}
             </tbody>
