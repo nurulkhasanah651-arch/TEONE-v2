@@ -52,6 +52,7 @@ export default function InvoicePaymentApprovalPanel({ payments = [] }) {
   const [previewId, setPreviewId] = useState(null);
   const [waManual, setWaManual] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [copiedPhone, setCopiedPhone] = useState(false);
 
   const totalPendingAmount = payments.reduce(
     (s, p) => s + Number(p.amount || 0),
@@ -76,7 +77,7 @@ export default function InvoicePaymentApprovalPanel({ payments = [] }) {
       const r = await approveInvoicePayment(payment.id);
       if (r?.error) alert(r.error);
       else if (r.wa_manual) {
-        setCopied(false);
+        setCopied(false); setCopiedPhone(false);
         setWaManual({ message: r.wa_message || '', phone: r.wa_phone || '', name: r.customer_name || '' });
       }
       else alert('✓ Payment approved!');
@@ -125,10 +126,29 @@ export default function InvoicePaymentApprovalPanel({ payments = [] }) {
             <h3 className="font-bold text-brand-700">✅ Payment approved — kirim WA manual</h3>
             <p className="text-xs text-slate-500 mt-0.5">
               Nomor WA PIC trip ini belum tersambung, jadi pesan tidak dikirim otomatis.
-              Salin pesan di bawah lalu kirim ke {waManual.name || 'peserta'}{waManual.phone ? ` (${waManual.phone})` : ''}.
+              Salin nomor & pesan di bawah, lalu kirim manual ke peserta.
             </p>
           </div>
           <div className="p-5 space-y-3">
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Nomor peserta</p>
+                <p className="font-mono text-sm font-bold text-slate-800 truncate">
+                  {waManual.phone || '— belum ada nomor —'}
+                </p>
+                {waManual.name && <p className="text-xs text-slate-500 truncate">{waManual.name}</p>}
+              </div>
+              {waManual.phone && (
+                <button type="button"
+                  onClick={async () => {
+                    try { await navigator.clipboard.writeText(waManual.phone); setCopiedPhone(true); }
+                    catch { setCopiedPhone(false); alert('Gagal menyalin nomor'); }
+                  }}
+                  className="shrink-0 px-2.5 py-1 text-[11px] font-bold rounded bg-slate-200 hover:bg-slate-300 text-slate-800">
+                  {copiedPhone ? '✓ Tersalin' : '📋 Salin nomor'}
+                </button>
+              )}
+            </div>
             <textarea readOnly value={waManual.message || ''} rows={12}
               className="w-full text-xs font-mono border border-slate-300 rounded-lg p-3 bg-slate-50"
               onFocus={(e) => e.target.select()} />
