@@ -21,6 +21,7 @@ import {
   updateInternalNotes,
 } from '@/lib/actions/delivery-items';
 import { createAndSendOngkirInvoice } from '@/lib/actions/delivery-ongkir';
+import { useWaManual } from '@/components/wa/WaManualProvider';
 
 function fmtDate(d) {
   if (!d) return '-';
@@ -81,6 +82,7 @@ export default function DeliverySection({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const showWaManual = useWaManual();
   const [openSent, setOpenSent] = useState(null);
   const [courier, setCourier] = useState('JNE');
   const [resi, setResi] = useState('');
@@ -170,8 +172,12 @@ export default function DeliverySection({
   async function handleSendLink(id) {
     startTransition(async () => {
       const r = await sendDeliveryLink(id);
-      if (r?.error) flash(r.error, true);
-      else { flash(`✓ Link terkirim ke ${r.target}`); router.refresh(); }
+      if (r?.error) { flash(r.error, true); return; }
+      if (r.wa_manual) {
+        showWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name, title: 'Form alamat pengiriman — kirim WA manual' });
+        return; // refresh saat modal ditutup
+      }
+      flash(`✓ Link terkirim ke ${r.target}`); router.refresh();
     });
   }
 
@@ -197,10 +203,19 @@ export default function DeliverySection({
       const r = await markDeliverySent(id, fd);
       if (r?.error) { flash(r.error, true); return; }
 
+      // PIC kirim manual: tampilkan template copy-paste. Kalau ada tagihan ongkir,
+      // pesan tagihannya sudah memuat kurir + resi, jadi cukup satu pesan itu.
+      let manual = r.wa_manual ? { message: r.wa_message, phone: r.wa_phone, name: r.customer_name } : null;
+
       if (ongkirAmount > 0) {
         const oRes = await createAndSendOngkirInvoice(id, ongkirAmount, courier, resi);
         if (oRes?.error) {
           flash(`✓ Resi terkirim, tapi tagihan ongkir gagal: ${oRes.error}`, true);
+        } else if (oRes.wa_manual) {
+          manual = { message: oRes.wa_message, phone: oRes.wa_phone, name: oRes.customer_name };
+          let msgText = `✓ Resi + tagihan ongkir ${fmtRupiah(ongkirAmount)} dibuat`;
+          if (oRes.cash_out) msgText += ` + Cash Out tercatat`;
+          flash(msgText);
         } else {
           let msgText = `✓ Resi terkirim`;
           if (oRes.family_invoice) msgText += ` + tagihan ongkir family ${fmtRupiah(ongkirAmount)} (${oRes.family_count} pax)`;
@@ -209,7 +224,7 @@ export default function DeliverySection({
           else if (oRes.cash_out_error) msgText += ` (⚠ Cash Out gagal: ${oRes.cash_out_error})`;
           flash(msgText);
         }
-      } else {
+      } else if (!manual) {
         flash('✓ Resi terkirim ke peserta');
       }
 
@@ -217,6 +232,11 @@ export default function DeliverySection({
       setCourier('JNE');
       setResi('');
       setOngkir('');
+
+      if (manual) {
+        showWaManual({ ...manual, title: 'Resi & tagihan ongkir — kirim WA manual' });
+        return; // refresh saat modal ditutup
+      }
       router.refresh();
     });
   }
