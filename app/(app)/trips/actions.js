@@ -152,16 +152,22 @@ export async function updateTrip(tripId, formData) {
     updatePayload.tl_assignment_responded_at = null;
     updatePayload.tl_assignment_response_note = null;
   }
-  let { error } = await supabase.from('trips').update(updatePayload).eq('id', tripId);
+  // .select() supaya tahu berapa baris benar-benar berubah. Tanpa ini, UPDATE yang
+  // ditolak RLS mengembalikan 0 baris TANPA error -> UI bilang "tersimpan" padahal tidak.
+  let { data: updated, error } = await supabase.from('trips').update(updatePayload).eq('id', tripId).select('id');
 
   if (error && /tl_id|tl_phone|tl_email|publish_date|closed_at|price_breakdown|pnr|route|return_date/.test(error.message)) {
     const stripped = stripOptional(fields);
     updatePayload = { ...stripped, seat_left: Math.max(fields.quota - sold, 0) };
-    const retry = await supabase.from('trips').update(updatePayload).eq('id', tripId);
+    const retry = await supabase.from('trips').update(updatePayload).eq('id', tripId).select('id');
     error = retry.error;
+    updated = retry.data;
   }
 
   if (error) return { error: error.message };
+  if (!updated || updated.length === 0) {
+    return { error: 'Perubahan tidak tersimpan — kamu tidak punya izin mengubah trip ini (PIC hanya bisa mengubah trip miliknya sendiri).' };
+  }
 
   revalidatePath('/trips');
   revalidatePath(`/trips/${tripId}`);
