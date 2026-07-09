@@ -4,6 +4,27 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { markManualWaSent } from '@/lib/actions/wa-manual';
 
+const fmtRp = (n) => 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
+const fmtWaktu = (iso) => {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) +
+      ' pukul ' + d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':');
+  } catch { return ''; }
+};
+
+// "nurul sudah bayar ongkir Rp 10.000 via QRIS · 9 Juli 2026 pukul 21:58"
+function keterangan(row) {
+  const m = row.meta || null;
+  if (!m) return null;
+  const nama = m.customer_name || 'Peserta';
+  const jenis = m.payment_type ? String(m.payment_type) : 'pembayaran';
+  const nominal = m.amount ? ` ${fmtRp(m.amount)}` : '';
+  const cara = m.method ? ` via ${m.method}` : '';
+  const waktu = m.paid_at ? ` · ${fmtWaktu(m.paid_at)}` : ` · ${fmtWaktu(row.created_at)}`;
+  return `${nama} sudah bayar ${jenis}${nominal}${cara}${waktu}`;
+}
+
 const KIND_LABEL = {
   manual_pending_online: '💳 Pembayaran online',
   manual_pending_reminder: '⏰ Reminder tagihan',
@@ -48,7 +69,12 @@ function Row({ row }) {
               {row.pic ? <span className="ml-1 px-1.5 py-0.5 rounded bg-brand-50 text-brand-700 font-bold">PIC {row.pic}</span> : null}
             </p>
           )}
-          <p className="text-[11px] text-slate-400">{new Date(row.created_at).toLocaleString('id-ID')}</p>
+          {keterangan(row) && (
+            <p className="mt-1 text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded px-2 py-1 inline-block">
+              {keterangan(row)}
+            </p>
+          )}
+          <p className="text-[11px] text-slate-400 mt-0.5">Masuk antrean: {new Date(row.created_at).toLocaleString('id-ID')}</p>
         </div>
         <div className="flex gap-1.5 flex-wrap">
           {row.target_phone && (

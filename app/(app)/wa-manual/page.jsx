@@ -8,7 +8,7 @@ export default async function WaManualPage() {
 
   return (
     <div className="p-6 max-w-3xl">
-      <h1 className="text-2xl font-bold text-brand-700">WA Menunggu Dikirim Manual</h1>
+      <h1 className="text-2xl font-bold text-brand-700">Konfirmasi WA Payment Online</h1>
       <p className="text-sm text-slate-500 mt-1 mb-5">
         Khusus pembayaran online peserta (DP, P1, P2, pelunasan, dll) untuk trip yang PIC-nya
         belum tersambung ke WhatsApp. Salin nomor &amp; pesannya, kirim dari WA PIC, lalu tandai

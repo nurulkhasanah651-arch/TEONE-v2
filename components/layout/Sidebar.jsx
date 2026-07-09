@@ -35,6 +35,8 @@ const GROUPS = [
     items: [
       { href: '/finance',    label: 'Finance',    icon: '$',  roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
       { href: '/invoices',   label: 'Invoices',   icon: '🧾', roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
+      // Khusus Khasanah: PIC belum tersambung Fonnte, konfirmasi pembayaran online dikirim manual.
+      { href: '/wa-manual', label: 'Konfirmasi WA Payment Online', icon: '📤', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'], brands: ['khasanah'] },
       { href: '/accounting', label: 'Accounting', icon: '📊', roles: ['owner', 'accounting'] },
       { href: '/finance/pnr', label: 'PNR Inventory', icon: '🎟', roles: ALL_ROLES },
       { href: '/refunds',    label: 'Refunds',    icon: '💸', roles: ALL_ROLES },
@@ -58,7 +60,6 @@ const GROUPS = [
       { href: '/ads',           label: 'Ads Manager',      icon: '📢', roles: ALL_ROLES },
       { href: '/content',       label: 'Konten',           icon: '📱', roles: ALL_ROLES },
       { href: '/blast',         label: 'Blast WA',         icon: '📣', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'] },
-      { href: '/wa-manual',     label: 'WA Manual',        icon: '📤', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'] },
       { href: '/wa-history',    label: 'History WA',       icon: '💬', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'] },
       { href: '/reviews',       label: 'Review Trip',      icon: '⭐', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'] },
       { href: '/etalase',       label: 'Etalase Web',      icon: '🖼', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'] },
@@ -86,7 +87,12 @@ const GROUPS = [
 
 export default function Sidebar({ role: roleProp = null }) {
   const [brandUi, setBrandUi] = useState(BRAND_UI.teone);
-  useEffect(() => { setBrandUi(BRAND_UI[resolveBrandCodeBrowser()] || BRAND_UI.teone); }, []);
+  const [brandCode, setBrandCode] = useState('teone');
+  useEffect(() => {
+    const c = resolveBrandCodeBrowser() || 'teone';
+    setBrandCode(c);
+    setBrandUi(BRAND_UI[c] || BRAND_UI.teone);
+  }, []);
   const pathname = usePathname();
   const [role, setRole] = useState(roleProp);
   const [loading, setLoading] = useState(!roleProp);
@@ -132,7 +138,10 @@ export default function Sidebar({ role: roleProp = null }) {
     });
   }
 
-  const canSee = (item) => item.roles ? (role && item.roles.includes(role)) : true;
+  const canSee = (item) => {
+    if (item.brands && !item.brands.includes(brandCode)) return false;
+    return item.roles ? (role && item.roles.includes(role)) : true;
+  };
 
   const linkClass = (item) => {
     const active = pathname.startsWith(item.href);
