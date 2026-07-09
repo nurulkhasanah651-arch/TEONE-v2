@@ -28,6 +28,7 @@ function tlMemberDetail(c = {}, pax = {}) {
     passport_no: c.passport_no || c.passport_number || c.ktp || '',
     place_of_birth: c.place_of_birth || c.city || '',
     birth_date: fmtDate(birth), age: age == null ? '' : age,
+    remarks: String(pax.notes || '').trim(),   // catatan peserta → kolom Remarks di PDF roomlist
   };
 }
 
@@ -69,6 +70,7 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
           c.passport_issued_at || c.issuing_office || '',
           fmtDate(c.passport_expiry || c.expiry_date),
           c.phone || c.whatsapp || '',
+          (p.notes || '').trim(),
         ];
       });
       await downloadManifestPDF({
