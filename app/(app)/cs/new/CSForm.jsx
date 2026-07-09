@@ -121,8 +121,18 @@ export default function CSForm({ trips, mitraList = [] }) {
   const familyCount = Object.keys(familyGroupsPreview).length;
 
   async function handleSubmit(formData) {
-    setPending(true);
     setError('');
+    // R233: cegah baris peserta "yatim" — sudah diisi (HP/DP/bukti/kamar) tapi NAMA kosong.
+    // Sebelumnya baris begini dibuang diam-diam: CS update tersimpan, peserta & DP request tidak.
+    const orphanRows = participants.filter((p) =>
+      !(p.first_name?.trim() || p.last_name?.trim()) &&
+      (((p.phone || '').trim()) || ((parseInt(p.dp_amount) || 0) > 0) || ((p.dp_proof_url || '').trim()) || ((p.room_type || '').trim()))
+    );
+    if (orphanRows.length > 0) {
+      setError(`⚠ Ada ${orphanRows.length} baris Peserta yang sudah diisi (No HP / DP / bukti transfer) tapi NAMA-nya masih kosong.\nPeserta itu TIDAK akan tersimpan dan DP request-nya tidak akan dibuat.\n\nIsi "Nama Depan" (atau Nama Belakang) dulu, lalu Simpan lagi.`);
+      return;
+    }
+    setPending(true);
     const result = await createCSUpdate(formData);
     if (result?.error) {
       setError(result.error);
