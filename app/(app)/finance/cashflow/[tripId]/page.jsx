@@ -8,6 +8,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { currentBrandCode } from '@/lib/supabase/service-env';
 import { fmtRupiah } from '@/lib/utils/format';
 import { computeIncomeProjection } from '@/lib/utils/price-breakdown';
 import FinanceItemForm from '@/components/finance/FinanceItemForm';
@@ -294,6 +295,7 @@ export default async function CashflowDetailPage({ params }) {
       </div>
 
       <ProyeksiIncomeSection
+        brand={(() => { try { return currentBrandCode() || ''; } catch { return ''; } })()}
         activePassengers={activePassengers}
         breakdown={breakdown}
         paymentsByPax={paymentsByPax}

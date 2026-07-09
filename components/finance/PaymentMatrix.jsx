@@ -8,11 +8,13 @@ import { useRouter } from 'next/navigation';
 import { toggleMilestone, updatePaymentAmount, updatePaymentNotes, settlePelunasanAll } from '@/lib/actions/payments';
 import { fmtRupiah } from '@/lib/utils/format';
 import { deriveMilestones, expectedPerPassenger, mainExpectedPerPassenger } from '@/lib/utils/price-breakdown';
+import { resolveBrandCodeBrowser } from '@/lib/brand-shared';
 import InvoicePanelForPassenger from '@/components/invoice/InvoicePanelForPassenger';
 import DiscountPanel from '@/components/finance/DiscountPanel';
 import { useWaManual } from '@/components/wa/WaManualProvider';
 
 export default function PaymentMatrix({
+  brand = '',
   tripId,
   passengers = [],
   paymentsByPassenger = {},
@@ -29,6 +31,8 @@ export default function PaymentMatrix({
   const [editingNotes, setEditingNotes] = useState(null);
   const [expandedRow, setExpandedRow] = useState(null);
   const showWaManual = useWaManual();
+  const [brandCode, setBrandCode] = useState('');
+  useEffect(() => { setBrandCode(resolveBrandCodeBrowser() || ''); }, []);
 
   const router = useRouter();
 
@@ -157,7 +161,7 @@ export default function PaymentMatrix({
   for (const p of passengers) {
     const pays = paymentsByPassenger[p.id] || [];
     const totalPaid = pays.reduce((s, x) => s + (x.amount || 0), 0);
-    const expectedTotal = expectedPerPassenger(p, breakdown, pays);
+    const expectedTotal = expectedPerPassenger(p, breakdown, pays, brand);
     paxExpectedMap[p.id] = {
       expectedTotal,
       totalPaid,
@@ -206,8 +210,8 @@ export default function PaymentMatrix({
               const totalPaid = pays.reduce((s, x) => s + (x.amount || 0), 0);
               const isExpanded = expandedRow === p.id;
 
-              const mainExpected = mainExpectedPerPassenger(p, breakdown);
-              const expectedTotal = expectedPerPassenger(p, breakdown, pays);
+              const mainExpected = mainExpectedPerPassenger(p, breakdown, brand);
+              const expectedTotal = expectedPerPassenger(p, breakdown, pays, brand);
               const optionalPaid = expectedTotal - mainExpected;
               const remaining = expectedTotal - totalPaid;
               const discount = Number(p.discount_amount) || 0;

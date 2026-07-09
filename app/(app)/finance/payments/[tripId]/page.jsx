@@ -6,6 +6,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { currentBrandCode } from '@/lib/supabase/service-env';
 import { fmtRupiah } from '@/lib/utils/format';
 import PaymentTemplateForm from '@/components/finance/PaymentTemplateForm';
 import PaymentMatrix from '@/components/finance/PaymentMatrix';
@@ -115,6 +116,8 @@ export default async function TripPaymentsPage({ params }) {
     familyGroups = fgRes || [];
   } catch { familyGroups = []; }
 
+  const _brand = (() => { try { return currentBrandCode() || ''; } catch { return ''; } })();
+
   const breakdown = (trip.price_breakdown && typeof trip.price_breakdown === 'object') ? trip.price_breakdown : {};
 
   const { data: pnrRes } = await supabase.from('flight_inventory').select('*').eq('trip_id', tripId);
@@ -129,7 +132,7 @@ export default async function TripPaymentsPage({ params }) {
   // EXPECTED per peserta: price_paid kalau sudah diisi, kalau 0 fallback proyeksi harga kamar (SINKRON list)
   const paxExpected = (p) => {
     const fixed = Number(p.price_paid) || 0;
-    return fixed > 0 ? fixed : expectedPerPassenger(p, breakdown, paymentsByPassenger[p.id] || []);
+    return fixed > 0 ? fixed : expectedPerPassenger(p, breakdown, paymentsByPassenger[p.id] || [], _brand);
   };
   const totalExpected = passengers.reduce((s, p) => s + paxExpected(p), 0);
   const totalPaid = Object.values(paymentsByPassenger).flat().reduce((s, p) => s + (p.amount || 0), 0);
@@ -232,6 +235,7 @@ export default async function TripPaymentsPage({ params }) {
       <PaymentTemplateForm tripId={tripId} template={template} schedule={Array.isArray(trip.web_payment_schedule) ? trip.web_payment_schedule : []} />
 
       <PaymentMatrix
+        brand={_brand}
         visaRequirement={trip?.visa_requirement || ''}
         tripId={tripId}
         passengers={passengersWithCustomers}

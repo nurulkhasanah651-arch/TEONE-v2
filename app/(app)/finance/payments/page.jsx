@@ -8,11 +8,13 @@ import { fetchAll } from '@/lib/supabase/fetch-all';
 import DownloadButtons from '@/components/common/DownloadButtons';
 import PaymentChecklistTable from '@/components/finance/PaymentChecklistTable';
 import { expectedPerPassenger } from '@/lib/utils/price-breakdown';
+import { currentBrandCode } from '@/lib/supabase/service-env';
 import { getPicScope, filterTripsForPic } from '@/lib/auth/pic-scope';
 
 export const dynamic = 'force-dynamic';
 
 export default async function PaymentsListPage() {
+  const _brand = (() => { try { return currentBrandCode() || ''; } catch { return ''; } })();
   const supabase = createClient();
 
   const [tripsRes, passengersRes, paymentsRes] = await Promise.all([
@@ -65,7 +67,7 @@ export default async function PaymentsListPage() {
     const priceFixed = Number(p.price_paid) || 0;
     const exp = priceFixed > 0
       ? priceFixed
-      : expectedPerPassenger(p, breakdownByTrip[p.trip_id], paymentsByPax[p.id] || []);
+      : expectedPerPassenger(p, breakdownByTrip[p.trip_id], paymentsByPax[p.id] || [], _brand);
     const paid = paidByPassenger[p.id] || 0;
     byTrip[p.trip_id].expected += exp;
     byTrip[p.trip_id].paid += paid;

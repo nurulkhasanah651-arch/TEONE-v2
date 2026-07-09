@@ -13,6 +13,7 @@ export default function ProyeksiIncomeSection({
   total = 0,
   byRoom = {},
   undefinedCount = 0,
+  brand = '',
 }) {
   const custMap = Object.fromEntries((customers || []).map((c) => [c.id, c]));
 
@@ -20,7 +21,7 @@ export default function ProyeksiIncomeSection({
   const perPaxRows = activePassengers.map((p) => {
     const cust = custMap[p.customer_id];
     const pPays = paymentsByPax[p.id] || [];
-    const expected = expectedPerPassenger(p, breakdown, pPays);
+    const expected = expectedPerPassenger(p, breakdown, pPays, brand);
     const paid = pPays.reduce((s, x) => s + Number(x.amount || 0), 0);
     const outstanding = Math.max(expected - paid, 0);
     return {
