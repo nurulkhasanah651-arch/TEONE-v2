@@ -81,6 +81,8 @@ export default function DPApprovalPanel({
   const [rejectingId, setRejectingId] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const [previewProof, setPreviewProof] = useState(null);
+  const [waManual, setWaManual] = useState(null); // { message, phone, name } -> PIC kirim WA manual
+  const [copied, setCopied] = useState(false);
 
   const paxMap = Object.fromEntries(passengers.map((p) => [p.id, p]));
   const famMap = Object.fromEntries(familyGroups.map((f) => [f.id, f]));
@@ -129,7 +131,10 @@ export default function DPApprovalPanel({
     startTransition(async () => {
       const r = await approveDPRequest(req.id);
       if (r?.error) alert(r.error);
-      else {
+      else if (r.wa_manual) {
+        setCopied(false);
+        setWaManual({ message: r.wa_message || '', phone: r.wa_phone || '', name: r.customer_name || req.customer_name || '' });
+      } else {
         const waMsg = r.wa_sent ? '✓ WA terkirim' : (r.wa_error || 'WA gagal dikirim');
         alert(`✓ DP approved!\n${waMsg}`);
       }
@@ -160,7 +165,10 @@ export default function DPApprovalPanel({
     startTransition(async () => {
       const r = await approveDPBatch(reqs.map((x) => x.id));
       if (r?.error) alert(r.error);
-      else {
+      else if (r.wa_manual) {
+        setCopied(false);
+        setWaManual({ message: r.wa_message || '', phone: r.wa_phone || '', name: r.customer_name || family?.name || '' });
+      } else {
         let msg = `✓ ${r.approved} DP approved untuk family ${r.family_name || '(unknown)'}!\n\n`;
         if (r.wa_sent_to_head) {
           msg += `📤 WA terkirim ke kepala: ${r.wa_target}`;
@@ -200,7 +208,56 @@ export default function DPApprovalPanel({
     });
   }
 
+  const waLink = waManual?.phone
+    ? `https://wa.me/${String(waManual.phone).replace(/[^0-9]/g, '').replace(/^0/, '62')}?text=${encodeURIComponent(waManual.message || '')}`
+    : null;
+
   return (
+    <>
+    {waManual && (
+      <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setWaManual(null)}>
+        <div className="bg-white rounded-xl max-w-lg w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="px-5 py-3 border-b border-slate-200">
+            <h3 className="font-bold text-brand-700">✅ DP approved — kirim WA manual</h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Nomor WA PIC trip ini belum tersambung, jadi pesan tidak dikirim otomatis.
+              Salin pesan di bawah lalu kirim ke {waManual.name || 'peserta'}{waManual.phone ? ` (${waManual.phone})` : ''}.
+            </p>
+          </div>
+          <div className="p-5 space-y-3">
+            <textarea
+              readOnly
+              value={waManual.message || ''}
+              rows={12}
+              className="w-full text-xs font-mono border border-slate-300 rounded-lg p-3 bg-slate-50"
+              onFocus={(e) => e.target.select()}
+            />
+            <div className="flex gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={async () => {
+                  try { await navigator.clipboard.writeText(waManual.message || ''); setCopied(true); }
+                  catch { setCopied(false); alert('Gagal menyalin — blok teksnya lalu Ctrl+C'); }
+                }}
+                className="px-3 py-1.5 text-xs font-bold rounded bg-brand-600 hover:bg-brand-700 text-white"
+              >
+                {copied ? '✓ Tersalin' : '📋 Salin pesan'}
+              </button>
+              {waLink && (
+                <a href={waLink} target="_blank" rel="noreferrer"
+                  className="px-3 py-1.5 text-xs font-bold rounded bg-green-600 hover:bg-green-700 text-white">
+                  💬 Buka WhatsApp
+                </a>
+              )}
+              <button type="button" onClick={() => setWaManual(null)}
+                className="px-3 py-1.5 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700 ml-auto">
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
         <div>
@@ -439,5 +496,6 @@ export default function DPApprovalPanel({
         </div>
       )}
     </div>
+    </>
   );
 }
