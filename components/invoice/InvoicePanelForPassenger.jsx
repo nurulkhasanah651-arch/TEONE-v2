@@ -95,6 +95,13 @@ export default function InvoicePanelForPassenger({
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [error, setError] = useState('');
   const [waManual, setWaManual] = useState(null);
+
+  // Modal WA manual ditutup manual oleh user; refresh ditunda ke onClose supaya
+  // re-render pohon server tidak membuang state modal.
+  function closeWaManual() {
+    setWaManual(null);
+    router.refresh();
+  }
   const [customPerPax, setCustomPerPax] = useState(false);
   const [perPaxAmounts, setPerPaxAmounts] = useState({});
 
@@ -295,9 +302,12 @@ export default function InvoicePanelForPassenger({
     if (!confirm(`Kirim ${label} ke WhatsApp ${customer.phone}?`)) return;
     startTransition(async () => {
       const r = await sendInvoiceWA(invoiceId);
-      if (r?.error) alert(r.error);
-      else if (r.wa_manual) setWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name || customer?.name });
-      else alert(`✓ ${status === 'paid' ? 'Receipt' : 'Invoice'} terkirim ke WA`);
+      if (r?.error) { alert(r.error); router.refresh(); return; }
+      if (r.wa_manual) {
+        setWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name || customer?.name });
+        return; // refresh saat modal ditutup
+      }
+      alert(`✓ ${status === 'paid' ? 'Receipt' : 'Invoice'} terkirim ke WA`);
       router.refresh();
     });
   }
@@ -306,8 +316,11 @@ export default function InvoicePanelForPassenger({
     if (!confirm(`Mark ${invoiceNo} sebagai LUNAS?\n\nReceipt + info sisa pembayaran auto-kirim WA.`)) return;
     startTransition(async () => {
       const r = await markInvoicePaidManual(invoiceId);
-      if (r?.wa_manual) setWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name || customer?.name });
-      if (r?.error) alert(r.error);
+      if (r?.error) { alert(r.error); router.refresh(); return; }
+      if (r?.wa_manual) {
+        setWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name || customer?.name });
+        return; // refresh saat modal ditutup
+      }
       router.refresh();
     });
   }
@@ -335,7 +348,7 @@ export default function InvoicePanelForPassenger({
 
   return (
     <>
-    <WaManualModal data={waManual} onClose={() => setWaManual(null)} title="Kirim WA manual" />
+    <WaManualModal data={waManual} onClose={closeWaManual} title="Kirim WA manual" />
     <div className="mt-2">
       <button
         type="button"

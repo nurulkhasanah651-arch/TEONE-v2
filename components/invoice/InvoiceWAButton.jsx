@@ -22,6 +22,13 @@ export default function InvoiceWAButton({ invoiceId, isPaid = false, className =
   const [err, setErr] = useState('');
   const [waManual, setWaManual] = useState(null);
 
+  // Modal WA manual ditutup manual oleh user; refresh ditunda ke onClose supaya
+  // re-render pohon server tidak membuang state modal.
+  function closeWaManual() {
+    setWaManual(null);
+    router.refresh();
+  }
+
   const btnLabel = label || (isPaid ? '📤 Kirim Tanda Terima' : '📤 Kirim WA');
 
   async function openPreview() {
@@ -37,14 +44,17 @@ export default function InvoiceWAButton({ invoiceId, isPaid = false, className =
       const r = await sendInvoiceWA(invoiceId);
       if (r?.error) { setErr(r.error); return; }
       setPreview(null);
-      if (r.wa_manual) setWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name });
+      if (r.wa_manual) {
+        setWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name });
+        return; // refresh saat modal ditutup
+      }
       router.refresh();
     });
   }
 
   return (
     <>
-      <WaManualModal data={waManual} onClose={() => setWaManual(null)} title="Kirim invoice manual" />
+      <WaManualModal data={waManual} onClose={closeWaManual} title="Kirim invoice manual" />
       <button type="button" onClick={openPreview} disabled={loading || pending}
         className={className || 'px-4 py-2 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-semibold rounded-lg'}>
         {loading ? 'Memuat…' : btnLabel}

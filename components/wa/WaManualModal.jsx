@@ -2,11 +2,21 @@
 
 // Modal template WA untuk PIC yang nomornya belum tersambung (employees.wa_manual).
 // Dipakai di semua alur approval pembayaran & generate invoice.
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function WaManualModal({ data, onClose, title = 'Kirim WA manual' }) {
   const [copiedMsg, setCopiedMsg] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
+
+  // Tutup HANYA lewat tombol (atau Esc). Modal tidak boleh hilang sendiri —
+  // isinya template yang harus disalin PIC.
+  useEffect(() => {
+    if (!data) return;
+    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [data, onClose]);
+
   if (!data) return null;
 
   const phone = data.phone || '';
@@ -21,13 +31,20 @@ export default function WaManualModal({ data, onClose, title = 'Kirim WA manual'
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl max-w-lg w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-3 border-b border-slate-200">
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl max-w-lg w-full shadow-xl">
+        <div className="px-5 py-3 border-b border-slate-200 flex items-start justify-between gap-3">
           <h3 className="font-bold text-brand-700">✅ {title}</h3>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <button type="button" onClick={onClose} aria-label="Tutup"
+            className="shrink-0 text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+        </div>
+        <div className="px-5 pt-2">
+          <p className="text-xs text-slate-500">
             Nomor WA PIC trip ini belum tersambung, jadi pesan tidak dikirim otomatis.
             Salin nomor & pesan di bawah, lalu kirim manual ke peserta.
+            <span className="block mt-1 font-semibold text-amber-700">
+              Jendela ini tidak akan tertutup sendiri — klik “Selesai &amp; tutup” kalau sudah dikirim.
+            </span>
           </p>
         </div>
         <div className="p-5 space-y-3">
@@ -61,8 +78,8 @@ export default function WaManualModal({ data, onClose, title = 'Kirim WA manual'
               </a>
             )}
             <button type="button" onClick={onClose}
-              className="px-3 py-1.5 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700 ml-auto">
-              Tutup
+              className="px-3 py-1.5 text-xs font-bold rounded bg-slate-800 hover:bg-slate-900 text-white ml-auto">
+              Selesai &amp; tutup
             </button>
           </div>
         </div>

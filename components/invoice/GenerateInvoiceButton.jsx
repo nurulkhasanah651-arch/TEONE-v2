@@ -27,6 +27,13 @@ export default function GenerateInvoiceButton({
   const [generated, setGenerated] = useState(null);
   const [waManual, setWaManual] = useState(null);
 
+  // Modal WA manual ditutup manual oleh user; refresh ditunda ke onClose supaya
+  // re-render pohon server tidak membuang state modal.
+  function closeWaManual() {
+    setWaManual(null);
+    router.refresh();
+  }
+
   function handleGenerate() {
     if (!amount || amount <= 0) { alert('Amount harus > 0'); return; }
     if (!confirm(`Generate Invoice untuk ${customerName}\nMilestone: ${milestone}\nJumlah: ${fmtRupiah(amount)}`)) return;
@@ -64,8 +71,7 @@ export default function GenerateInvoiceButton({
       }
       if (r.wa_manual) {
         setWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name || customerName });
-        router.refresh();
-        return;
+        return; // refresh saat modal ditutup
       }
       alert('✓ Invoice terkirim via WA');
       setGenerated(null);
@@ -76,7 +82,7 @@ export default function GenerateInvoiceButton({
   if (generated) {
     return (
       <div className="flex gap-1 flex-wrap">
-        <WaManualModal data={waManual} onClose={() => setWaManual(null)} title="Invoice dibuat — kirim WA manual" />
+        <WaManualModal data={waManual} onClose={closeWaManual} title="Invoice dibuat — kirim WA manual" />
         <span className="px-2 py-0.5 text-[10px] font-bold text-green-700 bg-green-100 rounded">
           ✓ {generated.no}
         </span>
