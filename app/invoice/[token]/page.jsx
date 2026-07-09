@@ -159,6 +159,7 @@ export default async function PublicInvoicePage({ params }) {
   let sisaReal = 0;
   let discountReal = 0;
   let famRoom = 0, famTips = 0, famCity = 0, famFlight = 0, famBaggage = 0, famBase = 0, famVisa = 0, famAsuransi = 0, famCount = 1, famResolved = false;
+  let famVisaCount = 0, famAsuransiCount = 0;
   if (inv.trip_id && (inv.passenger_id || (Array.isArray(inv.covers_passenger_ids) && inv.covers_passenger_ids.length))) {
     try {
       const bill = await getInvoiceBilling(supabase, inv);
@@ -177,6 +178,8 @@ export default async function PublicInvoicePage({ params }) {
       famVisa = Number(bill.visaExpected) || 0;
       famAsuransi = Number(bill.asuransiExpected) || 0;
       famCount = bill.count || 1;
+      famVisaCount = Number(bill.visaCount) || 0;
+      famAsuransiCount = Number(bill.asuransiCount) || 0;
       famResolved = true;
     } catch (e) { errors.push(`summary: ${e.message}`); }
   } else {
@@ -197,8 +200,12 @@ export default async function PublicInvoicePage({ params }) {
   //        famVisa/famAsuransi = bill.visaExpected/asuransiExpected yg sudah dihitung dari flag include.
   const visaAmt = famResolved ? famVisa : ((invHasVisa || paidTypes.has('Visa')) ? visaPrice : 0);
   const asuransiAmt = famResolved ? famAsuransi : ((invHasAsuransi || paidTypes.has('Asuransi')) ? asuransiPrice : 0);
-  if (visaAmt > 0) optItems.push({ label: famCount > 1 ? `Visa (${famCount} peserta)` : 'Visa', amount: visaAmt });
-  if (asuransiAmt > 0) optItems.push({ label: famCount > 1 ? `Asuransi (${famCount} peserta)` : 'Asuransi', amount: asuransiAmt });
+  // Label pakai jumlah peserta yg BENAR-BENAR ditagih (bukan total anggota keluarga).
+  // Mis. keluarga 6 org, 2 sudah 'ready visa' -> "Visa (4 peserta)".
+  const _visaPax = famResolved ? famVisaCount : 1;
+  const _asrPax = famResolved ? famAsuransiCount : 1;
+  if (visaAmt > 0) optItems.push({ label: _visaPax > 1 ? `Visa (${_visaPax} peserta)` : 'Visa', amount: visaAmt });
+  if (asuransiAmt > 0) optItems.push({ label: _asrPax > 1 ? `Asuransi (${_asrPax} peserta)` : 'Asuransi', amount: asuransiAmt });
 
   const isLunas = expectedTotalReal > 0 && sisaReal === 0;
 
