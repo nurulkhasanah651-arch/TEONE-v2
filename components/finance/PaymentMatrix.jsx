@@ -10,7 +10,7 @@ import { fmtRupiah } from '@/lib/utils/format';
 import { deriveMilestones, expectedPerPassenger, mainExpectedPerPassenger } from '@/lib/utils/price-breakdown';
 import InvoicePanelForPassenger from '@/components/invoice/InvoicePanelForPassenger';
 import DiscountPanel from '@/components/finance/DiscountPanel';
-import WaManualModal from '@/components/wa/WaManualModal';
+import { useWaManual } from '@/components/wa/WaManualProvider';
 
 export default function PaymentMatrix({
   tripId,
@@ -28,14 +28,8 @@ export default function PaymentMatrix({
   const [editingCell, setEditingCell] = useState(null);
   const [editingNotes, setEditingNotes] = useState(null);
   const [expandedRow, setExpandedRow] = useState(null);
-  const [waManual, setWaManual] = useState(null);
+  const showWaManual = useWaManual();
 
-  // Modal WA manual ditutup manual oleh user; refresh ditunda ke onClose supaya
-  // re-render pohon server tidak membuang state modal.
-  function closeWaManual() {
-    setWaManual(null);
-    router.refresh();
-  }
   const router = useRouter();
 
   const allPayments = Object.values(paymentsByPassenger).flat();
@@ -98,7 +92,7 @@ export default function PaymentMatrix({
       const result = await settlePelunasanAll(passengerId, tripId);
       if (result?.error) { alert(result.error); return; }
       if (result.wa_manual) {
-        setWaManual({ message: result.wa_message, phone: result.wa_phone, name: result.customer_name || nm });
+        showWaManual({ message: result.wa_message, phone: result.wa_phone, name: result.customer_name || nm, title: 'Pelunasan tercatat — kirim WA manual' });
         return; // refresh saat modal ditutup
       }
       router.refresh();
@@ -173,7 +167,6 @@ export default function PaymentMatrix({
 
   return (
     <>
-    <WaManualModal data={waManual} onClose={closeWaManual} title="Pelunasan tercatat — kirim WA manual" />
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
         <div>

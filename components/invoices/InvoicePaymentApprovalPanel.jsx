@@ -5,7 +5,7 @@
 'use client';
 
 import SignedImage from '@/components/common/SignedImage';
-import WaManualModal from '@/components/wa/WaManualModal';
+import { useWaManual } from '@/components/wa/WaManualProvider';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { approveInvoicePayment, rejectInvoicePayment, deleteInvoicePayment } from '@/lib/actions/invoice-payment';
@@ -51,15 +51,8 @@ export default function InvoicePaymentApprovalPanel({ payments = [] }) {
   const [rejectingId, setRejectingId] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const [previewId, setPreviewId] = useState(null);
-  const [waManual, setWaManual] = useState(null);
+  const showWaManual = useWaManual();
 
-  // Modal WA manual TIDAK boleh hilang sendiri. router.refresh() me-render ulang
-  // pohon server (baris pending hilang) dan ikut membuang state modal — jadi
-  // refresh-nya ditunda sampai user menutup modal.
-  function closeWaManual() {
-    setWaManual(null);
-    router.refresh();
-  }
 
   const totalPendingAmount = payments.reduce(
     (s, p) => s + Number(p.amount || 0),
@@ -85,7 +78,7 @@ export default function InvoicePaymentApprovalPanel({ payments = [] }) {
       if (r?.error) { alert(r.error); router.refresh(); return; }
       if (r?.wa_manual) {
         // biarkan modal terbuka; refresh dijalankan saat modal ditutup
-        setWaManual({ message: r.wa_message || '', phone: r.wa_phone || '', name: r.customer_name || '' });
+        showWaManual({ message: r.wa_message || '', phone: r.wa_phone || '', name: r.customer_name || '', title: 'Payment approved — kirim WA manual' });
         return;
       }
       alert('✓ Payment approved!');
@@ -123,11 +116,6 @@ export default function InvoicePaymentApprovalPanel({ payments = [] }) {
 
   return (
     <>
-    <WaManualModal
-      data={waManual}
-      onClose={closeWaManual}
-      title="Payment approved — kirim WA manual"
-    />
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
         <div>

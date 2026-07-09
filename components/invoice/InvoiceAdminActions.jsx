@@ -8,7 +8,7 @@
 import { useState, useTransition } from 'react';
 import InvoiceWAButton from '@/components/invoice/InvoiceWAButton';
 import { useRouter } from 'next/navigation';
-import WaManualModal from '@/components/wa/WaManualModal';
+import { useWaManual } from '@/components/wa/WaManualProvider';
 import {
   sendInvoiceWA,
   markInvoicePaidManual,
@@ -21,14 +21,8 @@ export default function InvoiceAdminActions({ invoice, paymentId, mode = 'invoic
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState('');
-  const [waManual, setWaManual] = useState(null);
+  const showWaManual = useWaManual();
 
-  // Modal WA manual ditutup manual oleh user; refresh ditunda ke onClose supaya
-  // re-render pohon server tidak membuang state modal.
-  function closeWaManual() {
-    setWaManual(null);
-    router.refresh();
-  }
 
   function handleSendWA() {
     if (!confirm(`Kirim invoice via WhatsApp ke ${invoice.customer_name} (${invoice.customer_phone})?`)) return;
@@ -37,7 +31,7 @@ export default function InvoiceAdminActions({ invoice, paymentId, mode = 'invoic
       const r = await sendInvoiceWA(invoice.id);
       if (r?.error) { setError(r.error); router.refresh(); return; }
       if (r.wa_manual) {
-        setWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name });
+        showWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name, title: 'Kirim WA manual' });
         return; // refresh saat modal ditutup
       }
       router.refresh();
@@ -51,7 +45,7 @@ export default function InvoiceAdminActions({ invoice, paymentId, mode = 'invoic
       const r = await markInvoicePaidManual(invoice.id);
       if (r?.error) { setError(r.error); router.refresh(); return; }
       if (r.wa_manual) {
-        setWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name });
+        showWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name, title: 'Kirim WA manual' });
         return; // refresh saat modal ditutup
       }
       router.refresh();
@@ -117,7 +111,6 @@ export default function InvoiceAdminActions({ invoice, paymentId, mode = 'invoic
   // Invoice mode — main actions
   return (
     <>
-    <WaManualModal data={waManual} onClose={closeWaManual} title="Kirim WA manual" />
     <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4 space-y-2">
       <p className="text-xs font-bold text-brand-700 uppercase tracking-wider">Actions</p>
       <div className="flex gap-2 flex-wrap">

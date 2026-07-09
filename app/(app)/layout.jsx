@@ -9,6 +9,7 @@ import Header from '@/components/layout/Header';
 import { getRoleFromUser, canAccessPath, defaultPathForRole } from '@/lib/utils/roles';
 import { resolveAuthoritativeRole } from '@/lib/auth/authoritative-role';
 import { waOutboxSummary } from '@/lib/actions/wa-outbox';
+import WaManualProvider from '@/components/wa/WaManualProvider';
 
 export default async function AppLayout({ children }) {
   const supabase = createClient();
@@ -47,6 +48,7 @@ export default async function AppLayout({ children }) {
   const _wa = role === 'tour_leader' ? { count: 0, offlineDepts: [] } : await waOutboxSummary().catch(() => ({ count: 0, offlineDepts: [] }));
 
   return (
+    <WaManualProvider>
     <div className="min-h-screen bg-slate-50">
       <Sidebar role={role} />
       <div className="md:pl-60">
@@ -65,5 +67,6 @@ export default async function AppLayout({ children }) {
         </main>
       </div>
     </div>
+    </WaManualProvider>
   );
 }

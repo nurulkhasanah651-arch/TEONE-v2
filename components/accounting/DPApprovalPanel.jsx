@@ -8,7 +8,7 @@ import { useState, useEffect, useTransition } from 'react';
 import { getSignedFileUrl } from '@/lib/actions/signed-file';
 import { useRouter } from 'next/navigation';
 import { approveDPRequest, approveDPBatch, rejectDPRequest, deleteDPRequest } from '@/lib/actions/dp';
-import WaManualModal from '@/components/wa/WaManualModal';
+import { useWaManual } from '@/components/wa/WaManualProvider';
 
 function fmtRupiah(n) {
   return 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
@@ -82,13 +82,7 @@ export default function DPApprovalPanel({
   const [rejectingId, setRejectingId] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const [previewProof, setPreviewProof] = useState(null);
-  const [waManual, setWaManual] = useState(null); // { message, phone, name } -> PIC kirim WA manual
-  // Modal WA manual hanya ditutup lewat tombol. router.refresh() ditunda ke
-  // onClose supaya modal tidak hilang sendiri saat pohon server dirender ulang.
-  function closeWaManual() {
-    setWaManual(null);
-    router.refresh();
-  }
+  const showWaManual = useWaManual();
 
   const paxMap = Object.fromEntries(passengers.map((p) => [p.id, p]));
   const famMap = Object.fromEntries(familyGroups.map((f) => [f.id, f]));
@@ -138,7 +132,7 @@ export default function DPApprovalPanel({
       const r = await approveDPRequest(req.id);
       if (r?.error) { alert(r.error); router.refresh(); return; }
       if (r?.wa_manual) {
-        setWaManual({ message: r.wa_message || '', phone: r.wa_phone || '', name: r.customer_name || req.customer_name || '' });
+        showWaManual({ message: r.wa_message || '', phone: r.wa_phone || '', name: r.customer_name || req.customer_name || '', title: 'DP approved — kirim WA manual' });
         return; // refresh saat modal ditutup
       }
       const waMsg = r.wa_sent ? '✓ WA terkirim' : (r.wa_error || 'WA gagal dikirim');
@@ -171,7 +165,7 @@ export default function DPApprovalPanel({
       const r = await approveDPBatch(reqs.map((x) => x.id));
       if (r?.error) { alert(r.error); router.refresh(); return; }
       if (r?.wa_manual) {
-        setWaManual({ message: r.wa_message || '', phone: r.wa_phone || '', name: r.customer_name || family?.name || '' });
+        showWaManual({ message: r.wa_message || '', phone: r.wa_phone || '', name: r.customer_name || family?.name || '', title: 'DP approved — kirim WA manual' });
         return; // refresh saat modal ditutup
       }
       {
@@ -216,11 +210,6 @@ export default function DPApprovalPanel({
 
   return (
     <>
-    <WaManualModal
-      data={waManual}
-      onClose={closeWaManual}
-      title="DP approved — kirim WA manual"
-    />
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
         <div>

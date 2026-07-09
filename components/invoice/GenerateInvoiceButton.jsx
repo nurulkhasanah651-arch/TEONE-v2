@@ -6,7 +6,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createInvoice, sendInvoiceWA } from '@/lib/actions/invoices';
-import WaManualModal from '@/components/wa/WaManualModal';
+import { useWaManual } from '@/components/wa/WaManualProvider';
 
 function fmtRupiah(n) {
   return 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
@@ -25,14 +25,8 @@ export default function GenerateInvoiceButton({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [generated, setGenerated] = useState(null);
-  const [waManual, setWaManual] = useState(null);
+  const showWaManual = useWaManual();
 
-  // Modal WA manual ditutup manual oleh user; refresh ditunda ke onClose supaya
-  // re-render pohon server tidak membuang state modal.
-  function closeWaManual() {
-    setWaManual(null);
-    router.refresh();
-  }
 
   function handleGenerate() {
     if (!amount || amount <= 0) { alert('Amount harus > 0'); return; }
@@ -70,7 +64,7 @@ export default function GenerateInvoiceButton({
         return;
       }
       if (r.wa_manual) {
-        setWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name || customerName });
+        showWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name || customerName, title: 'Invoice dibuat — kirim WA manual' });
         return; // refresh saat modal ditutup
       }
       alert('✓ Invoice terkirim via WA');
@@ -82,7 +76,6 @@ export default function GenerateInvoiceButton({
   if (generated) {
     return (
       <div className="flex gap-1 flex-wrap">
-        <WaManualModal data={waManual} onClose={closeWaManual} title="Invoice dibuat — kirim WA manual" />
         <span className="px-2 py-0.5 text-[10px] font-bold text-green-700 bg-green-100 rounded">
           ✓ {generated.no}
         </span>

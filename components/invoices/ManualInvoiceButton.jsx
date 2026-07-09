@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createManualInvoice, sendInvoiceWA } from '@/lib/actions/invoices';
-import WaManualModal from '@/components/wa/WaManualModal';
+import { useWaManual } from '@/components/wa/WaManualProvider';
 
 const PRESETS = ['Visa Only', 'Asuransi Perjalanan', 'Tiket Pesawat', 'Pengurusan Dokumen', 'Lainnya'];
 function fmt(n) { return Number(String(n).replace(/\D/g, '') || 0).toLocaleString('id-ID'); }
@@ -10,7 +10,7 @@ function fmt(n) { return Number(String(n).replace(/\D/g, '') || 0).toLocaleStrin
 export default function ManualInvoiceButton() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [waManual, setWaManual] = useState(null);
+  const showWaManual = useWaManual();
   const [pending, start] = useTransition();
   const [err, setErr] = useState('');
   const [result, setResult] = useState(null);
@@ -38,14 +38,13 @@ export default function ManualInvoiceButton() {
       const r = await sendInvoiceWA(result.invoice_id);
       if (r?.error) { setErr(r.error); return; }
       setErr('');
-      if (r.wa_manual) { setWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name }); return; }
+      if (r.wa_manual) { showWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name, title: 'Kirim invoice manual' }); return; }
       alert('Invoice terkirim via WhatsApp.');
     });
   }
 
   return (
     <div>
-      <WaManualModal data={waManual} onClose={() => setWaManual(null)} title="Kirim invoice manual" />
       <button onClick={() => { setOpen(true); setResult(null); setErr(''); }}
         className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg">
         + Invoice Manual

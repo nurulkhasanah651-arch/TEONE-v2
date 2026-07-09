@@ -5,7 +5,7 @@
 
 import { useState, useTransition } from 'react';
 import { sendInvoiceWA, sendPaymentReceivedWA, bulkSendInvoiceWA } from '@/lib/actions/wa-payment-notif';
-import WaManualModal from '@/components/wa/WaManualModal';
+import { useWaManual } from '@/components/wa/WaManualProvider';
 
 function fmtRp(n) {
   return 'Rp ' + Number(n || 0).toLocaleString('id-ID');
@@ -22,7 +22,7 @@ function linkify(text) {
 export default function WAPaymentSection({ tripId, passengers, paymentsByPassenger }) {
   const [pending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState(null);
-  const [waManual, setWaManual] = useState(null);
+  const showWaManual = useWaManual();
   const [busyAction, setBusyAction] = useState(null);
   const [toast, setToast] = useState(null);
   const [preview, setPreview] = useState(null); // {paxId, kind, message, phone, customerName}
@@ -69,7 +69,7 @@ export default function WAPaymentSection({ tripId, passengers, paymentsByPasseng
       setBusyAction(null);
       setPreview(null);
       if (r.error) showToast(`❌ ${r.error}`, 'error');
-      else if (r.wa_manual) setWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name });
+      else if (r.wa_manual) showWaManual({ message: r.wa_message, phone: r.wa_phone, name: r.customer_name, title: 'Kirim WA manual' });
       else showToast(kind === 'invoice' ? `✅ Invoice terkirim ke ${r.target}` : `✅ Bukti payment ${r.lunas ? '(LUNAS)' : ''} terkirim`);
     });
   };
@@ -99,7 +99,6 @@ export default function WAPaymentSection({ tripId, passengers, paymentsByPasseng
 
   return (
     <>
-    <WaManualModal data={waManual} onClose={() => setWaManual(null)} title="Kirim WA manual" />
     <div className="bg-white rounded-xl border-2 border-green-200 shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b bg-green-50 border-green-200 flex items-center justify-between flex-wrap gap-2">
         <div>
