@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import {
   createFamilyGroup,
   updateFamilyGroup,
+  addPassengerToFamily,
   removePassengerFromFamily,
   deleteFamilyGroup,
 } from '@/lib/actions/families';
@@ -27,6 +28,9 @@ export default function FamilyGroupManager({ tripId, passengers = [], familyGrou
 
   const [editName, setEditName] = useState('');
   const [editHeadId, setEditHeadId] = useState('');
+
+  // Tambah anggota susulan ke family yang sudah ada: { [familyId]: passengerId }
+  const [addPick, setAddPick] = useState({});
 
   // Build family map
   const familyMap = {};
@@ -109,6 +113,21 @@ export default function FamilyGroupManager({ tripId, passengers = [], familyGrou
     startTransition(async () => {
       const r = await deleteFamilyGroup(fg.id);
       if (r?.error) { alert(r.error); return; }
+      router.refresh();
+    });
+  }
+
+  // Peserta susulan masuk ke family yang sudah ada (mis. anak baru didaftarkan).
+  function handleAddMember(fg) {
+    const pid = addPick[fg.id];
+    if (!pid) return;
+    const pax = passengers.find((p) => String(p.id) === String(pid));
+    const nama = pax?.customers?.name || `#${pid}`;
+    if (!confirm(`Masukkan ${nama} ke family "${fg.name}"?`)) return;
+    startTransition(async () => {
+      const r = await addPassengerToFamily({ family_id: fg.id, passenger_id: Number(pid) });
+      if (r?.error) { alert(r.error); return; }
+      setAddPick((prev) => ({ ...prev, [fg.id]: '' }));
       router.refresh();
     });
   }
@@ -381,6 +400,36 @@ export default function FamilyGroupManager({ tripId, passengers = [], familyGrou
                           </div>
                         );
                       })}
+
+                      {/* Tambah anggota susulan */}
+                      <div className="flex items-center gap-2 pt-1">
+                        {ungroupedPassengers.length === 0 ? (
+                          <p className="text-[10px] text-slate-400">Semua peserta sudah punya family.</p>
+                        ) : (
+                          <>
+                            <select
+                              value={addPick[fg.id] || ''}
+                              onChange={(e) => setAddPick((prev) => ({ ...prev, [fg.id]: e.target.value }))}
+                              disabled={pending}
+                              className="flex-1 min-w-0 text-[11px] px-2 py-1 border border-slate-300 rounded bg-white text-slate-700"
+                            >
+                              <option value="">+ Tambah anggota ke family ini…</option>
+                              {ungroupedPassengers.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {(p.customers || {}).name || `Peserta #${p.id}`}{p.room_type ? ` · ${p.room_type}` : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => handleAddMember(fg)}
+                              disabled={pending || !addPick[fg.id]}
+                              className="shrink-0 text-[10px] px-2 py-1 rounded bg-indigo-500 hover:bg-indigo-600 text-white font-bold disabled:opacity-40"
+                            >
+                              ➕ Masukkan
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </>
                 )}
