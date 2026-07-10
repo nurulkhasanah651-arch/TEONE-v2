@@ -6,7 +6,7 @@
 import { useMemo, useState } from 'react';
 import { generateRoomlist, normalizeGender } from '@/lib/utils/roomlist';
 import { calcAge } from '@/lib/utils/format';
-import { downloadRoomlistPDF } from '@/lib/utils/roomlist-pdf';
+import RoomlistDownloadButton from '@/components/common/RoomlistDownloadButton';
 import { downloadManifestPDF } from '@/lib/utils/manifest-pdf';
 import PaxSearch, { matchesName } from '@/components/common/PaxSearch';
 
@@ -27,7 +27,7 @@ function tlMemberDetail(c = {}, pax = {}) {
     name: c.name || first || '', first_name: first, surname: last, title, gender: g,
     passport_no: c.passport_no || c.passport_number || c.ktp || '',
     place_of_birth: c.place_of_birth || c.city || '',
-    birth_date: fmtDate(birth), age: age == null ? '' : age,
+    birth_date: fmtDate(birth), birth_raw: birth || '', age: age == null ? '' : age,
     remarks: String(pax.notes || '').trim(),   // catatan peserta → kolom Remarks di PDF roomlist
   };
 }
@@ -82,17 +82,6 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
     }
   }
 
-  async function downloadPdf() {
-    try {
-      await downloadRoomlistPDF({
-        trip: { name: trip?.name, kode_trip: trip?.kode_trip, departure: trip?.departure, return_date: trip?.return_date, arrival: trip?.arrival },
-        rooms,
-      });
-    } catch (e) {
-      alert('Gagal download PDF: ' + (e?.message || e));
-    }
-  }
-
 
   const shownPassengers = passengers.filter((p) => matchesName((customerMap[p.customer_id] || {}).name, q));
 
@@ -101,7 +90,8 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
       <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
         <h2 className="font-bold text-brand-700 flex-1">📋 Manifest & Roomlist</h2>
         <button onClick={downloadManifestPdf} className="px-3 py-1 rounded font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white">📋 Manifest PDF</button>
-        <button onClick={downloadPdf} className="px-3 py-1 rounded font-semibold text-xs bg-rose-600 hover:bg-rose-700 text-white">🛏 Roomlist PDF</button>
+        <RoomlistDownloadButton tripId={trip?.id} label="🛏 Roomlist PDF"
+          className="px-3 py-1 rounded font-semibold text-xs bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50" />
         <div className="flex gap-1 text-xs">
           <button
             onClick={() => setTab('manifest')}

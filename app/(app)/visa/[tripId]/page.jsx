@@ -25,6 +25,7 @@ import VisaDocsDownloadPanel from '@/components/visa/VisaDocsDownloadPanel';
 // R215t — Drive sync
 import VisaDriveSyncPanel from '@/components/visa/VisaDriveSyncPanel';
 import ManifestDownloadButton from '@/components/common/ManifestDownloadButton';
+import RoomlistDownloadButton from '@/components/common/RoomlistDownloadButton';
 // R215s — auto-mark uploads as viewed
 import { markTripUploadsAsViewed } from '@/lib/actions/visa-mark-viewed';
 import { getPicScope } from '@/lib/auth/pic-scope';
@@ -193,6 +194,7 @@ export default async function VisaTripPage({ params }) {
         <VisaPDFDownloads trip={trip} passengers={passengersWithCustomers} />
         <div className="flex flex-wrap gap-2 pt-1 border-t border-slate-100">
           <ManifestDownloadButton tripId={tripId} label="📋 Download Manifest (Excel)" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg" />
+          <RoomlistDownloadButton tripId={tripId} label="🛏 Download Roomlist (PDF)" className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg disabled:opacity-50" />
         </div>
       </div>
 
