@@ -36,10 +36,11 @@ export default function StorefrontPanel({ trip }) {
   // Skema cicilan KHUSUS tampilan web (trip.web_payment_schedule) — TERPISAH dari payment checklist finance.
   const _ws0 = Array.isArray(trip.web_payment_schedule) ? trip.web_payment_schedule : [];
   const [insts, setInsts] = useState(() => {
-    const a = _ws0.filter((r) => r && r.type && r.type !== 'Pelunasan').map((r) => ({ amount: r.amount || '', due: r.due || '' }));
-    return a.length ? a : [{ amount: '', due: '' }];
+    const a = _ws0.filter((r) => r && r.type && r.type !== 'Pelunasan').map((r) => ({ amount: r.amount || '', due: r.due || '', note: r.note || '' }));
+    return a.length ? a : [{ amount: '', due: '', note: '' }];
   });
   const [pelDue, setPelDue] = useState((_ws0.find((r) => r && r.type === 'Pelunasan') || {}).due || '');
+  const [pelNote, setPelNote] = useState((_ws0.find((r) => r && r.type === 'Pelunasan') || {}).note || '');
 
   const [bd, setBd] = useState((trip.price_breakdown && typeof trip.price_breakdown === 'object') ? trip.price_breakdown : {});
   const [dpAmount, setDpAmount] = useState(trip.dp_amount || '');
@@ -209,7 +210,8 @@ export default function StorefrontPanel({ trip }) {
 
         <div className="rounded-lg bg-indigo-50 border border-indigo-200 p-3">
           <p className="text-xs font-bold text-indigo-700">🗓 Skema Cicilan (diisi CS) — tampil ke customer di web</p>
-          <p className="text-[11px] text-indigo-600 mb-2">DP pakai field DP di atas. Tambah termin sesuai kebutuhan (maks 7). <b>Pelunasan otomatis = sisa tagihan</b>, cukup isi tanggalnya.</p>
+          <p className="text-[11px] text-indigo-600 mb-2">DP pakai field DP di atas. Tambah termin sesuai kebutuhan (maks 7). <b>Pelunasan otomatis = sisa tagihan</b>, cukup isi tanggalnya.
+            Tanggal boleh dikosongkan kalau syaratnya bukan tanggal — tulis saja di kolom keterangan (mis. <i>&ldquo;dibayar setelah trip full seat&rdquo;</i>).</p>
           <div className="space-y-2">
             {insts.map((r, i) => (
               <div key={i} className="grid grid-cols-12 gap-2 items-center">
@@ -220,11 +222,14 @@ export default function StorefrontPanel({ trip }) {
                   value={r.due || ''} onChange={(e) => { const v = e.target.value; setInsts((s) => s.map((x, j) => j === i ? { ...x, due: v } : x)); }} />
                 <button type="button" title="Hapus termin" onClick={() => setInsts((s) => s.filter((_, j) => j !== i))}
                   className="col-span-1 text-red-500 hover:text-red-700 text-sm font-bold">✕</button>
+                <input className="col-span-12 sm:col-start-4 sm:col-span-8 px-2 py-1.5 border border-slate-300 rounded text-sm"
+                  placeholder="Keterangan (opsional) — mis. dibayar setelah trip full seat"
+                  value={r.note || ''} onChange={(e) => { const v = e.target.value; setInsts((s) => s.map((x, j) => j === i ? { ...x, note: v } : x)); }} />
               </div>
             ))}
           </div>
           {insts.length < 7 && (
-            <button type="button" onClick={() => setInsts((s) => [...s, { amount: '', due: '' }])}
+            <button type="button" onClick={() => setInsts((s) => [...s, { amount: '', due: '', note: '' }])}
               className="mt-2 text-xs font-bold text-indigo-700 hover:underline">+ Tambah Payment</button>
           )}
           <div className="mt-3 grid grid-cols-12 gap-2 items-center border-t border-indigo-200 pt-2">
@@ -232,9 +237,15 @@ export default function StorefrontPanel({ trip }) {
             <span className="col-span-6 sm:col-span-4 text-[11px] text-slate-500 italic">menyesuaikan sisa tagihan</span>
             <input type="date" className="col-span-5 sm:col-span-4 px-2 py-1.5 border border-slate-300 rounded text-sm"
               value={pelDue} onChange={(e) => setPelDue(e.target.value)} />
+            <input className="col-span-12 sm:col-start-4 sm:col-span-8 px-2 py-1.5 border border-slate-300 rounded text-sm"
+              placeholder="Keterangan (opsional) — mis. paling lambat H-30 keberangkatan"
+              value={pelNote} onChange={(e) => setPelNote(e.target.value)} />
           </div>
           <input type="hidden" name="payment_schedule_json"
-            value={JSON.stringify([...insts.map((r, i) => ({ type: 'P' + (i + 1), amount: Number(r.amount) || 0, due: r.due || '' })), { type: 'Pelunasan', amount: 0, due: pelDue || '' }])} />
+            value={JSON.stringify([
+              ...insts.map((r, i) => ({ type: 'P' + (i + 1), amount: Number(r.amount) || 0, due: r.due || '', note: (r.note || '').trim() })),
+              { type: 'Pelunasan', amount: 0, due: pelDue || '', note: (pelNote || '').trim() },
+            ])} />
         </div>
 
         <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">

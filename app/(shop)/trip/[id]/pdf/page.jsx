@@ -191,8 +191,8 @@ export default async function TripPdfPage({ params }) {
                   <SectionHead>Skema Pembayaran</SectionHead>
                   <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.9, fontSize: 13 }}>
                     {t.dp_amount ? <li>DP — <b>{fmtRp(t.dp_amount)}</b></li> : null}
-                    {sched.filter((r) => r.type !== 'Pelunasan').map((r, i) => <li key={i}>Payment {i + 1} — <b>{r.amount ? fmtRp(r.amount) : '-'}</b>{r.due ? ` · jatuh tempo ${fmtDate(r.due)}` : ''}</li>)}
-                    {(() => { const p = sched.find((r) => r.type === 'Pelunasan'); return p ? <li>Pelunasan — <i>menyesuaikan sisa tagihan</i>{p.due ? ` · jatuh tempo ${fmtDate(p.due)}` : ''}</li> : null; })()}
+                    {sched.filter((r) => r.type !== 'Pelunasan').map((r, i) => <li key={i}>Payment {i + 1} — <b>{r.amount ? fmtRp(r.amount) : '-'}</b>{r.due ? ` · jatuh tempo ${fmtDate(r.due)}` : ''}{r.note ? ` · ${r.note}` : ''}</li>)}
+                    {(() => { const p = sched.find((r) => r.type === 'Pelunasan'); return p ? <li>Pelunasan — <i>menyesuaikan sisa tagihan</i>{p.due ? ` · jatuh tempo ${fmtDate(p.due)}` : ''}{p.note ? ` · ${p.note}` : ''}</li> : null; })()}
                   </ul>
                 </div>
               )}

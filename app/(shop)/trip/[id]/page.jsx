@@ -261,17 +261,19 @@ export default async function TripDetailPage({ params }) {
                       </div>
                     ) : null}
                     {t.web_payment_schedule.filter((r) => r.type !== 'Pelunasan').map((r, i) => (
-                      <div key={i} className="flex items-center justify-between py-2 text-sm">
+                      <div key={i} className="flex items-start justify-between gap-3 py-2 text-sm">
                         <span className="font-semibold text-slate-700">Payment {i + 1}
-                          {r.due ? <span className="block text-[11px] font-normal text-slate-400">🗓 jatuh tempo {fmtDate(r.due)}</span> : null}</span>
-                        <span className="font-bold text-slate-900">{r.amount ? fmtRp(r.amount) : '-'}</span>
+                          {r.due ? <span className="block text-[11px] font-normal text-slate-400">🗓 jatuh tempo {fmtDate(r.due)}</span> : null}
+                          {r.note ? <span className="block text-[11px] font-normal text-slate-500 italic">📝 {r.note}</span> : null}</span>
+                        <span className="font-bold text-slate-900 shrink-0">{r.amount ? fmtRp(r.amount) : '-'}</span>
                       </div>
                     ))}
                     {(() => { const pel = t.web_payment_schedule.find((r) => r.type === 'Pelunasan'); if (!pel) return null; return (
-                      <div className="flex items-center justify-between py-2 text-sm">
+                      <div className="flex items-start justify-between gap-3 py-2 text-sm">
                         <span className="font-semibold text-slate-700">Pelunasan
-                          {pel.due ? <span className="block text-[11px] font-normal text-slate-400">🗓 jatuh tempo {fmtDate(pel.due)}</span> : null}</span>
-                        <span className="font-semibold text-amber-600 italic text-xs">menyesuaikan sisa tagihan</span>
+                          {pel.due ? <span className="block text-[11px] font-normal text-slate-400">🗓 jatuh tempo {fmtDate(pel.due)}</span> : null}
+                          {pel.note ? <span className="block text-[11px] font-normal text-slate-500 italic">📝 {pel.note}</span> : null}</span>
+                        <span className="font-semibold text-amber-600 italic text-xs shrink-0">menyesuaikan sisa tagihan</span>
                       </div>
                     ); })()}
                   </div>
