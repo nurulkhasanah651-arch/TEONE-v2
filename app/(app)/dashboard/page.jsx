@@ -9,6 +9,7 @@ import { fetchAll } from '@/lib/supabase/fetch-all';
 import { getRoleFromUser, filterNavByRole } from '@/lib/utils/roles';
 import { getBrandCode } from '@/lib/brand';
 import { BRAND_UI } from '@/lib/brand-shared';
+import { getPicScope, filterTripsForPic } from '@/lib/auth/pic-scope';
 import ReviewPendingCard from '@/components/common/ReviewPendingCard';
 
 export const dynamic = 'force-dynamic';
@@ -53,23 +54,16 @@ export default async function DashboardPage() {
   let trips = tripsRes.data || [];
   let allPax = allPaxArr || [];
 
-  // Role PIC: dashboard hanya menampilkan trip yang di-assign ke dia
-  let dbRole = role;
-  let dbName = '';
+  // Role PIC: dashboard hanya menampilkan trip yang di-assign ke dia.
+  // R234: pakai getPicScope (role otoritatif dari employees) — sebelumnya baca users.role
+  // yang bisa basi, bikin PIC lihat semua trip.
   {
-    const { data: u } = await supabase.from('users').select('role, name').eq('id', user?.id).maybeSingle();
-    if (u?.role === 'pic') dbRole = 'pic';
-    dbName = u?.name || '';
-  }
-  if (dbRole === 'pic') {
-    const email = (user?.email || '').toLowerCase();
-    const nm = dbName.toLowerCase();
-    trips = trips.filter((t) =>
-      (t.pic_email && t.pic_email.toLowerCase() === email) ||
-      (t.pic && nm && t.pic.toLowerCase() === nm)
-    );
-    const myTripIds = new Set(trips.map((t) => t.id));
-    allPax = allPax.filter((p) => myTripIds.has(p.trip_id));
+    const scope = await getPicScope(supabase, user);
+    if (scope.scoped) {
+      trips = filterTripsForPic(trips, scope);
+      const myTripIds = new Set(trips.map((t) => t.id));
+      allPax = allPax.filter((p) => myTripIds.has(p.trip_id));
+    }
   }
   const csToday = csTodayRes.data || [];
   const dailyLeads = dailyLeadsRes.data;
