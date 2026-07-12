@@ -75,6 +75,7 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan',
     avatar_url: employee?.avatar_url || '',
     fonnte_token: employee?.fonnte_token || '',
     waba_api_key: employee?.waba_api_key || '',
+    waba_phone_id: employee?.waba_phone_id || '',
     notes: employee?.notes || '',
   });
 
@@ -317,6 +318,12 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan',
           <Field label="API Key WABA (WhatsApp resmi Api.co.id — kalau PIC ini pakai nomor WABA sendiri)">
             <input autoComplete="off" type="text" name="waba_api_key" value={form.waba_api_key} onChange={(e) => upd('waba_api_key', e.target.value)} placeholder="apicoid_live_..." className={inputCls} />
             <p className="text-[11px] text-slate-500 mt-1">Kalau diisi, konfirmasi pembayaran trip PIC ini terkirim otomatis via WhatsApp resmi (anti-banned) — bukan lagi manual/Fonnte. Kosongkan kalau belum pakai WABA.</p>
+          </Field>
+        )}
+        {isKhasanah && (
+          <Field label="Phone Number ID WABA (opsional — isi kalau 1 akun WABA punya banyak nomor)">
+            <input autoComplete="off" type="text" name="waba_phone_id" value={form.waba_phone_id} onChange={(e) => upd('waba_phone_id', e.target.value)} placeholder="mis. clyyy9876543210" className={inputCls} />
+            <p className="text-[11px] text-slate-500 mt-1">Ambil dari menu Phone Numbers di Api.co.id (kolom id). Kosongkan kalau akun WABA PIC ini cuma punya 1 nomor.</p>
           </Field>
         )}
         <Field label="Catatan">
