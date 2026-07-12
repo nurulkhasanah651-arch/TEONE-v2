@@ -5,7 +5,10 @@ import { useState, useEffect, useRef, useTransition } from 'react';
 import {
   getInboxData, getConversationThread, sendInboxReply, sendInboxTemplate,
   markInboxRead, setInboxStatus, assignInbox, addInboxNote,
+  createInboxTag, addTagToConv, removeTagFromConv, setPipelineStage,
 } from '@/lib/actions/wa-inbox';
+
+const PIPELINE_STAGES = ['Lead', 'Follow-up', 'Nego', 'Closing', 'DP', 'Lunas', 'Selesai'];
 
 function fmtTime(iso) {
   if (!iso) return '';
@@ -27,6 +30,7 @@ export default function InboxClient({ initial }) {
   const [tplName, setTplName] = useState('');
   const [tplParams, setTplParams] = useState('');
   const [note, setNote] = useState('');
+  const [newTag, setNewTag] = useState('');
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState('');
   const threadEndRef = useRef(null);
@@ -79,6 +83,10 @@ export default function InboxClient({ initial }) {
   function doStatus(s) { startTransition(async () => { await setInboxStatus(selId, s); await loadThread(selId); await loadConvs(); }); }
   function doAssign(eid) { startTransition(async () => { await assignInbox(selId, eid ? Number(eid) : null); await loadThread(selId); }); }
   function doNote() { if (!note.trim()) return; startTransition(async () => { await addInboxNote(selId, note); setNote(''); await loadThread(selId); }); }
+  function doAddTag(tagId) { if (!tagId) return; startTransition(async () => { await addTagToConv(selId, Number(tagId)); await loadThread(selId); }); }
+  function doRemoveTag(tagId) { startTransition(async () => { await removeTagFromConv(selId, tagId); await loadThread(selId); }); }
+  function doCreateTag() { if (!newTag.trim()) return; startTransition(async () => { const r = await createInboxTag(newTag.trim()); if (r?.ok && r.tag) await addTagToConv(selId, r.tag.id); setNewTag(''); await loadThread(selId); }); }
+  function doStage(stg) { startTransition(async () => { await setPipelineStage(selId, stg); await loadThread(selId); }); }
 
   const conv = thread?.conversation;
   const within24 = thread?.within24;
@@ -171,12 +179,51 @@ export default function InboxClient({ initial }) {
             <p className="font-semibold text-slate-800">{conv.customer_name || '—'}</p>
             <p className="text-xs text-slate-500">{conv.customer_phone}</p>
           </div>
+          {/* Info pelanggan (CRM) */}
+          {thread?.customer && (
+            <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-2">
+              <p className="text-[11px] font-bold text-emerald-700 uppercase">Pelanggan CRM</p>
+              <p className="font-semibold text-slate-800 text-sm">{thread.customer.name}</p>
+              {thread.customer.email && <p className="text-[11px] text-slate-500">{thread.customer.email}</p>}
+              {(thread.trips || []).length > 0 && (
+                <div className="mt-1 space-y-0.5">
+                  {thread.trips.map((t) => <p key={t.id} className="text-[11px] text-slate-600">🎫 {t.kode_trip} — {t.name}</p>)}
+                </div>
+              )}
+            </div>
+          )}
           <div>
             <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">Ditugaskan ke</p>
             <select value={conv.assigned_to || ''} onChange={(e) => doAssign(e.target.value)} className="w-full text-xs px-2 py-1 border border-slate-300 rounded">
               <option value="">— Belum ditugaskan —</option>
               {agents.map((a) => <option key={a.id} value={a.id}>{a.full_name}</option>)}
             </select>
+          </div>
+          <div>
+            <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">Pipeline stage</p>
+            <select value={conv.pipeline_stage || ''} onChange={(e) => doStage(e.target.value)} className="w-full text-xs px-2 py-1 border border-slate-300 rounded">
+              <option value="">— Belum ada —</option>
+              {PIPELINE_STAGES.map((st) => <option key={st} value={st}>{st}</option>)}
+            </select>
+          </div>
+          <div>
+            <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">Tags</p>
+            <div className="flex flex-wrap gap-1 mb-1">
+              {(thread?.tags || []).map((t) => (
+                <span key={t.id} className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-semibold flex items-center gap-1">
+                  {t.name}<button onClick={() => doRemoveTag(t.id)} className="text-indigo-400 hover:text-indigo-700">×</button>
+                </span>
+              ))}
+              {(thread?.tags || []).length === 0 && <span className="text-[10px] text-slate-400">Belum ada tag</span>}
+            </div>
+            <select value="" onChange={(e) => doAddTag(e.target.value)} className="w-full text-[11px] px-2 py-1 border border-slate-300 rounded mb-1">
+              <option value="">+ Tempel tag…</option>
+              {(thread?.allTags || []).filter((t) => !(thread?.tags || []).some((x) => x.id === t.id)).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+            <div className="flex gap-1">
+              <input value={newTag} onChange={(e) => setNewTag(e.target.value)} placeholder="Tag baru…" className="flex-1 text-[11px] px-2 py-1 border border-slate-300 rounded" />
+              <button onClick={doCreateTag} disabled={pending} className="px-2 py-1 bg-indigo-500 text-white text-[11px] rounded disabled:opacity-50">+</button>
+            </div>
           </div>
           <div>
             <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">Catatan internal</p>
@@ -193,6 +240,16 @@ export default function InboxClient({ initial }) {
               ))}
             </div>
           </div>
+          {(thread?.history || []).length > 0 && (
+            <div>
+              <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">Riwayat penugasan</p>
+              <div className="space-y-0.5">
+                {(thread.history || []).map((h) => (
+                  <p key={h.id} className="text-[10px] text-slate-500">→ {h.to_name || 'dilepas'} · {fmtTime(h.created_at)}</p>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
