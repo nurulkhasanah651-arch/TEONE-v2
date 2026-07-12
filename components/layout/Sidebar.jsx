@@ -59,6 +59,7 @@ const GROUPS = [
       { href: '/quotations',    label: 'Penawaran AI',     icon: '💰', roles: ALL_ROLES },
       { href: '/ads',           label: 'Ads Manager',      icon: '📢', roles: ALL_ROLES },
       { href: '/content',       label: 'Konten',           icon: '📱', roles: ALL_ROLES },
+      { href: '/inbox',         label: 'Inbox WhatsApp',   icon: '💬', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'], brands: ['khasanah'] },
       { href: '/blast',         label: 'Blast WA',         icon: '📣', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'] },
       { href: '/wa-history',    label: 'History WA',       icon: '💬', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'] },
       { href: '/reviews',       label: 'Review Trip',      icon: '⭐', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'] },
