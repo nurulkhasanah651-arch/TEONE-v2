@@ -24,6 +24,8 @@ export async function GET(request) {
   const token = searchParams.get('hub.verify_token');
   const challenge = searchParams.get('hub.challenge');
   const { verifyToken } = envFor();
+  // DEBUG sementara — tidak membocorkan token (cuma panjang & kecocokan).
+  console.log('[waba verify] mode=' + mode + ' envSet=' + !!verifyToken + ' envLen=' + (verifyToken ? verifyToken.length : 0) + ' recvLen=' + (token ? String(token).length : 0) + ' match=' + (token === verifyToken));
   if (mode === 'subscribe' && verifyToken && token === verifyToken) {
     return new NextResponse(challenge || '', { status: 200 });
   }
