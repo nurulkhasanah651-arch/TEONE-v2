@@ -3,8 +3,9 @@
 // Round 175: EmployeeForm — + tl_subtype dropdown (in-house vs freelance TL)
 // Path: components/hr/EmployeeForm.jsx
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { resolveBrandCodeBrowser } from '@/lib/brand-shared';
 
 function fmtIDR(v) {
   if (v == null || v === '') return '';
@@ -33,6 +34,8 @@ const TL_SUBTYPES = [
 const ROLES = ['owner', 'manager', 'accounting', 'finance', 'ops', 'cs', 'pic', 'tl', 'designer', 'social_media', 'admin', 'other'];
 
 export default function EmployeeForm({ action, employee, submitLabel = 'Simpan', defaultType = '' }) {
+  const [isKhasanah, setIsKhasanah] = useState(false);
+  useEffect(() => { try { setIsKhasanah((resolveBrandCodeBrowser() || '') === 'khasanah'); } catch {} }, []);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState('');
@@ -71,6 +74,7 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan',
     bank_account_holder: employee?.bank_account_holder || '',
     avatar_url: employee?.avatar_url || '',
     fonnte_token: employee?.fonnte_token || '',
+    waba_api_key: employee?.waba_api_key || '',
     notes: employee?.notes || '',
   });
 
@@ -309,6 +313,12 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan',
         <Field label="Token Fonnte (untuk kirim WA — dipakai kalau karyawan ini jadi PIC trip)">
           <input autoComplete="off" type="text" name="fonnte_token" value={form.fonnte_token} onChange={(e) => upd('fonnte_token', e.target.value)} placeholder="Token Fonnte nomor WA PIC ini" className={inputCls} />
         </Field>
+        {isKhasanah && (
+          <Field label="API Key WABA (WhatsApp resmi Api.co.id — kalau PIC ini pakai nomor WABA sendiri)">
+            <input autoComplete="off" type="text" name="waba_api_key" value={form.waba_api_key} onChange={(e) => upd('waba_api_key', e.target.value)} placeholder="apicoid_live_..." className={inputCls} />
+            <p className="text-[11px] text-slate-500 mt-1">Kalau diisi, konfirmasi pembayaran trip PIC ini terkirim otomatis via WhatsApp resmi (anti-banned) — bukan lagi manual/Fonnte. Kosongkan kalau belum pakai WABA.</p>
+          </Field>
+        )}
         <Field label="Catatan">
           <textarea autoComplete="off" name="notes" rows="3" value={form.notes} onChange={(e) => upd('notes', e.target.value)} className={inputCls + ' resize-y'} />
         </Field>
