@@ -315,9 +315,9 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan',
           <input autoComplete="off" type="text" name="fonnte_token" value={form.fonnte_token} onChange={(e) => upd('fonnte_token', e.target.value)} placeholder="Token Fonnte nomor WA PIC ini" className={inputCls} />
         </Field>
         {isKhasanah && (
-          <Field label="Meta Phone Number ID (WABA) — nomor WhatsApp resmi PIC ini">
-            <input autoComplete="off" type="text" name="waba_phone_id" value={form.waba_phone_id} onChange={(e) => upd('waba_phone_id', e.target.value)} placeholder="mis. 1203490896184291" className={inputCls} />
-            <p className="text-[11px] text-slate-500 mt-1">Ambil dari Meta WhatsApp Manager (Phone Number ID). Kalau diisi, kiriman WA trip PIC ini via WhatsApp resmi + chat masuk ke Inbox nomor ini. Kosong = manual/Fonnte.</p>
+          <Field label="Phone Number ID WABA (Api.co.id) — nomor WhatsApp PIC ini">
+            <input autoComplete="off" type="text" name="waba_phone_id" value={form.waba_phone_id} onChange={(e) => upd('waba_phone_id', e.target.value)} placeholder="mis. cmri403w33p1oucjwffp8ch94" className={inputCls} />
+            <p className="text-[11px] text-slate-500 mt-1">Ambil dari Api.co.id → Developers → List Phone Numbers (kolom id, bentuk cmr...). Kalau diisi, kiriman WA trip PIC ini lewat WhatsApp resmi nomor itu + chat masuk ke Inbox. Kosong = manual/Fonnte. Ganti nomor = ganti id ini lalu Simpan.</p>
           </Field>
         )}
         <Field label="Catatan">
