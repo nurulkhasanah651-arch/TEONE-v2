@@ -6,7 +6,7 @@ import {
   getInboxData, getConversationThread, sendInboxReply, sendInboxTemplate,
   markInboxRead, setInboxStatus, assignInbox, addInboxNote,
   createInboxTag, addTagToConv, removeTagFromConv, setPipelineStage,
-  setConversationTrip, setLeadSource,
+  setConversationTrip, setLeadSource, setClosingPax,
 } from '@/lib/actions/wa-inbox';
 
 const PIPELINE_STAGES = ['Lead', 'Follow-up', 'Nego', 'Closing', 'DP', 'Lunas', 'Selesai'];
@@ -116,6 +116,7 @@ export default function InboxClient({ initial }) {
   function doStage(stg) { startTransition(async () => { await setPipelineStage(selId, stg); await loadThread(selId); }); }
   function doTrip(tid) { startTransition(async () => { await setConversationTrip(selId, tid || null); await loadThread(selId); }); }
   function doLeadSource(src) { startTransition(async () => { await setLeadSource(selId, src); await loadThread(selId); }); }
+  function doPax(v) { startTransition(async () => { await setClosingPax(selId, v); await loadThread(selId); }); }
 
   const conv = thread?.conversation;
   const within24 = thread?.within24;
@@ -250,6 +251,13 @@ export default function InboxClient({ initial }) {
             </select>
             {['Closing', 'DP', 'Lunas'].includes(conv.pipeline_stage) && conv.closed_at && conv.first_msg_at && (
               <p className="text-[10px] text-emerald-600 mt-1">Closing dalam {fmtDur((new Date(conv.closed_at) - new Date(conv.first_msg_at)) / 1000)}</p>
+            )}
+            {['Closing', 'DP', 'Lunas'].includes(conv.pipeline_stage) && (
+              <div className="mt-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Jumlah pax closing</label>
+                <input key={conv.id} type="number" min="1" defaultValue={conv.closing_pax || 1} onBlur={(e) => doPax(e.target.value)} className="w-full text-xs px-2 py-1 border border-slate-300 rounded" />
+                <p className="text-[10px] text-slate-400 mt-0.5">Pilih trip di bawah → otomatis masuk CS Daily (Closing dari Chat) untuk dilengkapi.</p>
+              </div>
             )}
           </div>
           <div>

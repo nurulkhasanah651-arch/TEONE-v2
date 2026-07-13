@@ -9,6 +9,8 @@ import { fetchAll } from '@/lib/supabase/fetch-all';
 import CsRecapPanel from '@/components/cs/CsRecapPanel';
 import { getCsRecapGroup, buildCsRecap } from '@/lib/actions/cs-recap';
 import ClosingRangePanel from '@/components/cs/ClosingRangePanel';
+import ClosingDraftsPanel from '@/components/cs/ClosingDraftsPanel';
+import { getClosingDrafts } from '@/lib/actions/cs.js';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,6 +39,7 @@ export default async function CSPage() {
   ]);
 
   const recapGroup = await getCsRecapGroup().catch(() => ({ group: '' }));
+  const closingDrafts = await getClosingDrafts().catch(() => ({ drafts: [], avgByTrip: {} }));
 
   const allUpdates = updatesRes.data || [];
   const allLeads = leadsRes.data || [];
@@ -102,6 +105,8 @@ export default async function CSPage() {
           bg="bg-purple-50"
         />
       </div>
+
+      <ClosingDraftsPanel drafts={closingDrafts?.drafts || []} avgByTrip={closingDrafts?.avgByTrip || {}} />
 
       <CsRecapPanel initialGroup={recapGroup?.group || ''} />
 
