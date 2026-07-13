@@ -54,11 +54,14 @@ function textFromMessage(m) {
 export async function POST(request) {
   const raw = await request.text();
   const { appSecret } = envFor();
-  if (!verifySignature(appSecret, raw, request.headers.get('x-hub-signature-256'))) {
-    return new NextResponse('bad signature', { status: 401 });
-  }
+  // Api.co.id (BSP) meneruskan webhook TANPA tanda tangan Meta -> jangan pernah 401,
+  // cukup catat validitas utk audit. Kembalikan 200 apa pun kondisinya supaya provider
+  // tidak meng-auto-disable webhook karena "delivery failure".
+  const sigOk = verifySignature(appSecret, raw, request.headers.get('x-hub-signature-256'));
+  // DEBUG sementara: tangkap bentuk payload Api.co.id utk penyesuaian parser.
+  console.log('[waba inbound] sigOk=' + sigOk + ' len=' + raw.length + ' body=' + raw.slice(0, 1500));
   let payload;
-  try { payload = JSON.parse(raw); } catch { return NextResponse.json({ ok: false }, { status: 400 }); }
+  try { payload = JSON.parse(raw); } catch { return NextResponse.json({ ok: true, parse: false }); }
 
   const host = request.headers.get('host') || '';
   const brand = resolveBrandCode({ host });
