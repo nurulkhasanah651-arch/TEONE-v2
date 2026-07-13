@@ -76,6 +76,8 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan',
     fonnte_token: employee?.fonnte_token || '',
     waba_api_key: employee?.waba_api_key || '',
     waba_phone_id: employee?.waba_phone_id || '',
+    waba_tpl_invoice: employee?.waba_tpl_invoice || '',
+    waba_tpl_konfirmasi: employee?.waba_tpl_konfirmasi || '',
     notes: employee?.notes || '',
   });
 
@@ -318,6 +320,18 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan',
           <Field label="Phone Number ID WABA (Api.co.id) — nomor WhatsApp PIC ini">
             <input autoComplete="off" type="text" name="waba_phone_id" value={form.waba_phone_id} onChange={(e) => upd('waba_phone_id', e.target.value)} placeholder="mis. cmri403w33p1oucjwffp8ch94" className={inputCls} />
             <p className="text-[11px] text-slate-500 mt-1">Ambil dari Api.co.id → Developers → List Phone Numbers (kolom id, bentuk cmr...). Kalau diisi, kiriman WA trip PIC ini lewat WhatsApp resmi nomor itu + chat masuk ke Inbox. Kosong = manual/Fonnte. Ganti nomor = ganti id ini lalu Simpan.</p>
+          </Field>
+        )}
+        {isKhasanah && (
+          <Field label="Nama Template Invoice (Api.co.id) — khusus nomor PIC ini">
+            <input autoComplete="off" type="text" name="waba_tpl_invoice" value={form.waba_tpl_invoice} onChange={(e) => upd('waba_tpl_invoice', e.target.value)} placeholder="mis. invoice_khasanah_lia" className={inputCls} />
+            <p className="text-[11px] text-slate-500 mt-1">Nama template penagihan invoice yang disetujui di WABA nomor PIC ini. Kosong = pakai default invoice_khasanah. Isi kalau nama template PIC ini beda (Api.co.id butuh nama unik).</p>
+          </Field>
+        )}
+        {isKhasanah && (
+          <Field label="Nama Template Konfirmasi/DP (Api.co.id) — khusus nomor PIC ini">
+            <input autoComplete="off" type="text" name="waba_tpl_konfirmasi" value={form.waba_tpl_konfirmasi} onChange={(e) => upd('waba_tpl_konfirmasi', e.target.value)} placeholder="mis. konfirmasi_khasanah_lia" className={inputCls} />
+            <p className="text-[11px] text-slate-500 mt-1">Nama template konfirmasi pembayaran/DP di WABA nomor PIC ini. Kosong = pakai default konfirmasi_payment_khasanah.</p>
           </Field>
         )}
         <Field label="Catatan">
