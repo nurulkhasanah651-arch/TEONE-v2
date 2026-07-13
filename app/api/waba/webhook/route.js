@@ -70,11 +70,45 @@ async function handleApicoid(db, payload) {
   const dir = String(d.direction || '').toLowerCase();
   const wamid = d.message_id || d.raw?.id || null;
 
-  // Event status pesan KELUAR -> update status saja (jangan insert baris baru,
-  // pesan keluar sudah dicatat saat dikirim).
+  // Event pesan KELUAR. Dua kemungkinan:
+  //  (a) status pesan yang KITA kirim (wamid sudah ada di DB) -> update status saja.
+  //  (b) ECHO pesan yang PIC balas dari HP (coexistence) -> wamid belum ada + ada isi
+  //      -> simpan sebagai pesan keluar supaya muncul di inbox & terhitung "dibalas".
   if (dir === 'outbound' || /sent|delivered|read|failed|status/.test(ev)) {
     const status = ev.includes('.') ? ev.split('.').pop() : (d.status || null);
-    if (wamid && status) { try { await db.from('wa_messages').update({ status }).eq('wa_message_id', wamid); } catch {} }
+    if (wamid) {
+      const { data: existing } = await db.from('wa_messages').select('id').eq('wa_message_id', wamid).maybeSingle();
+      if (existing) { if (status) { try { await db.from('wa_messages').update({ status }).eq('id', existing.id); } catch {} } return; }
+    }
+    // Echo dari HP: butuh isi pesan atau media + nomor bisnis.
+    const echoBody = d.content || textFromApicoidRaw(d.raw) || '';
+    const echoMedia = d.media_url || null;
+    if (!phoneNumberId || (!echoBody && !echoMedia)) return;
+    const toPhone = String(d.customer_phone || '').replace(/[^0-9]/g, '');
+    if (!toPhone) return;
+    const nowE = new Date().toISOString();
+    const prevE = echoBody || `[${d.message_type || 'media'}]`;
+    const { data: numRowE } = await db.from('wa_numbers').select('id').eq('phone_number_id', phoneNumberId).maybeSingle();
+    let { data: convE } = await db.from('wa_conversations').select('id, first_reply_at').eq('phone_number_id', phoneNumberId).eq('customer_phone', toPhone).maybeSingle();
+    if (!convE) {
+      const insE = await db.from('wa_conversations').insert({
+        brand: 'khasanah', number_id: numRowE?.id || null, phone_number_id: phoneNumberId, customer_phone: toPhone,
+        status: 'open', last_message_at: nowE, last_message_preview: prevE.slice(0, 120), first_reply_at: nowE,
+      }).select('id').maybeSingle();
+      convE = insE.data;
+    } else {
+      await db.from('wa_conversations').update({
+        last_message_at: nowE, last_message_preview: prevE.slice(0, 120), ...(convE.first_reply_at ? {} : { first_reply_at: nowE }),
+      }).eq('id', convE.id);
+    }
+    if (convE?.id) {
+      const tsE = Number(d.raw?.timestamp);
+      await db.from('wa_messages').insert({
+        brand: 'khasanah', conversation_id: convE.id, direction: 'out', type: d.message_type || 'text',
+        body: echoBody || null, media_url: echoMedia, wa_message_id: wamid || null, status: status || 'sent',
+        created_at: tsE ? new Date(tsE * 1000).toISOString() : nowE,
+      });
+    }
     return;
   }
 
