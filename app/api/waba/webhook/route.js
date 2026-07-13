@@ -51,6 +51,66 @@ function textFromMessage(m) {
   return `[${m.type || 'pesan'}]`;
 }
 
+function textFromApicoidRaw(raw) {
+  if (!raw) return '';
+  if (raw.type === 'text') return raw.text?.body || '';
+  if (raw.type === 'button') return raw.button?.text || '';
+  if (raw.type === 'interactive') return raw.interactive?.button_reply?.title || raw.interactive?.list_reply?.title || '';
+  if (['image', 'document', 'video', 'audio', 'sticker'].includes(raw.type)) return `[${raw.type}]${raw[raw.type]?.caption ? ' ' + raw[raw.type].caption : ''}`;
+  return '';
+}
+
+// Format Api.co.id (BSP): { event_type, event_id, timestamp, data:{...} }
+async function handleApicoid(db, payload) {
+  const ev = String(payload.event_type || '');
+  const d = payload.data || {};
+  if (ev === 'test') return;
+  const phoneNumberId = d.phone_number_id || null;
+  const dir = String(d.direction || '').toLowerCase();
+  const wamid = d.message_id || d.raw?.id || null;
+
+  // Event status pesan KELUAR -> update status saja (jangan insert baris baru,
+  // pesan keluar sudah dicatat saat dikirim).
+  if (dir === 'outbound' || /sent|delivered|read|failed|status/.test(ev)) {
+    const status = ev.includes('.') ? ev.split('.').pop() : (d.status || null);
+    if (wamid && status) { try { await db.from('wa_messages').update({ status }).eq('wa_message_id', wamid); } catch {} }
+    return;
+  }
+
+  // Pesan MASUK
+  if (!phoneNumberId) return;
+  const fromPhone = String(d.customer_phone || d.raw?.from || '').replace(/[^0-9]/g, '');
+  if (!fromPhone) return;
+  const body = d.content || textFromApicoidRaw(d.raw) || `[${d.message_type || 'pesan'}]`;
+  const now = new Date().toISOString();
+  const tsSec = Number(d.raw?.timestamp);
+  const createdAt = tsSec ? new Date(tsSec * 1000).toISOString() : now;
+
+  const { data: numRow } = await db.from('wa_numbers').select('id').eq('phone_number_id', phoneNumberId).maybeSingle();
+
+  let { data: conv } = await db.from('wa_conversations')
+    .select('id, unread_count').eq('phone_number_id', phoneNumberId).eq('customer_phone', fromPhone).maybeSingle();
+  if (!conv) {
+    const ins = await db.from('wa_conversations').insert({
+      brand: 'khasanah', number_id: numRow?.id || null, phone_number_id: phoneNumberId,
+      customer_phone: fromPhone, customer_name: null, status: 'open',
+      last_message_at: now, last_customer_msg_at: now, last_message_preview: body.slice(0, 120), unread_count: 1,
+    }).select('id').maybeSingle();
+    conv = ins.data;
+  } else {
+    await db.from('wa_conversations').update({
+      last_message_at: now, last_customer_msg_at: now, last_message_preview: body.slice(0, 120),
+      unread_count: (Number(conv.unread_count) || 0) + 1, status: 'open',
+    }).eq('id', conv.id);
+  }
+  if (conv?.id) {
+    await db.from('wa_messages').insert({
+      brand: 'khasanah', conversation_id: conv.id, direction: 'in', type: d.message_type || 'text',
+      body, wa_message_id: wamid, status: 'received', created_at: createdAt,
+    });
+  }
+}
+
 export async function POST(request) {
   const raw = await request.text();
   const { appSecret } = envFor();
@@ -71,6 +131,10 @@ export async function POST(request) {
   if (!db) return NextResponse.json({ ok: true, nodb: true });
 
   try {
+    // Api.co.id (provider utama) kirim format sendiri; Meta format sbg fallback.
+    if (payload && (payload.event_type || payload.data)) {
+      await handleApicoid(db, payload);
+    } else {
     for (const entry of (payload.entry || [])) {
       for (const ch of (entry.changes || [])) {
         const val = ch.value || {};
@@ -120,6 +184,7 @@ export async function POST(request) {
           try { await db.from('wa_messages').update({ status: st.status || null }).eq('wa_message_id', st.id); } catch {}
         }
       }
+    }
     }
   } catch (e) {
     console.error('[waba webhook]', e?.message);
