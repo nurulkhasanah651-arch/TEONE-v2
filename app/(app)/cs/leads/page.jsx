@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate } from '@/lib/utils/format';
+import { getCsWaDailyLeads } from '@/lib/actions/wa-inbox';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,8 @@ export default async function LeadsPage() {
     .select('*')
     .order('tanggal', { ascending: false })
     .limit(60);
+
+  const waCs = await getCsWaDailyLeads({ days: 30 });
 
   if (error) {
     return (
@@ -63,6 +66,42 @@ export default async function LeadsPage() {
         <StatCard label="WA (7 hari)" value={week.wa} color="text-green-700" bg="bg-green-50" />
         <StatCard label="FB (7 hari)" value={week.fb} color="text-blue-700" bg="bg-blue-50" />
       </div>
+
+      {/* Leads WhatsApp CS otomatis dari Inbox (original vs ads) */}
+      {waCs?.ok && !waCs.notKhasanah && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between gap-3 flex-wrap">
+            <h2 className="font-bold text-brand-700">Leads WhatsApp CS (otomatis)</h2>
+            <p className="text-xs text-slate-500">Dari Inbox nomor CS · Hari ini: <b>{waCs.today.original}</b> original · <b className="text-purple-600">{waCs.today.ads}</b> ads</p>
+          </div>
+          {waCs.daily.length === 0 ? (
+            <div className="p-8 text-center text-sm text-slate-500">Belum ada lead masuk ke nomor CS.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr className="text-left text-xs font-bold text-slate-600 uppercase tracking-wider">
+                    <th className="px-5 py-2.5">Tanggal</th>
+                    <th className="px-3 py-2.5 text-right">Original (non-ads)</th>
+                    <th className="px-3 py-2.5 text-right">Ads</th>
+                    <th className="px-3 py-2.5 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {waCs.daily.map((d) => (
+                    <tr key={d.date}>
+                      <td className="px-5 py-2.5 text-slate-700">{d.date}</td>
+                      <td className="px-3 py-2.5 text-right font-semibold text-slate-800">{d.original}</td>
+                      <td className="px-3 py-2.5 text-right font-semibold text-purple-600">{d.ads}</td>
+                      <td className="px-3 py-2.5 text-right">{d.original + d.ads}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* List */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
