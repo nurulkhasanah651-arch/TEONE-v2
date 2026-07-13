@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { resolveBrandCode } from '@/lib/brand-shared';
 import { serviceClientFor } from '@/lib/supabase/service-env';
+import { getApicoidCustomerName } from '@/lib/utils/waba-apicoid';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -90,17 +91,23 @@ async function handleApicoid(db, payload) {
 
   const { data: numRow } = await db.from('wa_numbers').select('id').eq('phone_number_id', phoneNumberId).maybeSingle();
 
-  // Nama peserta dari CRM (customers) berdasarkan nomor.
-  let custName = null;
-  try {
-    const forms = fromPhone.startsWith('62') ? [fromPhone, '0' + fromPhone.slice(2)] : [fromPhone];
-    let cr = await db.from('customers').select('name').in('phone', forms).limit(1).maybeSingle();
-    if (!cr.data) cr = await db.from('customers').select('name').in('whatsapp', forms).limit(1).maybeSingle();
-    custName = cr.data?.name || null;
-  } catch {}
-
   let { data: conv } = await db.from('wa_conversations')
-    .select('id, unread_count').eq('phone_number_id', phoneNumberId).eq('customer_phone', fromPhone).maybeSingle();
+    .select('id, unread_count, customer_name').eq('phone_number_id', phoneNumberId).eq('customer_phone', fromPhone).maybeSingle();
+
+  // Nama: pakai yang sudah tersimpan; kalau kosong cari di CRM; kalau tetap kosong ambil
+  // push name WA dari Api.co.id (GET /customers/:id). Cuma di-fetch saat belum ada nama.
+  let custName = conv?.customer_name || null;
+  if (!custName) {
+    try {
+      const forms = fromPhone.startsWith('62') ? [fromPhone, '0' + fromPhone.slice(2)] : [fromPhone];
+      let cr = await db.from('customers').select('name').in('phone', forms).limit(1).maybeSingle();
+      if (!cr.data) cr = await db.from('customers').select('name').in('whatsapp', forms).limit(1).maybeSingle();
+      custName = cr.data?.name || null;
+    } catch {}
+  }
+  if (!custName) {
+    try { custName = await getApicoidCustomerName(d.customer_id || fromPhone); } catch {}
+  }
   if (!conv) {
     const ins = await db.from('wa_conversations').insert({
       brand: 'khasanah', number_id: numRow?.id || null, phone_number_id: phoneNumberId,
