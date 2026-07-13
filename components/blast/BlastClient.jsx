@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useRef, useState } from 'react';
-import { getBlastRecipients, sendBlast } from '@/lib/actions/blast';
+import { getBlastRecipients, sendBlast, uploadBlastDoc } from '@/lib/actions/blast';
 
 function fmtDate(iso) { if (!iso) return '—'; try { return new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return iso; } }
 function waToHtml(s) {
@@ -19,6 +19,8 @@ export default function BlastClient({ trips = [] }) {
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState(null);
   const [err, setErr] = useState(null);
+  const [doc, setDoc] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const taRef = useRef(null);
 
   async function onPickTrip(id) {
@@ -44,11 +46,23 @@ export default function BlastClient({ trips = [] }) {
     requestAnimationFrame(() => { if (ta) { ta.focus(); ta.setSelectionRange(s + sym.length, s + sym.length + sel.length); } });
   }
 
+  async function onUploadDoc(e) {
+    const file = e.target.files?.[0]; if (!file) return;
+    setUploading(true); setErr(null);
+    try {
+      const fd = new FormData(); fd.set('file', file);
+      const r = await uploadBlastDoc(fd);
+      if (r?.ok) setDoc({ url: r.url, name: r.name });
+      else setErr(r?.error || 'Upload gagal.');
+    } catch (e2) { setErr(e2?.message || 'Upload gagal.'); }
+    setUploading(false);
+  }
+
   async function doSend() {
     setSending(true); setErr(null);
     try {
       const ids = recips.families.filter((f) => selKeys.has(f.key)).flatMap((f) => f.memberIds);
-      const r = await sendBlast(tripId, msg, ids);
+      const r = await sendBlast(tripId, msg, ids, doc?.url || null, doc?.name || null);
       if (r?.ok) { setResult(r); setConfirm(false); }
       else setErr(r?.error || 'Gagal mengirim.');
     } catch (e) { setErr(e?.message || 'Gagal mengirim.'); }
@@ -133,6 +147,21 @@ export default function BlastClient({ trips = [] }) {
             placeholder={"Contoh:\nHalo Kak {{nama}} 🙏\n*Info penting* untuk keberangkatan..."}
             className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-400" />
           <p className="text-[11px] text-slate-400 mt-1">Format WA: <code className="bg-slate-100 px-1 rounded">*tebal*</code> <code className="bg-slate-100 px-1 rounded">_miring_</code> <code className="bg-slate-100 px-1 rounded">~coret~</code>. <code className="bg-slate-100 px-1 rounded">{'{{nama}}'}</code> = nama depan kepala keluarga. Pengirim: <b>CS</b>.</p>
+          <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Lampiran dokumen (opsional)</p>
+            {doc ? (
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <span className="text-slate-700 truncate">📎 {doc.name}</span>
+                <button type="button" onClick={() => setDoc(null)} className="text-xs text-rose-600 hover:underline shrink-0">Hapus</button>
+              </div>
+            ) : (
+              <label className="inline-flex items-center gap-2 text-sm cursor-pointer text-indigo-600 hover:underline">
+                <input type="file" accept=".pdf,image/*" onChange={onUploadDoc} className="hidden" />
+                {uploading ? 'Mengunggah…' : '+ Upload PDF / gambar (mis. itinerary terbaru)'}
+              </label>
+            )}
+            <p className="text-[10px] text-slate-400 mt-1">File dikirim sebagai lampiran WA ke tiap peserta (bukan sekadar link). Maks 25MB.</p>
+          </div>
           {msg.trim() && (
             <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 mb-1">Preview (contoh nama: {sampleName})</p>
