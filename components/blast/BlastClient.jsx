@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useRef, useState } from 'react';
-import { getBlastRecipients, sendBlast, uploadBlastDoc } from '@/lib/actions/blast';
+import { getBlastRecipients, sendBlast, createBlastUploadUrl } from '@/lib/actions/blast';
 
 function fmtDate(iso) { if (!iso) return '—'; try { return new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return iso; } }
 function waToHtml(s) {
@@ -48,12 +48,14 @@ export default function BlastClient({ trips = [] }) {
 
   async function onUploadDoc(e) {
     const file = e.target.files?.[0]; if (!file) return;
+    if (file.size > 26214400) { setErr('File maksimal 25MB.'); return; }
     setUploading(true); setErr(null);
     try {
-      const fd = new FormData(); fd.set('file', file);
-      const r = await uploadBlastDoc(fd);
-      if (r?.ok) setDoc({ url: r.url, name: r.name });
-      else setErr(r?.error || 'Upload gagal.');
+      const init = await createBlastUploadUrl(file.name);
+      if (!init?.ok) { setErr(init?.error || 'Gagal menyiapkan upload.'); setUploading(false); return; }
+      const up = await fetch(init.signedUrl, { method: 'PUT', headers: { 'content-type': file.type || 'application/octet-stream', 'x-upsert': 'true' }, body: file });
+      if (!up.ok) { setErr('Upload gagal (' + up.status + ').'); setUploading(false); return; }
+      setDoc({ url: init.publicUrl, name: file.name });
     } catch (e2) { setErr(e2?.message || 'Upload gagal.'); }
     setUploading(false);
   }
