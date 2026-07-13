@@ -89,6 +89,11 @@ async function handleApicoid(db, payload) {
   const tsSec = Number(d.raw?.timestamp);
   const createdAt = tsSec ? new Date(tsSec * 1000).toISOString() : now;
 
+  // Sumber lead: iklan Click-to-WA kirim objek referral -> tandai 'ads'.
+  const ref = d.referral || d.raw?.referral || null;
+  const leadSource = ref ? 'ads' : 'regular';
+  const adHeadline = ref ? (ref.headline || ref.body || ref.source_id || ref.source_url || 'Iklan WA') : null;
+
   const { data: numRow } = await db.from('wa_numbers').select('id').eq('phone_number_id', phoneNumberId).maybeSingle();
 
   let { data: conv } = await db.from('wa_conversations')
@@ -112,12 +117,14 @@ async function handleApicoid(db, payload) {
     const ins = await db.from('wa_conversations').insert({
       brand: 'khasanah', number_id: numRow?.id || null, phone_number_id: phoneNumberId,
       customer_phone: fromPhone, customer_name: custName, status: 'open',
+      lead_source: leadSource, ad_headline: adHeadline, first_msg_at: now,
       last_message_at: now, last_customer_msg_at: now, last_message_preview: preview.slice(0, 120), unread_count: 1,
     }).select('id').maybeSingle();
     conv = ins.data;
   } else {
     await db.from('wa_conversations').update({
       customer_name: custName || undefined, last_message_at: now, last_customer_msg_at: now, last_message_preview: preview.slice(0, 120),
+      ...(ref ? { lead_source: 'ads', ad_headline: adHeadline } : {}),
       unread_count: (Number(conv.unread_count) || 0) + 1, status: 'open',
     }).eq('id', conv.id);
   }

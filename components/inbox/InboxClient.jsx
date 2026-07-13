@@ -6,6 +6,7 @@ import {
   getInboxData, getConversationThread, sendInboxReply, sendInboxTemplate,
   markInboxRead, setInboxStatus, assignInbox, addInboxNote,
   createInboxTag, addTagToConv, removeTagFromConv, setPipelineStage,
+  setConversationTrip, setLeadSource,
 } from '@/lib/actions/wa-inbox';
 
 const PIPELINE_STAGES = ['Lead', 'Follow-up', 'Nego', 'Closing', 'DP', 'Lunas', 'Selesai'];
@@ -16,6 +17,14 @@ function fmtTime(iso) {
   catch { return ''; }
 }
 const STATUS = [['open', 'Open'], ['pending', 'Pending'], ['resolved', 'Selesai']];
+function fmtDur(sec) {
+  if (sec == null || isNaN(sec)) return '—';
+  const s = Math.round(sec);
+  if (s < 60) return s + ' dtk';
+  if (s < 3600) return Math.round(s / 60) + ' mnt';
+  if (s < 86400) return (s / 3600).toFixed(1) + ' jam';
+  return (s / 86400).toFixed(1) + ' hari';
+}
 const EMOJIS = ['😀','😁','😂','🤣','😊','😍','🥰','😘','👍','🙏','❤️','🔥','✅','🎉','😢','😭','😅','🤝','👌','💯','🙌','😎','🤔','🙈'];
 function MsgMedia({ m }) {
   if (!m.media_url) return null;
@@ -105,6 +114,8 @@ export default function InboxClient({ initial }) {
   function doRemoveTag(tagId) { startTransition(async () => { await removeTagFromConv(selId, tagId); await loadThread(selId); }); }
   function doCreateTag() { if (!newTag.trim()) return; startTransition(async () => { const r = await createInboxTag(newTag.trim()); if (r?.ok && r.tag) await addTagToConv(selId, r.tag.id); setNewTag(''); await loadThread(selId); }); }
   function doStage(stg) { startTransition(async () => { await setPipelineStage(selId, stg); await loadThread(selId); }); }
+  function doTrip(tid) { startTransition(async () => { await setConversationTrip(selId, tid || null); await loadThread(selId); }); }
+  function doLeadSource(src) { startTransition(async () => { await setLeadSource(selId, src); await loadThread(selId); }); }
 
   const conv = thread?.conversation;
   const within24 = thread?.within24;
@@ -237,6 +248,24 @@ export default function InboxClient({ initial }) {
               <option value="">— Belum ada —</option>
               {PIPELINE_STAGES.map((st) => <option key={st} value={st}>{st}</option>)}
             </select>
+            {['Closing', 'DP', 'Lunas'].includes(conv.pipeline_stage) && conv.closed_at && conv.first_msg_at && (
+              <p className="text-[10px] text-emerald-600 mt-1">Closing dalam {fmtDur((new Date(conv.closed_at) - new Date(conv.first_msg_at)) / 1000)}</p>
+            )}
+          </div>
+          <div>
+            <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">Trip (closing)</p>
+            <select value={conv.trip_id || ''} onChange={(e) => doTrip(e.target.value)} className="w-full text-xs px-2 py-1 border border-slate-300 rounded">
+              <option value="">— Pilih trip —</option>
+              {(thread?.allTrips || []).map((t) => <option key={t.id} value={t.id}>{t.kode_trip} — {t.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">Sumber lead</p>
+            <div className="flex gap-1">
+              <button onClick={() => doLeadSource('ads')} className={`flex-1 px-2 py-1 text-xs rounded font-semibold ${conv.lead_source === 'ads' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600'}`}>Ads</button>
+              <button onClick={() => doLeadSource('regular')} className={`flex-1 px-2 py-1 text-xs rounded font-semibold ${conv.lead_source !== 'ads' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'}`}>Reguler</button>
+            </div>
+            {conv.ad_headline && <p className="text-[10px] text-purple-600 mt-1 truncate" title={conv.ad_headline}>Iklan: {conv.ad_headline}</p>}
           </div>
           <div>
             <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">Tags</p>
