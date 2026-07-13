@@ -161,6 +161,7 @@ export default async function PublicInvoicePage({ params }) {
   let famRoom = 0, famTips = 0, famCity = 0, famFlight = 0, famBaggage = 0, famBase = 0, famVisa = 0, famAsuransi = 0, famCount = 1, famResolved = false;
   let famVisaCount = 0, famAsuransiCount = 0, famPerlengkapan = 0;
   let famVisaPokok = 0, famAsuransiPokok = 0, famVisaPokokCount = 0, famAsuransiPokokCount = 0;
+  let famMembers = [];
   if (inv.trip_id && (inv.passenger_id || (Array.isArray(inv.covers_passenger_ids) && inv.covers_passenger_ids.length))) {
     try {
       const bill = await getInvoiceBilling(supabase, inv);
@@ -170,6 +171,7 @@ export default async function PublicInvoicePage({ params }) {
       addonPaidReal = bill.addonPaid;
       sisaReal = bill.sisa;
       discountReal = bill.discount;
+      famMembers = bill.members || [];
       famRoom = bill.members.reduce((t, m) => t + (m.roomPrice || 0), 0);
       famTips = bill.members.reduce((t, m) => t + (m.tips || 0), 0);
       famCity = bill.members.reduce((t, m) => t + (m.cityTax || 0), 0);
@@ -228,12 +230,15 @@ export default async function PublicInvoicePage({ params }) {
     + (famVisaPokok || 0) + (famAsuransiPokok || 0);
   let rRoom = _pokokGross > 0 ? Math.max(_pokokGross - _extras, 0) : (famCount > 1 ? famRoom : (famRoom || roomPrice));
   if (rRoom > 0) tourItems.push({ label: `Paket Tour${famCount > 1 ? paxNote : ` (${passenger?.room_type || 'Room'})`}`, amount: rRoom });
-  if (famBase > 0) tourItems.push({ label: `Harga Dasar${paxNote}`, amount: famBase });
-  if (famFlight > 0) tourItems.push({ label: `Tiket Pesawat Domestik${paxNote}`, amount: famFlight });
-  if (famBaggage > 0) tourItems.push({ label: `Bagasi Domestik${paxNote}`, amount: famBaggage });
-  if (rTips > 0) tourItems.push({ label: `Tips${paxNote}`, amount: rTips });
-  if (rCity > 0) tourItems.push({ label: `City Tax${paxNote}`, amount: rCity });
-  if (famPerlengkapan > 0) tourItems.push({ label: `Perlengkapan${paxNote}`, amount: famPerlengkapan });
+  // Jumlah peserta per-komponen (infant/child-no-bed dikecualikan dari tips/city/dll)
+  const _cntNote = (n) => (n > 1 ? ` (${n} peserta)` : '');
+  const _cnt = (sel) => famResolved ? famMembers.filter(sel).length : 1;
+  if (famBase > 0) tourItems.push({ label: `Harga Dasar${_cntNote(_cnt((m) => (m.baseFee || 0) > 0))}`, amount: famBase });
+  if (famFlight > 0) tourItems.push({ label: `Tiket Pesawat Domestik${_cntNote(_cnt((m) => (m.flight || 0) > 0))}`, amount: famFlight });
+  if (famBaggage > 0) tourItems.push({ label: `Bagasi Domestik${_cntNote(_cnt((m) => (m.baggage || 0) > 0))}`, amount: famBaggage });
+  if (rTips > 0) tourItems.push({ label: `Tips${_cntNote(_cnt((m) => (m.tips || 0) > 0))}`, amount: rTips });
+  if (rCity > 0) tourItems.push({ label: `City Tax${_cntNote(_cnt((m) => (m.cityTax || 0) > 0))}`, amount: rCity });
+  if (famPerlengkapan > 0) tourItems.push({ label: `Perlengkapan${_cntNote(_cnt((m) => (m.perlengkapan || 0) > 0))}`, amount: famPerlengkapan });
   // Khasanah: visa & asuransi = biaya wajib, bagian dari total paket (bukan opt-in).
   if (famVisaPokok > 0) tourItems.push({ label: famVisaPokokCount > 1 ? `Visa (${famVisaPokokCount} peserta)` : 'Visa', amount: famVisaPokok });
   if (famAsuransiPokok > 0) tourItems.push({ label: famAsuransiPokokCount > 1 ? `Asuransi (${famAsuransiPokokCount} peserta)` : 'Asuransi', amount: famAsuransiPokok });
