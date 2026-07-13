@@ -8,6 +8,9 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
+import { resolveAuthoritativeRole } from '@/lib/auth/authoritative-role';
 import { generateTripId } from '@/lib/utils/id';
 
 function parseTripFields(formData) {
@@ -188,4 +191,26 @@ export async function deleteTrip(tripId) {
   revalidatePath('/trips');
   revalidatePath('/dashboard');
   redirect('/trips');
+}
+
+// Ganti PIC master trip — role owner/manager/accounting/cs/pic (pic: hanya trip miliknya).
+// Pakai service client supaya accounting/cs (yang tak punya izin UPDATE trips via RLS) tetap bisa.
+export async function changeTripPic(tripId, picName, picEmail) {
+  const auth = createClient();
+  const { data: { user } } = await auth.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const role = await resolveAuthoritativeRole(user);
+  if (!['owner', 'manager', 'accounting', 'cs', 'pic'].includes(role)) return { error: 'Akses ditolak untuk mengganti PIC.' };
+  const url = brandSupabaseUrl(); const key = brandServiceRoleKey();
+  const db = (url && key) ? createServiceClient(url, key, { auth: { persistSession: false } }) : auth;
+  if (role === 'pic') {
+    const { data: t } = await db.from('trips').select('pic_email').eq('id', tripId).maybeSingle();
+    if (String(t?.pic_email || '').toLowerCase() !== String(user.email || '').toLowerCase()) {
+      return { error: 'PIC hanya bisa mengganti PIC untuk trip miliknya sendiri.' };
+    }
+  }
+  const { error } = await db.from('trips').update({ pic: picName || null, pic_email: picEmail || null }).eq('id', tripId);
+  if (error) return { error: error.message };
+  revalidatePath('/trips'); revalidatePath(`/trips/${tripId}`); revalidatePath('/dashboard');
+  return { ok: true };
 }

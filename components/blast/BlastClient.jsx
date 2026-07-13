@@ -159,10 +159,10 @@ export default function BlastClient({ trips = [] }) {
             ) : (
               <label className="inline-flex items-center gap-2 text-sm cursor-pointer text-indigo-600 hover:underline">
                 <input type="file" accept=".pdf,image/*" onChange={onUploadDoc} className="hidden" />
-                {uploading ? 'Mengunggah…' : '+ Upload PDF / gambar (mis. itinerary terbaru)'}
+                {uploading ? 'Mengunggah…' : '+ Upload PDF / gambar (mis. itinerary terbaru) → link masuk ke pesan'}
               </label>
             )}
-            <p className="text-[10px] text-slate-400 mt-1">File dikirim sebagai lampiran WA ke tiap peserta (bukan sekadar link). Maks 25MB.</p>
+            <p className="text-[10px] text-slate-400 mt-1">Link download file otomatis ditempel di dalam pesan WA (peserta tinggal klik). Maks 25MB.</p>
           </div>
           {msg.trim() && (
             <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">

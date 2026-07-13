@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import TripForm from '@/components/trips/TripForm';
 import TLAssignmentPanel from '@/components/master-trip/TLAssignmentPanel'; // R198: NEW
 import StorefrontPanel from '@/components/trips/StorefrontPanel';
+import ChangePicControl from '@/components/master-trip/ChangePicControl';
 import { updateTrip } from '../../actions';
 
 export const dynamic = 'force-dynamic';
@@ -81,6 +82,8 @@ export default async function EditTripPage({ params }) {
           <span className="font-mono font-bold">{trip.kode_trip || `#${trip.id}`}</span> — {trip.name}
         </p>
       </div>
+
+      <ChangePicControl tripId={id} currentPic={trip.pic || ''} currentEmail={trip.pic_email || ''} employees={employees} />
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-6">
         <TripForm
