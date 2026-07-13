@@ -114,8 +114,12 @@ export default function InboxClient({ initial }) {
             <button key={c.id} onClick={() => openConv(c)} className={`w-full text-left px-3 py-2 hover:bg-slate-50 ${selId === c.id ? 'bg-brand-50' : ''}`}>
               <div className="flex items-center justify-between gap-2">
                 <span className="font-semibold text-sm text-slate-800 truncate">{c.customer_name || c.customer_phone}</span>
-                {c.unread_count > 0 && <span className="shrink-0 text-[10px] bg-green-500 text-white rounded-full px-1.5 py-0.5 font-bold">{c.unread_count}</span>}
+                <div className="flex items-center gap-1 shrink-0">
+                  {!c.within24 && <span title="Window 24 jam tutup — hanya bisa kirim template" className="text-[9px] bg-amber-100 text-amber-700 rounded px-1 py-0.5 font-bold">⏰ tutup</span>}
+                  {c.unread_count > 0 && <span className="text-[10px] bg-green-500 text-white rounded-full px-1.5 py-0.5 font-bold">{c.unread_count}</span>}
+                </div>
               </div>
+              {c.customer_name && <p className="text-[10px] text-slate-400 truncate">{c.customer_phone}</p>}
               <p className="text-[11px] text-slate-500 truncate">{c.last_message_preview || '—'}</p>
               <p className="text-[10px] text-slate-400">{fmtTime(c.last_message_at)}{c.status && c.status !== 'open' ? ` · ${c.status}` : ''}</p>
             </button>

@@ -88,18 +88,27 @@ async function handleApicoid(db, payload) {
 
   const { data: numRow } = await db.from('wa_numbers').select('id').eq('phone_number_id', phoneNumberId).maybeSingle();
 
+  // Nama peserta dari CRM (customers) berdasarkan nomor.
+  let custName = null;
+  try {
+    const forms = fromPhone.startsWith('62') ? [fromPhone, '0' + fromPhone.slice(2)] : [fromPhone];
+    let cr = await db.from('customers').select('name').in('phone', forms).limit(1).maybeSingle();
+    if (!cr.data) cr = await db.from('customers').select('name').in('whatsapp', forms).limit(1).maybeSingle();
+    custName = cr.data?.name || null;
+  } catch {}
+
   let { data: conv } = await db.from('wa_conversations')
     .select('id, unread_count').eq('phone_number_id', phoneNumberId).eq('customer_phone', fromPhone).maybeSingle();
   if (!conv) {
     const ins = await db.from('wa_conversations').insert({
       brand: 'khasanah', number_id: numRow?.id || null, phone_number_id: phoneNumberId,
-      customer_phone: fromPhone, customer_name: null, status: 'open',
+      customer_phone: fromPhone, customer_name: custName, status: 'open',
       last_message_at: now, last_customer_msg_at: now, last_message_preview: body.slice(0, 120), unread_count: 1,
     }).select('id').maybeSingle();
     conv = ins.data;
   } else {
     await db.from('wa_conversations').update({
-      last_message_at: now, last_customer_msg_at: now, last_message_preview: body.slice(0, 120),
+      customer_name: custName || undefined, last_message_at: now, last_customer_msg_at: now, last_message_preview: body.slice(0, 120),
       unread_count: (Number(conv.unread_count) || 0) + 1, status: 'open',
     }).eq('id', conv.id);
   }
