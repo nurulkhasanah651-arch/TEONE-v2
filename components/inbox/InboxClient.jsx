@@ -16,6 +16,23 @@ function fmtTime(iso) {
   catch { return ''; }
 }
 const STATUS = [['open', 'Open'], ['pending', 'Pending'], ['resolved', 'Selesai']];
+const EMOJIS = ['😀','😁','😂','🤣','😊','😍','🥰','😘','👍','🙏','❤️','🔥','✅','🎉','😢','😭','😅','🤝','👌','💯','🙌','😎','🤔','🙈'];
+function MsgMedia({ m }) {
+  if (!m.media_url) return null;
+  const t = m.type || '';
+  const isImg = t === 'image' || t === 'sticker';
+  const isVid = t === 'video';
+  const isAud = t === 'audio' || t === 'voice' || t === 'ptt';
+  return (
+    <div className="mt-1">
+      {isImg && <a href={m.media_url} target="_blank" rel="noreferrer"><img src={m.media_url} alt="media" className="rounded-lg max-w-full max-h-64 object-contain" /></a>}
+      {isVid && <video src={m.media_url} controls className="rounded-lg max-w-full max-h-64" />}
+      {isAud && <audio src={m.media_url} controls className="max-w-full" />}
+      {!isImg && !isVid && !isAud && <a href={m.media_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">📎 Buka dokumen</a>}
+      <div><a href={m.media_url} target="_blank" rel="noreferrer" download className="text-[10px] text-slate-500 underline">Unduh</a></div>
+    </div>
+  );
+}
 
 export default function InboxClient({ initial }) {
   const [numbers] = useState(initial?.numbers || []);
@@ -33,6 +50,7 @@ export default function InboxClient({ initial }) {
   const [newTag, setNewTag] = useState('');
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState('');
+  const [showEmoji, setShowEmoji] = useState(false);
   const threadEndRef = useRef(null);
 
   async function loadConvs() {
@@ -146,7 +164,9 @@ export default function InboxClient({ initial }) {
               {(thread?.messages || []).map((m) => (
                 <div key={m.id} className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${m.direction === 'out' ? 'ml-auto bg-green-100' : 'bg-white border border-slate-200'}`}>
                   {m.template_name && <p className="text-[10px] font-bold text-slate-400 mb-0.5">📋 {m.template_name}</p>}
-                  <p className="whitespace-pre-wrap break-words">{m.body || (m.template_name ? '(template terkirim)' : '')}</p>
+                  <MsgMedia m={m} />
+                  {m.body && <p className="whitespace-pre-wrap break-words">{m.body}</p>}
+                  {!m.body && !m.media_url && m.template_name && <p className="italic text-slate-400">(template terkirim)</p>}
                   <p className="text-[10px] text-slate-400 mt-0.5 text-right">{fmtTime(m.created_at)}{m.direction === 'out' && m.status ? ` · ${m.status}` : ''}</p>
                 </div>
               ))}
@@ -155,10 +175,18 @@ export default function InboxClient({ initial }) {
             {err && <div className="px-4 py-1 text-xs text-red-600 bg-red-50">{err}</div>}
             <div className="p-2 border-t border-slate-200">
               {within24 ? (
-                <div className="flex gap-2">
-                  <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') doSend(); }}
-                    placeholder="Ketik balasan…" className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg" />
-                  <button onClick={doSend} disabled={pending} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg disabled:opacity-50">Kirim</button>
+                <div className="space-y-1">
+                  {showEmoji && (
+                    <div className="flex flex-wrap gap-1 p-1 bg-slate-50 rounded border border-slate-200">
+                      {EMOJIS.map((e) => <button key={e} type="button" onClick={() => setText((t) => t + e)} className="text-lg leading-none hover:bg-slate-200 rounded px-0.5">{e}</button>)}
+                    </div>
+                  )}
+                  <div className="flex gap-2 items-center">
+                    <button type="button" onClick={() => setShowEmoji((v) => !v)} title="Emoji" className="text-xl leading-none px-1">😊</button>
+                    <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') doSend(); }}
+                      placeholder="Ketik balasan…" className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg" />
+                    <button onClick={doSend} disabled={pending} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg disabled:opacity-50">Kirim</button>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-1.5">

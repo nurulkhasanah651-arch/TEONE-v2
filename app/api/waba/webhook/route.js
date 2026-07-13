@@ -81,7 +81,9 @@ async function handleApicoid(db, payload) {
   if (!phoneNumberId) return;
   const fromPhone = String(d.customer_phone || d.raw?.from || '').replace(/[^0-9]/g, '');
   if (!fromPhone) return;
-  const body = d.content || textFromApicoidRaw(d.raw) || `[${d.message_type || 'pesan'}]`;
+  const mediaUrl = d.media_url || null;
+  const body = mediaUrl ? (d.content || '') : (d.content || textFromApicoidRaw(d.raw) || `[${d.message_type || 'pesan'}]`);
+  const preview = body || `[${d.message_type || 'media'}]`;
   const now = new Date().toISOString();
   const tsSec = Number(d.raw?.timestamp);
   const createdAt = tsSec ? new Date(tsSec * 1000).toISOString() : now;
@@ -103,19 +105,19 @@ async function handleApicoid(db, payload) {
     const ins = await db.from('wa_conversations').insert({
       brand: 'khasanah', number_id: numRow?.id || null, phone_number_id: phoneNumberId,
       customer_phone: fromPhone, customer_name: custName, status: 'open',
-      last_message_at: now, last_customer_msg_at: now, last_message_preview: body.slice(0, 120), unread_count: 1,
+      last_message_at: now, last_customer_msg_at: now, last_message_preview: preview.slice(0, 120), unread_count: 1,
     }).select('id').maybeSingle();
     conv = ins.data;
   } else {
     await db.from('wa_conversations').update({
-      customer_name: custName || undefined, last_message_at: now, last_customer_msg_at: now, last_message_preview: body.slice(0, 120),
+      customer_name: custName || undefined, last_message_at: now, last_customer_msg_at: now, last_message_preview: preview.slice(0, 120),
       unread_count: (Number(conv.unread_count) || 0) + 1, status: 'open',
     }).eq('id', conv.id);
   }
   if (conv?.id) {
     await db.from('wa_messages').insert({
       brand: 'khasanah', conversation_id: conv.id, direction: 'in', type: d.message_type || 'text',
-      body, wa_message_id: wamid, status: 'received', created_at: createdAt,
+      body, media_url: mediaUrl, wa_message_id: wamid, status: 'received', created_at: createdAt,
     });
   }
 }
