@@ -55,7 +55,7 @@ export default async function TripPdfPage({ params }) {
         * { box-sizing: border-box; }
         .pagewrap { width: 210mm; margin: 0 auto; }
         .sheet { width: 210mm; background: #fff; position: relative; overflow: hidden; }
-        .cover { min-height: 296mm; page-break-after: always; break-after: page; }
+        .cover { min-height: 285mm; page-break-after: always; break-after: page; }
         .content { padding: 6mm 16mm 10mm; }
         .sec { margin-top: 22px; break-inside: avoid; page-break-inside: avoid; }
         .sec:first-child { margin-top: 0; }
@@ -91,10 +91,10 @@ export default async function TripPdfPage({ params }) {
             {dates && <p style={{ fontSize: 18, fontWeight: 700, background: 'rgba(255,255,255,.18)', padding: '8px 20px', borderRadius: 999 }}>{dates}</p>}
             <p style={{ marginTop: 18, fontSize: 16, fontWeight: 600, letterSpacing: 2, opacity: .95 }}>TRIP TERPERCAYA</p>
           </div>
-          <div style={{ padding: '0 16mm 16mm', textAlign: 'center', fontSize: 13, lineHeight: 1.6 }}>
+          <div style={{ padding: '0 16mm 30mm', textAlign: 'center', fontSize: 13, lineHeight: 1.6 }}>
             {phoneDisp && <p style={{ fontWeight: 800, fontSize: 18 }}>{phoneDisp}</p>}
             <p style={{ opacity: .92 }}>{web}</p>
-            {c.address && <p style={{ opacity: .85, fontSize: 11, marginTop: 6, maxWidth: 460, marginLeft: 'auto', marginRight: 'auto' }}>{c.address}</p>}
+            {c.address && <p style={{ opacity: .85, fontSize: 10.5, marginTop: 4, maxWidth: 460, marginLeft: 'auto', marginRight: 'auto' }}>{c.address}</p>}
           </div>
         </div>
 
