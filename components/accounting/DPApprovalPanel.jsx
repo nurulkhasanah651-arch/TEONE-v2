@@ -183,6 +183,16 @@ export default function DPApprovalPanel({
     });
   }
 
+  function handleRejectFamily(familyId, reqs) {
+    const family = famMap[familyId];
+    const reason = window.prompt(`Alasan reject ${reqs.length} DP family "${family?.name || ''}"? (boleh dikosongkan)`, '');
+    if (reason === null) return; // batal
+    startTransition(async () => {
+      for (const r of reqs) { try { await rejectDPRequest(r.id, reason || 'Ditolak'); } catch {} }
+      router.refresh();
+    });
+  }
+
   function handleStartReject(id) {
     setRejectingId(id);
     setRejectReason('');
@@ -336,6 +346,14 @@ export default function DPApprovalPanel({
                       title={`Approve ${reqs.length} DP sekaligus + WA ke kepala`}
                     >
                       ✓ Approve Family ({reqs.length})
+                    </button>
+                    <button
+                      onClick={() => handleRejectFamily(familyId, reqs)}
+                      disabled={pending}
+                      className="px-3 py-1.5 text-xs font-bold rounded border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      title={`Reject ${reqs.length} DP family`}
+                    >
+                      ✗ Reject Family
                     </button>
                     <p className="text-[10px] text-indigo-700 text-center">
                       📤 WA hanya ke kepala
