@@ -6,10 +6,12 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { resolveBrandCode } from '@/lib/brand-shared';
 import { serviceClientFor } from '@/lib/supabase/service-env';
-import { getApicoidCustomerName } from '@/lib/utils/waba-apicoid';
+import { getApicoidCustomerName, apicoidKeyForBrand } from '@/lib/utils/waba-apicoid';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+const WABA_BRANDS = ['khasanah', 'teone'];
 
 function envFor() {
   return {
@@ -43,6 +45,44 @@ function verifySignature(appSecret, raw, sigHeader) {
   } catch { return false; }
 }
 
+// Cari brand pemilik sebuah phone_number_id. Cek wa_numbers dulu, lalu employees.waba_phone_id.
+// Khasanah diperiksa lebih dulu supaya perilaku lama tak berubah. Kalau tak ketemu di mana pun,
+// fallback ke brand host (kalau brand WABA), else null (di-skip).
+async function resolveBrandForPhoneId(phoneNumberId, hostBrand) {
+  if (phoneNumberId) {
+    const pnid = String(phoneNumberId);
+    for (const b of WABA_BRANDS) {
+      const db = serviceClientFor(b);
+      if (!db) continue;
+      try {
+        const { data: n } = await db.from('wa_numbers').select('id').eq('phone_number_id', pnid).maybeSingle();
+        if (n) return { brand: b, db };
+      } catch {}
+      try {
+        const { data: e } = await db.from('employees').select('id').eq('waba_phone_id', pnid).maybeSingle();
+        if (e) return { brand: b, db };
+      } catch {}
+    }
+  }
+  if (WABA_BRANDS.includes(hostBrand)) {
+    const db = serviceClientFor(hostBrand);
+    if (db) return { brand: hostBrand, db };
+  }
+  return null;
+}
+
+function extractPhoneNumberId(payload) {
+  if (!payload) return null;
+  if (payload.event_type || payload.data) return payload.data?.phone_number_id || null;
+  for (const entry of (payload.entry || [])) {
+    for (const ch of (entry.changes || [])) {
+      const pnid = ch.value?.metadata?.phone_number_id;
+      if (pnid) return pnid;
+    }
+  }
+  return null;
+}
+
 function textFromMessage(m) {
   if (!m) return '';
   if (m.type === 'text') return m.text?.body || '';
@@ -62,7 +102,7 @@ function textFromApicoidRaw(raw) {
 }
 
 // Format Api.co.id (BSP): { event_type, event_id, timestamp, data:{...} }
-async function handleApicoid(db, payload) {
+async function handleApicoid(db, payload, brand) {
   const ev = String(payload.event_type || '');
   const d = payload.data || {};
   if (ev === 'test') return;
@@ -92,7 +132,7 @@ async function handleApicoid(db, payload) {
     let { data: convE } = await db.from('wa_conversations').select('id, first_reply_at').eq('phone_number_id', phoneNumberId).eq('customer_phone', toPhone).maybeSingle();
     if (!convE) {
       const insE = await db.from('wa_conversations').insert({
-        brand: 'khasanah', number_id: numRowE?.id || null, phone_number_id: phoneNumberId, customer_phone: toPhone,
+        brand, number_id: numRowE?.id || null, phone_number_id: phoneNumberId, customer_phone: toPhone,
         status: 'open', last_message_at: nowE, last_message_preview: prevE.slice(0, 120), first_reply_at: nowE,
       }).select('id').maybeSingle();
       convE = insE.data;
@@ -104,7 +144,7 @@ async function handleApicoid(db, payload) {
     if (convE?.id) {
       const tsE = Number(d.raw?.timestamp);
       await db.from('wa_messages').insert({
-        brand: 'khasanah', conversation_id: convE.id, direction: 'out', type: d.message_type || 'text',
+        brand, conversation_id: convE.id, direction: 'out', type: d.message_type || 'text',
         body: echoBody || null, media_url: echoMedia, wa_message_id: wamid || null, status: status || 'sent',
         created_at: tsE ? new Date(tsE * 1000).toISOString() : nowE,
       });
@@ -145,11 +185,11 @@ async function handleApicoid(db, payload) {
     } catch {}
   }
   if (!custName) {
-    try { custName = await getApicoidCustomerName(d.customer_id || fromPhone); } catch {}
+    try { custName = await getApicoidCustomerName(d.customer_id || fromPhone, apicoidKeyForBrand(brand)); } catch {}
   }
   if (!conv) {
     const ins = await db.from('wa_conversations').insert({
-      brand: 'khasanah', number_id: numRow?.id || null, phone_number_id: phoneNumberId,
+      brand, number_id: numRow?.id || null, phone_number_id: phoneNumberId,
       customer_phone: fromPhone, customer_name: custName, status: 'open',
       lead_source: leadSource, ad_headline: adHeadline, first_msg_at: now,
       last_message_at: now, last_customer_msg_at: now, last_message_preview: preview.slice(0, 120), unread_count: 1,
@@ -164,7 +204,7 @@ async function handleApicoid(db, payload) {
   }
   if (conv?.id) {
     await db.from('wa_messages').insert({
-      brand: 'khasanah', conversation_id: conv.id, direction: 'in', type: d.message_type || 'text',
+      brand, conversation_id: conv.id, direction: 'in', type: d.message_type || 'text',
       body, media_url: mediaUrl, wa_message_id: wamid, status: 'received', created_at: createdAt,
     });
   }
@@ -183,16 +223,18 @@ export async function POST(request) {
   try { payload = JSON.parse(raw); } catch { return NextResponse.json({ ok: true, parse: false }); }
 
   const host = request.headers.get('host') || '';
-  const brand = resolveBrandCode({ host });
-  // Fitur ini KHUSUS Khasanah. Host lain diabaikan (200 supaya Meta tidak retry).
-  if (brand !== 'khasanah') return NextResponse.json({ ok: true, skipped: true });
-  const db = serviceClientFor('khasanah');
+  const hostBrand = resolveBrandCode({ host });
+  const pnid = extractPhoneNumberId(payload);
+  const resolved = await resolveBrandForPhoneId(pnid, hostBrand);
+  // Bukan brand WABA & nomor tak dikenal -> abaikan (200 supaya provider tak retry).
+  if (!resolved) return NextResponse.json({ ok: true, skipped: true });
+  const { brand, db } = resolved;
   if (!db) return NextResponse.json({ ok: true, nodb: true });
 
   try {
     // Api.co.id (provider utama) kirim format sendiri; Meta format sbg fallback.
     if (payload && (payload.event_type || payload.data)) {
-      await handleApicoid(db, payload);
+      await handleApicoid(db, payload, brand);
     } else {
     for (const entry of (payload.entry || [])) {
       for (const ch of (entry.changes || [])) {
@@ -218,7 +260,7 @@ export async function POST(request) {
             .select('id, unread_count').eq('phone_number_id', phoneNumberId).eq('customer_phone', fromPhone).maybeSingle();
           if (!conv) {
             const ins = await db.from('wa_conversations').insert({
-              brand: 'khasanah', number_id: numRow?.id || null, phone_number_id: phoneNumberId,
+              brand, number_id: numRow?.id || null, phone_number_id: phoneNumberId,
               customer_phone: fromPhone, customer_name: contactName, status: 'open',
               last_message_at: now, last_customer_msg_at: now, last_message_preview: body.slice(0, 120), unread_count: 1,
             }).select('id').maybeSingle();
@@ -231,7 +273,7 @@ export async function POST(request) {
           }
           if (conv?.id) {
             await db.from('wa_messages').insert({
-              brand: 'khasanah', conversation_id: conv.id, direction: 'in', type: m.type || 'text',
+              brand, conversation_id: conv.id, direction: 'in', type: m.type || 'text',
               body, wa_message_id: m.id || null, status: 'received', created_at: new Date(Number(m.timestamp) * 1000 || Date.now()).toISOString(),
             });
           }
