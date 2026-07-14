@@ -207,7 +207,7 @@ export default function FamilyGroupManager({ tripId, passengers = [], familyGrou
                 const c = p.customers || {};
                 return (
                   <option key={p.id} value={p.id}>
-                    {c.name || `Peserta #${p.id}`} {c.phone ? `(📞 ${c.phone})` : '⚠ no HP belum diisi'}
+                    {c.name || `Peserta #${p.id}`} {(c.phone || c.whatsapp) ? `(📞 ${c.phone || c.whatsapp})` : '⚠ no HP belum diisi'}
                   </option>
                 );
               })}
@@ -318,7 +318,7 @@ export default function FamilyGroupManager({ tripId, passengers = [], familyGrou
                           const c = m.customers || {};
                           return (
                             <option key={m.id} value={m.id}>
-                              {c.name || `#${m.id}`} {c.phone ? `(${c.phone})` : '⚠ no HP'}
+                              {c.name || `#${m.id}`} {(c.phone || c.whatsapp) ? `(${c.phone || c.whatsapp})` : '⚠ no HP'}
                             </option>
                           );
                         })}
@@ -353,8 +353,8 @@ export default function FamilyGroupManager({ tripId, passengers = [], familyGrou
                         </div>
                         <p className="text-xs text-slate-600 mt-1">
                           👑 <span className="font-semibold">{headCustomer.name || '—'}</span>
-                          {headCustomer.phone && <span> · 📞 {headCustomer.phone}</span>}
-                          {!headCustomer.phone && <span className="text-amber-700"> · ⚠ no HP kepala belum diisi</span>}
+                          {(headCustomer.phone || headCustomer.whatsapp) && <span> · 📞 {headCustomer.phone || headCustomer.whatsapp}</span>}
+                          {!(headCustomer.phone || headCustomer.whatsapp) && <span className="text-amber-700"> · ⚠ no HP kepala belum diisi</span>}
                         </p>
                       </div>
                       <div className="flex gap-1.5">
