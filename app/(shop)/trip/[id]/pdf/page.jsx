@@ -54,7 +54,7 @@ export default async function TripPdfPage({ params }) {
       <style>{`
         * { box-sizing: border-box; }
         .pagewrap { width: 210mm; margin: 0 auto; }
-        .page { width: 210mm; min-height: 297mm; background: #fff; position: relative; overflow: hidden; page-break-after: always; }
+        .page { width: 210mm; min-height: 296mm; background: #fff; position: relative; overflow: hidden; page-break-after: always; break-after: page; }
         .page:last-child { page-break-after: auto; }
         .pad { padding: 16mm; }
         .topbar { display:flex; align-items:center; justify-content:space-between; padding: 10mm 16mm 0; }
