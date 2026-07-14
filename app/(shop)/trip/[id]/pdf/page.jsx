@@ -54,20 +54,22 @@ export default async function TripPdfPage({ params }) {
       <style>{`
         * { box-sizing: border-box; }
         .pagewrap { width: 210mm; margin: 0 auto; }
-        .page { width: 210mm; min-height: 296mm; background: #fff; position: relative; overflow: hidden; page-break-after: always; break-after: page; }
-        .page:last-child { page-break-after: auto; }
-        .pad { padding: 16mm; }
+        .sheet { width: 210mm; background: #fff; position: relative; overflow: hidden; }
+        .cover { min-height: 296mm; page-break-after: always; break-after: page; }
+        .content { padding: 6mm 16mm 10mm; }
+        .sec { margin-top: 22px; break-inside: avoid; page-break-inside: avoid; }
+        .sec:first-child { margin-top: 0; }
+        .sec-flow { margin-top: 22px; }
         .topbar { display:flex; align-items:center; justify-content:space-between; padding: 10mm 16mm 0; }
         .muted { color:#5b6b80; }
         table.price { width:100%; border-collapse:separate; border-spacing:0 8px; }
         table.price td { padding: 12px 16px; background:${C.sky1}; }
         table.price tr td:first-child { border-radius: 12px 0 0 12px; font-weight:700; }
         table.price tr td:last-child { border-radius: 0 12px 12px 0; text-align:right; font-weight:800; color:${C.primary}; }
-        .itin td { vertical-align: top; }
-        .flow { overflow: visible !important; }
-        .daycard { page-break-inside: avoid; break-inside: avoid; }
-        @media screen { body{ padding: 16px 0; } .page{ box-shadow: 0 6px 24px rgba(0,0,0,.18); margin-bottom: 18px; } }
-        @media print { @page { size: A4; margin: 0; } body { margin:0; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .no-print { display:none !important; } .page { box-shadow:none; margin:0; } }
+        .daycard { break-inside: avoid; page-break-inside: avoid; }
+        .footer { background:${C.primary}; color:#fff; padding: 14px 16mm; display:flex; justify-content:space-between; align-items:center; font-size:12px; break-inside: avoid; }
+        @media screen { body{ padding: 16px 0; } .sheet{ box-shadow: 0 6px 24px rgba(0,0,0,.18); margin-bottom: 18px; } }
+        @media print { @page { size: A4; margin: 0; } body { margin:0; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .no-print { display:none !important; } .sheet { box-shadow:none; margin:0; } }
       `}</style>
 
       <div className="no-print" style={{ position: 'sticky', top: 0, zIndex: 10, background: '#0f2540', color: '#fff', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -77,8 +79,8 @@ export default async function TripPdfPage({ params }) {
 
       <div className="pagewrap">
 
-        {/* COVER */}
-        <div className="page" style={{ background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primary2} 45%, #7cc0f5 100%)`, color: '#fff', display: 'flex', flexDirection: 'column' }}>
+        {/* COVER — tetap 1 halaman penuh */}
+        <div className="sheet cover" style={{ background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primary2} 45%, #7cc0f5 100%)`, color: '#fff', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '16mm 16mm 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             {logo ? <img src={logo} alt="" style={{ height: 42, objectFit: 'contain', filter: 'brightness(0) invert(1)' }} /> : <b style={{ fontSize: 22 }}>{cfg.brandName}</b>}
             {c.email && <span style={{ fontSize: 12, opacity: .9 }}>{c.email}</span>}
@@ -96,134 +98,125 @@ export default async function TripPdfPage({ params }) {
           </div>
         </div>
 
-        {/* HARGA */}
-        {(rooms.length > 0 || t.dp_amount > 0) && (
-          <div className="page">
-            <TopBar />
-            <div className="pad">
-              <SectionHead>Harga Paket</SectionHead>
-              <h2 style={{ fontSize: 26, fontWeight: 900, margin: '0 0 6px' }}>{title}</h2>
-              {dates && <p style={{ display: 'inline-block', background: C.primary, color: '#fff', padding: '6px 16px', borderRadius: 999, fontWeight: 700, fontSize: 13, marginBottom: 18 }}>{dates}</p>}
-              {rooms.length > 0 ? (
-                <table className="price"><tbody>
-                  {rooms.map((r) => (<tr key={r.key}><td>{r.label}</td><td>{fmtRp(r.base)}</td></tr>))}
-                </tbody></table>
-              ) : <p className="muted">Harga paket belum diisi.</p>}
-              {rooms[0]?.addons?.length > 0 && (
-                <p className="muted" style={{ fontSize: 11, marginTop: 8 }}>Harga di atas room only (belum termasuk: {rooms[0].addons.map((a) => `${a.label} ${fmtRp(a.value)}`).join(' · ')}; visa &amp; opsional terpisah).</p>
-              )}
-              {t.dp_amount > 0 && (
-                <div style={{ marginTop: 26, background: `linear-gradient(135deg, ${C.primary}, ${C.primary2})`, color: '#fff', borderRadius: 16, padding: '18px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 700, fontSize: 16 }}>Booking cukup DP</span>
-                  <span style={{ fontWeight: 900, fontSize: 26 }}>{fmtRp(t.dp_amount)}<span style={{ fontSize: 13, fontWeight: 600, opacity: .85 }}> /orang</span></span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        {/* ISI BROSUR — mengalir & padat (beberapa section bisa 1 halaman) */}
+        <div className="sheet">
+          <TopBar />
+          <div className="content">
 
-        {/* FASILITAS */}
-        {(incl.length > 0 || excl.length > 0) && (
-          <div className="page">
-            <TopBar />
-            <div className="pad">
-              <SectionHead>Fasilitas</SectionHead>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
-                {incl.length > 0 && (
-                  <div style={{ border: '2px solid #cfe6d4', borderRadius: 16, padding: 18 }}>
-                    <p style={{ fontWeight: 800, color: '#1a8c4a', marginBottom: 10, fontSize: 16 }}>✓ Include</p>
-                    <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.9, fontSize: 13 }}>{incl.map((l, i) => <li key={i}>{l}</li>)}</ul>
-                  </div>
+            {/* HARGA */}
+            {(rooms.length > 0 || t.dp_amount > 0) && (
+              <div className="sec">
+                <SectionHead>Harga Paket</SectionHead>
+                <h2 style={{ fontSize: 26, fontWeight: 900, margin: '0 0 6px' }}>{title}</h2>
+                {dates && <p style={{ display: 'inline-block', background: C.primary, color: '#fff', padding: '6px 16px', borderRadius: 999, fontWeight: 700, fontSize: 13, marginBottom: 18 }}>{dates}</p>}
+                {rooms.length > 0 ? (
+                  <table className="price"><tbody>
+                    {rooms.map((r) => (<tr key={r.key}><td>{r.label}</td><td>{fmtRp(r.base)}</td></tr>))}
+                  </tbody></table>
+                ) : <p className="muted">Harga paket belum diisi.</p>}
+                {rooms[0]?.addons?.length > 0 && (
+                  <p className="muted" style={{ fontSize: 11, marginTop: 8 }}>Harga di atas room only (belum termasuk: {rooms[0].addons.map((a) => `${a.label} ${fmtRp(a.value)}`).join(' · ')}; visa &amp; opsional terpisah).</p>
                 )}
-                {excl.length > 0 && (
-                  <div style={{ border: '2px solid #f3d2d2', borderRadius: 16, padding: 18 }}>
-                    <p style={{ fontWeight: 800, color: '#c0392b', marginBottom: 10, fontSize: 16 }}>✕ Exclude</p>
-                    <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.9, fontSize: 13 }}>{excl.map((l, i) => <li key={i}>{l}</li>)}</ul>
+                {t.dp_amount > 0 && (
+                  <div style={{ marginTop: 20, background: `linear-gradient(135deg, ${C.primary}, ${C.primary2})`, color: '#fff', borderRadius: 16, padding: '18px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 700, fontSize: 16 }}>Booking cukup DP</span>
+                    <span style={{ fontWeight: 900, fontSize: 26 }}>{fmtRp(t.dp_amount)}<span style={{ fontSize: 13, fontWeight: 600, opacity: .85 }}> /orang</span></span>
                   </div>
                 )}
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* HIGHLIGHT FOTO */}
-        {gallery.length >= 2 && (
-          <div className="page">
-            <TopBar />
-            <div className="pad">
-              <SectionHead>Highlight Destination</SectionHead>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                {gallery.slice(0, 8).map((src, i) => (<img key={i} src={src} alt="" style={{ width: '100%', height: 150, objectFit: 'cover', borderRadius: 12 }} />))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ITINERARY */}
-        {itin.length > 0 && (
-          <div className="page flow">
-            <TopBar />
-            <div className="pad">
-              <SectionHead>Itinerary</SectionHead>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {itin.map((d, i) => (
-                  <div key={i} className="daycard" style={{ display: 'flex', gap: 12, border: '1px solid #e6edf5', borderRadius: 12, overflow: 'hidden', background: '#fff' }}>
-                    {d.image && <img src={d.image} alt="" style={{ width: 130, height: 100, objectFit: 'cover', flexShrink: 0 }} />}
-                    <div style={{ padding: '10px 12px', flex: 1 }}>
-                      <span style={{ display: 'inline-block', background: C.primary, color: '#fff', fontWeight: 800, fontSize: 11, padding: '2px 12px', borderRadius: 999 }}>Day {d.day || i + 1}</span>
-                      {d.title && <p style={{ fontWeight: 700, margin: '6px 0 2px' }}>{d.title}</p>}
-                      {d.detail && <p style={{ fontSize: 12.5, color: '#33475e', whiteSpace: 'pre-line', margin: 0 }}>{d.detail}</p>}
+            {/* FASILITAS */}
+            {(incl.length > 0 || excl.length > 0) && (
+              <div className="sec">
+                <SectionHead>Fasilitas</SectionHead>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
+                  {incl.length > 0 && (
+                    <div style={{ border: '2px solid #cfe6d4', borderRadius: 16, padding: 18 }}>
+                      <p style={{ fontWeight: 800, color: '#1a8c4a', marginBottom: 10, fontSize: 16 }}>✓ Include</p>
+                      <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.9, fontSize: 13 }}>{incl.map((l, i) => <li key={i}>{l}</li>)}</ul>
                     </div>
-                  </div>
-                ))}
+                  )}
+                  {excl.length > 0 && (
+                    <div style={{ border: '2px solid #f3d2d2', borderRadius: 16, padding: 18 }}>
+                      <p style={{ fontWeight: 800, color: '#c0392b', marginBottom: 10, fontSize: 16 }}>✕ Exclude</p>
+                      <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.9, fontSize: 13 }}>{excl.map((l, i) => <li key={i}>{l}</li>)}</ul>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* PEMBAYARAN + VISA + S&K */}
-        {(sched.length > 0 || visa.length > 0 || sk.length > 0) && (
-          <div className="page">
-            <TopBar />
-            <div className="pad" style={{ paddingBottom: '40mm' }}>
-              {sched.length > 0 && (
-                <div style={{ marginBottom: 22 }}>
-                  <SectionHead>Skema Pembayaran</SectionHead>
-                  <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.9, fontSize: 13 }}>
-                    {t.dp_amount ? <li>DP — <b>{fmtRp(t.dp_amount)}</b></li> : null}
-                    {sched.filter((r) => r.type !== 'Pelunasan').map((r, i) => <li key={i}>Payment {i + 1} — <b>{r.amount ? fmtRp(r.amount) : '-'}</b>{r.due ? ` · jatuh tempo ${fmtDate(r.due)}` : ''}{r.note ? ` · ${r.note}` : ''}</li>)}
-                    {(() => { const p = sched.find((r) => r.type === 'Pelunasan'); return p ? <li>Pelunasan — <i>menyesuaikan sisa tagihan</i>{p.due ? ` · jatuh tempo ${fmtDate(p.due)}` : ''}{p.note ? ` · ${p.note}` : ''}</li> : null; })()}
-                  </ul>
+            {/* HIGHLIGHT FOTO */}
+            {gallery.length >= 2 && (
+              <div className="sec">
+                <SectionHead>Highlight Destination</SectionHead>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {gallery.slice(0, 8).map((src, i) => (<img key={i} src={src} alt="" style={{ width: '100%', height: 150, objectFit: 'cover', borderRadius: 12 }} />))}
                 </div>
-              )}
-              {visa.length > 0 && (
-                <div style={{ marginBottom: 22 }}>
-                  <SectionHead>Syarat Visa</SectionHead>
-                  <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.8, fontSize: 12.5 }}>{visa.map((l, i) => <li key={i}>{l}</li>)}</ul>
+              </div>
+            )}
+
+            {/* ITINERARY — mengalir, tiap kartu tak terpotong */}
+            {itin.length > 0 && (
+              <div className="sec-flow">
+                <SectionHead>Itinerary</SectionHead>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {itin.map((d, i) => (
+                    <div key={i} className="daycard" style={{ display: 'flex', gap: 12, border: '1px solid #e6edf5', borderRadius: 12, overflow: 'hidden', background: '#fff' }}>
+                      {d.image && <img src={d.image} alt="" style={{ width: 130, height: 100, objectFit: 'cover', flexShrink: 0 }} />}
+                      <div style={{ padding: '10px 12px', flex: 1 }}>
+                        <span style={{ display: 'inline-block', background: C.primary, color: '#fff', fontWeight: 800, fontSize: 11, padding: '2px 12px', borderRadius: 999 }}>Day {d.day || i + 1}</span>
+                        {d.title && <p style={{ fontWeight: 700, margin: '6px 0 2px' }}>{d.title}</p>}
+                        {d.detail && <p style={{ fontSize: 12.5, color: '#33475e', whiteSpace: 'pre-line', margin: 0 }}>{d.detail}</p>}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              )}
-              {sk.length > 0 && (
-                <div>
-                  <SectionHead>Syarat &amp; Ketentuan</SectionHead>
-                  <ul style={{ margin: 0, padding: 0, lineHeight: 1.7, fontSize: 12 }}>
-                    {sk.map((l, i) => { const head = /:$/.test(l) || (l.length > 4 && l === l.toUpperCase()); return head ? <li key={i} style={{ fontWeight: 800, marginTop: 8, listStyle: 'none' }}>{l}</li> : <li key={i} style={{ marginLeft: 18 }}>{l}</li>; })}
-                  </ul>
-                </div>
-              )}
+              </div>
+            )}
+
+            {/* PEMBAYARAN + VISA + S&K */}
+            {sched.length > 0 && (
+              <div className="sec">
+                <SectionHead>Skema Pembayaran</SectionHead>
+                <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.9, fontSize: 13 }}>
+                  {t.dp_amount ? <li>DP — <b>{fmtRp(t.dp_amount)}</b></li> : null}
+                  {sched.filter((r) => r.type !== 'Pelunasan').map((r, i) => <li key={i}>Payment {i + 1} — <b>{r.amount ? fmtRp(r.amount) : '-'}</b>{r.due ? ` · jatuh tempo ${fmtDate(r.due)}` : ''}{r.note ? ` · ${r.note}` : ''}</li>)}
+                  {(() => { const p = sched.find((r) => r.type === 'Pelunasan'); return p ? <li>Pelunasan — <i>menyesuaikan sisa tagihan</i>{p.due ? ` · jatuh tempo ${fmtDate(p.due)}` : ''}{p.note ? ` · ${p.note}` : ''}</li> : null; })()}
+                </ul>
+              </div>
+            )}
+            {visa.length > 0 && (
+              <div className="sec">
+                <SectionHead>Syarat Visa</SectionHead>
+                <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.8, fontSize: 12.5 }}>{visa.map((l, i) => <li key={i}>{l}</li>)}</ul>
+              </div>
+            )}
+            {sk.length > 0 && (
+              <div className="sec-flow">
+                <SectionHead>Syarat &amp; Ketentuan</SectionHead>
+                <ul style={{ margin: 0, padding: 0, lineHeight: 1.7, fontSize: 12 }}>
+                  {sk.map((l, i) => { const head = /:$/.test(l) || (l.length > 4 && l === l.toUpperCase()); return head ? <li key={i} style={{ fontWeight: 800, marginTop: 8, listStyle: 'none' }}>{l}</li> : <li key={i} style={{ marginLeft: 18 }}>{l}</li>; })}
+                </ul>
+              </div>
+            )}
+
+          </div>
+
+          {/* FOOTER brosur */}
+          <div className="footer">
+            <div>
+              <b style={{ fontSize: 14 }}>{cfg.brandName}</b>
+              {c.address && <div style={{ opacity: .85, fontSize: 10.5, maxWidth: 360 }}>{c.address}</div>}
             </div>
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: C.primary, color: '#fff', padding: '14px 16mm', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
-              <div>
-                <b style={{ fontSize: 14 }}>{cfg.brandName}</b>
-                {c.address && <div style={{ opacity: .85, fontSize: 10.5, maxWidth: 360 }}>{c.address}</div>}
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                {phoneDisp && <div style={{ fontWeight: 800 }}>{phoneDisp}</div>}
-                {c.email && <div style={{ opacity: .9 }}>{c.email}</div>}
-                <div style={{ opacity: .9 }}>IG @travelingeropa · TikTok @travelingeropa</div>
-              </div>
+            <div style={{ textAlign: 'right' }}>
+              {phoneDisp && <div style={{ fontWeight: 800 }}>{phoneDisp}</div>}
+              {c.email && <div style={{ opacity: .9 }}>{c.email}</div>}
+              <div style={{ opacity: .9 }}>IG @travelingeropa · TikTok @travelingeropa</div>
             </div>
           </div>
-        )}
+        </div>
 
       </div>
     </div>
