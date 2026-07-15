@@ -83,19 +83,27 @@ function Row({ token, member }) {
       if (u.error) { setStatus('error'); setMsg(u.error); return; }
       const c = (await confirmPassportUpload(token, member.id, u.path)) || {};
       if (c.error) { setStatus('error'); setMsg(c.error); }
+      else if (c.ok && c.mismatch) {
+        setStatus('warn');
+        setMsg(`Nama di paspor terbaca "${c.mismatch.scannedName}", padahal ini slot ${c.mismatch.expectedName}. Cek lagi — jangan sampai tertukar. File tetap tersimpan; kalau memang benar, biarkan saja & tim kami cek.`);
+      }
       else if (c.ok) { setStatus('done'); setMsg(c.autofilled ? 'Terbaca otomatis' : 'Tersimpan'); }
       else { setStatus('error'); setMsg('Upload gagal — coba lagi.'); }
     } catch (err) { setStatus('error'); setMsg(err?.message || 'Gagal upload'); }
   }
 
   const done = status === 'done';
+  const warn = status === 'warn';
   return (
-    <div className={`rounded-xl border p-4 ${done ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
+    <div className={`rounded-xl border p-4 ${warn ? 'border-amber-400 bg-amber-50' : done ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
       <div className="flex items-center justify-between gap-2">
         <p className="font-semibold text-slate-800">{member.name}</p>
         {done && <span className="text-xs font-bold text-emerald-700">✅ {msg || 'Sudah upload'}</span>}
         {status === 'uploading' && <span className="text-xs text-slate-500">Mengunggah…</span>}
       </div>
+      {warn && (
+        <p className="mt-2 text-xs font-medium text-amber-800 bg-amber-100 border border-amber-300 rounded-lg p-2">⚠ {msg}</p>
+      )}
       <label className={`mt-3 block w-full text-center py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-colors ${done ? 'bg-white border border-emerald-300 text-emerald-700' : 'bg-brand-500 hover:bg-brand-600 text-white'}`}>
         {status === 'uploading' ? 'Mengunggah…' : done ? '🔄 Ganti / Upload Ulang Paspor' : '📷 Pilih Foto / PDF Paspor'}
         <input type="file" accept="image/*,application/pdf" className="hidden" disabled={status === 'uploading'} onChange={handleFile} />

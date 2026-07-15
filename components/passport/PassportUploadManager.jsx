@@ -47,11 +47,17 @@ export default function PassportUploadManager({ tripId, passengers = [] }) {
       if (r?.ok) router.refresh();
     });
   }
-  function scan(pid) {
+  function scan(pid, force = false) {
     setActingId('scan-' + pid);
     startTransition(async () => {
-      const r = await scanUploadedPassport(pid);
+      const r = await scanUploadedPassport(pid, force);
       setActingId(null);
+      // Nama di paspor tak cocok -> data TIDAK diisi. Konfirmasi dulu sebelum memaksa.
+      if (r?.mismatch) {
+        router.refresh();
+        if (window.confirm(`${r.error}\n\nTetap isi data peserta ini dari paspor tsb?`)) scan(pid, true);
+        return;
+      }
       notify(r?.error ? `⚠ ${r.error}` : '✅ Data paspor ter-update dari hasil scan');
       if (r?.ok) router.refresh();
     });
@@ -66,6 +72,7 @@ export default function PassportUploadManager({ tripId, passengers = [] }) {
 
   function StatusBadge({ p }) {
     if (!p.uploaded) return <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-500">⏳ Belum upload</span>;
+    if (p.mismatch) return <span title={`Paspor terbaca atas nama "${p.scanName || '-'}" — data sengaja TIDAK diisi otomatis. Cek apakah file tertukar; kalau benar, klik Scan lalu setujui.`} className="text-[11px] px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">⚠ Nama beda: {p.scanName || '?'}</span>;
     if (p.autofilled) return <span className="text-[11px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">🤖 Auto-terisi {fmt(p.uploadedAt)}</span>;
     return <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">✅ Uploaded {fmt(p.uploadedAt)}</span>;
   }
