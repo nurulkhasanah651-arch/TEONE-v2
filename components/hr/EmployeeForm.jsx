@@ -79,6 +79,9 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan',
     waba_phone_id: employee?.waba_phone_id || '',
     waba_tpl_invoice: employee?.waba_tpl_invoice || '',
     waba_tpl_konfirmasi: employee?.waba_tpl_konfirmasi || '',
+    waba_tpl_paspor: employee?.waba_tpl_paspor || '',
+    waba_tpl_ongkir: employee?.waba_tpl_ongkir || '',
+    waba_tpl_pengiriman: employee?.waba_tpl_pengiriman || '',
     notes: employee?.notes || '',
   });
 
@@ -333,6 +336,24 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan',
           <Field label="Nama Template Konfirmasi/DP (Api.co.id) — khusus nomor PIC ini">
             <input autoComplete="off" type="text" name="waba_tpl_konfirmasi" value={form.waba_tpl_konfirmasi} onChange={(e) => upd('waba_tpl_konfirmasi', e.target.value)} placeholder={`mis. konfirmasi_${isKhasanah ? 'khasanah' : 'teone'}_nama`} className={inputCls} />
             <p className="text-[11px] text-slate-500 mt-1">Nama template konfirmasi pembayaran/DP di WABA nomor PIC ini. Kosong = pakai default konfirmasi_payment_khasanah.</p>
+          </Field>
+        )}
+        {wabaBrand && (
+          <Field label="Nama Template Dokumen Paspor (Api.co.id) — khusus nomor PIC ini">
+            <input autoComplete="off" type="text" name="waba_tpl_paspor" value={form.waba_tpl_paspor} onChange={(e) => upd('waba_tpl_paspor', e.target.value)} placeholder={`mis. dokumen_paspor_${isKhasanah ? 'khasanah' : 'teone'}_nama`} className={inputCls} />
+            <p className="text-[11px] text-slate-500 mt-1">Template minta peserta upload paspor (tab Paspor AI). Kosong = tidak pakai template, jatuh ke teks/Fonnte spt biasa.</p>
+          </Field>
+        )}
+        {wabaBrand && (
+          <Field label="Nama Template Alamat Pengiriman (Api.co.id) — khusus nomor PIC ini">
+            <input autoComplete="off" type="text" name="waba_tpl_pengiriman" value={form.waba_tpl_pengiriman} onChange={(e) => upd('waba_tpl_pengiriman', e.target.value)} placeholder={`mis. pengiriman_alamat_${isKhasanah ? 'khasanah' : 'teone'}_nama`} className={inputCls} />
+            <p className="text-[11px] text-slate-500 mt-1">Template minta peserta isi alamat pengiriman perlengkapan (link /delivery). Kosong = teks/Fonnte spt biasa.</p>
+          </Field>
+        )}
+        {wabaBrand && (
+          <Field label="Nama Template Ongkir (Api.co.id) — khusus nomor PIC ini">
+            <input autoComplete="off" type="text" name="waba_tpl_ongkir" value={form.waba_tpl_ongkir} onChange={(e) => upd('waba_tpl_ongkir', e.target.value)} placeholder={`mis. ongkir_${isKhasanah ? 'khasanah' : 'teone'}_nama`} className={inputCls} />
+            <p className="text-[11px] text-slate-500 mt-1">Template tagihan ongkir pengiriman perlengkapan. Kosong = teks/Fonnte spt biasa.</p>
           </Field>
         )}
         <Field label="Catatan">
