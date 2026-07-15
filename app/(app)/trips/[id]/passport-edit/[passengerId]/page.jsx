@@ -61,6 +61,7 @@ export default async function EditPassportPage({ params }) {
     nationality: c.nationality || '',
     room_type: pax.room_type || '',
     price_paid: pax.price_paid || '',
+    passport_verified: !!pax.passport_verified,
   };
 
   const fullName = `${initialData.first_name} ${initialData.last_name}`.trim() || c.name || `Peserta #${passengerId}`;
@@ -94,6 +95,8 @@ export default async function EditPassportPage({ params }) {
         customerId={pax.customer_id}
         initial={initialData}
         paxFullName={fullName}
+        verifiedAt={pax.passport_verified_at || null}
+        verifiedBy={pax.passport_verified_by || null}
       />
     </div>
   );

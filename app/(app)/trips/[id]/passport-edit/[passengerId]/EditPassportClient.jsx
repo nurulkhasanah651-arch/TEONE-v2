@@ -23,7 +23,7 @@ const PassportUploadAI = dynamic(
 
 const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Quad', 'Family'];
 
-export default function EditPassportClient({ tripId, passengerId, customerId, initial, paxFullName }) {
+export default function EditPassportClient({ tripId, passengerId, customerId, initial, paxFullName, verifiedAt, verifiedBy }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState('');
@@ -199,6 +199,33 @@ export default function EditPassportClient({ tripId, passengerId, customerId, in
               </Field>
             </div>
           </FormSection>
+
+          {/* Centang validasi CS — data paspor sudah dicek manual & sesuai dokumen asli */}
+          <div className={`rounded-xl border p-4 ${data.passport_verified ? 'border-emerald-300 bg-emerald-50' : 'border-amber-300 bg-amber-50'}`}>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                name="passport_verified_cb"
+                checked={!!data.passport_verified}
+                onChange={(e) => upd('passport_verified', e.target.checked)}
+                className="mt-0.5 h-5 w-5 rounded border-slate-400 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+              />
+              <span>
+                <span className="block text-sm font-bold text-slate-800">
+                  {data.passport_verified ? '✅ Data paspor sudah dicek & sesuai' : '⚠ Data paspor belum diverifikasi'}
+                </span>
+                <span className="block text-[11px] text-slate-600 mt-0.5">
+                  Centang kalau kamu sudah membandingkan data di atas dengan foto/scan paspor aslinya dan semuanya cocok
+                  (no. paspor, tgl lahir, tempat lahir, issued at, issued date, expired).
+                </span>
+                {data.passport_verified && verifiedAt && (
+                  <span className="block text-[11px] text-emerald-700 font-medium mt-1">
+                    Terakhir dicek {new Date(verifiedAt).toLocaleString('id-ID')}{verifiedBy ? ` oleh ${verifiedBy}` : ''}
+                  </span>
+                )}
+              </span>
+            </label>
+          </div>
 
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium whitespace-pre-wrap">

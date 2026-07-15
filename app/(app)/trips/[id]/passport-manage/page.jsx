@@ -96,6 +96,7 @@ export default async function PassportManagePage({ params }) {
     uploaded: !!p.passport_upload_path,
     uploadedAt: p.passport_uploaded_at || null,
     autofilled: !!p.passport_autofilled,
+    verified: !!p.passport_verified,
     mismatch: !!p.passport_name_mismatch,
     scanName: p.passport_scan_name || null,
   }));
