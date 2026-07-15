@@ -66,6 +66,19 @@ export default async function EditPassportPage({ params }) {
 
   const fullName = `${initialData.first_name} ${initialData.last_name}`.trim() || c.name || `Peserta #${passengerId}`;
 
+  // Foto/scan paspor yg diupload peserta -> ditampilkan di form biar CS gampang cek
+  let passportFileUrl = null;
+  let passportIsPdf = false;
+  try {
+    if (pax.passport_upload_path) {
+      const { data: sg } = await supabase.storage.from('passport-uploads').createSignedUrl(pax.passport_upload_path, 3600);
+      if (sg?.signedUrl) {
+        passportFileUrl = sg.signedUrl;
+        passportIsPdf = /\.pdf$/i.test(pax.passport_upload_path);
+      }
+    }
+  } catch {}
+
   // Dokumen tambahan (endorse/lainnya) -> signed URL utk didownload kantor
   let extraDocs = [];
   try {
@@ -97,6 +110,10 @@ export default async function EditPassportPage({ params }) {
         paxFullName={fullName}
         verifiedAt={pax.passport_verified_at || null}
         verifiedBy={pax.passport_verified_by || null}
+        passportFileUrl={passportFileUrl}
+        passportIsPdf={passportIsPdf}
+        nameMismatch={!!pax.passport_name_mismatch}
+        scanName={pax.passport_scan_name || null}
       />
     </div>
   );

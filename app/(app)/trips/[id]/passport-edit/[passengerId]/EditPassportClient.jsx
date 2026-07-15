@@ -23,7 +23,7 @@ const PassportUploadAI = dynamic(
 
 const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Quad', 'Family'];
 
-export default function EditPassportClient({ tripId, passengerId, customerId, initial, paxFullName, verifiedAt, verifiedBy }) {
+export default function EditPassportClient({ tripId, passengerId, customerId, initial, paxFullName, verifiedAt, verifiedBy, passportFileUrl, passportIsPdf, nameMismatch, scanName }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState('');
@@ -168,6 +168,41 @@ export default function EditPassportClient({ tripId, passengerId, customerId, in
           </FormSection>
 
           {/* Passport */}
+          {nameMismatch && (
+            <div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4">
+              <p className="text-sm font-bold text-amber-900">⚠ Data sengaja TIDAK diisi otomatis — nama tidak cocok</p>
+              <p className="text-xs text-amber-800 mt-1">
+                Paspor yang diupload terbaca atas nama <strong>{scanName || '-'}</strong>, sedangkan ini data peserta{' '}
+                <strong>{paxFullName}</strong>. Kemungkinan file-nya tertukar dengan anggota keluarga lain.
+              </p>
+              <p className="text-xs text-amber-800 mt-1">
+                Cek foto paspor di bawah. Kalau memang salah file, minta upload ulang. Kalau ternyata benar
+                (mis. nama di sistem beda dengan paspor), isi manual atau tekan Scan di halaman Passport Management lalu setujui.
+              </p>
+            </div>
+          )}
+
+          {passportFileUrl && (
+            <FormSection title="📄 Foto/Scan Paspor yang Diupload">
+              <div className="space-y-2">
+                {passportIsPdf ? (
+                  <object data={passportFileUrl} type="application/pdf" className="w-full h-[520px] rounded-lg border border-slate-300">
+                    <p className="text-sm text-slate-600 p-3">Pratinjau PDF tidak tampil di browser ini.</p>
+                  </object>
+                ) : (
+                  <a href={passportFileUrl} target="_blank" rel="noreferrer" title="Klik untuk buka ukuran penuh">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={passportFileUrl} alt="Scan paspor peserta" className="w-full rounded-lg border border-slate-300 bg-slate-50" />
+                  </a>
+                )}
+                <a href={passportFileUrl} target="_blank" rel="noreferrer" className="inline-block text-xs font-semibold text-brand-600 hover:underline">
+                  🔍 Buka ukuran penuh di tab baru
+                </a>
+                <p className="text-[11px] text-slate-500">Bandingkan dengan isian di bawah, lalu centang validasi di bagian bawah halaman.</p>
+              </div>
+            </FormSection>
+          )}
+
           <FormSection title="Data Passport">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label="No Passport">
