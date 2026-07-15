@@ -35,7 +35,8 @@ const ROLES = ['owner', 'manager', 'accounting', 'finance', 'ops', 'cs', 'pic', 
 
 export default function EmployeeForm({ action, employee, submitLabel = 'Simpan', defaultType = '' }) {
   const [isKhasanah, setIsKhasanah] = useState(false);
-  useEffect(() => { try { setIsKhasanah((resolveBrandCodeBrowser() || '') === 'khasanah'); } catch {} }, []);
+  const [wabaBrand, setWabaBrand] = useState(false);
+  useEffect(() => { try { const _c = resolveBrandCodeBrowser() || ''; setIsKhasanah(_c === 'khasanah'); setWabaBrand(_c === 'khasanah' || _c === 'teone'); } catch {} }, []);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState('');
@@ -316,21 +317,21 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan',
         <Field label="Token Fonnte (untuk kirim WA — dipakai kalau karyawan ini jadi PIC trip)">
           <input autoComplete="off" type="text" name="fonnte_token" value={form.fonnte_token} onChange={(e) => upd('fonnte_token', e.target.value)} placeholder="Token Fonnte nomor WA PIC ini" className={inputCls} />
         </Field>
-        {isKhasanah && (
+        {wabaBrand && (
           <Field label="Phone Number ID WABA (Api.co.id) — nomor WhatsApp PIC ini">
             <input autoComplete="off" type="text" name="waba_phone_id" value={form.waba_phone_id} onChange={(e) => upd('waba_phone_id', e.target.value)} placeholder="mis. cmri403w33p1oucjwffp8ch94" className={inputCls} />
             <p className="text-[11px] text-slate-500 mt-1">Ambil dari Api.co.id → Developers → List Phone Numbers (kolom id, bentuk cmr...). Kalau diisi, kiriman WA trip PIC ini lewat WhatsApp resmi nomor itu + chat masuk ke Inbox. Kosong = manual/Fonnte. Ganti nomor = ganti id ini lalu Simpan.</p>
           </Field>
         )}
-        {isKhasanah && (
+        {wabaBrand && (
           <Field label="Nama Template Invoice (Api.co.id) — khusus nomor PIC ini">
-            <input autoComplete="off" type="text" name="waba_tpl_invoice" value={form.waba_tpl_invoice} onChange={(e) => upd('waba_tpl_invoice', e.target.value)} placeholder="mis. invoice_khasanah_lia" className={inputCls} />
+            <input autoComplete="off" type="text" name="waba_tpl_invoice" value={form.waba_tpl_invoice} onChange={(e) => upd('waba_tpl_invoice', e.target.value)} placeholder={`mis. invoice_${isKhasanah ? 'khasanah' : 'teone'}_nama`} className={inputCls} />
             <p className="text-[11px] text-slate-500 mt-1">Nama template penagihan invoice yang disetujui di WABA nomor PIC ini. Kosong = pakai default invoice_khasanah. Isi kalau nama template PIC ini beda (Api.co.id butuh nama unik).</p>
           </Field>
         )}
-        {isKhasanah && (
+        {wabaBrand && (
           <Field label="Nama Template Konfirmasi/DP (Api.co.id) — khusus nomor PIC ini">
-            <input autoComplete="off" type="text" name="waba_tpl_konfirmasi" value={form.waba_tpl_konfirmasi} onChange={(e) => upd('waba_tpl_konfirmasi', e.target.value)} placeholder="mis. konfirmasi_khasanah_lia" className={inputCls} />
+            <input autoComplete="off" type="text" name="waba_tpl_konfirmasi" value={form.waba_tpl_konfirmasi} onChange={(e) => upd('waba_tpl_konfirmasi', e.target.value)} placeholder={`mis. konfirmasi_${isKhasanah ? 'khasanah' : 'teone'}_nama`} className={inputCls} />
             <p className="text-[11px] text-slate-500 mt-1">Nama template konfirmasi pembayaran/DP di WABA nomor PIC ini. Kosong = pakai default konfirmasi_payment_khasanah.</p>
           </Field>
         )}
