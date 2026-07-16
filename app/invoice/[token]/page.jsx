@@ -32,6 +32,19 @@ function roomTypeToKey(roomType) {
   return null;
 }
 
+// 'double' -> 'Double Room', 'child no bed' -> 'Child no Bed', 'land tour quad' -> 'Land Tour Quad'
+function labelKamar(rt) {
+  const t = String(rt || '').trim();
+  if (!t) return 'Room';
+  const l = t.toLowerCase();
+  if (l.includes('infant')) return 'Infant';
+  if (l.includes('child')) return 'Child no Bed';
+  const kapital = (s) => s.replace(/\b\w/g, (c) => c.toUpperCase());
+  if (l.includes('land')) return kapital(l);
+  if (/^(single|double|twin|triple|quad|family)$/.test(l)) return kapital(l) + ' Room';
+  return kapital(l);
+}
+
 const STATUS_BADGE = {
   draft: { label: 'Draft', color: 'bg-slate-200 text-slate-700' },
   sent: { label: 'Belum Dibayar', color: 'bg-amber-100 text-amber-800' },
@@ -225,13 +238,32 @@ export default async function PublicInvoicePage({ params }) {
   const paxNote = famCount > 1 ? ` (${famCount} peserta)` : '';
   const rTips = famResolved ? famTips : tips;
   const rCity = famResolved ? famCity : cityTax;
-  // Paket Tour = total pokok (harga jual/price_paid, sudah net diskon + diskon ditambah balik)
-  //   dikurangi komponen yg ditampilkan terpisah → supaya baris2 PASTI menjumlah ke TOTAL PAKET.
   const _pokokGross = (Number(expectedTotalReal) || 0) + (Number(discountReal) || 0);
   const _extras = (rTips || 0) + (rCity || 0) + (famFlight || 0) + (famBaggage || 0) + (famBase || 0) + (famPerlengkapan || 0)
     + (famVisaPokok || 0) + (famAsuransiPokok || 0);
-  let rRoom = _pokokGross > 0 ? Math.max(_pokokGross - _extras, 0) : (famCount > 1 ? famRoom : (famRoom || roomPrice));
-  if (rRoom > 0) tourItems.push({ label: `Paket Tour${famCount > 1 ? paxNote : ` (${passenger?.room_type || 'Room'})`}`, amount: rRoom });
+  // Paket Tour = HARGA KAMAR dari Master Trip, dikelompokkan per tipe kamar & disebut tipenya.
+  // Dulu dihitung mundur (total − komponen lain); kalau price_paid salah, baris ini ikut jadi
+  // angka karangan (mis. trip 501: tampil 48jt utk 2 pax padahal double 27,9jt/orang).
+  const _grupKamar = (famResolved && famMembers.length)
+    ? Object.values(famMembers.reduce((acc, m) => {
+        const rt = String(m.roomType || passenger?.room_type || '').trim() || 'Room';
+        const k = rt.toLowerCase();
+        acc[k] = acc[k] || { roomType: rt, n: 0, amount: 0 };
+        acc[k].n += 1;
+        acc[k].amount += Number(m.roomPrice) || 0;
+        return acc;
+      }, {}))
+    : [{ roomType: String(passenger?.room_type || '').trim() || 'Room', n: 1, amount: Number(roomPrice) || 0 }];
+  const rRoom = _grupKamar.reduce((t, g) => t + g.amount, 0);
+  for (const g of _grupKamar) {
+    if (g.amount > 0) tourItems.push({ label: `Paket Tour · ${labelKamar(g.roomType)} (${g.n} pax)`, amount: g.amount });
+  }
+  // Harga khusus/nego (price_paid beda dari harga Master Trip) -> tampilkan terpisah
+  // supaya baris2 tetap menjumlah ke TOTAL PAKET, tanpa memalsukan harga kamar.
+  const _selisihHarga = _pokokGross > 0 ? (_pokokGross - (rRoom + _extras)) : 0;
+  if (Math.abs(_selisihHarga) >= 1000) {
+    tourItems.push({ label: _selisihHarga > 0 ? 'Penyesuaian harga khusus' : 'Penyesuaian harga khusus', amount: _selisihHarga, detail: 'harga nego' });
+  }
   // Jumlah peserta per-komponen (infant/child-no-bed dikecualikan dari tips/city/dll)
   const _cntNote = (n) => (n > 1 ? ` (${n} peserta)` : '');
   const _cnt = (sel) => famResolved ? famMembers.filter(sel).length : 1;
