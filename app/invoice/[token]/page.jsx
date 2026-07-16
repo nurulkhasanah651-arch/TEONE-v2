@@ -267,7 +267,12 @@ export default async function PublicInvoicePage({ params }) {
   const sisaInvoice = Math.max(Number(inv.amount || 0) - totalPaidThisInvoice, 0);
   let allInAmount = 0;
   if (inv.status !== 'paid' && !inv.paid_at) { try { allInAmount = (await invoiceAllInOutstanding(inv.id))?.total || 0; } catch {} }
-  const status = STATUS_BADGE[inv.status] || STATUS_BADGE.sent;
+  const _statusDasar = STATUS_BADGE[inv.status] || STATUS_BADGE.sent;
+  // 'LUNAS' HANYA bila seluruh tagihan trip sudah beres. Invoice ini terbayar tapi trip
+  // masih ada sisa -> sebut milestone-nya ('DP sudah dibayar') supaya tak dikira lunas trip.
+  const status = (inv.status === 'paid' && !ringkasLunas)
+    ? { label: `✅ ${inv.milestone || 'Pembayaran'} sudah dibayar`, color: 'bg-sky-100 text-sky-800' }
+    : _statusDasar;
 
   const { PaymentProofForm, PrintInvoiceButton, InvoicePayOnlineButton, errors: clientErrors } = await loadClientComponents();
   errors.push(...clientErrors);
