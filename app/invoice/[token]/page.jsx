@@ -253,7 +253,8 @@ export default async function PublicInvoicePage({ params }) {
   //   supaya konsisten dgn nominal invoice (tidak membingungkan peserta). Invoice biasa = pokok saja.
   // R228: kalau peserta include visa/asuransi (visaAmt/asuransiAmt > 0), Total Tagihan = pokok+visa+asuransi
   //        dan Sisa = total − semua yg sudah dibayar (pokok + addon). Nominal per-invoice tetap.
-  const _allInRingkas = _invAllIn || visaAmt > 0 || asuransiAmt > 0 || (_msLower.includes('pelunasan') && (_msLower.includes('visa') || _msLower.includes('asuransi')));
+  const _adaBiayaTambahan = famAddonItems.some((a) => Number(a.amount) > 0);
+  const _allInRingkas = _invAllIn || visaAmt > 0 || asuransiAmt > 0 || _adaBiayaTambahan || (_msLower.includes('pelunasan') && (_msLower.includes('visa') || _msLower.includes('asuransi')));
   const ringkasTotal = _allInRingkas ? tourTotal : expectedTotalReal;
   const ringkasPaid = _allInRingkas ? ((Number(pokokPaidReal) || 0) + (Number(addonPaidReal) || 0)) : pokokPaidReal;
   const ringkasSisa = _allInRingkas ? Math.max(ringkasTotal - ringkasPaid, 0) : sisaReal;
@@ -409,7 +410,7 @@ export default async function PublicInvoicePage({ params }) {
           <div className="space-y-2 text-sm">
             {expectedTotalReal > 0 && (
               <div className="flex justify-between">
-                <span className="text-slate-700">{_allInRingkas ? 'Total Tagihan (Pelunasan + Visa + Asuransi):' : 'Total Tagihan Pokok Trip:'}</span>
+                <span className="text-slate-700">{_allInRingkas ? 'Total Tagihan (paket + biaya tambahan):' : 'Total Tagihan Pokok Trip:'}</span>
                 <span className="font-bold text-slate-800">{fmtRupiah(ringkasTotal)}</span>
               </div>
             )}
