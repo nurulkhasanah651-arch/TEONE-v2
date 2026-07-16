@@ -255,7 +255,6 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
               <option value="">— Pilih —</option>{ROOM_TYPES.map((r) => <option key={r} value={r.toLowerCase()}>{r}</option>)}
             </select>
           </Field>
-          <Field label="Harga Bayar (IDR)"><input autoComplete="off" type="number" name="price_paid" defaultValue={initial.price_paid || ''} min="0" className={inputCls} placeholder="50000000" /></Field>
           <Field label="Closing dari Mitra (opsional)">
             <select name="mitra_id" defaultValue={initial.mitra_id || ''} className={inputCls}>
               <option value="">— Bukan dari mitra —</option>

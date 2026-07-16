@@ -66,7 +66,6 @@ export default function ClosingDraftsPanel({ drafts = [], avgByTrip = {} }) {
                     <option value="adult">Dewasa</option><option value="child">Anak</option><option value="infant">Bayi</option>
                   </select>
                 </label>
-                <label>Harga (Rp)<input name="price_paid" type="number" className="w-full mt-0.5 px-2 py-1 border rounded text-xs" /></label>
                 <label>Diskon (Rp)<input name="discount" type="number" className="w-full mt-0.5 px-2 py-1 border rounded text-xs" /></label>
                 <label>DP (Rp)<input name="dp_amount" type="number" className="w-full mt-0.5 px-2 py-1 border rounded text-xs" /></label>
                 <label>Tgl DP<input name="dp_date" type="date" className="w-full mt-0.5 px-2 py-1 border rounded text-xs" /></label>

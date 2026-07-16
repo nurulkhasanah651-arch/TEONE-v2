@@ -201,9 +201,6 @@ export default function PassportAIPage() {
                   {ROOM_TYPES.map((r) => <option key={r} value={r.toLowerCase()}>{r}</option>)}
                 </select>
               </Field>
-              <Field label="Harga Bayar (IDR)">
-                <input autoComplete="off" type="number" value={data.price_paid} onChange={(e) => upd('price_paid', e.target.value)} min="0" className={inputCls} placeholder="50000000" />
-              </Field>
             </div>
           </FormSection>
 
