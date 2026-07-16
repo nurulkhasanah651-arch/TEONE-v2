@@ -161,6 +161,7 @@ export default async function PublicInvoicePage({ params }) {
   let famRoom = 0, famTips = 0, famCity = 0, famFlight = 0, famBaggage = 0, famBase = 0, famVisa = 0, famAsuransi = 0, famCount = 1, famResolved = false;
   let famVisaCount = 0, famAsuransiCount = 0, famPerlengkapan = 0;
   let famVisaPokok = 0, famAsuransiPokok = 0, famVisaPokokCount = 0, famAsuransiPokokCount = 0;
+  let famAddonItems = [];
   let famMembers = [];
   if (inv.trip_id && (inv.passenger_id || (Array.isArray(inv.covers_passenger_ids) && inv.covers_passenger_ids.length))) {
     try {
@@ -188,6 +189,7 @@ export default async function PublicInvoicePage({ params }) {
       famVisaPokok = Number(bill.visaPokok) || 0;
       famAsuransiPokok = Number(bill.asuransiPokok) || 0;
       famVisaPokokCount = Number(bill.visaPokokCount) || 0;
+      famAddonItems = Array.isArray(bill.addonItems) ? bill.addonItems : [];
       famAsuransiPokokCount = Number(bill.asuransiPokokCount) || 0;
       famResolved = true;
     } catch (e) { errors.push(`summary: ${e.message}`); }
@@ -243,6 +245,8 @@ export default async function PublicInvoicePage({ params }) {
   if (famVisaPokok > 0) tourItems.push({ label: famVisaPokokCount > 1 ? `Visa (${famVisaPokokCount} peserta)` : 'Visa', amount: famVisaPokok });
   if (famAsuransiPokok > 0) tourItems.push({ label: famAsuransiPokokCount > 1 ? `Asuransi (${famAsuransiPokokCount} peserta)` : 'Asuransi', amount: famAsuransiPokok });
   for (const opt of optItems) tourItems.push({ label: opt.label, amount: opt.amount, detail: 'opt-in' });
+  // Biaya tambahan di luar paket (jadwal ulang visa, translate, dll) — ditagihkan, bukan potongan.
+  for (const ad of famAddonItems) if (Number(ad.amount) > 0) tourItems.push({ label: ad.type, amount: Number(ad.amount), detail: 'biaya tambahan' });
   if (discountReal > 0) tourItems.push({ label: 'Diskon', amount: -discountReal, detail: 'potongan' });
   const tourTotal = tourItems.reduce((s2, it) => s2 + (Number(it.amount) || 0), 0);
   // RINGKASAN: utk invoice ALL-IN (Pelunasan+Visa+Asuransi) tampilkan total/dibayar/sisa SEMUA

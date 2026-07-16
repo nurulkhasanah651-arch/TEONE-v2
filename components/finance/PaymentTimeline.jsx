@@ -127,9 +127,20 @@ export default function PaymentTimeline({ passenger, tripId, payments = [] }) {
               <input autoComplete="off" type="number" name="amount" min="0" required onFocus={(e) => e.target.select()} className={miniInput} />
             </Field>
             {type === 'Custom' && (
-              <Field label="Label Custom" className="col-span-2">
-                <input autoComplete="off" name="label" className={miniInput} placeholder="Contoh: Tambahan Optional, Late Fee, dll" />
-              </Field>
+              <>
+                <Field label="Label Custom" className="col-span-2">
+                  <input autoComplete="off" name="label" className={miniInput} placeholder="Contoh: Tambahan Optional, Late Fee, dll" />
+                </Field>
+                <Field label="Jenis" className="col-span-2" required>
+                  <select name="addon_kind" defaultValue="addon" className={miniInput}>
+                    <option value="addon">Biaya tambahan — MENAMBAH tagihan (jadwal ulang, translate, materai, ongkir)</option>
+                    <option value="cicilan">Cicilan pokok — MENGURANGI tagihan (mis. &quot;Payment ke 2 &amp; 3&quot;)</option>
+                  </select>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Biaya tambahan akan muncul sebagai baris tagihan di invoice, jadi bayarannya tidak mengurangi sisa paket.
+                  </p>
+                </Field>
+              </>
             )}
             <Field label="Tanggal Bayar">
               <input autoComplete="off" type="date" name="paid_at" className={miniInput} />
