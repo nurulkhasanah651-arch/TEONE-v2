@@ -34,6 +34,7 @@ const GROUPS = [
     label: 'Keuangan',
     items: [
       { href: '/finance',    label: 'Finance',    icon: '$',  roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
+      { href: '/finance/audit', label: 'Audit Tagihan', icon: '🔍', roles: ['owner', 'accounting', 'manager'] },
       { href: '/invoices',   label: 'Invoices',   icon: '🧾', roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
       // Khusus Khasanah: PIC belum tersambung Fonnte, konfirmasi pembayaran online dikirim manual.
       { href: '/wa-manual', label: 'Konfirmasi WA Payment Online', icon: '📤', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'], brands: ['khasanah', 'teone'] },
