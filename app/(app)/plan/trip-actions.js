@@ -30,13 +30,26 @@ async function guardEdit() {
   return { ok: true };
 }
 
-// Simpan jadwal publish (tanggal rencana publish) — kolom publish_date.
+// Simpan jadwal publish (tanggal rencana publish jualan) — kolom publish_date.
 export async function setTripSchedulePublish(tripId, dateStr) {
   const g = await guardEdit();
   if (g.error) return g;
   const db = svc();
   if (!db) return { error: 'Service tidak tersedia' };
   const { error } = await db.from('trips').update({ publish_date: dateStr || null }).eq('id', tripId);
+  if (error) return { error: error.message };
+  revalidatePath('/plan');
+  revalidatePath('/trips');
+  return { ok: true };
+}
+
+// Simpan tanggal publish awareness (upload awareness sebelum jualan) — kolom awareness_date.
+export async function setTripAwarenessDate(tripId, dateStr) {
+  const g = await guardEdit();
+  if (g.error) return g;
+  const db = svc();
+  if (!db) return { error: 'Service tidak tersedia' };
+  const { error } = await db.from('trips').update({ awareness_date: dateStr || null }).eq('id', tripId);
   if (error) return { error: error.message };
   revalidatePath('/plan');
   revalidatePath('/trips');

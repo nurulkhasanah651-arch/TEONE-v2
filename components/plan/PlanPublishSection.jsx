@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { publishTrip, setTripSchedulePublish } from '@/app/(app)/plan/trip-actions';
+import { publishTrip, setTripSchedulePublish, setTripAwarenessDate } from '@/app/(app)/plan/trip-actions';
 import CopyWaTemplateButton from '@/components/trips/CopyWaTemplateButton';
 
 function fmtRupiah(n) {
@@ -34,6 +34,12 @@ export default function PlanPublishSection({ trips = [], canEdit = false }) {
     else router.refresh();
   }
 
+  async function saveAwareness(id, val) {
+    const r = await setTripAwarenessDate(id, val);
+    if (r?.error) alert('Gagal simpan tgl awareness: ' + r.error);
+    else router.refresh();
+  }
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
       <div className="px-5 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between gap-2 flex-wrap">
@@ -53,6 +59,7 @@ export default function PlanPublishSection({ trips = [], canEdit = false }) {
                 <th className="px-4 py-2 font-semibold">Trip</th>
                 <th className="px-4 py-2 font-semibold">Berangkat</th>
                 <th className="px-4 py-2 font-semibold">Peserta</th>
+                <th className="px-4 py-2 font-semibold">Publish Awareness</th>
                 <th className="px-4 py-2 font-semibold">Schedule Publish</th>
                 <th className="px-4 py-2 font-semibold text-right">Aksi</th>
               </tr>
@@ -72,9 +79,21 @@ export default function PlanPublishSection({ trips = [], canEdit = false }) {
                   <td className="px-4 py-3">
                     <input
                       type="date"
+                      defaultValue={t.awareness_date ? String(t.awareness_date).slice(0, 10) : ''}
+                      onBlur={(e) => { if (canEdit && (e.target.value || '') !== (t.awareness_date ? String(t.awareness_date).slice(0, 10) : '')) saveAwareness(t.id, e.target.value); }}
+                      disabled={!canEdit}
+                      title="Tanggal upload konten awareness (sebelum jualan)"
+                      className="px-2 py-1 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-brand-500 outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-0.5">upload awareness</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="date"
                       defaultValue={t.publish_date ? String(t.publish_date).slice(0, 10) : ''}
                       onBlur={(e) => { if (canEdit && (e.target.value || '') !== (t.publish_date ? String(t.publish_date).slice(0, 10) : '')) saveSchedule(t.id, e.target.value); }}
                       disabled={!canEdit}
+                      title="Tanggal rencana publish jualan"
                       className="px-2 py-1 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-brand-500 outline-none disabled:bg-slate-50 disabled:text-slate-400"
                     />
                     <div className="flex items-center gap-3 mt-1.5">
