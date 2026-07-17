@@ -7,6 +7,9 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import TripCard from './TripCard';
+import { effectiveSellingStatus, SELLING_FILTERS } from '@/lib/utils/trip-status';
+
+const sellingOf = (t) => t._sellingStatus || effectiveSellingStatus(t);
 
 // Defensive imports — kalau file ga ada, fallback null
 let TripsListView = null;
@@ -87,22 +90,37 @@ export default function TripsMasterView({ trips = [], paxByTrip = {} }) {
   const safe = Array.isArray(trips) ? trips : [];
   const [view, setView] = useState('active'); // active | monthly | yearly | history
   const [monthFilter, setMonthFilter] = useState(''); // YYYY-MM filter untuk card view
+  const [sellingFilter, setSellingFilter] = useState(''); // '' | prepare to sell | open selling | closed selling
   const [activeSubView, setActiveSubView] = useState('card'); // card | list | calendar
 
-  // SPLIT trips: active vs history
+  // SPLIT trips: active vs history — pakai status OTOMATIS (lewat tgl pulang = completed).
   const activeTrips = useMemo(() => {
-    return safe.filter((t) => t.status !== 'completed' && t.status !== 'cancelled');
+    return safe.filter((t) => sellingOf(t) !== 'completed' && sellingOf(t) !== 'cancelled');
   }, [safe]);
 
   const historyTrips = useMemo(() => {
-    return safe.filter((t) => t.status === 'completed' || t.status === 'cancelled');
+    return safe.filter((t) => sellingOf(t) === 'completed' || sellingOf(t) === 'cancelled');
   }, [safe]);
 
-  // Card view dengan filter bulan
+  // Hitung jumlah per status jualan (untuk label filter)
+  const sellingCounts = useMemo(() => {
+    const c = { '': activeTrips.length, 'prepare to sell': 0, 'open selling': 0, 'closed selling': 0 };
+    for (const t of activeTrips) { const k = sellingOf(t); if (c[k] != null) c[k]++; }
+    return c;
+  }, [activeTrips]);
+
+  // Active dengan filter status jualan (untuk List & Calendar)
+  const statusFilteredActive = useMemo(() => {
+    if (!sellingFilter) return activeTrips;
+    return activeTrips.filter((t) => sellingOf(t) === sellingFilter);
+  }, [activeTrips, sellingFilter]);
+
+  // Card view dengan filter bulan + status jualan
   const filteredActive = useMemo(() => {
-    if (!monthFilter) return activeTrips;
-    return activeTrips.filter((t) => getMonthKey(t.departure) === monthFilter);
-  }, [activeTrips, monthFilter]);
+    let list = statusFilteredActive;
+    if (monthFilter) list = list.filter((t) => getMonthKey(t.departure) === monthFilter);
+    return list;
+  }, [statusFilteredActive, monthFilter]);
 
   // Available months untuk dropdown filter
   const availableMonths = useMemo(() => {
@@ -223,6 +241,20 @@ export default function TripsMasterView({ trips = [], paxByTrip = {} }) {
               )}
             </div>
 
+            {/* Filter status jualan — berlaku utk semua sub-view */}
+            <div className="flex gap-1 bg-slate-100 rounded-lg p-1 flex-wrap">
+              {SELLING_FILTERS.map((f) => (
+                <button
+                  key={f.key || 'all'}
+                  type="button"
+                  onClick={() => setSellingFilter(f.key)}
+                  className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors ${sellingFilter === f.key ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-600 hover:bg-slate-200'}`}
+                >
+                  {f.label} ({sellingCounts[f.key] ?? 0})
+                </button>
+              ))}
+            </div>
+
             {/* Filter bulan — cuma muncul untuk Card view */}
             {activeSubView === 'card' && (
               <>
@@ -257,7 +289,7 @@ export default function TripsMasterView({ trips = [], paxByTrip = {} }) {
               <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
                 <p className="text-4xl mb-3">📋</p>
                 <p className="text-lg font-bold text-slate-700">
-                  {monthFilter ? 'Tidak ada trip di bulan ini' : 'Belum ada trip active'}
+                  {(monthFilter || sellingFilter) ? 'Tidak ada trip sesuai filter' : 'Belum ada trip active'}
                 </p>
                 <Link href="/trips/new" className="mt-3 inline-block text-sm text-brand-600 hover:underline font-semibold">+ Buat Trip Baru</Link>
               </div>
@@ -270,12 +302,12 @@ export default function TripsMasterView({ trips = [], paxByTrip = {} }) {
 
           {/* LIST PRIORITY VIEW */}
           {activeSubView === 'list' && TripsListView && (
-            <TripsListView trips={activeTrips} />
+            <TripsListView trips={statusFilteredActive} />
           )}
 
           {/* CALENDAR VIEW */}
           {activeSubView === 'calendar' && TripsCalendarView && (
-            <TripsCalendarView trips={activeTrips} />
+            <TripsCalendarView trips={statusFilteredActive} />
           )}
         </>
       )}

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { fmtDate, fmtRupiah, daysUntil } from '@/lib/utils/format';
-import { statusCfg } from '@/lib/utils/trip-status';
+import { statusCfg, effectiveSellingStatus } from '@/lib/utils/trip-status';
 import { priorityScore, priorityLabel } from '@/lib/utils/trip-priority';
 
 export default function TripsListView({ trips = [] }) {
@@ -42,7 +42,7 @@ export default function TripsListView({ trips = [] }) {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {sorted.map((t, idx) => {
-              const s = statusCfg(t.status);
+              const s = statusCfg(t._sellingStatus || effectiveSellingStatus(t));
               const score = priorityScore(t);
               const prio = priorityLabel(score);
               const days = daysUntil(t.departure);

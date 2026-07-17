@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { fmtDate } from '@/lib/utils/format';
-import { statusCfg } from '@/lib/utils/trip-status';
+import { statusCfg, effectiveSellingStatus } from '@/lib/utils/trip-status';
 
 const WEEKDAYS = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 const MONTH_LABELS = [
@@ -108,13 +108,14 @@ export default function TripsCalendarView({ trips = [] }) {
                   <p className={`text-xs font-bold ${c.isToday ? 'text-brand-700' : 'text-slate-600'}`}>{c.day}</p>
                   <div className="mt-1 space-y-0.5">
                     {events.slice(0, 3).map((ev, idx) => {
-                      const s = statusCfg(ev.trip.status);
+                      const eff = ev.trip._sellingStatus || effectiveSellingStatus(ev.trip);
+                      const s = statusCfg(eff);
                       const colorByStatus =
-                        ev.trip.status === 'open selling' ? 'bg-blue-500' :
-                        ev.trip.status === 'closed selling' ? 'bg-amber-500' :
-                        ev.trip.status === 'ongoing' ? 'bg-green-500' :
-                        ev.trip.status === 'completed' ? 'bg-slate-400' :
-                        ev.trip.status === 'cancelled' ? 'bg-red-500' :
+                        eff === 'open selling' ? 'bg-blue-500' :
+                        eff === 'closed selling' ? 'bg-amber-500' :
+                        eff === 'ongoing' ? 'bg-green-500' :
+                        eff === 'completed' ? 'bg-slate-400' :
+                        eff === 'cancelled' ? 'bg-red-500' :
                         'bg-purple-500';
                       const label = ev.type === 'dep' ? '🛫' : '🛬';
                       return (
@@ -159,7 +160,7 @@ export default function TripsCalendarView({ trips = [] }) {
         ) : (
           <div className="divide-y divide-slate-100">
             {tripsThisMonth.map((t) => {
-              const s = statusCfg(t.status);
+              const s = statusCfg(t._sellingStatus || effectiveSellingStatus(t));
               return (
                 <Link key={t.id} href={`/trips/${t.id}`} className="block px-5 py-3 hover:bg-slate-50">
                   <div className="flex items-start justify-between gap-3 flex-wrap">

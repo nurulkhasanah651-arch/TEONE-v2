@@ -6,6 +6,7 @@ import { getPicScope, filterTripsForPic } from '@/lib/auth/pic-scope';
 import TripsMasterView from '@/components/trips/TripsMasterView';
 import { fmtRupiah } from '@/lib/utils/format';
 import { fetchAll } from '@/lib/supabase/fetch-all';
+import { effectiveSellingStatus } from '@/lib/utils/trip-status';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,14 +58,16 @@ export default async function TripsPage() {
     const cnt = (paxByTrip[t.id] || []).length;
     t._soldReal = cnt;
     t._seatLeftReal = Math.max((t.quota || 0) - cnt, 0);
+    // Status jualan/lifecycle OTOMATIS (kursi terisi + tanggal), tanpa ubah DB.
+    t._sellingStatus = effectiveSellingStatus(t);
   }
 
   // Hero stats — semua trip (kecuali cancelled untuk revenue/seat)
   const safeTrips = trips || [];
   const totalTrips = safeTrips.length;
-  const activeTrips = safeTrips.filter((t) => t.status !== 'completed' && t.status !== 'cancelled');
-  const openSelling = safeTrips.filter((t) => t.status === 'open selling').length;
-  const completedCount = safeTrips.filter((t) => t.status === 'completed').length;
+  const activeTrips = safeTrips.filter((t) => t._sellingStatus !== 'completed' && t._sellingStatus !== 'cancelled');
+  const openSelling = safeTrips.filter((t) => t._sellingStatus === 'open selling').length;
+  const completedCount = safeTrips.filter((t) => t._sellingStatus === 'completed').length;
   const totalSeatLeft = activeTrips.reduce((sum, t) => sum + (t._seatLeftReal ?? 0), 0);
 
   let totalRevenue = 0;

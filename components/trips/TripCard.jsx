@@ -3,10 +3,10 @@
 
 import Link from 'next/link';
 import { fmtShort, fmtDate, daysUntil } from '@/lib/utils/format';
-import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
+import { statusCfg, tripChecklist, effectiveSellingStatus } from '@/lib/utils/trip-status';
 
 export default function TripCard({ trip }) {
-  const s = statusCfg(trip.status);
+  const s = statusCfg(trip._sellingStatus || effectiveSellingStatus(trip));
   const days = daysUntil(trip.departure);
   const checklist = tripChecklist(trip);
   const okCount = checklist.filter((c) => c.ok).length;

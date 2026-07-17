@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getPicScope } from '@/lib/auth/pic-scope';
 import { redirect } from 'next/navigation';
 import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
-import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
+import { statusCfg, tripChecklist, effectiveSellingStatus } from '@/lib/utils/trip-status';
 import ParticipantsList from '@/components/trips/ParticipantsList';
 import BackupSheetPanel from '@/components/trip/BackupSheetPanel';
 import FamilyGroupManager from '@/components/families/FamilyGroupManager';
@@ -33,7 +33,12 @@ export default async function TripDetailPage({ params }) {
     if (scope.scoped) { const em=(trip.pic_email||'').toLowerCase(), nm=(trip.pic||'').toLowerCase();
       if (!((em && em===scope.email) || (nm && nm===scope.name))) redirect('/trips'); } }
 
-  const s = statusCfg(trip.status);
+  // Status OTOMATIS: hitung peserta aktif riil dulu (bukan kolom sold yg bisa basi).
+  try {
+    const { data: _px } = await supabase.from('trip_passengers').select('transfer_status, refund_status').eq('trip_id', id);
+    trip._soldReal = (_px || []).filter((p) => p.transfer_status !== 'transferred' && p.refund_status !== 'refunded' && p.refund_status !== 'partial_refund').length;
+  } catch {}
+  const s = statusCfg(effectiveSellingStatus(trip));
   const days = daysUntil(trip.departure);
   const checklist = tripChecklist(trip);
 
