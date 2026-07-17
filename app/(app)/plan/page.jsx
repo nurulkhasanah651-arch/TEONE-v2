@@ -12,7 +12,8 @@ export default async function PlanPage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const role = user?.app_metadata?.role || user?.user_metadata?.role || null;
-  const canEdit = ['owner', 'accounting', 'manager', 'ops'].includes(role);
+  // Semua role internal (kantor) boleh isi jadwal & publish. TL & Mitra tidak.
+  const canEdit = ['owner', 'accounting', 'manager', 'ops', 'cs', 'pic'].includes(role);
 
   const { data: plans } = await supabase
     .from('trip_plans')

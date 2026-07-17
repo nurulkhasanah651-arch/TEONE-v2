@@ -8,6 +8,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { publishTrip, setTripSchedulePublish } from '@/app/(app)/plan/trip-actions';
+import CopyWaTemplateButton from '@/components/trips/CopyWaTemplateButton';
 
 function fmtRupiah(n) {
   return 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
@@ -76,6 +77,11 @@ export default function PlanPublishSection({ trips = [], canEdit = false }) {
                       disabled={!canEdit}
                       className="px-2 py-1 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-brand-500 outline-none disabled:bg-slate-50 disabled:text-slate-400"
                     />
+                    <div className="flex items-center gap-3 mt-1.5">
+                      <a href={`/trip/${t.id}/pdf`} target="_blank" rel="noreferrer"
+                        className="text-[11px] font-semibold text-blue-600 hover:underline">📄 PDF Publish</a>
+                      <CopyWaTemplateButton tripId={t.id} className="text-[11px] font-semibold text-green-700 hover:underline" />
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-right">
                     {!canEdit ? (

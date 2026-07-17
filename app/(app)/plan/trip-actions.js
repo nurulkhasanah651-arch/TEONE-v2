@@ -11,7 +11,8 @@ import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-en
 import { resolveAuthoritativeRole } from '@/lib/auth/authoritative-role';
 import { getRoleFromUser } from '@/lib/utils/roles';
 
-const CAN_EDIT = ['owner', 'accounting', 'manager', 'ops'];
+// Semua role internal (kantor). Tour Leader & Mitra dikecualikan (portal terbatas).
+const CAN_EDIT = ['owner', 'accounting', 'manager', 'ops', 'cs', 'pic'];
 
 function svc() {
   const url = brandSupabaseUrl();
