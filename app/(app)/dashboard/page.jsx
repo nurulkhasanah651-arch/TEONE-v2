@@ -11,6 +11,7 @@ import { getBrandCode } from '@/lib/brand';
 import { BRAND_UI } from '@/lib/brand-shared';
 import { getPicScope, filterTripsForPic } from '@/lib/auth/pic-scope';
 import ReviewPendingCard from '@/components/common/ReviewPendingCard';
+import { statusCfg, effectiveSellingStatus } from '@/lib/utils/trip-status';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,10 +77,16 @@ export default async function DashboardPage() {
     paxByTrip[p.trip_id].push(p);
   }
 
+  // Status jualan/lifecycle OTOMATIS per trip (peserta aktif + tanggal) — sama spt Master Trip.
+  for (const t of trips) {
+    t._soldReal = (paxByTrip[t.id] || []).filter((p) => p.refund_status !== 'refunded' && p.refund_status !== 'partial_refund' && p.status !== 'transferred').length;
+    t._sellingStatus = effectiveSellingStatus(t);
+  }
+
   // Compute Expected Revenue
   let totalExpectedRevenue = 0;
   for (const t of trips) {
-    if (t.status === 'cancelled') continue;
+    if (t._sellingStatus === 'cancelled') continue;
     const breakdown = t.price_breakdown || {};
     const pax = paxByTrip[t.id] || [];
     for (const p of pax) {
@@ -89,7 +96,7 @@ export default async function DashboardPage() {
 
   // Hero stats
   const totalTrips = trips.length;
-  const openSelling = trips.filter((t) => t.status === 'open selling').length;
+  const openSelling = trips.filter((t) => t._sellingStatus === 'open selling').length;
   const totalSeatLeft = trips.reduce((s, t) => s + (t.seat_left || 0), 0);
   const totalPax = allPax.length;
 
@@ -107,7 +114,7 @@ export default async function DashboardPage() {
 
   // Urgent Trip Push Selling
   const urgentPushTrips = trips.filter((t) => {
-    if (t.status !== 'open selling') return false;
+    if (t._sellingStatus !== 'open selling') return false;
     if (!t.departure) return false;
     const d = daysUntil(t.departure);
     if (d == null || d < 0 || d > 60) return false;
@@ -120,7 +127,7 @@ export default async function DashboardPage() {
   const upcoming = trips
     .filter((t) => {
       if (!t.departure) return false;
-      if (t.status === 'completed' || t.status === 'cancelled') return false;
+      if (t._sellingStatus === 'completed' || t._sellingStatus === 'cancelled') return false;
       const d = daysUntil(t.departure);
       return d != null && d >= 0 && d <= 30;
     })
@@ -229,7 +236,7 @@ export default async function DashboardPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-mono font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded">{t.kode_trip || `#${t.id}`}</span>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">🆕 {_agoLabel(t.created_at)}</span>
-                      {t.status && <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">{t.status}</span>}
+                      {(() => { const s = statusCfg(t._sellingStatus); return <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${s.bg} ${s.text}`}>{s.label}</span>; })()}
                     </div>
                     <p className="mt-1 text-sm font-bold text-slate-800">{t.name}</p>
                     <p className="text-xs text-slate-500 mt-0.5">{t.departure ? `Berangkat ${fmtDate(t.departure)}` : 'Tanggal belum diisi'} · {pax} peserta · {t.destination || '—'}</p>
