@@ -91,18 +91,28 @@ export default function TripsMasterView({ trips = [], paxByTrip = {} }) {
   const [view, setView] = useState('active'); // active | monthly | yearly | history
   const [monthFilter, setMonthFilter] = useState(''); // YYYY-MM filter untuk card view
   const [sellingFilter, setSellingFilter] = useState(''); // '' | prepare to sell | open selling | closed selling
+  const [search, setSearch] = useState(''); // cari kode / nama trip
   const [activeSubView, setActiveSubView] = useState('card'); // card | list | calendar
 
+  const q = search.trim().toLowerCase();
+  const matchSearch = (t) => !q
+    || String(t.kode_trip || '').toLowerCase().includes(q)
+    || String(t.name || '').toLowerCase().includes(q)
+    || String(t.destination || '').toLowerCase().includes(q);
+
   // SPLIT trips: active vs history — pakai status OTOMATIS (lewat tgl pulang = completed).
-  const activeTrips = useMemo(() => {
+  const activeAll = useMemo(() => {
     return safe.filter((t) => sellingOf(t) !== 'completed' && sellingOf(t) !== 'cancelled');
   }, [safe]);
 
-  const historyTrips = useMemo(() => {
-    return safe.filter((t) => sellingOf(t) === 'completed' || sellingOf(t) === 'cancelled');
-  }, [safe]);
+  // Active setelah pencarian (kode/nama)
+  const activeTrips = useMemo(() => activeAll.filter(matchSearch), [activeAll, q]);
 
-  // Hitung jumlah per status jualan (untuk label filter)
+  const historyTrips = useMemo(() => {
+    return safe.filter((t) => (sellingOf(t) === 'completed' || sellingOf(t) === 'cancelled') && matchSearch(t));
+  }, [safe, q]);
+
+  // Hitung jumlah per status jualan (untuk label filter) — ikut hasil pencarian
   const sellingCounts = useMemo(() => {
     const c = { '': activeTrips.length, 'prepare to sell': 0, 'open selling': 0, 'closed selling': 0 };
     for (const t of activeTrips) { const k = sellingOf(t); if (c[k] != null) c[k]++; }
@@ -217,10 +227,22 @@ export default function TripsMasterView({ trips = [], paxByTrip = {} }) {
           <Tab active={view === 'yearly'} onClick={() => setView('yearly')}>📊 Rekap Tahunan</Tab>
           <Tab active={view === 'history'} onClick={() => setView('history')}>🗄 History ({historyTrips.length})</Tab>
         </div>
+        <div className="flex items-center gap-2 flex-1 min-w-[180px] max-w-xs order-3 md:order-2">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="🔍 Cari kode / nama trip…"
+            className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-brand-500 outline-none"
+          />
+          {search && (
+            <button type="button" onClick={() => setSearch('')} className="text-xs text-slate-400 hover:text-slate-600" title="Reset pencarian">✕</button>
+          )}
+        </div>
         <button
           type="button"
           onClick={handleDownload}
-          className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1"
+          className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1 order-2 md:order-3"
         >
           ⬇ Download Excel ({view})
         </button>
@@ -289,7 +311,7 @@ export default function TripsMasterView({ trips = [], paxByTrip = {} }) {
               <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
                 <p className="text-4xl mb-3">📋</p>
                 <p className="text-lg font-bold text-slate-700">
-                  {(monthFilter || sellingFilter) ? 'Tidak ada trip sesuai filter' : 'Belum ada trip active'}
+                  {(monthFilter || sellingFilter || search) ? 'Tidak ada trip yang cocok' : 'Belum ada trip active'}
                 </p>
                 <Link href="/trips/new" className="mt-3 inline-block text-sm text-brand-600 hover:underline font-semibold">+ Buat Trip Baru</Link>
               </div>
