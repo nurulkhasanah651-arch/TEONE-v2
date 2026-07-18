@@ -118,9 +118,9 @@ export default async function CeoPage() {
           <p className="text-xs text-slate-400 mt-1">total kas masuk dari peserta</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">🏦 Real Uang Perusahaan (Laba Kotor)</p>
-          <p className="text-2xl font-bold text-brand-700 mt-1">{fmtRupiah(m.grossProfit)}</p>
-          <p className="text-xs text-slate-400 mt-1">omzet − HPP ({fmtRupiah(m.totalHpp)})</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">🏦 Real Uang Perusahaan</p>
+          <p className="text-2xl font-bold text-brand-700 mt-1">{fmtRupiah(m.realCompanyMoney)}</p>
+          <p className="text-xs text-slate-400 mt-1">peserta dibayar − HPP dibayar ({fmtRupiah(m.hppPaid)})</p>
         </div>
       </div>
 
