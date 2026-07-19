@@ -10,6 +10,7 @@ import TripCard from './TripCard';
 import { effectiveSellingStatus, SELLING_FILTERS } from '@/lib/utils/trip-status';
 
 const sellingOf = (t) => t._sellingStatus || effectiveSellingStatus(t);
+const hasTicket = (t) => ['confirmed', 'issued'].includes(String(t.ticket_status || '').toLowerCase());
 
 // Defensive imports — kalau file ga ada, fallback null
 let TripsListView = null;
@@ -92,6 +93,7 @@ export default function TripsMasterView({ trips = [], paxByTrip = {} }) {
   const [monthFilter, setMonthFilter] = useState(''); // YYYY-MM filter untuk card view
   const [sellingFilter, setSellingFilter] = useState(''); // '' | prepare to sell | open selling | closed selling
   const [search, setSearch] = useState(''); // cari kode / nama trip
+  const [noTicketOnly, setNoTicketOnly] = useState(false); // hanya trip belum ada tiket
   const [activeSubView, setActiveSubView] = useState('card'); // card | list | calendar
 
   const q = search.trim().toLowerCase();
@@ -105,8 +107,14 @@ export default function TripsMasterView({ trips = [], paxByTrip = {} }) {
     return safe.filter((t) => sellingOf(t) !== 'completed' && sellingOf(t) !== 'cancelled');
   }, [safe]);
 
-  // Active setelah pencarian (kode/nama)
-  const activeTrips = useMemo(() => activeAll.filter(matchSearch), [activeAll, q]);
+  // Berapa trip aktif yang BELUM ada tiket (untuk label filter)
+  const noTicketCount = useMemo(() => activeAll.filter((t) => !hasTicket(t)).length, [activeAll]);
+
+  // Active setelah pencarian (kode/nama) + filter belum-ada-tiket
+  const activeTrips = useMemo(
+    () => activeAll.filter((t) => matchSearch(t) && (!noTicketOnly || !hasTicket(t))),
+    [activeAll, q, noTicketOnly]
+  );
 
   const historyTrips = useMemo(() => {
     return safe.filter((t) => (sellingOf(t) === 'completed' || sellingOf(t) === 'cancelled') && matchSearch(t));
@@ -277,6 +285,16 @@ export default function TripsMasterView({ trips = [], paxByTrip = {} }) {
               ))}
             </div>
 
+            {/* Toggle: hanya trip yang BELUM ada tiket */}
+            <button
+              type="button"
+              onClick={() => setNoTicketOnly((v) => !v)}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${noTicketOnly ? 'bg-rose-600 text-white border-rose-600' : 'bg-white text-rose-700 border-rose-300 hover:bg-rose-50'}`}
+              title="Tampilkan hanya trip yang tiketnya belum confirmed/issued"
+            >
+              🎫 Belum ada tiket ({noTicketCount})
+            </button>
+
             {/* Filter bulan — cuma muncul untuk Card view */}
             {activeSubView === 'card' && (
               <>
@@ -311,7 +329,7 @@ export default function TripsMasterView({ trips = [], paxByTrip = {} }) {
               <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
                 <p className="text-4xl mb-3">📋</p>
                 <p className="text-lg font-bold text-slate-700">
-                  {(monthFilter || sellingFilter || search) ? 'Tidak ada trip yang cocok' : 'Belum ada trip active'}
+                  {(monthFilter || sellingFilter || search || noTicketOnly) ? 'Tidak ada trip yang cocok' : 'Belum ada trip active'}
                 </p>
                 <Link href="/trips/new" className="mt-3 inline-block text-sm text-brand-600 hover:underline font-semibold">+ Buat Trip Baru</Link>
               </div>
