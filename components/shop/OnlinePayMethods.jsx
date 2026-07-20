@@ -54,7 +54,7 @@ export default function OnlinePayMethods({ amount = 0, pay, note, buttonLabel = 
             className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-emerald-400 disabled:opacity-50 text-left transition-colors"
           >
             <span className="min-w-0">
-              <span className="block text-sm font-bold text-slate-800">{m.short}{m.key === 'cc' ? ' (+3%)' : ''}</span>
+              <span className="block text-sm font-bold text-slate-800">{m.short}{m.key === 'cc' ? ' (+3%)' : m.key === 'qris' ? ' (+0,7%)' : ''}</span>
               {m.desc && <span className="block text-[11px] text-slate-500">{m.desc}</span>}
             </span>
             <span className="text-right shrink-0">
