@@ -3,7 +3,7 @@
 // Path: components/finance/ProyeksiIncomeSection.jsx
 
 import { fmtRupiah } from '@/lib/utils/format';
-import { ROOM_KEYS, MAIN_ADDONS, expectedPerPassenger } from '@/lib/utils/price-breakdown';
+import { ROOM_KEYS, MAIN_ADDONS, expectedPerPassenger, paxRoomKey, visaPriceFor } from '@/lib/utils/price-breakdown';
 
 export default function ProyeksiIncomeSection({
   activePassengers = [],
@@ -29,16 +29,40 @@ export default function ProyeksiIncomeSection({
     const expected = expectedPerPassenger(pEff, breakdown, pPays, brand);
     const paid = pPays.reduce((s, x) => s + Number(x.amount || 0), 0);
     const outstanding = Math.max(expected - paid, 0);
+    // Breakdown Visa & Asuransi per peserta (bagian dari Expected).
+    const _key = paxRoomKey(pEff);
+    const _isInfant = _key === 'infant';
+    let visa = 0, asuransi = 0;
+    if (_isKh) {
+      // Khasanah: visa & asuransi WAJIB (kecuali infant; visa bebas kalau sudah 'visa ready').
+      if (!_isInfant) {
+        visa = pEff.visa_ready ? 0 : (visaPriceFor(breakdown, pEff.visa_type) || 0);
+        asuransi = Number(breakdown.asuransi) || 0;
+      }
+    } else {
+      // TEONE: opt-in per peserta (group wajib visa -> semua include_visa).
+      const incVisa = !!pEff.include_visa && !pEff.visa_ready;
+      visa = incVisa ? (visaPriceFor(breakdown, pEff.visa_type) || 0) : 0;
+      asuransi = pEff.include_asuransi ? (Number(breakdown.asuransi) || 0) : 0;
+    }
     return {
       passenger_id: p.id,
       name: cust?.name || `#${p.id}`,
       room_type: p.room_type || '—',
       discount: Number(p.discount_amount) || 0,
       expected,
+      visa,
+      asuransi,
       paid,
       outstanding,
     };
   });
+
+  // Total Visa & Asuransi (bagian dari Expected proyeksi) — ditampilkan terpisah.
+  const totalVisa = perPaxRows.reduce((s, r) => s + (r.visa || 0), 0);
+  const totalAsuransi = perPaxRows.reduce((s, r) => s + (r.asuransi || 0), 0);
+  const countVisa = perPaxRows.filter((r) => (r.visa || 0) > 0).length;
+  const countAsuransi = perPaxRows.filter((r) => (r.asuransi || 0) > 0).length;
 
   // Active addons (yg ada nilainya di breakdown)
   const activeAddons = MAIN_ADDONS.filter((a) => Number(breakdown[a.key]) > 0);
@@ -80,6 +104,25 @@ export default function ProyeksiIncomeSection({
         </div>
       )}
 
+      {/* Breakdown Visa & Asuransi (bagian dari Expected proyeksi) */}
+      {(totalVisa > 0 || totalAsuransi > 0) && (
+        <div className="px-5 py-3 bg-indigo-50/60 border-b border-slate-200">
+          <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">🛂 Visa &amp; Asuransi (sudah termasuk di Expected)</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+            <div className="p-2 bg-white rounded border border-indigo-200">
+              <p className="text-[10px] font-bold text-indigo-700 uppercase">🛂 Total Visa</p>
+              <p className="text-sm font-bold text-indigo-700">{fmtRupiah(totalVisa)}</p>
+              <p className="text-[10px] text-slate-500">{countVisa} peserta include visa</p>
+            </div>
+            <div className="p-2 bg-white rounded border border-indigo-200">
+              <p className="text-[10px] font-bold text-indigo-700 uppercase">🛡 Total Asuransi</p>
+              <p className="text-sm font-bold text-indigo-700">{fmtRupiah(totalAsuransi)}</p>
+              <p className="text-[10px] text-slate-500">{countAsuransi} peserta include asuransi</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Per room summary */}
       {Object.keys(byRoom).length > 0 && (
         <div className="px-5 py-3 border-b border-slate-200">
@@ -115,6 +158,8 @@ export default function ProyeksiIncomeSection({
                   <th className="px-3 py-2">Nama</th>
                   <th className="px-3 py-2">Room</th>
                   <th className="px-3 py-2 text-right">Expected</th>
+                  <th className="px-3 py-2 text-right">Visa</th>
+                  <th className="px-3 py-2 text-right">Asuransi</th>
                   <th className="px-3 py-2 text-right">Diskon</th>
                   <th className="px-3 py-2 text-right">Paid</th>
                   <th className="px-3 py-2 text-right">Outstanding</th>
@@ -130,6 +175,12 @@ export default function ProyeksiIncomeSection({
                       </span>
                     </td>
                     <td className="px-3 py-1.5 text-right font-semibold text-emerald-700">{fmtRupiah(row.expected)}</td>
+                    <td className="px-3 py-1.5 text-right text-indigo-700">
+                      {row.visa > 0 ? fmtRupiah(row.visa) : '—'}
+                    </td>
+                    <td className="px-3 py-1.5 text-right text-indigo-700">
+                      {row.asuransi > 0 ? fmtRupiah(row.asuransi) : '—'}
+                    </td>
                     <td className="px-3 py-1.5 text-right text-amber-700">
                       {row.discount > 0 ? `-${fmtRupiah(row.discount)}` : '—'}
                     </td>
@@ -146,6 +197,8 @@ export default function ProyeksiIncomeSection({
                   <td className="px-3 py-2 text-right text-emerald-800">
                     {fmtRupiah(perPaxRows.reduce((s, r) => s + r.expected, 0))}
                   </td>
+                  <td className="px-3 py-2 text-right text-indigo-800">{fmtRupiah(totalVisa)}</td>
+                  <td className="px-3 py-2 text-right text-indigo-800">{fmtRupiah(totalAsuransi)}</td>
                   <td className="px-3 py-2 text-right text-amber-800">
                     {fmtRupiah(perPaxRows.reduce((s, r) => s + r.discount, 0))}
                   </td>
