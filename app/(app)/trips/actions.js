@@ -193,14 +193,14 @@ export async function deleteTrip(tripId) {
   redirect('/trips');
 }
 
-// Ganti PIC master trip — role owner/manager/accounting/cs/pic (pic: hanya trip miliknya).
-// Pakai service client supaya accounting/cs (yang tak punya izin UPDATE trips via RLS) tetap bisa.
+// Ganti PIC master trip — role owner/manager/accounting/ops/cs/pic (pic: hanya trip miliknya).
+// Pakai service client supaya accounting/cs/ops (yang tak punya izin UPDATE trips via RLS) tetap bisa.
 export async function changeTripPic(tripId, picName, picEmail) {
   const auth = createClient();
   const { data: { user } } = await auth.auth.getUser();
   if (!user) return { error: 'Not authenticated' };
   const role = await resolveAuthoritativeRole(user);
-  if (!['owner', 'manager', 'accounting', 'cs', 'pic'].includes(role)) return { error: 'Akses ditolak untuk mengganti PIC.' };
+  if (!['owner', 'manager', 'accounting', 'ops', 'cs', 'pic'].includes(role)) return { error: 'Akses ditolak untuk mengganti PIC.' };
   const url = brandSupabaseUrl(); const key = brandServiceRoleKey();
   const db = (url && key) ? createServiceClient(url, key, { auth: { persistSession: false } }) : auth;
   if (role === 'pic') {
