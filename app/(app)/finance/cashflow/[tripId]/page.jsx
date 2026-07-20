@@ -107,6 +107,9 @@ export default async function CashflowDetailPage({ params }) {
   const _brand = (() => { try { return currentBrandCode() || ''; } catch { return ''; } })();
   const proyeksi = computeIncomeProjection(activePassengers, breakdown, allPayments, _brand, { visaRequirement: trip.visa_requirement });
   const proyeksiIncome = proyeksi.total || 0;
+  // Porsi Visa & Asuransi yg SUDAH termasuk di proyeksi (bukan tambahan di luar).
+  const projVisa = Number(proyeksi.optionalCountByAddon?.Visa?.total) || 0;
+  const projAsuransi = Number(proyeksi.optionalCountByAddon?.Asuransi?.total) || 0;
 
   const paymentsByPax = {};
   for (const p of allPayments) {
@@ -272,7 +275,7 @@ export default async function CashflowDetailPage({ params }) {
         <StatCard
           label="Total Income (Proyeksi)"
           value={fmtRupiah(totalIncomeProyeksi)}
-          sub={`Real Cash In: ${fmtRupiah(autoCashIn)} · ${actualPaymentCount} payment`}
+          sub={`Real Cash In: ${fmtRupiah(autoCashIn)} · ${actualPaymentCount} payment${(projVisa > 0 || projAsuransi > 0) ? `\n(termasuk Visa ${fmtRupiah(projVisa)} · Asuransi ${fmtRupiah(projAsuransi)})` : ''}`}
           color="text-green-700"
           bg="bg-green-50"
         />
@@ -513,7 +516,7 @@ function StatCard({ label, value, sub, color, bg }) {
     <div className={`rounded-xl border border-slate-200 shadow-card p-4 ${bg}`}>
       <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">{label}</p>
       <p className={`mt-1 text-xl font-bold ${color}`}>{value}</p>
-      {sub && <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>}
+      {sub && <p className="text-[10px] text-slate-500 mt-0.5 whitespace-pre-line">{sub}</p>}
     </div>
   );
 }
