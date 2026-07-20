@@ -2,8 +2,13 @@
 
 // Broadcast WABA + Template Manager (Khasanah).
 import { useState, useTransition } from 'react';
-import { previewBroadcastAudience, sendBroadcast } from '@/lib/actions/wa-blast';
+import { previewBroadcastAudience, sendBroadcast, sendPicWabaBroadcast } from '@/lib/actions/wa-blast';
 import { createBlastUploadUrl } from '@/lib/actions/blast';
+
+const PIC_BROADCAST_KINDS = [
+  { kind: 'waba_perubahan_jadwal', label: '📅 Info Perubahan Jadwal', needsSchedule: true },
+  { kind: 'waba_finalisasi_tiket', label: '🎫 Info Finalisasi Tiket', needsSchedule: false },
+];
 
 // Template SIAP DAFTAR ke Meta WhatsApp Manager (belum tentu sudah Approved).
 // Setelah di-approve di Meta, otomatis muncul di daftar template atas & bisa dikirim.
@@ -49,7 +54,7 @@ Mohon konfirmasi kesediaan Kakak agar dapat kami lanjutkan ke proses issued tike
 ];
 
 export default function BroadcastClient({ initial }) {
-  const [tab, setTab] = useState('kirim');
+  const [tab, setTab] = useState('pic');
   const numbers = initial?.numbers || [];
   const trips = initial?.trips || [];
   const templates = initial?.templates || [];
@@ -65,6 +70,31 @@ export default function BroadcastClient({ initial }) {
   const [uploading, setUploading] = useState(false);
   const [docLink, setDocLink] = useState('');
   const [copied, setCopied] = useState('');
+  // Tab "Kirim via PIC" (Api.co.id per-PIC, pakai nama template dari HR)
+  const [picTrip, setPicTrip] = useState('');
+  const [picKind, setPicKind] = useState('waba_perubahan_jadwal');
+  const [jadwalLama, setJadwalLama] = useState('');
+  const [jadwalBaru, setJadwalBaru] = useState('');
+  const [picAudience, setPicAudience] = useState(null);
+  const [picResult, setPicResult] = useState(null);
+
+  function checkPicAudience(tid) {
+    setPicTrip(tid); setPicAudience(null); setPicResult(null);
+    if (!tid) return;
+    start(async () => { const r = await previewBroadcastAudience(tid); if (r?.ok) setPicAudience(r); });
+  }
+  function kirimPic() {
+    if (!picTrip || !picKind) { alert('Pilih trip & jenis broadcast'); return; }
+    const meta = PIC_BROADCAST_KINDS.find((k) => k.kind === picKind);
+    const extraParams = meta?.needsSchedule ? [jadwalLama, jadwalBaru, docLink] : [];
+    if (!confirm(`Kirim "${meta?.label}" ke ${picAudience?.count || '?'} peserta dari nomor PIC trip?`)) return;
+    setPicResult(null);
+    start(async () => {
+      const r = await sendPicWabaBroadcast({ tripId: picTrip, kind: picKind, extraParams });
+      if (r?.error) { alert(r.error); return; }
+      setPicResult(r);
+    });
+  }
 
   function copy(text, key) {
     try { navigator.clipboard.writeText(text); setCopied(key); setTimeout(() => setCopied(''), 1500); } catch {}
@@ -104,10 +134,63 @@ export default function BroadcastClient({ initial }) {
   return (
     <div className="max-w-3xl mx-auto space-y-4">
       <h1 className="text-2xl font-bold text-brand-700">📣 Broadcast WhatsApp (WABA)</h1>
-      <div className="flex gap-2">
-        <button onClick={() => setTab('kirim')} className={`px-3 py-1.5 text-sm font-bold rounded ${tab === 'kirim' ? 'bg-brand-500 text-white' : 'bg-slate-100'}`}>Kirim Broadcast</button>
+      <div className="flex gap-2 flex-wrap">
+        <button onClick={() => setTab('pic')} className={`px-3 py-1.5 text-sm font-bold rounded ${tab === 'pic' ? 'bg-brand-500 text-white' : 'bg-slate-100'}`}>Kirim via Nomor PIC</button>
+        <button onClick={() => setTab('kirim')} className={`px-3 py-1.5 text-sm font-bold rounded ${tab === 'kirim' ? 'bg-brand-500 text-white' : 'bg-slate-100'}`}>Kirim (Meta)</button>
         <button onClick={() => setTab('template')} className={`px-3 py-1.5 text-sm font-bold rounded ${tab === 'template' ? 'bg-brand-500 text-white' : 'bg-slate-100'}`}>Template ({templates.length})</button>
       </div>
+
+      {tab === 'pic' && (
+        <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3 shadow-card">
+          <p className="text-[12px] text-slate-600 bg-indigo-50 border border-indigo-200 rounded-lg p-2.5">
+            Broadcast ini dikirim dari <b>nomor WABA PIC trip</b> (Api.co.id) memakai <b>nama template yang diisi di HR</b> masing-masing PIC. Pastikan template sudah <b>Approved</b> di WABA & nama template PIC sudah diisi di menu HR.
+          </p>
+          <label className="block"><span className="text-xs font-bold text-slate-600">Ke peserta trip</span>
+            <select value={picTrip} onChange={(e) => checkPicAudience(e.target.value)} className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm">
+              <option value="">— Pilih trip —</option>
+              {trips.map((t) => <option key={t.id} value={t.id}>{t.kode_trip} — {t.name}</option>)}
+            </select>
+          </label>
+          {picAudience && <p className="text-xs text-slate-600">👥 {picAudience.count} peserta punya nomor{picAudience.recipients?.length ? ` (mis. ${picAudience.recipients.join(', ')})` : ''}</p>}
+          <label className="block"><span className="text-xs font-bold text-slate-600">Jenis broadcast</span>
+            <select value={picKind} onChange={(e) => { setPicKind(e.target.value); setPicResult(null); }} className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm">
+              {PIC_BROADCAST_KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}
+            </select>
+          </label>
+          {PIC_BROADCAST_KINDS.find((k) => k.kind === picKind)?.needsSchedule && (
+            <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Isi jadwal ({'{{2}}'}, {'{{3}}'}) & link itinerary ({'{{4}}'})</p>
+              <label className="block"><span className="text-[11px] text-slate-500">Jadwal semula</span>
+                <input value={jadwalLama} onChange={(e) => setJadwalLama(e.target.value)} placeholder="mis. 12 Okt – 18 Okt 2026" className="w-full mt-0.5 px-3 py-2 border border-slate-300 rounded-lg text-sm" /></label>
+              <label className="block"><span className="text-[11px] text-slate-500">Jadwal terbaru</span>
+                <input value={jadwalBaru} onChange={(e) => setJadwalBaru(e.target.value)} placeholder="mis. 13 Okt – 19 Okt 2026" className="w-full mt-0.5 px-3 py-2 border border-slate-300 rounded-lg text-sm" /></label>
+              <div>
+                <span className="text-[11px] text-slate-500">Link itinerary</span>
+                {docLink ? (
+                  <div className="flex items-center gap-2 text-xs mt-0.5">
+                    <input readOnly value={docLink} className="flex-1 px-2 py-1.5 border border-slate-300 rounded bg-white text-slate-700" />
+                    <button type="button" onClick={() => setDocLink('')} className="text-rose-600 hover:underline shrink-0">Hapus</button>
+                  </div>
+                ) : (
+                  <label className="mt-0.5 inline-flex items-center gap-2 text-sm cursor-pointer text-indigo-600 hover:underline">
+                    <input type="file" accept=".pdf,image/*" onChange={onUploadItinerary} className="hidden" />
+                    {uploading ? 'Mengunggah…' : '+ Upload PDF / gambar itinerary'}
+                  </label>
+                )}
+              </div>
+            </div>
+          )}
+          <button onClick={kirimPic} disabled={pending || !picTrip} className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg disabled:opacity-50">
+            {pending ? 'Mengirim…' : `📤 Kirim ke ${picAudience?.count || 0} peserta (dari nomor PIC)`}
+          </button>
+          {picResult && (
+            <div className="text-sm bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+              ✅ Terkirim {picResult.sent}/{picResult.total}{picResult.failed ? ` · ${picResult.failed} gagal` : ''}{picResult.noPic ? ` · ${picResult.noPic} lewat (PIC tanpa nomor WABA)` : ''}
+              {picResult.errors?.length > 0 && <ul className="mt-1 text-[11px] text-red-600 list-disc pl-4">{picResult.errors.map((e, i) => <li key={i}>{e}</li>)}</ul>}
+            </div>
+          )}
+        </div>
+      )}
 
       {tab === 'kirim' && (
         <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3 shadow-card">
