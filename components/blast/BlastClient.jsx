@@ -3,6 +3,40 @@ import { useMemo, useRef, useState } from 'react';
 import { getBlastRecipients, sendBlast, createBlastUploadUrl } from '@/lib/actions/blast';
 
 function fmtDate(iso) { if (!iso) return '—'; try { return new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return iso; } }
+
+// Template cepat blast (isi otomatis ke kotak pesan, boleh diedit). Format WA: *tebal*.
+const BLAST_TEMPLATES = [
+  {
+    key: 'jadwal',
+    label: '📅 Info Perubahan Jadwal',
+    text: `Halo Kak {{nama}} 🙏
+
+Dengan hormat, kami ingin menginformasikan adanya *perubahan jadwal penerbangan* dari pihak maskapai untuk keberangkatan Kakak.
+
+📅 Jadwal semula: *[tgl awal] s/d [tgl akhir]*
+📅 Jadwal terbaru: *[tgl awal] s/d [tgl akhir]*
+
+Perlu kami sampaikan bahwa *perubahan ini tidak mengubah susunan itinerary sama sekali* — seluruh agenda perjalanan tetap berjalan sesuai rencana semula.
+
+Untuk detail itinerary terbaru, silakan Kakak klik link di bawah ini 👇`,
+    hint: 'Ganti [tgl awal]/[tgl akhir] dengan tanggalnya, lalu Upload file itinerary di bawah → link otomatis nempel.',
+  },
+  {
+    key: 'finalisasi',
+    label: '🎫 Info Finalisasi Tiket',
+    text: `Halo Kak {{nama}} 🙏
+
+Izin menginformasikan, saat ini kami sedang memasuki tahap *finalisasi dan penerbitan (issued) tiket penerbangan* untuk keberangkatan Kakak.
+
+Dengan melanjutkan proses ini, Kakak dianggap telah *menyetujui syarat & ketentuan* yang berlaku:
+
+• Tiket bersifat *NON-REFUND* dalam kondisi apa pun.
+• Nama pada tiket *tidak dapat diubah (no change name)*.
+
+Mohon konfirmasi kesediaan Kakak agar dapat kami lanjutkan ke proses issued tiket. Terima kasih banyak atas kepercayaan & kerja samanya 🙏`,
+    hint: 'Konfirmasi persetujuan peserta sebelum tiket di-issued (non-refund, no change name).',
+  },
+];
 function waToHtml(s) {
   const esc = String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   return esc.replace(/```([^`]+)```/g, '<code>$1</code>').replace(/\*([^*\n]+)\*/g, '<b>$1</b>').replace(/_([^_\n]+)_/g, '<i>$1</i>').replace(/~([^~\n]+)~/g, '<s>$1</s>');
@@ -21,7 +55,15 @@ export default function BlastClient({ trips = [] }) {
   const [err, setErr] = useState(null);
   const [doc, setDoc] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [tplHint, setTplHint] = useState('');
   const taRef = useRef(null);
+
+  function applyTemplate(tpl) {
+    if (msg.trim() && !window.confirm('Ganti isi pesan dengan template ini?')) return;
+    setMsg(tpl.text);
+    setTplHint(tpl.hint || '');
+    requestAnimationFrame(() => taRef.current?.focus());
+  }
 
   async function onPickTrip(id) {
     setTripId(id); setRecips(null); setResult(null); setErr(null); setConfirm(false); setQ(''); setSelKeys(new Set());
@@ -138,6 +180,17 @@ export default function BlastClient({ trips = [] }) {
       {recips && (
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
           <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">3. Tulis Pesan</label>
+          {/* Template cepat */}
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="text-[11px] text-slate-400 self-center mr-1">Template:</span>
+            {BLAST_TEMPLATES.map((tpl) => (
+              <button key={tpl.key} type="button" onClick={() => applyTemplate(tpl)}
+                className="px-2.5 py-1 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-xs font-semibold text-indigo-700">
+                {tpl.label}
+              </button>
+            ))}
+          </div>
+          {tplHint && <p className="mt-1 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">💡 {tplHint}</p>}
           <div className="mt-2 flex flex-wrap gap-1.5">
             <button type="button" onClick={() => surround('*')} className="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-sm font-bold text-slate-700" title="Tebal: *teks*">B</button>
             <button type="button" onClick={() => surround('_')} className="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-sm italic text-slate-700" title="Miring: _teks_">I</button>
@@ -148,7 +201,7 @@ export default function BlastClient({ trips = [] }) {
           <textarea ref={taRef} value={msg} onChange={(e) => setMsg(e.target.value)} rows={7}
             placeholder={"Contoh:\nHalo Kak {{nama}} 🙏\n*Info penting* untuk keberangkatan..."}
             className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-400" />
-          <p className="text-[11px] text-slate-400 mt-1">Format WA: <code className="bg-slate-100 px-1 rounded">*tebal*</code> <code className="bg-slate-100 px-1 rounded">_miring_</code> <code className="bg-slate-100 px-1 rounded">~coret~</code>. <code className="bg-slate-100 px-1 rounded">{'{{nama}}'}</code> = nama depan kepala keluarga. Pengirim: <b>CS</b>.</p>
+          <p className="text-[11px] text-slate-400 mt-1">Format WA: <code className="bg-slate-100 px-1 rounded">*tebal*</code> <code className="bg-slate-100 px-1 rounded">_miring_</code> <code className="bg-slate-100 px-1 rounded">~coret~</code>. <code className="bg-slate-100 px-1 rounded">{'{{nama}}'}</code> = nama depan kepala keluarga. Pengirim: <b>nomor PIC trip</b> (otomatis; fallback CS bila PIC belum punya nomor WA).</p>
           <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Lampiran dokumen (opsional)</p>
             {doc ? (
