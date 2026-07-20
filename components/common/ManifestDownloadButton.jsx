@@ -4,6 +4,7 @@
 // HPP Cashflow, dan tab Visa. Cukup kasih prop tripId.
 import { useState } from 'react';
 import { getManifestRows } from '@/lib/actions/manifest';
+import { buildManifestAOA } from '@/lib/utils/manifest-export';
 
 export default function ManifestDownloadButton({ tripId, label = '📥 Download Manifest', className = '' }) {
   const [loading, setLoading] = useState(false);
@@ -15,23 +16,15 @@ export default function ManifestDownloadButton({ tripId, label = '📥 Download 
       if (res?.error) { alert('Gagal: ' + res.error); return; }
       const { trip, rows } = res;
       const XLSX = await import('xlsx');
-      const aoa = [
-        [`MANIFEST — ${trip.name || ''}${trip.kode_trip ? ` (${trip.kode_trip})` : ''}`],
-        [`Keberangkatan: ${trip.departure || '—'}   Kepulangan: ${trip.return || '—'}`],
-        [''],
-        ['No.', 'First Name', 'Last Name', 'Gender', 'Tempat Lahir', 'Tgl Lahir', 'Umur',
-         'No. Paspor', 'Tgl Issue', 'Issuing Office', 'Tgl Expired', 'No. HP', 'Keterangan', 'Catatan / Request'],
-        ...rows.map((r) => [
-          r.no, r.first_name, r.last_name, r.gender, r.place_of_birth, r.birth_date, r.age,
-          r.passport_no, r.issue_date, r.issuing_office, r.expiry_date, r.phone, r.keterangan, r.catatan || '',
-        ]),
-      ];
+      // Format Excel SERAGAM (buildManifestAOA) — sama di Operasional, Visa, Portal TL.
+      // rows sudah termasuk TL/Tim (crew) dari getManifestRows.
+      const { aoa, merges, cols, sheetName, fileName } = buildManifestAOA({ trip, rows });
       const ws = XLSX.utils.aoa_to_sheet(aoa);
-      ws['!cols'] = [{ wch: 5 }, { wch: 18 }, { wch: 18 }, { wch: 7 }, { wch: 16 }, { wch: 13 }, { wch: 6 },
-        { wch: 18 }, { wch: 13 }, { wch: 18 }, { wch: 13 }, { wch: 16 }, { wch: 20 }, { wch: 32 }];
+      if (Array.isArray(merges)) ws['!merges'] = merges;
+      if (Array.isArray(cols)) ws['!cols'] = cols;
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Manifest');
-      XLSX.writeFile(wb, `Manifest - ${trip.kode_trip || trip.name || 'trip'}.xlsx`);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Manifest');
+      XLSX.writeFile(wb, fileName || `Manifest - ${trip.kode_trip || trip.name || 'trip'}.xlsx`);
     } catch (e) {
       alert('Gagal download: ' + (e?.message || e));
     } finally {

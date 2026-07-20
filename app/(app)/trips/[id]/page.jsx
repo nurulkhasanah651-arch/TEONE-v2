@@ -11,6 +11,8 @@ import { redirect } from 'next/navigation';
 import { fmtRupiah, fmtDate, daysUntil } from '@/lib/utils/format';
 import { statusCfg, tripChecklist, effectiveSellingStatus } from '@/lib/utils/trip-status';
 import ParticipantsList from '@/components/trips/ParticipantsList';
+import TripCrewPanel from '@/components/trips/TripCrewPanel';
+import { getTripCrew } from '@/lib/actions/crew';
 import BackupSheetPanel from '@/components/trip/BackupSheetPanel';
 import FamilyGroupManager from '@/components/families/FamilyGroupManager';
 // R216b: Import Excel panel
@@ -111,6 +113,16 @@ export default async function TripDetailPage({ params }) {
   try {
     const { data: mt } = await supabase.from('mitra').select('id, name').eq('active', true).order('name');
     mitraList = mt || [];
+  } catch {}
+
+  // TL/Tim (crew) trip + master TL utk picker
+  let crewList = [];
+  let tourLeaders = [];
+  try {
+    const cr = await getTripCrew(id);
+    crewList = cr?.crew || [];
+    const { data: tls } = await supabase.from('tour_leaders').select('id, name, active, passport_no').eq('active', true).order('name');
+    tourLeaders = tls || [];
   } catch {}
 
 
@@ -249,6 +261,8 @@ export default async function TripDetailPage({ params }) {
         familyGroups={familyGroups || []}
         mitraList={mitraList}
       />
+
+      <TripCrewPanel tripId={trip.id} crew={crewList} tourLeaders={tourLeaders} />
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">

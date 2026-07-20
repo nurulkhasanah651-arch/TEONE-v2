@@ -7,6 +7,8 @@ import { useMemo, useState } from 'react';
 import { generateRoomlist, normalizeGender } from '@/lib/utils/roomlist';
 import { calcAge } from '@/lib/utils/format';
 import RoomlistDownloadButton from '@/components/common/RoomlistDownloadButton';
+import RoomlistExcelButton from '@/components/common/RoomlistExcelButton';
+import ManifestDownloadButton from '@/components/common/ManifestDownloadButton';
 import { downloadManifestPDF } from '@/lib/utils/manifest-pdf';
 import PaxSearch, { matchesName } from '@/components/common/PaxSearch';
 
@@ -90,8 +92,12 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
       <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
         <h2 className="font-bold text-brand-700 flex-1">📋 Manifest & Roomlist</h2>
         <button onClick={downloadManifestPdf} className="px-3 py-1 rounded font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white">📋 Manifest PDF</button>
+        <ManifestDownloadButton tripId={trip?.id} label="📥 Manifest Excel"
+          className="px-3 py-1 rounded font-semibold text-xs bg-teal-600 hover:bg-teal-700 text-white disabled:opacity-50" />
         <RoomlistDownloadButton tripId={trip?.id} label="🛏 Roomlist PDF"
           className="px-3 py-1 rounded font-semibold text-xs bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50" />
+        <RoomlistExcelButton tripId={trip?.id} label="🛏 Roomlist Excel"
+          className="px-3 py-1 rounded font-semibold text-xs bg-cyan-600 hover:bg-cyan-700 text-white disabled:opacity-50" />
         <div className="flex gap-1 text-xs">
           <button
             onClick={() => setTab('manifest')}

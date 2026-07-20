@@ -4,6 +4,8 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { autoAssignRooms, updateRoomAssignment, clearAllRoomAssignments } from '@/lib/actions/roomlist';
 import { fmtDate } from '@/lib/utils/format';
+import RoomlistExcelButton from '@/components/common/RoomlistExcelButton';
+import RoomlistDownloadButton from '@/components/common/RoomlistDownloadButton';
 
 export default function RoomlistEditor({ tripId, tripCode, passengers = [] }) {
   const [pending, startTransition] = useTransition();
@@ -87,13 +89,11 @@ export default function RoomlistEditor({ tripId, tripCode, passengers = [] }) {
           >
             📥 Download CSV
           </a>
-          <a
-            href={`/visa/${tripId}/roomlist.xls`}
-            download={`roomlist_${tripCode}.xls`}
-            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-lg"
-          >
-            📊 Download Excel
-          </a>
+          {/* Format Excel/PDF SERAGAM dgn Operasional (kolom paspor + section TL & Tim) */}
+          <RoomlistExcelButton tripId={tripId} label="📊 Download Excel"
+            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-lg disabled:opacity-50" />
+          <RoomlistDownloadButton tripId={tripId} label="🛏 Download PDF"
+            className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold rounded-lg disabled:opacity-50" />
         </div>
       </div>
 
