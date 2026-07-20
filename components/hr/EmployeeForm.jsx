@@ -82,6 +82,8 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan',
     waba_tpl_paspor: employee?.waba_tpl_paspor || '',
     waba_tpl_ongkir: employee?.waba_tpl_ongkir || '',
     waba_tpl_pengiriman: employee?.waba_tpl_pengiriman || '',
+    waba_tpl_perubahan_jadwal: employee?.waba_tpl_perubahan_jadwal || '',
+    waba_tpl_finalisasi_tiket: employee?.waba_tpl_finalisasi_tiket || '',
     notes: employee?.notes || '',
   });
 
@@ -354,6 +356,18 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan',
           <Field label="Nama Template Ongkir (Api.co.id) — khusus nomor PIC ini">
             <input autoComplete="off" type="text" name="waba_tpl_ongkir" value={form.waba_tpl_ongkir} onChange={(e) => upd('waba_tpl_ongkir', e.target.value)} placeholder={`mis. ongkir_${isKhasanah ? 'khasanah' : 'teone'}_nama`} className={inputCls} />
             <p className="text-[11px] text-slate-500 mt-1">Template tagihan ongkir pengiriman perlengkapan. Kosong = teks/Fonnte spt biasa.</p>
+          </Field>
+        )}
+        {wabaBrand && (
+          <Field label="Nama Template Info Perubahan Jadwal (Api.co.id) — khusus nomor PIC ini">
+            <input autoComplete="off" type="text" name="waba_tpl_perubahan_jadwal" value={form.waba_tpl_perubahan_jadwal} onChange={(e) => upd('waba_tpl_perubahan_jadwal', e.target.value)} placeholder={`mis. info_perubahan_jadwal_${isKhasanah ? 'khasanah' : 'teone'}_nama`} className={inputCls} />
+            <p className="text-[11px] text-slate-500 mt-1">Nama template broadcast perubahan jadwal maskapai yang disetujui di WABA nomor PIC ini. Cukup isi judul template-nya.</p>
+          </Field>
+        )}
+        {wabaBrand && (
+          <Field label="Nama Template Finalisasi Tiket (Api.co.id) — khusus nomor PIC ini">
+            <input autoComplete="off" type="text" name="waba_tpl_finalisasi_tiket" value={form.waba_tpl_finalisasi_tiket} onChange={(e) => upd('waba_tpl_finalisasi_tiket', e.target.value)} placeholder={`mis. info_finalisasi_tiket_${isKhasanah ? 'khasanah' : 'teone'}_nama`} className={inputCls} />
+            <p className="text-[11px] text-slate-500 mt-1">Nama template broadcast finalisasi/issued tiket yang disetujui di WABA nomor PIC ini. Cukup isi judul template-nya.</p>
           </Field>
         )}
         <Field label="Catatan">
