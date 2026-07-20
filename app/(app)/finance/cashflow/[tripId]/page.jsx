@@ -18,6 +18,7 @@ import QuotationDownloadButton from '@/components/finance/QuotationDownloadButto
 import HotelHPPSection from '@/components/finance/HotelHPPSection';
 import RoomlistPanel from '@/components/finance/RoomlistPanel';
 import ManifestDownloadButton from '@/components/common/ManifestDownloadButton';
+import ManifestPdfButton from '@/components/common/ManifestPdfButton';
 import RoomlistDownloadButton from '@/components/common/RoomlistDownloadButton';
 import ProyeksiIncomeSection from '@/components/finance/ProyeksiIncomeSection';
 
@@ -251,6 +252,13 @@ export default async function CashflowDetailPage({ params }) {
             ]}
             buttonSize="md"
           />
+          {/* Download Roomlist & Manifest (PDF landscape 1 lembar + Excel) — di area Proyeksi Income */}
+          <RoomlistDownloadButton tripId={tripId} label="🛏 Roomlist PDF"
+            className="px-3 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded disabled:opacity-50" />
+          <ManifestPdfButton tripId={tripId} label="📋 Manifest PDF"
+            className="px-3 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded disabled:opacity-50" />
+          <ManifestDownloadButton tripId={tripId} label="📥 Manifest Excel"
+            className="px-3 py-2 text-sm bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded disabled:opacity-50" />
         </div>
       </div>
 
@@ -344,8 +352,6 @@ export default async function CashflowDetailPage({ params }) {
         tripName={trip.name}
         fmtMoney={fmtMoney}
       />
-
-      <div className="flex justify-end gap-2"><RoomlistDownloadButton tripId={tripId} /><ManifestDownloadButton tripId={tripId} /></div>
 
       <RoomlistPanel
         trip={trip}

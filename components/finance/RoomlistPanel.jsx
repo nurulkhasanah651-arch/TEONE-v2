@@ -11,6 +11,8 @@ import { useState, useTransition, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { generateRoomlist, normalizeGender } from '@/lib/utils/roomlist';
 import { saveFinalRoomlist, clearFinalRoomlist } from '@/lib/actions/roomlist';
+import { getRoomlistRows } from '@/lib/actions/manifest';
+import { buildRoomlistAOA } from '@/lib/utils/roomlist-export';
 import { ROOM_TYPES, ROOM_CAPACITY } from '@/lib/utils/room-pricing';
 
 function genderOf(p, custMap) {
@@ -206,26 +208,22 @@ export default function RoomlistPanel({ trip, passengers = [], customers = [] })
     });
   }
 
+  // Excel roomlist = FORMAT SAMA dengan PDF (kolom paspor/tempat-tgl lahir/umur, Room Type
+  // di-merge per kamar, ringkasan jumlah kamar). Ambil data dari sumber yang sama dgn PDF
+  // (getRoomlistRows: pakai Final Roomlist tersimpan, kalau belum ada auto-generate) supaya
+  // Excel & PDF identik. Tips: klik "Simpan Final Roomlist" dulu agar susunan terbaru ikut.
   async function downloadRoomlistExcel() {
     try {
+      const res = await getRoomlistRows(trip.id);
+      if (res?.error) { showMsg('Gagal: ' + res.error, 'error'); return; }
       const XLSX = await import('xlsx');
-      const aoa = [
-        [`FINAL ROOMLIST — ${trip?.name || ''}`],
-        [''],
-        ['Room#', 'Type', 'Cap', 'Label', 'Pax 1', 'Pax 2', 'Pax 3', 'Pax 4', 'Note'],
-      ];
-      rooms.forEach((r, i) => {
-        const names = [0, 1, 2, 3].map((x) => {
-          const m = r.members[x];
-          return m ? `${m.name}${m.gender && m.gender !== '?' ? ` (${m.gender})` : ''}` : '';
-        });
-        aoa.push([i + 1, (r.room_type || '').toUpperCase(), ROOM_CAPACITY[r.room_type] || '', r.label, ...names, roomWarning(r)?.text || '']);
-      });
+      const { aoa, merges, cols, sheetName, fileName } = buildRoomlistAOA({ trip: res.trip || trip, rooms: res.rooms || [] });
       const ws = XLSX.utils.aoa_to_sheet(aoa);
-      ws['!cols'] = [{ wch: 7 }, { wch: 10 }, { wch: 5 }, { wch: 26 }, { wch: 24 }, { wch: 24 }, { wch: 24 }, { wch: 24 }, { wch: 36 }];
+      if (Array.isArray(merges)) ws['!merges'] = merges;
+      if (Array.isArray(cols)) ws['!cols'] = cols;
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Final Roomlist');
-      XLSX.writeFile(wb, `Roomlist - ${trip?.kode_trip || trip?.name || 'trip'}.xlsx`);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Roomlist');
+      XLSX.writeFile(wb, fileName || `Roomlist - ${trip?.kode_trip || trip?.name || 'trip'}.xlsx`);
     } catch (e) {
       showMsg('Gagal download: ' + e.message, 'error');
     }
