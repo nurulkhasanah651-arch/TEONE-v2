@@ -6,7 +6,7 @@
 // - R198: Send WA Konfirmasi ke TL (di samping Tour Leader)
 
 import { useState, useEffect } from 'react';
-import { ROOM_KEYS, AGE_KEYS, ADDON_KEYS, LAND_TOUR_KEYS, autoDeadlineClose } from '@/lib/utils/price-breakdown';
+import { ROOM_KEYS, AGE_KEYS, ADDON_KEYS, LAND_TOUR_KEYS, KHASANAH_MANDATORY_ADDONS, autoDeadlineClose } from '@/lib/utils/price-breakdown';
 import TLSendWAButton from '@/components/master-trip/TLSendWAButton';
 
 let TLPicker;
@@ -28,7 +28,7 @@ function parseRupiah(s) {
   return String(s).replace(/[^0-9]/g, '');
 }
 
-export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan Trip', tourLeaders = [], pnrInventory = [], employees = [] }) {
+export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan Trip', tourLeaders = [], pnrInventory = [], employees = [], isKhasanah = false }) {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const [departure, setDeparture] = useState(initial.departure || '');
@@ -207,6 +207,18 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
             </div>
             <p className="text-[11px] text-slate-400 mt-1">Isi <b>Visa E-Paspor</b> hanya untuk trip yg punya 2 tipe visa (mis. Jepang). Kalau diisi, peserta bisa pilih e-paspor / biasa di web & saat input. Kosongkan kalau cuma 1 jenis visa.</p>
           </div>
+
+          {isKhasanah && (
+            <div>
+              <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">Biaya Wajib (Khasanah)</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                {KHASANAH_MANDATORY_ADDONS.map((a) => (
+                  <PriceField key={a.key} icon={a.icon} label={a.label} value={breakdown[a.key]} onChange={(v) => setBd(a.key, v)} />
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">Item wajib khusus Khasanah. Kalau diisi, otomatis masuk <b>harga pokok</b> & tampil sebagai baris tersendiri di invoice (Infant & Child-no-bed bebas). Kosongkan kalau tidak dipakai.</p>
+            </div>
+          )}
 
           <div>
             <p className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2">Custom Items</p>

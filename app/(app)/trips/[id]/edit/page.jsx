@@ -8,6 +8,7 @@ import TLAssignmentPanel from '@/components/master-trip/TLAssignmentPanel'; // R
 import StorefrontPanel from '@/components/trips/StorefrontPanel';
 import ChangePicControl from '@/components/master-trip/ChangePicControl';
 import { updateTrip } from '../../actions';
+import { currentBrandCode } from '@/lib/supabase/service-env';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,6 +94,7 @@ export default async function EditTripPage({ params }) {
           tourLeaders={tourLeaders}
           pnrInventory={pnrInventory}
           employees={employees}
+          isKhasanah={(() => { try { return currentBrandCode() === 'khasanah'; } catch { return false; } })()}
         />
       </div>
 

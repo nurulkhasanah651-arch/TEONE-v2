@@ -173,6 +173,7 @@ export default async function PublicInvoicePage({ params }) {
   let discountReal = 0;
   let famRoom = 0, famTips = 0, famCity = 0, famFlight = 0, famBaggage = 0, famBase = 0, famVisa = 0, famAsuransi = 0, famCount = 1, famResolved = false;
   let famVisaCount = 0, famAsuransiCount = 0, famPerlengkapan = 0;
+  let famAsrTipsLocal = 0, famHandlingPerl = 0, famVisaAsr = 0;
   let famVisaPokok = 0, famAsuransiPokok = 0, famVisaPokokCount = 0, famAsuransiPokokCount = 0;
   let famAddonItems = [];
   let famMembers = [];
@@ -193,6 +194,9 @@ export default async function PublicInvoicePage({ params }) {
       famBaggage = bill.members.reduce((t, m) => t + (m.baggage || 0), 0);
       famBase = bill.members.reduce((t, m) => t + (m.baseFee || 0), 0);
       famPerlengkapan = bill.members.reduce((t, m) => t + (m.perlengkapan || 0), 0);
+      famAsrTipsLocal = bill.members.reduce((t, m) => t + (m.asuransiTipsLocalGuide || 0), 0);
+      famHandlingPerl = bill.members.reduce((t, m) => t + (m.handlingPerlengkapan || 0), 0);
+      famVisaAsr = bill.members.reduce((t, m) => t + (m.visaAsuransi || 0), 0);
       famVisa = Number(bill.visaExpected) || 0;
       famAsuransi = Number(bill.asuransiExpected) || 0;
       famCount = bill.count || 1;
@@ -240,7 +244,8 @@ export default async function PublicInvoicePage({ params }) {
   const rCity = famResolved ? famCity : cityTax;
   const _pokokGross = (Number(expectedTotalReal) || 0) + (Number(discountReal) || 0);
   const _extras = (rTips || 0) + (rCity || 0) + (famFlight || 0) + (famBaggage || 0) + (famBase || 0) + (famPerlengkapan || 0)
-    + (famVisaPokok || 0) + (famAsuransiPokok || 0);
+    + (famVisaPokok || 0) + (famAsuransiPokok || 0)
+    + (famAsrTipsLocal || 0) + (famHandlingPerl || 0) + (famVisaAsr || 0);
   // Paket Tour = HARGA KAMAR dari Master Trip, dikelompokkan per tipe kamar & disebut tipenya.
   // Dulu dihitung mundur (total − komponen lain); kalau price_paid salah, baris ini ikut jadi
   // angka karangan (mis. trip 501: tampil 48jt utk 2 pax padahal double 27,9jt/orang).
@@ -273,6 +278,10 @@ export default async function PublicInvoicePage({ params }) {
   if (rTips > 0) tourItems.push({ label: `Tips${_cntNote(_cnt((m) => (m.tips || 0) > 0))}`, amount: rTips });
   if (rCity > 0) tourItems.push({ label: `City Tax${_cntNote(_cnt((m) => (m.cityTax || 0) > 0))}`, amount: rCity });
   if (famPerlengkapan > 0) tourItems.push({ label: `Perlengkapan${_cntNote(_cnt((m) => (m.perlengkapan || 0) > 0))}`, amount: famPerlengkapan });
+  // Khasanah: 3 item wajib gabungan baru — tampil sebagai baris tersendiri (spt Tips/Perlengkapan).
+  if (famAsrTipsLocal > 0) tourItems.push({ label: `Asuransi & Tips Local Guide${_cntNote(_cnt((m) => (m.asuransiTipsLocalGuide || 0) > 0))}`, amount: famAsrTipsLocal });
+  if (famHandlingPerl > 0) tourItems.push({ label: `Handling & Perlengkapan${_cntNote(_cnt((m) => (m.handlingPerlengkapan || 0) > 0))}`, amount: famHandlingPerl });
+  if (famVisaAsr > 0) tourItems.push({ label: `Visa & Asuransi${_cntNote(_cnt((m) => (m.visaAsuransi || 0) > 0))}`, amount: famVisaAsr });
   // Khasanah: visa & asuransi = biaya wajib, bagian dari total paket (bukan opt-in).
   if (famVisaPokok > 0) tourItems.push({ label: famVisaPokokCount > 1 ? `Visa (${famVisaPokokCount} peserta)` : 'Visa', amount: famVisaPokok });
   if (famAsuransiPokok > 0) tourItems.push({ label: famAsuransiPokokCount > 1 ? `Asuransi (${famAsuransiPokokCount} peserta)` : 'Asuransi', amount: famAsuransiPokok });

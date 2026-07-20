@@ -4,6 +4,7 @@ import Link from 'next/link';
 import TripForm from '@/components/trips/TripForm';
 import { createTrip } from '../actions';
 import { createClient } from '@/lib/supabase/server';
+import { currentBrandCode } from '@/lib/supabase/service-env';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,6 +76,7 @@ export default async function NewTripPage() {
           tourLeaders={tourLeaders}
           pnrInventory={pnrInventory}
           employees={employees}
+          isKhasanah={(() => { try { return currentBrandCode() === 'khasanah'; } catch { return false; } })()}
         />
       </div>
     </div>

@@ -46,7 +46,7 @@ export default function StorefrontPanel({ trip }) {
   const [dpAmount, setDpAmount] = useState(trip.dp_amount || '');
   const [tplApplied, setTplApplied] = useState(false);
   const roomPrices = ROOM_KEYS.map((r) => ({ ...r, price: Number(bd[r.key]) || 0 })).filter((r) => r.price > 0);
-  const EXTRA_LABELS = { tips: 'Tips', city_tax: 'City Tax', domestic_baggage: 'Bagasi Domestik', domestic_flight: 'Tiket Domestik', harga_jual_base: 'Base', visa: 'Visa', asuransi: 'Asuransi', perlengkapan: 'Perlengkapan' };
+  const EXTRA_LABELS = { tips: 'Tips', city_tax: 'City Tax', domestic_baggage: 'Bagasi Domestik', domestic_flight: 'Tiket Domestik', harga_jual_base: 'Base', visa: 'Visa', asuransi: 'Asuransi', perlengkapan: 'Perlengkapan', asuransi_tips_local_guide: 'Asuransi & Tips Local Guide', handling_perlengkapan: 'Handling & Perlengkapan', visa_asuransi: 'Visa & Asuransi' };
   const extraRows = Object.keys(EXTRA_LABELS).map((k) => ({ k, label: EXTRA_LABELS[k], val: Number(bd[k]) || 0 })).filter((x) => x.val > 0);
 
   async function uploadOne(file) {
