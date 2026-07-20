@@ -49,6 +49,7 @@ function savedToEditable(saved) {
 }
 
 function roomWarning(room) {
+  if (room.is_crew) return null; // section TL & Tim — bukan kamar peserta, tanpa warning
   const cap = ROOM_CAPACITY[room.room_type] || room.members.length || 1;
   if (room.members.length === 0) return { level: 'info', text: 'Kamar kosong' };
   if (room.is_family) {
@@ -89,7 +90,7 @@ function mergeSavedWithNew(saved, passengers, custMap) {
   return { rooms: base, hasMissing: missing.length > 0 };
 }
 
-export default function RoomlistPanel({ trip, passengers = [], customers = [] }) {
+export default function RoomlistPanel({ trip, passengers = [], customers = [], crew = [] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
@@ -101,9 +102,25 @@ export default function RoomlistPanel({ trip, passengers = [], customers = [] })
 
   const hasSaved = !!trip?.final_roomlist?.rooms;
   const initial = useMemo(
-    () => hasSaved
-      ? mergeSavedWithNew(trip.final_roomlist, passengers, custMap)
-      : { rooms: autoToEditable(passengers, customers, custMap), hasMissing: false },
+    () => {
+      const base = hasSaved
+        ? mergeSavedWithNew(trip.final_roomlist, passengers, custMap)
+        : { rooms: autoToEditable(passengers, customers, custMap), hasMissing: false };
+      // Suntik TL/Tim (crew) yg BELUM ada di kamar mana pun -> section "TL & Tim" yg bisa dipindah.
+      const present = new Set();
+      for (const r of base.rooms) for (const m of (r.members || [])) present.add(String(m.name || '').toLowerCase());
+      const freshCrew = (crew || []).filter((c) => c.name && !present.has(String(c.name).toLowerCase()));
+      if (freshCrew.length) {
+        base.rooms = [...base.rooms, {
+          key: 'crew-tl-tim', room_type: 'TL & TIM', label: 'TL & Tim', is_family: false, is_crew: true,
+          members: freshCrew.map((c) => ({
+            passenger_id: null, name: c.name, gender: normalizeGender({ gender: c.gender }),
+            manual: true, is_crew: true, role: c.role || 'Tour Leader',
+          })),
+        }];
+      }
+      return base;
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
@@ -185,6 +202,7 @@ export default function RoomlistPanel({ trip, passengers = [], customers = [] })
         capacity: ROOM_CAPACITY[r.room_type] || r.members.length,
         label: r.label,
         is_family: r.is_family,
+        is_crew: r.is_crew || false,
         gender: r.is_family ? 'family' : (r.members[0]?.gender || '?'),
         members: r.members,
         note: roomWarning(r)?.text || '',
@@ -291,20 +309,26 @@ export default function RoomlistPanel({ trip, passengers = [], customers = [] })
                 r.is_family ? 'border-pink-200 bg-pink-50/40' : 'border-slate-200 bg-slate-50/50'
               }`}>
                 <div className="flex items-center justify-between gap-1 mb-2">
-                  <span className="text-[11px] font-bold text-slate-600 shrink-0">Room {roomIdx + 1}</span>
-                  <select
-                    value={r.room_type}
-                    disabled={isFinal}
-                    onChange={(e) => setRoomField(roomIdx, 'room_type', e.target.value)}
-                    className="text-[10px] border border-slate-300 rounded px-1 py-0.5"
-                  >
-                    {ROOM_TYPES.map((rt) => <option key={rt.key} value={rt.key}>{rt.label} ({rt.capacity})</option>)}
-                  </select>
-                  <label className="flex items-center gap-1 text-[9px] font-bold text-pink-600 cursor-pointer shrink-0">
-                    <input autoComplete="off" type="checkbox" checked={r.is_family} disabled={isFinal}
-                      onChange={(e) => setRoomField(roomIdx, 'is_family', e.target.checked)} />
-                    FAM
-                  </label>
+                  <span className="text-[11px] font-bold text-slate-600 shrink-0">{r.is_crew ? '🧑‍✈️ TL & Tim' : `Room ${roomIdx + 1}`}</span>
+                  {r.is_crew ? (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 shrink-0">tanpa bayar</span>
+                  ) : (
+                    <>
+                      <select
+                        value={r.room_type}
+                        disabled={isFinal}
+                        onChange={(e) => setRoomField(roomIdx, 'room_type', e.target.value)}
+                        className="text-[10px] border border-slate-300 rounded px-1 py-0.5"
+                      >
+                        {ROOM_TYPES.map((rt) => <option key={rt.key} value={rt.key}>{rt.label} ({rt.capacity})</option>)}
+                      </select>
+                      <label className="flex items-center gap-1 text-[9px] font-bold text-pink-600 cursor-pointer shrink-0">
+                        <input autoComplete="off" type="checkbox" checked={r.is_family} disabled={isFinal}
+                          onChange={(e) => setRoomField(roomIdx, 'is_family', e.target.checked)} />
+                        FAM
+                      </label>
+                    </>
+                  )}
                   {r.members.length === 0 && !isFinal && (
                     <button onClick={() => removeRoom(roomIdx)} className="text-red-500 text-xs font-bold" title="Hapus room kosong">✕</button>
                   )}
@@ -322,7 +346,8 @@ export default function RoomlistPanel({ trip, passengers = [], customers = [] })
                       <span className="text-[11px] text-slate-800 truncate flex-1">
                         {m.name}
                         {m.gender && m.gender !== '?' && <span className="ml-1 text-[9px] text-slate-400">({m.gender === 'M' ? 'L' : 'P'})</span>}
-                        {m.manual && <span className="ml-1 text-[8px] px-1 bg-indigo-100 text-indigo-600 rounded font-bold">MANUAL</span>}
+                        {m.is_crew && <span className="ml-1 text-[8px] px-1 bg-indigo-100 text-indigo-700 rounded font-bold">{(m.role || 'TL').toUpperCase()}</span>}
+                        {m.manual && !m.is_crew && <span className="ml-1 text-[8px] px-1 bg-indigo-100 text-indigo-600 rounded font-bold">MANUAL</span>}
                         {m.noBed && <span className="ml-1 text-[8px] px-1 bg-amber-100 text-amber-700 rounded font-bold">{m.ageType === 'infant' ? 'INFANT' : 'NO BED'}</span>}
                       </span>
                       {!isFinal && (

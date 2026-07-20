@@ -21,6 +21,7 @@ import ManifestDownloadButton from '@/components/common/ManifestDownloadButton';
 import ManifestPdfButton from '@/components/common/ManifestPdfButton';
 import RoomlistDownloadButton from '@/components/common/RoomlistDownloadButton';
 import ProyeksiIncomeSection from '@/components/finance/ProyeksiIncomeSection';
+import { getTripCrew } from '@/lib/actions/crew';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,6 +73,10 @@ export default async function CashflowDetailPage({ params }) {
   }
 
   const breakdown = await fetchBreakdown(supabase, tripId, trip);
+
+  // TL/Tim (crew) trip — utk ditampilkan di panel Roomlist (bisa dipindah manual).
+  let crewList = [];
+  try { const cr = await getTripCrew(tripId); crewList = cr?.crew || []; } catch {}
 
   const activePassengers = allPassengers.filter((p) => {
     const isTransferred = p.transfer_status === 'transferred';
@@ -359,6 +364,7 @@ export default async function CashflowDetailPage({ params }) {
         trip={trip}
         passengers={allPassengers}
         customers={customers}
+        crew={crewList}
       />
 
       <HotelHPPSection
