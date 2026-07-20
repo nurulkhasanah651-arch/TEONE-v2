@@ -14,14 +14,19 @@ export default function ProyeksiIncomeSection({
   byRoom = {},
   undefinedCount = 0,
   brand = '',
+  visaRequirement = '',
 }) {
   const custMap = Object.fromEntries((customers || []).map((c) => [c.id, c]));
+  const _grpVisa = String(visaRequirement || '') === 'group';
+  const _isKh = String(brand || '').toLowerCase() === 'khasanah';
 
   // Per-pax breakdown
   const perPaxRows = activePassengers.map((p) => {
     const cust = custMap[p.customer_id];
     const pPays = paymentsByPax[p.id] || [];
-    const expected = expectedPerPassenger(p, breakdown, pPays, brand);
+    // Group wajib visa (TEONE) -> semua peserta diperlakukan include_visa.
+    const pEff = (_grpVisa && !_isKh) ? { ...p, include_visa: true } : p;
+    const expected = expectedPerPassenger(pEff, breakdown, pPays, brand);
     const paid = pPays.reduce((s, x) => s + Number(x.amount || 0), 0);
     const outstanding = Math.max(expected - paid, 0);
     return {

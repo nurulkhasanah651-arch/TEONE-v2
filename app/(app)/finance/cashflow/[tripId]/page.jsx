@@ -99,7 +99,8 @@ export default async function CashflowDetailPage({ params }) {
   const autoCashIn = allPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
   const actualPaymentCount = allPayments.length;
 
-  const proyeksi = computeIncomeProjection(activePassengers, breakdown, allPayments);
+  const _brand = (() => { try { return currentBrandCode() || ''; } catch { return ''; } })();
+  const proyeksi = computeIncomeProjection(activePassengers, breakdown, allPayments, _brand, { visaRequirement: trip.visa_requirement });
   const proyeksiIncome = proyeksi.total || 0;
 
   const paymentsByPax = {};
@@ -303,7 +304,8 @@ export default async function CashflowDetailPage({ params }) {
       </div>
 
       <ProyeksiIncomeSection
-        brand={(() => { try { return currentBrandCode() || ''; } catch { return ''; } })()}
+        brand={_brand}
+        visaRequirement={trip.visa_requirement || ''}
         activePassengers={activePassengers}
         breakdown={breakdown}
         paymentsByPax={paymentsByPax}

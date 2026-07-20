@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { currentBrandCode } from '@/lib/supabase/service-env';
 import { fetchAll } from '@/lib/supabase/fetch-all';
 import { fmtRupiah } from '@/lib/utils/format';
 import { computeIncomeProjection } from '@/lib/utils/price-breakdown';
@@ -14,10 +15,10 @@ export default async function FinancePage() {
   const supabase = createClient();
 
   const [tripsRes, itemsRes, pnrRes, paxRes, accRes] = await Promise.all([
-    supabase.from('trips').select('id, status, price_breakdown'),
+    supabase.from('trips').select('id, status, price_breakdown, visa_requirement'),
     supabase.from('trip_finance_items').select('trip_id, item_type, total_amount'),
     supabase.from('flight_inventory').select('id', { count: 'exact', head: true }),
-    fetchAll(() => supabase.from('trip_passengers').select('trip_id, room_type, price_paid, age_type')),
+    fetchAll(() => supabase.from('trip_passengers').select('id, trip_id, room_type, price_paid, age_type, discount_amount, include_visa, include_asuransi, visa_ready, visa_type')),
     supabase.from('accounting_entries').select('type, amount'),
   ]);
 
@@ -48,13 +49,14 @@ export default async function FinancePage() {
     paxByTrip[p.trip_id].push(p);
   }
 
+  const _brand = (() => { try { return currentBrandCode() || ''; } catch { return ''; } })();
   let autoIncome = 0;
   for (const t of trips) {
     if (t.status === 'cancelled') continue;
     const breakdown = t.price_breakdown || {};
     const pax = paxByTrip[t.id] || [];
     try {
-      const proj = computeIncomeProjection(pax, breakdown);
+      const proj = computeIncomeProjection(pax, breakdown, [], _brand, { visaRequirement: t.visa_requirement });
       autoIncome += proj.total || 0;
     } catch {}
   }

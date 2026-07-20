@@ -5,6 +5,7 @@
 
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { currentBrandCode } from '@/lib/supabase/service-env';
 import { fetchAll } from '@/lib/supabase/fetch-all';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import { statusCfg } from '@/lib/utils/trip-status';
@@ -38,10 +39,12 @@ export default async function CashflowListPage({ searchParams }) {
   const filterMonth = sp?.month || ''; // format YYYY-MM
   const filterYear = sp?.year || '';   // format YYYY
 
+  const brand = (() => { try { return currentBrandCode() || ''; } catch { return ''; } })();
+
   const [tripsRes, itemsRes, passengersRes, landtourRes, accRes] = await Promise.all([
-    supabase.from('trips').select('id, kode_trip, name, status, departure, quota, sold, price_breakdown').order('departure', { ascending: true }),
+    supabase.from('trips').select('id, kode_trip, name, status, departure, quota, sold, price_breakdown, visa_requirement').order('departure', { ascending: true }),
     supabase.from('trip_finance_items').select('trip_id, item_type, total_amount'),
-    fetchAll(() => supabase.from('trip_passengers').select('id, trip_id, transfer_status, refund_status, room_type, price_paid, discount_amount')),
+    fetchAll(() => supabase.from('trip_passengers').select('id, trip_id, transfer_status, refund_status, room_type, age_type, price_paid, discount_amount, include_visa, include_asuransi, visa_ready, visa_type')),
     // R215c — fetch Landtour vendor untuk "Operated by"
     supabase.from('trip_finance_items')
       .select('trip_id, vendor_name, component, category')
@@ -117,7 +120,7 @@ export default async function CashflowListPage({ searchParams }) {
       }
       for (const t of trips) {
         const recs = activeRecByTrip[t.id] || [];
-        const proj = computeIncomeProjection(recs, breakdownByTrip[t.id], validPaysByTrip[t.id] || []);
+        const proj = computeIncomeProjection(recs, breakdownByTrip[t.id], validPaysByTrip[t.id] || [], brand, { visaRequirement: t.visa_requirement });
         autoIncomeByTrip[t.id] = proj.total || 0;
       }
     } catch (e) {
