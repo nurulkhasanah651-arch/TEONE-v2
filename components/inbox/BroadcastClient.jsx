@@ -3,6 +3,50 @@
 // Broadcast WABA + Template Manager (Khasanah).
 import { useState, useTransition } from 'react';
 import { previewBroadcastAudience, sendBroadcast } from '@/lib/actions/wa-blast';
+import { createBlastUploadUrl } from '@/lib/actions/blast';
+
+// Template SIAP DAFTAR ke Meta WhatsApp Manager (belum tentu sudah Approved).
+// Setelah di-approve di Meta, otomatis muncul di daftar template atas & bisa dikirim.
+const WABA_TEMPLATE_DRAFTS = [
+  {
+    name: 'info_perubahan_jadwal',
+    category: 'UTILITY',
+    language: 'Indonesian (id)',
+    vars: '{{1}} = nama · {{2}} = jadwal semula · {{3}} = jadwal terbaru · {{4}} = link itinerary',
+    body: `Halo Kak {{1}} 🙏
+
+Dengan hormat, kami menginformasikan adanya perubahan jadwal penerbangan dari pihak maskapai untuk keberangkatan Kakak.
+
+Jadwal semula: {{2}}
+Jadwal terbaru: {{3}}
+
+Perubahan ini tidak mengubah susunan itinerary sama sekali — seluruh agenda perjalanan tetap berjalan sesuai rencana semula.
+
+Detail itinerary terbaru dapat Kakak akses di tautan berikut: {{4}}
+
+Terima kasih atas perhatian Kakak 🙏`,
+    footer: 'Tim Traveling Eropa & Khasanah Travel',
+    samples: ['Budi', '12 Okt – 18 Okt 2026', '13 Okt – 19 Okt 2026', 'https://travelingeropa.com/doc/itinerary.pdf'],
+  },
+  {
+    name: 'info_finalisasi_tiket',
+    category: 'UTILITY',
+    language: 'Indonesian (id)',
+    vars: '{{1}} = nama',
+    body: `Halo Kak {{1}} 🙏
+
+Izin menginformasikan, saat ini kami sedang memasuki tahap finalisasi dan penerbitan (issued) tiket penerbangan untuk keberangkatan Kakak.
+
+Dengan melanjutkan proses ini, Kakak dianggap telah menyetujui syarat & ketentuan yang berlaku:
+
+1. Tiket bersifat NON-REFUND dalam kondisi apa pun.
+2. Nama pada tiket tidak dapat diubah (no change name).
+
+Mohon konfirmasi kesediaan Kakak agar dapat kami lanjutkan ke proses issued tiket. Terima kasih atas kepercayaan & kerja samanya 🙏`,
+    footer: 'Tim Traveling Eropa & Khasanah Travel',
+    samples: ['Budi'],
+  },
+];
 
 export default function BroadcastClient({ initial }) {
   const [tab, setTab] = useState('kirim');
@@ -18,6 +62,27 @@ export default function BroadcastClient({ initial }) {
   const [audience, setAudience] = useState(null);
   const [result, setResult] = useState(null);
   const [pending, start] = useTransition();
+  const [uploading, setUploading] = useState(false);
+  const [docLink, setDocLink] = useState('');
+  const [copied, setCopied] = useState('');
+
+  function copy(text, key) {
+    try { navigator.clipboard.writeText(text); setCopied(key); setTimeout(() => setCopied(''), 1500); } catch {}
+  }
+
+  async function onUploadItinerary(e) {
+    const file = e.target.files?.[0]; if (!file) return;
+    if (file.size > 26214400) { alert('File maksimal 25MB.'); return; }
+    setUploading(true);
+    try {
+      const init = await createBlastUploadUrl(file.name);
+      if (!init?.ok) { alert(init?.error || 'Gagal menyiapkan upload.'); setUploading(false); return; }
+      const up = await fetch(init.signedUrl, { method: 'PUT', headers: { 'content-type': file.type || 'application/octet-stream', 'x-upsert': 'true' }, body: file });
+      if (!up.ok) { alert('Upload gagal (' + up.status + ').'); setUploading(false); return; }
+      setDocLink(init.publicUrl || '');
+    } catch (e2) { alert(e2?.message || 'Upload gagal.'); }
+    setUploading(false);
+  }
 
   function checkAudience(tid) {
     setTripId(tid); setAudience(null); setResult(null);
@@ -68,9 +133,27 @@ export default function BroadcastClient({ initial }) {
             )}
           </label>
           <label className="block"><span className="text-xs font-bold text-slate-600">Variabel tambahan (opsional)</span>
-            <input value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="var2 | var3 (var1 = nama otomatis)" className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
-            <span className="text-[11px] text-slate-500">{'{{1}}'} otomatis nama peserta. Isi sisanya kalau template punya lebih dari 1 variabel.</span>
+            <input value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="var2 | var3 | var4 (var1 = nama otomatis)" className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+            <span className="text-[11px] text-slate-500">{'{{1}}'} otomatis nama peserta. Pisahkan variabel berikutnya dengan tanda <b>|</b>. Contoh <i>info_perubahan_jadwal</i>: <code className="bg-slate-100 px-1 rounded">12 Okt – 18 Okt | 13 Okt – 19 Okt | (link itinerary)</code></span>
           </label>
+
+          {/* Upload itinerary -> link (utk variabel link, mis. {{4}} di info_perubahan_jadwal) */}
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Upload itinerary → dapat link (opsional)</p>
+            {docLink ? (
+              <div className="flex items-center gap-2 text-xs">
+                <input readOnly value={docLink} className="flex-1 px-2 py-1.5 border border-slate-300 rounded bg-white text-slate-700" />
+                <button type="button" onClick={() => copy(docLink, 'link')} className="px-2 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-semibold shrink-0">{copied === 'link' ? '✓ Tersalin' : 'Copy link'}</button>
+                <button type="button" onClick={() => setDocLink('')} className="text-rose-600 hover:underline shrink-0">Hapus</button>
+              </div>
+            ) : (
+              <label className="inline-flex items-center gap-2 text-sm cursor-pointer text-indigo-600 hover:underline">
+                <input type="file" accept=".pdf,image/*" onChange={onUploadItinerary} className="hidden" />
+                {uploading ? 'Mengunggah…' : '+ Upload PDF / gambar itinerary'}
+              </label>
+            )}
+            <p className="text-[10px] text-slate-400 mt-1">Copy link-nya, lalu tempel sebagai variabel link di kolom "Variabel tambahan" di atas. Maks 25MB.</p>
+          </div>
           <button onClick={kirim} disabled={pending || !templateName || !tripId} className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg disabled:opacity-50">
             {pending ? 'Mengirim…' : `📤 Kirim ke ${audience?.count || 0} peserta`}
           </button>
@@ -84,7 +167,35 @@ export default function BroadcastClient({ initial }) {
       )}
 
       {tab === 'template' && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+        <div className="space-y-4">
+          {/* Template siap daftar ke Meta (copy-paste) */}
+          <div className="bg-white rounded-xl border-2 border-indigo-200 shadow-card overflow-hidden">
+            <div className="px-4 py-2.5 bg-indigo-50 border-b border-indigo-200">
+              <p className="font-bold text-indigo-800 text-sm">📋 Template Siap Daftar ke Meta</p>
+              <p className="text-[11px] text-slate-600">Copy body-nya, daftarkan di Meta WhatsApp Manager → Create Template. Setelah <b>Approved</b>, otomatis muncul di daftar bawah &amp; bisa dikirim.</p>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {WABA_TEMPLATE_DRAFTS.map((t) => (
+                <div key={t.name} className="p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <code className="text-sm font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">{t.name}</code>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600">{t.category}</span>
+                      <span className="text-[10px] text-slate-500">{t.language}</span>
+                    </div>
+                    <button type="button" onClick={() => copy(t.body, t.name)} className="text-xs px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-semibold">{copied === t.name ? '✓ Tersalin' : 'Copy body'}</button>
+                  </div>
+                  <p className="text-[11px] text-slate-500">Variabel: {t.vars}</p>
+                  <pre className="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded p-3 whitespace-pre-wrap font-sans">{t.body}</pre>
+                  <p className="text-[11px] text-slate-500">Footer: <span className="text-slate-700">{t.footer}</span> · Contoh sample: {t.samples.map((s, i) => `{{${i + 1}}}=${s}`).join(' · ')}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Daftar template yg SUDAH approved di Meta */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+          <p className="px-4 py-2 text-xs font-bold text-slate-600 border-b border-slate-100 bg-slate-50">Template Approved di Meta ({templates.length})</p>
           {tplError ? <p className="p-5 text-sm text-red-600">{tplError}</p> : (
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-left text-xs text-slate-500 uppercase"><tr><th className="px-4 py-2">Nama</th><th className="px-4 py-2">Kategori</th><th className="px-4 py-2">Bahasa</th><th className="px-4 py-2">Status</th></tr></thead>
@@ -97,6 +208,7 @@ export default function BroadcastClient({ initial }) {
             </table>
           )}
           <p className="px-4 py-2 text-[11px] text-slate-400 border-t border-slate-100">Template dibuat &amp; di-approve di Meta WhatsApp Manager. Di sini hanya menampilkan yang sudah Approved.</p>
+          </div>
         </div>
       )}
     </div>
