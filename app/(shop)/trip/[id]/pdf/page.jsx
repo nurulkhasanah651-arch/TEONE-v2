@@ -56,7 +56,9 @@ export default async function TripPdfPage({ params }) {
         .pagewrap { width: 210mm; margin: 0 auto; }
         /* Konten mengalir menerus (tanpa page-break paksa) supaya tidak ada celah kosong saat diprint. */
         .page { width: 210mm; background: #fff; position: relative; overflow: hidden; }
-        .page.cover { min-height: 296mm; page-break-after: always; }   /* hanya cover yang 1 halaman penuh */
+        /* Cover: tinggi aman (muat 1 halaman walau "Margins: Default") supaya tidak meluber jadi
+           strip biru di halaman 2. break-inside:avoid -> tidak pernah kepotong antar-halaman. */
+        .page.cover { height: 255mm; overflow: hidden; page-break-after: always; page-break-inside: avoid; break-inside: avoid; }
         .page:last-child { page-break-after: auto; }
         .pad { padding: 16mm; }
         .topbar { display:flex; align-items:center; justify-content:space-between; padding: 10mm 16mm 0; }
