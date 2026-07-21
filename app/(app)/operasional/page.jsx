@@ -38,6 +38,14 @@ export default async function OperasionalPage() {
           badge={`${totalPNR} PNR`}
           color="from-amber-500 to-orange-700"
         />
+        <SectionCard
+          href="/operasional/tour-confirmation"
+          icon="📄"
+          title="Tour Confirmation"
+          desc="TC per trip: info group, meeting point, detail flight, itinerary (dari web, bisa diedit) + nama & alamat hotel. Download PDF atau kirim ke peserta dari nomor PIC."
+          badge="TC per trip"
+          color="from-sky-500 to-blue-700"
+        />
       </div>
     </div>
   );
