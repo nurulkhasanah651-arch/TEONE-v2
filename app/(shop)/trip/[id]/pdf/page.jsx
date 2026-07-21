@@ -54,7 +54,9 @@ export default async function TripPdfPage({ params }) {
       <style>{`
         * { box-sizing: border-box; }
         .pagewrap { width: 210mm; margin: 0 auto; }
-        .page { width: 210mm; min-height: 296mm; background: #fff; position: relative; overflow: hidden; page-break-after: always; }
+        /* Konten mengalir menerus (tanpa page-break paksa) supaya tidak ada celah kosong saat diprint. */
+        .page { width: 210mm; background: #fff; position: relative; overflow: hidden; }
+        .page.cover { min-height: 296mm; page-break-after: always; }   /* hanya cover yang 1 halaman penuh */
         .page:last-child { page-break-after: auto; }
         .pad { padding: 16mm; }
         .topbar { display:flex; align-items:center; justify-content:space-between; padding: 10mm 16mm 0; }
@@ -78,7 +80,7 @@ export default async function TripPdfPage({ params }) {
       <div className="pagewrap">
 
         {/* COVER */}
-        <div className="page" style={{ background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primary2} 45%, #7cc0f5 100%)`, color: '#fff', display: 'flex', flexDirection: 'column' }}>
+        <div className="page cover" style={{ background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primary2} 45%, #7cc0f5 100%)`, color: '#fff', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '16mm 16mm 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             {logo ? <img src={logo} alt="" style={{ height: 42, objectFit: 'contain', filter: 'brightness(0) invert(1)' }} /> : <b style={{ fontSize: 22 }}>{cfg.brandName}</b>}
             {c.email && <span style={{ fontSize: 12, opacity: .9 }}>{c.email}</span>}
@@ -184,7 +186,7 @@ export default async function TripPdfPage({ params }) {
         {(sched.length > 0 || visa.length > 0 || sk.length > 0) && (
           <div className="page">
             <TopBar />
-            <div className="pad" style={{ paddingBottom: '40mm' }}>
+            <div className="pad">
               {sched.length > 0 && (
                 <div style={{ marginBottom: 22 }}>
                   <SectionHead>Skema Pembayaran</SectionHead>
@@ -210,7 +212,7 @@ export default async function TripPdfPage({ params }) {
                 </div>
               )}
             </div>
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: C.primary, color: '#fff', padding: '14px 16mm', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
+            <div style={{ marginTop: 16, background: C.primary, color: '#fff', padding: '14px 16mm', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
               <div>
                 <b style={{ fontSize: 14 }}>{cfg.brandName}</b>
                 {c.address && <div style={{ opacity: .85, fontSize: 10.5, maxWidth: 360 }}>{c.address}</div>}
