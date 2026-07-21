@@ -52,6 +52,12 @@ export default async function TourConfirmationPage({ params }) {
         .page:last-child { page-break-after: auto; }
         .avoidbreak { page-break-inside: avoid; break-inside: avoid; }
         .tcTable tr { page-break-inside: avoid; break-inside: avoid; }
+        .tcTable td, .tcTable th { word-break: break-word; }
+        /* HP: konten menyesuaikan lebar layar (bisa dibaca full, tidak cuma setengah) */
+        @media screen and (max-width: 820px) {
+          .pagewrap { width: 100%; }
+          .page { width: 100%; min-height: auto; padding: 5mm 4mm; margin-bottom: 12px; }
+        }
         .tcTable { width:100%; border-collapse: collapse; margin-top: 6px; }
         .tcTable th { background:${C.head}; color:#fff; font-weight:700; padding:6px 8px; border:1px solid ${C.line}; font-size:12.5px; text-align:center; }
         .tcTable td { border:1px solid ${C.line}; padding:6px 8px; font-size:12px; vertical-align: top; }
@@ -119,7 +125,7 @@ export default async function TourConfirmationPage({ params }) {
                     {d.date && <div style={{ fontSize: 11.5 }}>{d.date}</div>}
                   </td>
                   <td style={{ whiteSpace: 'pre-line' }}>{d.schedule || ''}</td>
-                  <td style={{ textAlign: 'center', fontWeight: 700 }}>{d.hotel || ''}</td>
+                  <td style={{ textAlign: 'center', fontWeight: 700, whiteSpace: 'pre-line' }}>{d.hotel || ''}</td>
                 </tr>
               ))}
             </tbody>
@@ -133,7 +139,7 @@ export default async function TourConfirmationPage({ params }) {
                 <thead><tr><th style={{ width: '35%' }}>Nama Hotel</th><th>Alamat</th></tr></thead>
                 <tbody>
                   {hotels.map((h, i) => (
-                    <tr key={i}><td style={{ fontWeight: 700 }}>{h.name || ''}</td><td>{h.address || ''}</td></tr>
+                    <tr key={i}><td style={{ fontWeight: 700, whiteSpace: 'pre-line' }}>{h.name || ''}</td><td style={{ whiteSpace: 'pre-line' }}>{h.address || ''}</td></tr>
                   ))}
                 </tbody>
               </table>

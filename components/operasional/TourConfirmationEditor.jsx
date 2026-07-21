@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import Link from 'next/link';
-import { saveTourConfirmation, sendTourConfirmation } from '@/lib/actions/tour-confirmation';
+import { saveTourConfirmation, sendTourConfirmation, getTCRecipients } from '@/lib/actions/tour-confirmation';
 
 const inputCls = 'w-full px-3 py-2 border border-slate-300 rounded-lg text-sm';
 const labelCls = 'block text-[11px] font-bold text-slate-500 uppercase mb-1';
@@ -25,6 +25,44 @@ export default function TourConfirmationEditor({ tripId, trip = {}, initialTc = 
   const [sending, setSending] = useState(false);
   const [showSend, setShowSend] = useState(false);
   const [customMsg, setCustomMsg] = useState('');
+  const [families, setFamilies] = useState(null); // null = belum dimuat
+  const [noPhone, setNoPhone] = useState(0);
+  const [selected, setSelected] = useState(() => new Set()); // set of participant ids
+  const [loadingRcp, setLoadingRcp] = useState(false);
+
+  useEffect(() => {
+    if (!showSend || families !== null) return;
+    setLoadingRcp(true);
+    getTCRecipients(tripId).then((r) => {
+      if (r?.error) { flash(r.error, 'error'); setFamilies([]); }
+      else {
+        setFamilies(r.families || []);
+        setNoPhone(r.noPhone || 0);
+        const all = new Set();
+        for (const f of (r.families || [])) for (const id of f.memberIds) all.add(String(id));
+        setSelected(all);
+      }
+      setLoadingRcp(false);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showSend]);
+
+  function toggleFamily(fam, on) {
+    setSelected((prev) => {
+      const s = new Set(prev);
+      for (const id of fam.memberIds) { if (on) s.add(String(id)); else s.delete(String(id)); }
+      return s;
+    });
+  }
+  function setAll(on) {
+    setSelected(() => {
+      const s = new Set();
+      if (on) for (const f of (families || [])) for (const id of f.memberIds) s.add(String(id));
+      return s;
+    });
+  }
+  const famChecked = (fam) => fam.memberIds.every((id) => selected.has(String(id)));
+  const selectedContacts = (families || []).filter((f) => f.memberIds.some((id) => selected.has(String(id)))).length;
 
   function flash(text, type = 'ok') { setMsg(text); setMsgType(type); if (type === 'ok') setTimeout(() => setMsg(''), 4000); }
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }));
@@ -56,12 +94,14 @@ export default function TourConfirmationEditor({ tripId, trip = {}, initialTc = 
   }
 
   async function handleSend() {
-    if (!confirm('Kirim Tour Confirmation ke SEMUA peserta aktif trip ini via WhatsApp (nomor PIC)?')) return;
+    const ids = Array.from(selected);
+    if (!ids.length) { flash('Pilih minimal 1 peserta.', 'error'); return; }
+    if (!confirm(`Kirim Tour Confirmation ke ${selectedContacts} kontak (${ids.length} peserta) via WhatsApp (nomor PIC)?`)) return;
     setSending(true);
     // Simpan dulu supaya link & data terbaru.
     const s = await saveTourConfirmation(tripId, payload());
     if (s?.error) { flash('Gagal simpan sebelum kirim: ' + s.error, 'error'); setSending(false); return; }
-    const r = await sendTourConfirmation(tripId, customMsg);
+    const r = await sendTourConfirmation(tripId, customMsg, ids);
     setSending(false);
     if (r?.error) { flash(r.error, 'error'); return; }
     flash(`✓ Terkirim ke ${r.sent} kontak${r.failed ? `, gagal ${r.failed}` : ''}${r.usedPicNumber ? ' (nomor PIC)' : ' (nomor CS — PIC belum punya nomor)'}`);
@@ -119,8 +159,14 @@ export default function TourConfirmationEditor({ tripId, trip = {}, initialTc = 
                   <input autoComplete="off" className={inputCls} value={d.date || ''} onChange={(e) => updItin(i, 'date', e.target.value)} placeholder="28 December 2026" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
-                  <textarea className={inputCls} rows={4} value={d.schedule || ''} onChange={(e) => updItin(i, 'schedule', e.target.value)} placeholder="Schedule / kegiatan hari ini..." />
-                  <input autoComplete="off" className={inputCls} value={d.hotel || ''} onChange={(e) => updItin(i, 'hotel', e.target.value)} placeholder="Hotel : TBA" />
+                  <div>
+                    <span className="text-[10px] text-slate-400">Schedule (Enter = baris baru)</span>
+                    <textarea className={inputCls} rows={4} value={d.schedule || ''} onChange={(e) => updItin(i, 'schedule', e.target.value)} placeholder={"Meeting Point at Airport\nFlight to ...\n- Visit ..."} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400">Hotel (Enter = baris baru)</span>
+                    <textarea className={inputCls} rows={4} value={d.hotel || ''} onChange={(e) => updItin(i, 'hotel', e.target.value)} placeholder={"Hotel : TBA"} />
+                  </div>
                 </div>
               </div>
             ))}
@@ -143,8 +189,8 @@ export default function TourConfirmationEditor({ tripId, trip = {}, initialTc = 
           <div className="space-y-2">
             {hotels.map((h, i) => (
               <div key={i} className="flex gap-2 items-start">
-                <input autoComplete="off" className={`${inputCls} md:w-1/3`} value={h.name || ''} onChange={(e) => updHotel(i, 'name', e.target.value)} placeholder="Nama Hotel" />
-                <input autoComplete="off" className={inputCls} value={h.address || ''} onChange={(e) => updHotel(i, 'address', e.target.value)} placeholder="Alamat hotel" />
+                <textarea className={`${inputCls} md:w-1/3`} rows={2} value={h.name || ''} onChange={(e) => updHotel(i, 'name', e.target.value)} placeholder="Nama Hotel" />
+                <textarea className={inputCls} rows={2} value={h.address || ''} onChange={(e) => updHotel(i, 'address', e.target.value)} placeholder="Alamat hotel (Enter = baris baru)" />
                 <button type="button" onClick={() => delHotel(i)} className="px-2 py-2 text-xs bg-red-100 text-red-700 rounded font-bold shrink-0">🗑</button>
               </div>
             ))}
@@ -162,9 +208,42 @@ export default function TourConfirmationEditor({ tripId, trip = {}, initialTc = 
 
         {showSend && (
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
-            <p className="text-xs text-blue-800">Dikirim ke semua peserta aktif trip via WhatsApp <b>nomor PIC</b> (fallback CS kalau PIC belum punya nomor). Link Tour Confirmation otomatis dilampirkan. Kosongkan pesan untuk pakai teks default.</p>
+            <p className="text-xs text-blue-800">Dikirim via WhatsApp <b>nomor PIC</b> (fallback CS kalau PIC belum punya nomor). Link Tour Confirmation otomatis dilampirkan. 1 pesan per keluarga (nomor sama). Kosongkan pesan untuk pakai teks default.</p>
+
+            {/* CHECKLIST PENERIMA */}
+            <div className="bg-white rounded-lg border border-slate-200 p-2">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-slate-600">Pilih penerima {families ? `(${selectedContacts}/${families.length} kontak)` : ''}</span>
+                {families && families.length > 0 && (
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setAll(true)} className="text-[11px] font-semibold text-blue-700 hover:underline">Pilih semua</button>
+                    <button type="button" onClick={() => setAll(false)} className="text-[11px] font-semibold text-slate-500 hover:underline">Kosongkan</button>
+                  </div>
+                )}
+              </div>
+              {loadingRcp ? (
+                <p className="text-xs text-slate-400 py-2 text-center">⏳ Memuat penerima...</p>
+              ) : !families || families.length === 0 ? (
+                <p className="text-xs text-slate-400 py-2 text-center">Tidak ada peserta dengan nomor HP.</p>
+              ) : (
+                <div className="max-h-56 overflow-y-auto divide-y divide-slate-100">
+                  {families.map((fam) => (
+                    <label key={fam.key} className="flex items-start gap-2 py-1.5 cursor-pointer">
+                      <input autoComplete="off" type="checkbox" checked={famChecked(fam)} onChange={(e) => toggleFamily(fam, e.target.checked)} className="mt-0.5 w-4 h-4 accent-blue-600" />
+                      <span className="text-xs">
+                        <b className="text-slate-800">{fam.headName}</b>
+                        {fam.count > 1 && <span className="text-slate-500"> +{fam.count - 1} anggota</span>}
+                        <span className="text-slate-400"> · {fam.phone}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              {noPhone > 0 && <p className="text-[10px] text-amber-700 mt-1">⚠ {noPhone} peserta tanpa nomor HP (tidak bisa dikirim).</p>}
+            </div>
+
             <textarea className={`${inputCls} bg-white`} rows={4} value={customMsg} onChange={(e) => setCustomMsg(e.target.value)} placeholder={`(Opsional) Teks pembuka custom. Pakai {{nama}} untuk nama peserta.\nContoh: Halo kak {{nama}}, berikut final tour confirmation & itinerary trip. Mohon dicek ya 🙏`} />
-            <button type="button" onClick={handleSend} disabled={sending} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold rounded-lg">{sending ? '⏳ Mengirim...' : '🚀 Kirim Sekarang'}</button>
+            <button type="button" onClick={handleSend} disabled={sending || loadingRcp} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold rounded-lg">{sending ? '⏳ Mengirim...' : `🚀 Kirim ke ${selectedContacts} kontak`}</button>
           </div>
         )}
       </div>
