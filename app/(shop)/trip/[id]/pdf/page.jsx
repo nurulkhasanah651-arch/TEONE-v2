@@ -54,7 +54,7 @@ export default async function TripPdfPage({ params }) {
       <style>{`
         * { box-sizing: border-box; }
         .pagewrap { width: 210mm; margin: 0 auto; }
-        .page { width: 210mm; min-height: 297mm; background: #fff; position: relative; overflow: hidden; page-break-after: always; }
+        .page { width: 210mm; min-height: 296mm; background: #fff; position: relative; overflow: hidden; page-break-after: always; }
         .page:last-child { page-break-after: auto; }
         .pad { padding: 16mm; }
         .topbar { display:flex; align-items:center; justify-content:space-between; padding: 10mm 16mm 0; }
@@ -88,11 +88,10 @@ export default async function TripPdfPage({ params }) {
             <h1 style={{ fontSize: 44, fontWeight: 900, lineHeight: 1.05, margin: '18px 0 10px', textShadow: '0 2px 12px rgba(0,0,0,.25)' }}>{title}</h1>
             {dates && <p style={{ fontSize: 18, fontWeight: 700, background: 'rgba(255,255,255,.18)', padding: '8px 20px', borderRadius: 999 }}>{dates}</p>}
             <p style={{ marginTop: 18, fontSize: 16, fontWeight: 600, letterSpacing: 2, opacity: .95 }}>TRIP TERPERCAYA</p>
-          </div>
-          <div style={{ padding: '0 16mm 16mm', textAlign: 'center', fontSize: 13, lineHeight: 1.6 }}>
-            {phoneDisp && <p style={{ fontWeight: 800, fontSize: 18 }}>{phoneDisp}</p>}
-            <p style={{ opacity: .92 }}>{web}</p>
-            {c.address && <p style={{ opacity: .85, fontSize: 11, marginTop: 6, maxWidth: 460, marginLeft: 'auto', marginRight: 'auto' }}>{c.address}</p>}
+            {/* Kontak + alamat dinaikkan ke tengah halaman (bukan di dasar) supaya tak ada sisa kosong / halaman 2 saat diprint */}
+            {phoneDisp && <p style={{ marginTop: 28, fontWeight: 800, fontSize: 18 }}>{phoneDisp}</p>}
+            <p style={{ opacity: .92, fontSize: 13, marginTop: 2 }}>{web}</p>
+            {c.address && <p style={{ opacity: .85, fontSize: 11, marginTop: 6, maxWidth: 460, lineHeight: 1.6 }}>{c.address}</p>}
           </div>
         </div>
 
