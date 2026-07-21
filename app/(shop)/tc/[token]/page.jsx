@@ -48,8 +48,10 @@ export default async function TourConfirmationPage({ params }) {
       <style>{`
         * { box-sizing: border-box; }
         .pagewrap { width: 210mm; margin: 0 auto; }
-        .page { width: 210mm; min-height: 296mm; background:#fff; position:relative; padding: 14mm 16mm; page-break-after: always; }
+        .page { width: 210mm; min-height: 296mm; background:#fff; position:relative; padding: 14mm 16mm; }
         .page:last-child { page-break-after: auto; }
+        .avoidbreak { page-break-inside: avoid; break-inside: avoid; }
+        .tcTable tr { page-break-inside: avoid; break-inside: avoid; }
         .tcTable { width:100%; border-collapse: collapse; margin-top: 6px; }
         .tcTable th { background:${C.head}; color:#fff; font-weight:700; padding:6px 8px; border:1px solid ${C.line}; font-size:12.5px; text-align:center; }
         .tcTable td { border:1px solid ${C.line}; padding:6px 8px; font-size:12px; vertical-align: top; }
@@ -137,14 +139,12 @@ export default async function TourConfirmationPage({ params }) {
               </table>
             </div>
           )}
-        </div>
 
-        {/* GENERAL INFORMATION */}
-        <div className="page">
-          <h2 style={{ textAlign: 'center', fontSize: 18, fontWeight: 800, margin: '4px 0 18px' }}>GENERAL INFORMATION</h2>
+          {/* GENERAL INFORMATION — nyambung langsung di bawah itinerary/hotel (tanpa page break) */}
+          <h2 style={{ textAlign: 'center', fontSize: 18, fontWeight: 800, margin: '26px 0 14px' }}>GENERAL INFORMATION</h2>
           <ol className="gi" style={{ margin: 0, paddingLeft: 20, fontSize: 12 }}>
             {TC_GENERAL_INFO.map((sec, i) => (
-              <li key={i} style={{ marginBottom: 12 }}>
+              <li key={i} className="avoidbreak" style={{ marginBottom: 12 }}>
                 <div style={{ fontWeight: 800, marginBottom: 4 }}>{sec.title}</div>
                 <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.5 }}>
                   {sec.items.map((it, j) => <li key={j} style={{ marginBottom: 4 }}>{it}</li>)}
