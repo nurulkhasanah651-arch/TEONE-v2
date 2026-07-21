@@ -157,6 +157,19 @@ export default function ParticipantsList(props) {
                           {isHead && <span className="text-[9px] font-semibold opacity-80">KEPALA</span>}
                         </span>
                       )}
+                      {/* Status visa — sinkron dgn tab Visa (approved/rejected + ready/proses) */}
+                      {p.visa_result === 'approved' && (
+                        <span className="text-[11px] px-2 py-0.5 rounded font-bold bg-emerald-100 text-emerald-800 border border-emerald-300" title="Hasil visa dari tab Visa: APPROVED">✅ Visa Approved</span>
+                      )}
+                      {p.visa_result === 'rejected' && (
+                        <span className="text-[11px] px-2 py-0.5 rounded font-bold bg-red-100 text-red-800 border border-red-300" title="Hasil visa dari tab Visa: REJECTED">❌ Visa Rejected</span>
+                      )}
+                      {!p.visa_result && p.visa_ready && (
+                        <span className="text-[11px] px-2 py-0.5 rounded font-bold bg-teal-100 text-teal-800 border border-teal-300" title="Peserta sudah punya visa sendiri — tidak diproses">🛂 Visa Ready</span>
+                      )}
+                      {!p.visa_result && !p.visa_ready && p.include_visa && (
+                        <span className="text-[11px] px-2 py-0.5 rounded font-bold bg-amber-100 text-amber-800 border border-amber-300" title="Visa diurus di kita — belum ada hasil approved/rejected">🛂 Proses Visa</span>
+                      )}
                     </div>
                     <p className="text-xs text-slate-600">
                       {c.phone && <span className="mr-3">📞 {c.phone}</span>}
