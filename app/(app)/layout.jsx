@@ -8,8 +8,8 @@ import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 import { getRoleFromUser, canAccessPath, defaultPathForRole } from '@/lib/utils/roles';
 import { resolveAuthoritativeRole } from '@/lib/auth/authoritative-role';
-import { waOutboxSummary } from '@/lib/actions/wa-outbox';
 import WaManualProvider from '@/components/wa/WaManualProvider';
+import WaPendingBanner from '@/components/wa/WaPendingBanner';
 
 export default async function AppLayout({ children }) {
   const supabase = createClient();
@@ -44,9 +44,6 @@ export default async function AppLayout({ children }) {
     redirect(defaultPathForRole(role));
   }
 
-  // Portal TL tidak menampilkan notif Fonnte
-  const _wa = role === 'tour_leader' ? { count: 0, offlineDepts: [] } : await waOutboxSummary().catch(() => ({ count: 0, offlineDepts: [] }));
-
   return (
     <WaManualProvider>
     <div className="min-h-screen bg-slate-50">
@@ -54,15 +51,8 @@ export default async function AppLayout({ children }) {
       <div className="md:pl-60">
         <Header user={user} role={role} />
         <main className="p-3 sm:p-6">
-          {(_wa.count > 0 || _wa.offlineDepts?.length > 0) && (
-            <a href="/wa-pending" className="block mb-4 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 font-bold hover:bg-red-100">
-              ⚠ {_wa.count > 0
-                ? `${_wa.count} pesan WA belum terkirim`
-                : `Nomor ${_wa.offlineDepts.join(', ').toUpperCase()} kemungkinan terputus dari Fonnte`}
-              {_wa.count > 0 && _wa.offlineDepts?.length ? ` — nomor ${_wa.offlineDepts.join(', ').toUpperCase()} kemungkinan terputus dari Fonnte` : ''}
-              . Klik untuk lihat &amp; kelola →
-            </a>
-          )}
+          {/* Notif Fonnte dimuat client-side (tidak blokir render). Portal TL: tidak tampil. */}
+          {role !== 'tour_leader' && <WaPendingBanner />}
           {children}
         </main>
       </div>
