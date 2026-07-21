@@ -510,6 +510,14 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
+  // Ganti gambar hasil visa (kalau salah upload) — buka panel & picker, reset file lama.
+  function handleReplaceImage() {
+    setShowUploadResult(true);
+    setUploadedFileUrl('');
+    setUploadedFilePath('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setTimeout(() => fileInputRef.current?.click(), 60);
+  }
   function handleSaveResult() {
     if (!uploadedFilePath && !confirm('Belum upload file. Save tanpa file?')) return;
     startTransition(async () => {
@@ -649,7 +657,10 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                 {p.visa_result_photo_url && (
                   <div className="mb-2 p-2 bg-white rounded border border-emerald-300 flex items-center justify-between gap-2 flex-wrap">
                     <span className="text-xs font-semibold text-emerald-800">✅ Foto hasil visa sudah diupload{p.visa_result ? ` — ${p.visa_result === 'approved' ? 'APPROVED' : 'REJECTED'}` : ''}</span>
-                    <button type="button" onClick={handleViewResult} disabled={viewingResult} className="px-2 py-0.5 rounded bg-emerald-100 border border-emerald-300 text-emerald-700 text-[11px] font-semibold disabled:opacity-50">{viewingResult ? '...' : '👁 Lihat'}</button>
+                    <div className="flex items-center gap-1">
+                      <button type="button" onClick={handleViewResult} disabled={viewingResult} className="px-2 py-0.5 rounded bg-emerald-100 border border-emerald-300 text-emerald-700 text-[11px] font-semibold disabled:opacity-50">{viewingResult ? '...' : '👁 Lihat'}</button>
+                      <button type="button" onClick={handleReplaceImage} disabled={uploading} className="px-2 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-800 text-[11px] font-semibold disabled:opacity-50" title="Ganti gambar kalau salah upload">{uploading ? '⏳' : '🔄 Ganti Gambar'}</button>
+                    </div>
                   </div>
                 )}
                 {showUploadResult && (
@@ -663,9 +674,10 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                       <input autoComplete="off" ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" onChange={handleFileUpload} disabled={uploading} className="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-emerald-200 file:text-emerald-800 file:font-bold" />
                       {uploading && <p className="text-[10px] text-amber-700 mt-1">⏳ Uploading...</p>}
                       {uploadedFileUrl && !uploading && (
-                        <div className="mt-1 flex items-center gap-2">
+                        <div className="mt-1 flex items-center gap-2 flex-wrap">
                           <span className="text-[10px] text-emerald-700">✓ File ready</span>
-                          <a href={uploadedFileUrl} target="_blank" rel="noreferrer" className="text-[10px] text-blue-700 hover:underline truncate">{uploadedFileUrl}</a>
+                          <a href={uploadedFileUrl} target="_blank" rel="noreferrer" className="text-[10px] text-blue-700 hover:underline truncate max-w-[160px]">{uploadedFileUrl}</a>
+                          <button type="button" onClick={handleReplaceImage} className="text-[10px] font-semibold text-amber-800 bg-amber-100 border border-amber-300 rounded px-2 py-0.5" title="Salah upload? Ganti gambar">🔄 Ganti Gambar</button>
                         </div>
                       )}
                     </div>
