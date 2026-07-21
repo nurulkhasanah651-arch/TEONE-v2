@@ -63,7 +63,7 @@ export default async function TourConfirmationPage({ params }) {
         .tcTable td { border:1px solid ${C.line}; padding:6px 8px; font-size:12px; vertical-align: top; }
         .gi li { margin-bottom: 5px; line-height: 1.4; }
         @media screen { body{ padding:16px 0; } .page{ box-shadow:0 6px 24px rgba(0,0,0,.18); margin-bottom:18px; } }
-        @media print { @page { size:A4; margin:0; } body{ margin:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; } .no-print{ display:none !important; } .page{ box-shadow:none; margin:0; } }
+        @media print { @page { size:A4; margin:0; } body{ margin:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; } .no-print{ display:none !important; } .page{ box-shadow:none; margin:0; } header, footer { display:none !important; } }
       `}</style>
 
       <div className="no-print" style={{ position: 'sticky', top: 0, zIndex: 10, background: '#0f2540', color: '#fff', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
