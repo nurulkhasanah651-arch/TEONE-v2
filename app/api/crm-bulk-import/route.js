@@ -1,28 +1,31 @@
 // TEMPORARY one-time CRM import endpoint (secret-guarded). REMOVE after use.
+// Reads bundled _data.json (import data lama TEONE 2020-2024) and merges into customers.
 import { NextResponse } from 'next/server';
 import { createClient as createSvc } from '@supabase/supabase-js';
 import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
+import ROWS from './_data.json';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 const SECRET = 'te-crm-import-9Qx7bK2wZ';
 
 const normP = (s) => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 const normPh = (s) => { let d = (s || '').replace(/[^0-9]/g, ''); if (d.startsWith('0')) d = '62' + d.slice(1); return d.length >= 9 ? d : ''; };
 const okDate = (s, lo, hi) => { if (!s) return null; const y = +String(s).slice(0, 4); return (y >= lo && y <= hi) ? s : null; };
 
-export async function POST(req) {
-  if (req.headers.get('x-import-secret') !== SECRET) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+export async function GET(req) {
+  const { searchParams } = new URL(req.url);
+  if (searchParams.get('secret') !== SECRET) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   const url = brandSupabaseUrl(), key = brandServiceRoleKey();
   if (!url || !key) return NextResponse.json({ error: 'no service key' }, { status: 500 });
   const db = createSvc(url, key, { auth: { persistSession: false } });
-  let body; try { body = await req.json(); } catch { return NextResponse.json({ error: 'bad json' }, { status: 400 }); }
-  const rows = Array.isArray(body.rows) ? body.rows : [];
+  const rows = Array.isArray(ROWS) ? ROWS : [];
   const BRAND = 1;
 
   // fetch existing
   let existing = [];
   for (let from = 0; ; from += 1000) {
-    const { data, error } = await db.from('customers').select('id,name,passport_no,passport_number,phone,whatsapp,tags,notes,first_trip_at,last_trip_at,passport_expiry,passport_issued_date,passport_issued_at,place_of_birth,dob,birthday,gender,referral_source').range(from, from + 999);
+    const { data, error } = await db.from('customers').select('id,name,passport_no,passport_number,phone,whatsapp,tags,notes,first_trip_at,last_trip_at,passport_expiry,passport_issued_date,passport_issued_at,place_of_birth,dob,birthday,gender,referral_source').eq('brand_id', BRAND).range(from, from + 999);
     if (error) return NextResponse.json({ error: 'fetch: ' + error.message }, { status: 500 });
     existing = existing.concat(data); if (data.length < 1000) break;
   }
@@ -65,8 +68,8 @@ export async function POST(req) {
   let ins = 0, upd = 0, errs = [];
   for (let i = 0; i < toInsert.length; i += 500) {
     const { error } = await db.from('customers').insert(toInsert.slice(i, i + 500));
-    if (error) { errs.push('ins:' + error.message); } else ins += Math.min(500, toInsert.length - i);
+    if (error) { if (errs.length < 5) errs.push('ins:' + error.message); } else ins += Math.min(500, toInsert.length - i);
   }
   for (const u of toUpdate) { const { id, ...f } = u; const { error } = await db.from('customers').update(f).eq('id', id); if (error) { if (errs.length < 5) errs.push('upd:' + error.message); } else upd++; }
-  return NextResponse.json({ ok: true, received: rows.length, inserted: ins, updated: upd, existing: existing.length, errors: errs });
+  return NextResponse.json({ ok: true, received: rows.length, toInsert: toInsert.length, toUpdate: toUpdate.length, inserted: ins, updated: upd, existing: existing.length, errors: errs });
 }
