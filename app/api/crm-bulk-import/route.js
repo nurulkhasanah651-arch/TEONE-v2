@@ -62,14 +62,14 @@ export async function GET(req) {
         passport_expiry: exp, passport_issued_date: iss, passport_issued_at: c.po || null,
         place_of_birth: c.pb || null, dob, birthday: dob, gender: c.g || null,
         tags: c.t || [], notes, total_trips: c.tt || 1, first_trip_at: ft, last_trip_at: lt,
-        referral_source: c.rs || null, status: 'past', created_by: 'import-2020-2024' });
+        referral_source: c.rs || null, created_by: 'import-2020-2024' });
     }
   }
-  let ins = 0, upd = 0, errs = [];
+  let ins = 0, upd = 0, insErrs = [], updErrs = [];
   for (let i = 0; i < toInsert.length; i += 500) {
     const { error } = await db.from('customers').insert(toInsert.slice(i, i + 500));
-    if (error) { if (errs.length < 5) errs.push('ins:' + error.message); } else ins += Math.min(500, toInsert.length - i);
+    if (error) { if (insErrs.length < 5) insErrs.push(error.message); } else ins += Math.min(500, toInsert.length - i);
   }
-  for (const u of toUpdate) { const { id, ...f } = u; const { error } = await db.from('customers').update(f).eq('id', id); if (error) { if (errs.length < 5) errs.push('upd:' + error.message); } else upd++; }
-  return NextResponse.json({ ok: true, received: rows.length, toInsert: toInsert.length, toUpdate: toUpdate.length, inserted: ins, updated: upd, existing: existing.length, errors: errs });
+  for (const u of toUpdate) { const { id, ...f } = u; const { error } = await db.from('customers').update(f).eq('id', id); if (error) { if (updErrs.length < 5) updErrs.push(error.message); } else upd++; }
+  return NextResponse.json({ ok: true, received: rows.length, toInsert: toInsert.length, toUpdate: toUpdate.length, inserted: ins, updated: upd, existing: existing.length, insErrs, updErrs });
 }
