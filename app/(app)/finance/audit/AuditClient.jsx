@@ -1,14 +1,30 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { syncTripPriceToMaster } from '@/lib/actions/billing-audit';
 
 const rp = (v) => 'Rp ' + Math.round(Number(v) || 0).toLocaleString('id-ID');
 const fmtTgl = (x) => { if (!x) return '—'; const d = new Date(String(x) + 'T00:00:00'); return isNaN(d) ? '—' : d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }); };
 
 export default function AuditClient({ trips = [], ringkas }) {
+  const router = useRouter();
   const [hanyaSelisih, setHanyaSelisih] = useState(true);
   const [q, setQ] = useState('');
   const [buka, setBuka] = useState({});
+  const [syncing, setSyncing] = useState('');
+  const [msg, setMsg] = useState('');
+
+  async function handleSync(tripId, kode) {
+    if (!confirm(`Samakan harga SEMUA peserta trip ${kode} ke harga Master Trip?\n\nHarga kamar + biaya wajib (perlengkapan dll) jadi patokan → "Penyesuaian harga khusus" hilang.\n\n⚠ Ini menimpa harga khusus/nego jadi harga master. Pembayaran yang sudah masuk & diskon TIDAK berubah.`)) return;
+    setSyncing(tripId); setMsg('');
+    try {
+      const r = await syncTripPriceToMaster(tripId);
+      if (r?.error) { setMsg(`❌ ${kode}: ${r.error}`); }
+      else { setMsg(`✅ ${kode}: ${r.updated} peserta disamakan ke harga master${r.sudahSama ? `, ${r.sudahSama} sudah sesuai` : ''}${r.skipped ? `, ${r.skipped} dilewati (harga master kosong)` : ''}.`); router.refresh(); }
+    } catch (e) { setMsg(`❌ ${kode}: ${e.message}`); }
+    finally { setSyncing(''); }
+  }
 
   const tampil = useMemo(() => {
     let t = trips;
@@ -42,6 +58,14 @@ export default function AuditClient({ trips = [], ringkas }) {
           </p>
         )}
       </div>
+
+      {msg && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700">{msg}</div>
+      )}
+      <p className="text-xs text-slate-500">
+        💡 Tombol <b>⚖ Samakan ke Master</b> (di baris trip yang ada selisih) menyetel <code>price_paid</code> tiap peserta = harga Master Trip,
+        supaya <b>"Penyesuaian harga khusus"</b> tidak muncul lagi di invoice. Peserta baru sudah otomatis pakai harga master.
+      </p>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Kartu label="Seharusnya ditagih" nilai={rp(ringkas?.totalSeharusnya)} warna="text-slate-800" />
@@ -104,7 +128,14 @@ export default function AuditClient({ trips = [], ringkas }) {
                     </td>
                     <td className="px-3 py-2 text-right text-emerald-700">{rp(t.dibayar)}</td>
                     <td className="px-3 py-2 text-right text-amber-700 font-semibold">{rp(t.sisa)}</td>
-                    <td className="px-3 py-2 text-right">
+                    <td className="px-3 py-2 text-right whitespace-nowrap">
+                      {ada && (
+                        <button onClick={() => handleSync(t.id, t.kode)} disabled={syncing === t.id}
+                                title="Set price_paid semua peserta = harga Master Trip (hilangkan Penyesuaian harga khusus)"
+                                className="text-xs px-2 py-1 mr-1 rounded bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold">
+                          {syncing === t.id ? '⏳' : '⚖ Samakan ke Master'}
+                        </button>
+                      )}
                       <button onClick={() => setBuka((b) => ({ ...b, [t.id]: !b[t.id] }))}
                               className="text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50">
                         {open ? 'Tutup' : 'Rincian'}
