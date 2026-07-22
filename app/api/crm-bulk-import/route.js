@@ -12,6 +12,18 @@ const SECRET = 'te-crm-import-9Qx7bK2wZ';
 const normP = (s) => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 const normPh = (s) => { let d = (s || '').replace(/[^0-9]/g, ''); if (d.startsWith('0')) d = '62' + d.slice(1); return d.length >= 9 ? d : ''; };
 const okDate = (s, lo, hi) => { if (!s) return null; const y = +String(s).slice(0, 4); return (y >= lo && y <= hi) ? s : null; };
+// referral_source punya CHECK constraint — petakan sumber lama (catatan operasional) ke set yang diizinkan.
+const REF_OK = ['Instagram', 'TikTok', 'WhatsApp', 'Facebook', 'Google Ads', 'Mitra', 'Alumni', 'Referral Teman', 'Offline', 'Lainnya'];
+function mapRef(s) {
+  if (!s) return 'Alumni';                 // semua peserta import = alumni (sudah pernah trip)
+  if (REF_OK.includes(s)) return s;
+  const u = String(s).toUpperCase();
+  if (u.includes('INSTA') || u.includes('DM IG') || u === 'DM' || u.startsWith('IG')) return 'Instagram';
+  if (u.includes('TIKTOK')) return 'TikTok';
+  if (u.includes('FACEBOOK') || u === 'FB') return 'Facebook';
+  if (u.includes('MITRA') || u.includes('AGEN')) return 'Mitra';
+  return 'Alumni';
+}
 
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
@@ -40,7 +52,7 @@ export async function GET(req) {
     else if (!p && ph && byPhone.get(ph)?.length === 1) m = byPhone.get(ph)[0];
     const dob = okDate(c.d, 1900, 2035), exp = okDate(c.pe, 2010, 2045), iss = okDate(c.pi, 2000, 2035);
     const ft = okDate(c.ft, 2019, 2027), lt = okDate(c.lt, 2019, 2027);
-    const notes = `Import data lama TEONE 2020-2024 · ${c.tt || 1} trip`;
+    const notes = `Import data lama TEONE 2020-2024 · ${c.tt || 1} trip` + (c.rs ? ` · Sumber: ${c.rs}` : '');
     if (m) {
       const tags = [...new Set([...(m.tags || []), ...(c.t || [])])];
       const u = { id: m.id, tags };
@@ -54,7 +66,7 @@ export async function GET(req) {
       if (!m.gender && c.g) u.gender = c.g;
       if (!m.first_trip_at && ft) u.first_trip_at = ft;
       if (!m.last_trip_at && lt) u.last_trip_at = lt;
-      if (!m.referral_source && c.rs) u.referral_source = c.rs;
+      if (!m.referral_source && c.rs) u.referral_source = mapRef(c.rs);
       toUpdate.push(u);
     } else {
       toInsert.push({ brand_id: BRAND, name: c.n, first_name: c.f, surname: c.s || null,
@@ -62,7 +74,7 @@ export async function GET(req) {
         passport_expiry: exp, passport_issued_date: iss, passport_issued_at: c.po || null,
         place_of_birth: c.pb || null, dob, birthday: dob, gender: c.g || null,
         tags: c.t || [], notes, total_trips: c.tt || 1, first_trip_at: ft, last_trip_at: lt,
-        referral_source: c.rs || null, created_by: 'import-2020-2024' });
+        referral_source: mapRef(c.rs), created_by: 'import-2020-2024' });
     }
   }
   let ins = 0, upd = 0, insErrs = [], updErrs = [];
