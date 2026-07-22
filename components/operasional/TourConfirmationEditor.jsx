@@ -19,6 +19,7 @@ export default function TourConfirmationEditor({ tripId, trip = {}, initialTc = 
   });
   const [itin, setItin] = useState(Array.isArray(initialTc.itinerary) ? initialTc.itinerary : []);
   const [hotels, setHotels] = useState(Array.isArray(initialTc.hotels) ? initialTc.hotels : []);
+  const [genInfo, setGenInfo] = useState(Array.isArray(initialTc.general_info) ? initialTc.general_info.map((s) => ({ title: s?.title || '', items: Array.isArray(s?.items) ? s.items : [] })) : []);
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState('ok');
   const [pending, startTransition] = useTransition();
@@ -78,7 +79,13 @@ export default function TourConfirmationEditor({ tripId, trip = {}, initialTc = 
   function addHotel() { setHotels((arr) => [...arr, { name: '', address: '' }]); }
   function delHotel(i) { setHotels((arr) => arr.filter((_, idx) => idx !== i)); }
 
-  function payload() { return { ...f, itinerary: itin, hotels }; }
+  function updGiTitle(i, v) { setGenInfo((arr) => arr.map((s, idx) => idx === i ? { ...s, title: v } : s)); }
+  function updGiItems(i, text) { setGenInfo((arr) => arr.map((s, idx) => idx === i ? { ...s, items: text.split('\n') } : s)); }
+  function addGi() { setGenInfo((arr) => [...arr, { title: '', items: [] }]); }
+  function delGi(i) { setGenInfo((arr) => arr.filter((_, idx) => idx !== i)); }
+  function moveGi(i, dir) { setGenInfo((arr) => { const a = [...arr]; const j = i + dir; if (j < 0 || j >= a.length) return a; [a[i], a[j]] = [a[j], a[i]]; return a; }); }
+
+  function payload() { return { ...f, itinerary: itin, hotels, general_info: genInfo }; }
 
   function handleSave(then) {
     startTransition(async () => {
@@ -192,6 +199,37 @@ export default function TourConfirmationEditor({ tripId, trip = {}, initialTc = 
                 <textarea className={`${inputCls} md:w-1/3`} rows={2} value={h.name || ''} onChange={(e) => updHotel(i, 'name', e.target.value)} placeholder="Nama Hotel" />
                 <textarea className={inputCls} rows={2} value={h.address || ''} onChange={(e) => updHotel(i, 'address', e.target.value)} placeholder="Alamat hotel (Enter = baris baru)" />
                 <button type="button" onClick={() => delHotel(i)} className="px-2 py-2 text-xs bg-red-100 text-red-700 rounded font-bold shrink-0">🗑</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* GENERAL INFORMATION */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h2 className="font-bold text-brand-700">📑 General Information (Syarat & Ketentuan)</h2>
+            <p className="text-[11px] text-slate-500">Sudah terisi teks baku — boleh diedit/tambah/hapus. Tiap poin = 1 baris (Enter = poin baru).</p>
+          </div>
+          <button type="button" onClick={addGi} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-lg">+ Tambah Bagian</button>
+        </div>
+        {genInfo.length === 0 ? (
+          <p className="text-sm text-slate-400 py-3 text-center">Belum ada bagian. Klik "+ Tambah Bagian".</p>
+        ) : (
+          <div className="space-y-3">
+            {genInfo.map((s, i) => (
+              <div key={i} className="border border-slate-200 rounded-lg p-3 bg-slate-50/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-bold text-slate-500 shrink-0">{i + 1}.</span>
+                  <input autoComplete="off" className={`${inputCls} font-bold`} value={s.title || ''} onChange={(e) => updGiTitle(i, e.target.value)} placeholder="Judul bagian (mis. MEETING POINT)" />
+                  <div className="flex gap-1 shrink-0">
+                    <button type="button" onClick={() => moveGi(i, -1)} className="px-2 py-0.5 text-xs bg-slate-200 rounded" title="Naik">↑</button>
+                    <button type="button" onClick={() => moveGi(i, 1)} className="px-2 py-0.5 text-xs bg-slate-200 rounded" title="Turun">↓</button>
+                    <button type="button" onClick={() => delGi(i)} className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded font-bold">🗑</button>
+                  </div>
+                </div>
+                <textarea className={inputCls} rows={Math.max(2, (s.items || []).length)} value={(s.items || []).join('\n')} onChange={(e) => updGiItems(i, e.target.value)} placeholder={"1 poin per baris..."} />
               </div>
             ))}
           </div>

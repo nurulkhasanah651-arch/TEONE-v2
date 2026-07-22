@@ -32,6 +32,7 @@ export default async function TourConfirmationPage({ params }) {
   const itin = Array.isArray(tc.itinerary) ? tc.itinerary : [];
   const hotels = Array.isArray(tc.hotels) ? tc.hotels.filter((h) => h && (h.name || h.address)) : [];
   const flight = lines(tc.detail_flight);
+  const generalInfo = (Array.isArray(tc.general_info) && tc.general_info.length) ? tc.general_info : TC_GENERAL_INFO;
 
   const C = { primary: '#1f3b8c', ink: '#111', head: '#22357a', line: '#1f3b8c' };
 
@@ -149,7 +150,7 @@ export default async function TourConfirmationPage({ params }) {
           {/* GENERAL INFORMATION — nyambung langsung di bawah itinerary/hotel (tanpa page break) */}
           <h2 style={{ textAlign: 'center', fontSize: 18, fontWeight: 800, margin: '26px 0 14px' }}>GENERAL INFORMATION</h2>
           <ol className="gi" style={{ margin: 0, paddingLeft: 20, fontSize: 12 }}>
-            {TC_GENERAL_INFO.map((sec, i) => (
+            {generalInfo.map((sec, i) => (
               <li key={i} className="avoidbreak" style={{ marginBottom: 12 }}>
                 <div style={{ fontWeight: 800, marginBottom: 4 }}>{sec.title}</div>
                 <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.5 }}>
