@@ -28,6 +28,7 @@ export default function CRMClient({ customers = [], stats }) {
   const [source, setSource] = useState('');
   const [sort, setSort] = useState('spent');
   const [onlyBlacklist, setOnlyBlacklist] = useState(false);
+  const [limit, setLimit] = useState(500);
 
   const sources = useMemo(
     () => [...new Set(customers.map((c) => c.referral_source).filter(Boolean))].sort(),
@@ -55,6 +56,8 @@ export default function CRMClient({ customers = [], stats }) {
     });
     return arr;
   }, [customers, q, status, source, sort, onlyBlacklist]);
+
+  const shown = filtered.slice(0, limit);
 
   return (
     <div className="space-y-4">
@@ -101,7 +104,7 @@ export default function CRMClient({ customers = [], stats }) {
         </label>
       </div>
 
-      <p className="text-xs text-slate-500">{filtered.length} customer</p>
+      <p className="text-xs text-slate-500">{filtered.length.toLocaleString('id-ID')} customer{shown.length < filtered.length ? ` — menampilkan ${shown.length.toLocaleString('id-ID')} pertama (pakai pencarian/filter untuk menyaring)` : ''}</p>
 
       {/* List */}
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden overflow-x-auto">
@@ -119,7 +122,7 @@ export default function CRMClient({ customers = [], stats }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filtered.map((c) => {
+            {shown.map((c) => {
               const b = STATUS_BADGE[c.status] || STATUS_BADGE.lead;
               return (
                 <tr key={c.id} className={`hover:bg-slate-50 ${c.is_blacklisted ? 'bg-red-50/40' : ''}`}>
@@ -144,6 +147,16 @@ export default function CRMClient({ customers = [], stats }) {
           </tbody>
         </table>
       </div>
+      {shown.length < filtered.length && (
+        <div className="text-center">
+          <button
+            onClick={() => setLimit((n) => n + 1000)}
+            className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700"
+          >
+            Muat lebih banyak ({(filtered.length - shown.length).toLocaleString('id-ID')} lagi)
+          </button>
+        </div>
+      )}
     </div>
   );
 }

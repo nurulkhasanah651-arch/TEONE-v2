@@ -8,11 +8,21 @@ export const dynamic = 'force-dynamic';
 
 export default async function CRMPage() {
   const supabase = createClient();
-  const { data: customers } = await supabase
-    .from('customers')
-    .select('id, name, phone, whatsapp, email, city, gender, birthday, referral_source, tags, is_blacklisted, total_trips, total_spent, first_trip_at, last_trip_at, status, created_at')
-    .order('total_spent', { ascending: false })
-    .limit(5000);
+  // Supabase membatasi 1000 baris per request → ambil bertahap (paginasi) supaya
+  // SEMUA customer termuat (mis. hasil import data lama yg total_spent-nya 0).
+  const cols = 'id, name, phone, whatsapp, email, city, gender, birthday, referral_source, tags, is_blacklisted, total_trips, total_spent, first_trip_at, last_trip_at, status, created_at';
+  let customers = [];
+  for (let from = 0; from < 40000; from += 1000) {
+    const { data, error } = await supabase
+      .from('customers')
+      .select(cols)
+      .order('total_spent', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, from + 999);
+    if (error || !data || !data.length) break;
+    customers = customers.concat(data);
+    if (data.length < 1000) break;
+  }
 
   const { data: openTripsRaw } = await supabase
     .from('trips')
