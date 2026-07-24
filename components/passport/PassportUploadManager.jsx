@@ -5,7 +5,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   sendPassportUploadWA, sendPassportUploadWABulk,
-  scanUploadedPassport, getPassportSignedUrl,
+  scanUploadedPassport, getPassportSignedUrl, getPassportDownloadUrl,
 } from '@/lib/actions/passport-upload';
 
 function fmt(s) {
@@ -69,6 +69,20 @@ export default function PassportUploadManager({ tripId, passengers = [] }) {
     if (r?.url) window.open(r.url, '_blank');
     else notify(`⚠ ${r?.error || 'Gagal membuka file'}`);
   }
+  async function download(pid) {
+    setActingId('dl-' + pid);
+    const r = await getPassportDownloadUrl(pid);
+    setActingId(null);
+    if (r?.url) {
+      // signed URL sudah pakai Content-Disposition attachment → langsung terunduh
+      const a = document.createElement('a');
+      a.href = r.url;
+      a.download = r.filename || '';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } else notify(`⚠ ${r?.error || 'Gagal download file'}`);
+  }
 
   function StatusBadge({ p }) {
     if (!p.uploaded) return <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-500">⏳ Belum upload</span>;
@@ -88,6 +102,7 @@ export default function PassportUploadManager({ tripId, passengers = [] }) {
         {p.uploaded && (
           <div className="flex gap-1.5">
             <button onClick={() => lihat(p.id)} disabled={busy} className="text-[11px] px-2 py-1 rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-50">{actingId === 'view-' + p.id ? '…' : '👁 Lihat'}</button>
+            <button onClick={() => download(p.id)} disabled={busy} className="text-[11px] px-2 py-1 rounded border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50">{actingId === 'dl-' + p.id ? '…' : '⬇ Download'}</button>
             <button onClick={() => scan(p.id)} disabled={busy} className="text-[11px] px-2 py-1 rounded bg-brand-50 text-brand-700 border border-brand-200 hover:bg-brand-100 disabled:opacity-50">{actingId === 'scan-' + p.id ? 'Scan…' : '🔍 Scan ulang'}</button>
           </div>
         )}
@@ -140,6 +155,7 @@ export default function PassportUploadManager({ tripId, passengers = [] }) {
                 <button onClick={() => kirim(p.id)} disabled={busy} className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50">{actingId === 'wa-' + p.id ? 'Mengirim…' : '📤 Kirim WA'}</button>
                 {p.uploaded && <>
                   <button onClick={() => lihat(p.id)} disabled={busy} className="text-[11px] px-2 py-1 rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-50">👁 Lihat</button>
+                  <button onClick={() => download(p.id)} disabled={busy} className="text-[11px] px-2 py-1 rounded border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50">{actingId === 'dl-' + p.id ? '…' : '⬇ Download'}</button>
                   <button onClick={() => scan(p.id)} disabled={busy} className="text-[11px] px-2 py-1 rounded bg-brand-50 text-brand-700 border border-brand-200 hover:bg-brand-100 disabled:opacity-50">{actingId === 'scan-' + p.id ? 'Scan…' : '🔍 Scan ulang'}</button>
                 </>}
               </div>

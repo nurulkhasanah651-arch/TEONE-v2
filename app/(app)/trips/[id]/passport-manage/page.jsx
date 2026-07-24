@@ -228,9 +228,14 @@ export default async function PassportManagePage({ params }) {
                         {c.passport_expiry && <span>Exp: {fmtDate(c.passport_expiry)}</span>}
                         {c.nationality && <span>🌍 {c.nationality}</span>}
                         {c.passport_photo_url && (
-                          <a href={c.passport_photo_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline font-semibold">
-                            📎 Lihat foto
-                          </a>
+                          <>
+                            <a href={c.passport_photo_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline font-semibold">
+                              📎 Lihat foto
+                            </a>
+                            <a href={c.passport_photo_url} download={`paspor-${(fullName || 'peserta').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_')}`} className="text-emerald-700 hover:underline font-semibold">
+                              ⬇ Download
+                            </a>
+                          </>
                         )}
                       </p>
                     )}
