@@ -8,6 +8,10 @@ import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-en
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { updateEmployee } from '@/lib/actions/hr';
 import EmployeeForm from '@/components/hr/EmployeeForm';
+import ResetPasswordPanel from '@/components/hr/ResetPasswordPanel';
+import { createClient } from '@/lib/supabase/server';
+import { resolveAuthoritativeRole } from '@/lib/auth/authoritative-role';
+import { getRoleFromUser } from '@/lib/utils/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +29,15 @@ export default async function EditEmployeePage({ params }) {
   const { data: emp } = await db.from('employees').select('*').eq('id', id).maybeSingle();
   if (!emp) notFound();
 
+  // Reset password: OWNER only
+  let isOwner = false;
+  try {
+    const sb = createClient();
+    const { data: { user } } = await sb.auth.getUser();
+    const role = await resolveAuthoritativeRole(user, getRoleFromUser(user));
+    isOwner = role === 'owner';
+  } catch {}
+
   const action = updateEmployee.bind(null, id);
 
   return (
@@ -34,6 +47,7 @@ export default async function EditEmployeePage({ params }) {
         <h1 className="mt-1 text-3xl font-bold text-brand-700">✏️ Edit Karyawan — {emp.full_name}</h1>
       </div>
       <EmployeeForm action={action} employee={emp} submitLabel="Update Karyawan" />
+      {isOwner && <ResetPasswordPanel employeeId={emp.id} email={emp.email || ''} />}
     </div>
   );
 }
