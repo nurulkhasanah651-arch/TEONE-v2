@@ -27,7 +27,7 @@ export default function PaymentVisaTable({ rows = [] }) {
 
   const val = (r, f) => (edits[r.passengerId]?.[f] !== undefined ? edits[r.passengerId][f] : r[f]);
   const setVal = (pid, f, v) => setEdits((e) => ({ ...e, [pid]: { ...e[pid], [f]: v } }));
-  const rowTotal = (r) => (Number(val(r, 'fee_embassy_amount')) || 0) + (Number(val(r, 'fee_tls_amount')) || 0);
+  const rowTotal = (r) => (Number(val(r, 'fee_embassy_amount')) || 0) + (Number(val(r, 'fee_tls_amount')) || 0) + (Number(val(r, 'fee_asuransi_amount')) || 0);
 
   // Grup per trip, dengan filter search + bulan
   const groups = useMemo(() => {
@@ -57,7 +57,10 @@ export default function PaymentVisaTable({ rows = [] }) {
     const payload = {
       embassy: val(r, 'embassy'), fee_embassy_amount: val(r, 'fee_embassy_amount'), fee_embassy_pic: val(r, 'fee_embassy_pic'),
       fee_tls_amount: val(r, 'fee_tls_amount'), fee_tls_pic: val(r, 'fee_tls_pic'),
+      fee_asuransi_amount: val(r, 'fee_asuransi_amount'), fee_asuransi_pic: val(r, 'fee_asuransi_pic'),
       tgl_transfer: val(r, 'tgl_transfer'), pic_transfer: val(r, 'pic_transfer'),
+      refund_amount: val(r, 'refund_amount'), refund_date: val(r, 'refund_date'), refund_note: val(r, 'refund_note'),
+      norek: val(r, 'norek'), keterangan: val(r, 'keterangan'),
     };
     start(async () => {
       const res = await saveVisaApplyPayment(r.passengerId, payload);
@@ -119,9 +122,15 @@ export default function PaymentVisaTable({ rows = [] }) {
                         <th className="px-2 py-2">PIC</th>
                         <th className="px-2 py-2">Fee TLS/VFS</th>
                         <th className="px-2 py-2">PIC</th>
+                        <th className="px-2 py-2">Asuransi</th>
+                        <th className="px-2 py-2">PIC</th>
                         <th className="px-2 py-2 text-right">Total</th>
                         <th className="px-2 py-2">Tgl Transfer</th>
                         <th className="px-2 py-2">PIC Transfer</th>
+                        <th className="px-2 py-2">Refund</th>
+                        <th className="px-2 py-2">Tgl Refund</th>
+                        <th className="px-2 py-2">No Rek</th>
+                        <th className="px-2 py-2">Keterangan</th>
                         <th className="px-2 py-2"></th>
                       </tr>
                     </thead>
@@ -135,9 +144,15 @@ export default function PaymentVisaTable({ rows = [] }) {
                           <td className="px-2 py-1.5 min-w-[80px]"><input className={inp} value={val(r, 'fee_embassy_pic') || ''} onChange={(e) => setVal(r.passengerId, 'fee_embassy_pic', e.target.value)} /></td>
                           <td className="px-2 py-1.5 min-w-[110px]"><input className={inp} inputMode="numeric" value={val(r, 'fee_tls_amount') || ''} onChange={(e) => setVal(r.passengerId, 'fee_tls_amount', e.target.value)} placeholder="0" /></td>
                           <td className="px-2 py-1.5 min-w-[80px]"><input className={inp} value={val(r, 'fee_tls_pic') || ''} onChange={(e) => setVal(r.passengerId, 'fee_tls_pic', e.target.value)} /></td>
+                          <td className="px-2 py-1.5 min-w-[110px]"><input className={inp} inputMode="numeric" value={val(r, 'fee_asuransi_amount') || ''} onChange={(e) => setVal(r.passengerId, 'fee_asuransi_amount', e.target.value)} placeholder="0" /></td>
+                          <td className="px-2 py-1.5 min-w-[80px]"><input className={inp} value={val(r, 'fee_asuransi_pic') || ''} onChange={(e) => setVal(r.passengerId, 'fee_asuransi_pic', e.target.value)} /></td>
                           <td className="px-2 py-1.5 text-right font-bold text-slate-800 whitespace-nowrap">{rupiah(rowTotal(r))}</td>
                           <td className="px-2 py-1.5 min-w-[120px]"><input type="date" className={inp} value={val(r, 'tgl_transfer') || ''} onChange={(e) => setVal(r.passengerId, 'tgl_transfer', e.target.value)} /></td>
                           <td className="px-2 py-1.5 min-w-[80px]"><input className={inp} value={val(r, 'pic_transfer') || ''} onChange={(e) => setVal(r.passengerId, 'pic_transfer', e.target.value)} /></td>
+                          <td className="px-2 py-1.5 min-w-[100px]"><input className={inp} inputMode="numeric" value={val(r, 'refund_amount') || ''} onChange={(e) => setVal(r.passengerId, 'refund_amount', e.target.value)} placeholder="0" /></td>
+                          <td className="px-2 py-1.5 min-w-[120px]"><input type="date" className={inp} value={val(r, 'refund_date') || ''} onChange={(e) => setVal(r.passengerId, 'refund_date', e.target.value)} /></td>
+                          <td className="px-2 py-1.5 min-w-[120px]"><input className={inp} value={val(r, 'norek') || ''} onChange={(e) => setVal(r.passengerId, 'norek', e.target.value)} placeholder="No rek / bank" /></td>
+                          <td className="px-2 py-1.5 min-w-[140px]"><input className={inp} value={val(r, 'keterangan') || ''} onChange={(e) => setVal(r.passengerId, 'keterangan', e.target.value)} placeholder="Catatan / refund note" /></td>
                           <td className="px-2 py-1.5 whitespace-nowrap">
                             <button onClick={() => save(r)} disabled={pending && savingId === r.passengerId} className="text-[11px] px-2 py-1 rounded bg-brand-600 hover:bg-brand-700 text-white font-semibold disabled:opacity-50">
                               {pending && savingId === r.passengerId ? '…' : 'Simpan'}
