@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { brandSupabaseUrl, brandServiceRoleKey } from '@/lib/supabase/service-env';
 import { fmtDate, daysUntil } from '@/lib/utils/format';
-import { VISA_STATUS_OPTS, STATUS_COLOR_CLASS } from '@/lib/utils/visa-constants';
+import { VISA_STATUS_OPTS, STATUS_COLOR_CLASS, deriveVisaStage } from '@/lib/utils/visa-constants';
 import { getPicScope, filterTripsForPic } from '@/lib/auth/pic-scope';
 
 export const dynamic = 'force-dynamic';
@@ -104,32 +104,23 @@ export default async function VisaListPage() {
     return 0;
   });
 
-  // ═══ RINGKASAN STATUS VISA (per peserta, seluruh trip aktif) ═══
+  // ═══ RINGKASAN STATUS VISA OTOMATIS (per peserta, seluruh trip aktif) ═══
+  // Pakai deriveVisaStage (sama dgn badge per peserta) supaya angka ringkasan & detail konsisten.
+  const _tmplById = Object.fromEntries((trips || []).map((t) => [t.id, t.visa_doc_template || []]));
   const allActivePax = activeTrips.flatMap((t) => paxByTrip[t.id] || []);
-  const _todayStr = new Date().toISOString().slice(0, 10);
-  const vs = { butuhVisa: 0, perluJadwal: 0, sudahBio: 0, terjadwalBio: 0, proses: 0, approved: 0, rejected: 0 };
+  const st = { belum_mulai: 0, lengkapi_dokumen: 0, siap_biometrik: 0, biometrik_terjadwal: 0, proses: 0, approved: 0, rejected: 0, punya_visa: 0, tidak_perlu: 0 };
   for (const p of allActivePax) {
-    const needs = p.include_visa === true && p.visa_ready !== true;
-    const res = p.visa_result;
-    const bio = p.visa_biometric_date;
-    const belumHasil = res !== 'approved' && res !== 'rejected';
-    if (res === 'approved') vs.approved++;
-    if (res === 'rejected') vs.rejected++;
-    if (bio) { if (String(bio) <= _todayStr) vs.sudahBio++; else vs.terjadwalBio++; }
-    if (needs) {
-      vs.butuhVisa++;
-      if (!bio && belumHasil) vs.perluJadwal++;
-      if (bio && belumHasil) vs.proses++;
-    }
+    const stage = deriveVisaStage(p, _tmplById[p.trip_id]);
+    st[stage.key] = (st[stage.key] || 0) + 1;
   }
   const VISA_CARDS = [
-    { label: 'Butuh Visa', value: vs.butuhVisa, cls: 'bg-slate-50 border-slate-200 text-slate-700', hint: 'Peserta yang perlu diuruskan visa' },
-    { label: 'Perlu Dijadwalkan', value: vs.perluJadwal, cls: 'bg-amber-50 border-amber-200 text-amber-800', hint: 'Belum ada jadwal biometrik' },
-    { label: 'Terjadwal Biometrik', value: vs.terjadwalBio, cls: 'bg-blue-50 border-blue-200 text-blue-800', hint: 'Sudah ada tanggal biometrik (akan datang)' },
-    { label: 'Sudah Biometrik', value: vs.sudahBio, cls: 'bg-indigo-50 border-indigo-200 text-indigo-800', hint: 'Biometrik sudah dilakukan' },
-    { label: 'Sedang Proses', value: vs.proses, cls: 'bg-purple-50 border-purple-200 text-purple-800', hint: 'Biometrik ada, menunggu hasil visa' },
-    { label: 'Approved', value: vs.approved, cls: 'bg-green-50 border-green-200 text-green-800', hint: 'Visa disetujui' },
-    { label: 'Ditolak', value: vs.rejected, cls: 'bg-red-50 border-red-200 text-red-700', hint: 'Visa ditolak' },
+    { label: 'Lengkapi Dokumen', value: st.belum_mulai + st.lengkapi_dokumen, cls: 'bg-amber-50 border-amber-200 text-amber-800', hint: 'Dokumen belum lengkap (belum bisa biometrik)' },
+    { label: 'Siap Biometrik', value: st.siap_biometrik, cls: 'bg-indigo-50 border-indigo-200 text-indigo-800', hint: 'Dokumen lengkap — perlu dijadwalkan biometrik' },
+    { label: 'Biometrik Terjadwal', value: st.biometrik_terjadwal, cls: 'bg-blue-50 border-blue-200 text-blue-800', hint: 'Sudah ada tanggal biometrik (akan datang)' },
+    { label: 'Proses / Sudah Biometrik', value: st.proses, cls: 'bg-purple-50 border-purple-200 text-purple-800', hint: 'Biometrik selesai, menunggu hasil visa' },
+    { label: 'Approved', value: st.approved, cls: 'bg-green-50 border-green-200 text-green-800', hint: 'Visa disetujui' },
+    { label: 'Ditolak', value: st.rejected, cls: 'bg-red-50 border-red-200 text-red-700', hint: 'Visa ditolak' },
+    { label: 'Sudah Punya Visa', value: st.punya_visa, cls: 'bg-emerald-50 border-emerald-200 text-emerald-800', hint: 'Peserta sudah punya visa sendiri' },
   ];
 
   return (
@@ -235,9 +226,19 @@ NOTIFY pgrst, 'reload schema';`}</pre>
               const days = daysUntil(t.departure);
               const stats = tripStats[t.id] || { totalUploads: 0, newUploadsCount: 0, newUploadsByPax: 0 };
               const bioScheduled = pax.filter((p) => p.visa_biometric_date).length;
-              const vApproved = pax.filter((p) => p.visa_status === 'approved').length;
-              const vRejected = pax.filter((p) => p.visa_status === 'rejected').length;
-              const vProcess = pax.filter((p) => ['ready_to_submit', 'submitted', 'biometric', 'on_process'].includes(p.visa_status)).length;
+              // Rincian status OTOMATIS per trip — biar PIC langsung tahu trip ini kurang apa
+              const sc = { belum_mulai: 0, lengkapi_dokumen: 0, siap_biometrik: 0, biometrik_terjadwal: 0, proses: 0, approved: 0, rejected: 0, punya_visa: 0, tidak_perlu: 0 };
+              for (const p of pax) { const s = deriveVisaStage(p, docTemplate); sc[s.key] = (sc[s.key] || 0) + 1; }
+              const perluDok = sc.belum_mulai + sc.lengkapi_dokumen;
+              const tripChips = [
+                perluDok > 0 && { t: `📄 ${perluDok} lengkapi dok`, c: 'text-amber-700' },
+                sc.siap_biometrik > 0 && { t: `🧬 ${sc.siap_biometrik} siap biometrik`, c: 'text-indigo-700 font-semibold' },
+                sc.biometrik_terjadwal > 0 && { t: `📅 ${sc.biometrik_terjadwal} terjadwal`, c: 'text-blue-700' },
+                sc.proses > 0 && { t: `⏳ ${sc.proses} proses`, c: 'text-purple-700 font-semibold' },
+                sc.approved > 0 && { t: `✅ ${sc.approved} approved`, c: 'text-green-700 font-semibold' },
+                sc.rejected > 0 && { t: `✗ ${sc.rejected} ditolak`, c: 'text-red-700 font-semibold' },
+                sc.punya_visa > 0 && { t: `🛂 ${sc.punya_visa} punya visa`, c: 'text-emerald-700' },
+              ].filter(Boolean);
 
               return (
                 <Link key={t.id} href={`/visa/${t.id}`} className={`block px-5 py-3 hover:bg-slate-50 transition-colors ${stats.newUploadsCount > 0 ? 'bg-emerald-50/50' : ''}`}>
@@ -268,11 +269,12 @@ NOTIFY pgrst, 'reload schema';`}</pre>
                         )}
                       </p>
                       <p className="text-xs mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
-                        <span className={bioScheduled >= pax.length && pax.length > 0 ? 'text-indigo-700 font-semibold' : 'text-slate-500'}>📅 Bio terjadwal: {bioScheduled}/{pax.length}</span>
+                        {tripChips.length > 0 ? (
+                          tripChips.map((chip, i) => <span key={i} className={chip.c}>{chip.t}</span>)
+                        ) : (
+                          <span className="text-slate-400">Belum ada peserta / semua tuntas</span>
+                        )}
                         {(formSubmittedByTrip[t.id] || 0) > 0 && <span className="text-brand-700 font-semibold">📝 Form: {formSubmittedByTrip[t.id]}</span>}
-                        {vApproved > 0 && <span className="text-green-700 font-semibold">✓ Approved: {vApproved}</span>}
-                        {vProcess > 0 && <span className="text-purple-700 font-semibold">⏳ Proses: {vProcess}</span>}
-                        {vRejected > 0 && <span className="text-red-700 font-semibold">✗ Reject: {vRejected}</span>}
                       </p>
                     </div>
                     <div className="text-right">

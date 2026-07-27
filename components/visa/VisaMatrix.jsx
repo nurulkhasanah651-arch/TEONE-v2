@@ -7,7 +7,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toggleParticipantDoc, updateParticipantDocNotes, updateParticipantVisaNotes, updateParticipantVisaStatus } from '@/lib/actions/visa';
 import { fmtDate, daysUntil } from '@/lib/utils/format';
-import { VISA_STATUS_OPTS, STATUS_COLOR_CLASS } from '@/lib/utils/visa-constants';
+import { VISA_STATUS_OPTS, STATUS_COLOR_CLASS, deriveVisaStage } from '@/lib/utils/visa-constants';
 import PaxSearch, { matchesName } from '@/components/common/PaxSearch';
 
 const STATUS_MAP = Object.fromEntries(VISA_STATUS_OPTS.map((s) => [s.value, s]));
@@ -132,6 +132,7 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
         const progress = template.length > 0 ? Math.round((completeDocs.length / template.length) * 100) : 0;
         const status = p.visa_status || 'pending';
         const statusCfgItem = STATUS_MAP[status];
+        const autoStage = deriveVisaStage(p, template);   // status otomatis dari dokumen/biometrik/hasil
         const biometricDate = p.visa_biometric_date;
         const bioDays = biometricDate ? daysUntil(biometricDate) : null;
         const isExpanded = expandedRow === p.id;
@@ -153,6 +154,11 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-mono text-slate-400">#{idx + 1}</span>
                   <p className="font-bold text-brand-700">{c.name || '—'}</p>
+
+                  {/* STATUS OTOMATIS — dihitung dari dokumen/biometrik/hasil (selalu update sendiri) */}
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${STATUS_COLOR_CLASS[autoStage.color]}`} title="Status otomatis: naik sendiri saat dokumen lengkap, biometrik dijadwalkan, & hasil visa keluar">
+                    {autoStage.label}
+                  </span>
 
                   {/* ROUND 128: Badge sync visa payment status */}
                   {isVisaPaid && needsBiometricSchedule && (
