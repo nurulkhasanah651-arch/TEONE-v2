@@ -96,6 +96,14 @@ async function resolveTlContact(supabase, tl_id) {
   return {};
 }
 
+// Ubah error DB teknis jadi pesan yang jelas buat CS/owner.
+function friendlyTripError(msg, kode) {
+  if (/idx_trips_kode_trip|kode_trip/i.test(msg || '')) {
+    return `Kode trip "${kode || ''}" sudah dipakai trip lain. Ganti dengan kode yang belum terpakai lalu simpan lagi.`;
+  }
+  return msg;
+}
+
 export async function createTrip(formData) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -123,7 +131,7 @@ export async function createTrip(formData) {
     error = retry.error;
   }
 
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyTripError(error.message, fields.kode_trip) };
 
   revalidatePath('/trips');
   revalidatePath('/dashboard');
@@ -167,7 +175,7 @@ export async function updateTrip(tripId, formData) {
     updated = retry.data;
   }
 
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyTripError(error.message, fields.kode_trip) };
   if (!updated || updated.length === 0) {
     return { error: 'Perubahan tidak tersimpan — kamu tidak punya izin mengubah trip ini (PIC hanya bisa mengubah trip miliknya sendiri).' };
   }
