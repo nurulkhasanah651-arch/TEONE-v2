@@ -38,9 +38,16 @@ const GROUPS = [
       { href: '/invoices',   label: 'Invoices',   icon: '🧾', roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
       // Khusus Khasanah: PIC belum tersambung Fonnte, konfirmasi pembayaran online dikirim manual.
       { href: '/wa-manual', label: 'Konfirmasi WA Payment Online', icon: '📤', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'], brands: ['khasanah', 'teone'] },
-      { href: '/accounting', label: 'Accounting', icon: '📊', roles: ['owner', 'accounting'] },
       { href: '/finance/pnr', label: 'PNR Inventory', icon: '🎟', roles: ALL_ROLES },
       { href: '/refunds',    label: 'Refunds',    icon: '💸', roles: ALL_ROLES },
+    ],
+  },
+  {
+    key: 'accounting',
+    label: 'Accounting',
+    items: [
+      { href: '/accounting',              label: 'Accounting',   icon: '📊', roles: ['owner', 'accounting'] },
+      { href: '/accounting/payment-visa', label: 'Payment Visa', icon: '🛂', roles: ['owner', 'accounting'] },
     ],
   },
   {
