@@ -29,7 +29,7 @@ export default async function VisaListPage() {
   // R215s — fetch visa_uploaded_docs + visa_uploads_last_viewed_at juga
   const [trips, passengers] = await Promise.all([
     safeQuery(supabase.from('trips').select('*').order('departure', { ascending: true, nullsFirst: false })),
-    safeQuery(supabase.from('trip_passengers').select('id, trip_id, visa_docs, visa_uploaded_docs, visa_uploads_last_viewed_at, visa_status, visa_biometric_date')),
+    safeQuery(supabase.from('trip_passengers').select('id, trip_id, visa_docs, visa_uploaded_docs, visa_uploads_last_viewed_at, visa_status, visa_biometric_date, include_visa, visa_ready, visa_result')),
   ]);
 
   let activeTrips = trips.filter((t) => t.status !== 'completed' && t.status !== 'cancelled');
@@ -104,6 +104,34 @@ export default async function VisaListPage() {
     return 0;
   });
 
+  // ═══ RINGKASAN STATUS VISA (per peserta, seluruh trip aktif) ═══
+  const allActivePax = activeTrips.flatMap((t) => paxByTrip[t.id] || []);
+  const _todayStr = new Date().toISOString().slice(0, 10);
+  const vs = { butuhVisa: 0, perluJadwal: 0, sudahBio: 0, terjadwalBio: 0, proses: 0, approved: 0, rejected: 0 };
+  for (const p of allActivePax) {
+    const needs = p.include_visa === true && p.visa_ready !== true;
+    const res = p.visa_result;
+    const bio = p.visa_biometric_date;
+    const belumHasil = res !== 'approved' && res !== 'rejected';
+    if (res === 'approved') vs.approved++;
+    if (res === 'rejected') vs.rejected++;
+    if (bio) { if (String(bio) <= _todayStr) vs.sudahBio++; else vs.terjadwalBio++; }
+    if (needs) {
+      vs.butuhVisa++;
+      if (!bio && belumHasil) vs.perluJadwal++;
+      if (bio && belumHasil) vs.proses++;
+    }
+  }
+  const VISA_CARDS = [
+    { label: 'Butuh Visa', value: vs.butuhVisa, cls: 'bg-slate-50 border-slate-200 text-slate-700', hint: 'Peserta yang perlu diuruskan visa' },
+    { label: 'Perlu Dijadwalkan', value: vs.perluJadwal, cls: 'bg-amber-50 border-amber-200 text-amber-800', hint: 'Belum ada jadwal biometrik' },
+    { label: 'Terjadwal Biometrik', value: vs.terjadwalBio, cls: 'bg-blue-50 border-blue-200 text-blue-800', hint: 'Sudah ada tanggal biometrik (akan datang)' },
+    { label: 'Sudah Biometrik', value: vs.sudahBio, cls: 'bg-indigo-50 border-indigo-200 text-indigo-800', hint: 'Biometrik sudah dilakukan' },
+    { label: 'Sedang Proses', value: vs.proses, cls: 'bg-purple-50 border-purple-200 text-purple-800', hint: 'Biometrik ada, menunggu hasil visa' },
+    { label: 'Approved', value: vs.approved, cls: 'bg-green-50 border-green-200 text-green-800', hint: 'Visa disetujui' },
+    { label: 'Ditolak', value: vs.rejected, cls: 'bg-red-50 border-red-200 text-red-700', hint: 'Visa ditolak' },
+  ];
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -118,6 +146,16 @@ export default async function VisaListPage() {
             <p className="text-sm">{globalNewUploads} dokumen baru di-upload peserta</p>
           </div>
         )}
+      </div>
+
+      {/* RINGKASAN STATUS VISA — seluruh trip aktif */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
+        {VISA_CARDS.map((c) => (
+          <div key={c.label} title={c.hint} className={`rounded-xl border p-3 ${c.cls}`}>
+            <p className="text-[10px] font-bold uppercase tracking-wide leading-tight">{c.label}</p>
+            <p className="mt-1 text-2xl font-bold">{c.value}</p>
+          </div>
+        ))}
       </div>
 
       {!hasMigration && trips.length > 0 && (
