@@ -131,8 +131,9 @@ export default async function VisaListPage() {
     st[stage.key] = (st[stage.key] || 0) + 1;
   }
   const VISA_CARDS = [
-    { label: 'Lengkapi Dokumen', value: st.belum_mulai + st.lengkapi_dokumen, cls: 'bg-amber-50 border-amber-200 text-amber-800', hint: 'Dokumen belum lengkap (belum bisa biometrik)' },
-    { label: 'Siap Biometrik', value: st.siap_biometrik, cls: 'bg-indigo-50 border-indigo-200 text-indigo-800', hint: 'Dokumen lengkap — perlu dijadwalkan biometrik' },
+    { label: 'Belum Diurus', value: st.belum_mulai, cls: 'bg-rose-50 border-rose-200 text-rose-700', hint: 'Belum ada payment, belum ada dokumen, belum diupdate apa-apa' },
+    { label: 'Lengkapi Dokumen', value: st.lengkapi_dokumen, cls: 'bg-amber-50 border-amber-200 text-amber-800', hint: 'Sudah mulai tapi dokumen belum lengkap' },
+    { label: 'Siap Biometrik', value: st.siap_biometrik, cls: 'bg-indigo-50 border-indigo-200 text-indigo-800', hint: 'Dokumen lengkap / sudah bayar — perlu dijadwalkan biometrik' },
     { label: 'Biometrik Terjadwal', value: st.biometrik_terjadwal, cls: 'bg-blue-50 border-blue-200 text-blue-800', hint: 'Sudah ada tanggal biometrik (akan datang)' },
     { label: 'Proses / Sudah Biometrik', value: st.proses, cls: 'bg-purple-50 border-purple-200 text-purple-800', hint: 'Biometrik selesai, menunggu hasil visa' },
     { label: 'Approved', value: st.approved, cls: 'bg-green-50 border-green-200 text-green-800', hint: 'Visa disetujui' },
@@ -151,9 +152,9 @@ export default async function VisaListPage() {
     const progress = docsNeeded > 0 ? Math.round((docsComplete / docsNeeded) * 100) : 0;
     const sc = { belum_mulai: 0, lengkapi_dokumen: 0, siap_biometrik: 0, biometrik_terjadwal: 0, proses: 0, approved: 0, rejected: 0, punya_visa: 0, tidak_perlu: 0 };
     for (const p of pax) { const s = deriveVisaStage(p, docTemplate); sc[s.key] = (sc[s.key] || 0) + 1; }
-    const perluDok = sc.belum_mulai + sc.lengkapi_dokumen;
     const chips = [
-      perluDok > 0 && { t: `📄 ${perluDok} lengkapi dok`, c: 'text-amber-700' },
+      sc.belum_mulai > 0 && { t: `🔴 ${sc.belum_mulai} belum diurus`, c: 'text-rose-700 font-semibold' },
+      sc.lengkapi_dokumen > 0 && { t: `📄 ${sc.lengkapi_dokumen} lengkapi dok`, c: 'text-amber-700' },
       sc.siap_biometrik > 0 && { t: `🧬 ${sc.siap_biometrik} siap biometrik`, c: 'text-indigo-700 font-semibold' },
       sc.biometrik_terjadwal > 0 && { t: `📅 ${sc.biometrik_terjadwal} terjadwal`, c: 'text-blue-700' },
       sc.proses > 0 && { t: `⏳ ${sc.proses} proses`, c: 'text-purple-700 font-semibold' },
@@ -195,7 +196,7 @@ export default async function VisaListPage() {
       </div>
 
       {/* RINGKASAN STATUS VISA — seluruh trip aktif */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
         {VISA_CARDS.map((c) => (
           <div key={c.label} title={c.hint} className={`rounded-xl border p-3 ${c.cls}`}>
             <p className="text-[10px] font-bold uppercase tracking-wide leading-tight">{c.label}</p>
