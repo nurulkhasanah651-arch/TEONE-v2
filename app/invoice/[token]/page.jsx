@@ -275,7 +275,7 @@ export default async function PublicInvoicePage({ params }) {
   if (famBase > 0) tourItems.push({ label: `Harga Dasar${_cntNote(_cnt((m) => (m.baseFee || 0) > 0))}`, amount: famBase });
   if (famFlight > 0) tourItems.push({ label: `Tiket Pesawat Domestik${_cntNote(_cnt((m) => (m.flight || 0) > 0))}`, amount: famFlight });
   if (famBaggage > 0) tourItems.push({ label: `Bagasi Domestik${_cntNote(_cnt((m) => (m.baggage || 0) > 0))}`, amount: famBaggage });
-  if (rTips > 0) tourItems.push({ label: `Tips${_cntNote(_cnt((m) => (m.tips || 0) > 0))}`, amount: rTips });
+  if (rTips > 0) tourItems.push({ label: `Tipping & Service${_cntNote(_cnt((m) => (m.tips || 0) > 0))}`, amount: rTips });
   if (rCity > 0) tourItems.push({ label: `City Tax${_cntNote(_cnt((m) => (m.cityTax || 0) > 0))}`, amount: rCity });
   if (famPerlengkapan > 0) tourItems.push({ label: `Perlengkapan${_cntNote(_cnt((m) => (m.perlengkapan || 0) > 0))}`, amount: famPerlengkapan });
   // Khasanah: 3 item wajib gabungan baru — tampil sebagai baris tersendiri (spt Tips/Perlengkapan).
