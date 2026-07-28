@@ -27,11 +27,30 @@ async function safeQuery(promise, fallback = []) {
 export default async function VisaListPage() {
   const supabase = createClient();
 
+  // Data trip & peserta diambil via service-role (bypass RLS) supaya SEMUA staf yang
+  // berhak (owner/manager/pic/ops) lihat status visa yang sama. Sebelumnya pakai koneksi
+  // ber-RLS → hanya owner yang dapat data, manager/pic dapat kosong (semua 0).
+  // Scope PIC tetap diterapkan di bawah lewat filterTripsForPic.
+  const _svcUrl = brandSupabaseUrl(); const _svcKey = brandServiceRoleKey();
+  const db = (_svcUrl && _svcKey)
+    ? createServiceClient(_svcUrl, _svcKey, { auth: { persistSession: false, autoRefreshToken: false } })
+    : supabase;
+
   // R215s — fetch visa_uploaded_docs + visa_uploads_last_viewed_at juga
-  const [trips, passengers] = await Promise.all([
-    safeQuery(supabase.from('trips').select('*').order('departure', { ascending: true, nullsFirst: false })),
-    safeQuery(supabase.from('trip_passengers').select('id, trip_id, visa_docs, visa_uploaded_docs, visa_uploads_last_viewed_at, visa_status, visa_biometric_date, include_visa, visa_ready, visa_result')),
-  ]);
+  const trips = await safeQuery(db.from('trips').select('*').order('departure', { ascending: true, nullsFirst: false }));
+  // trip_passengers bisa > 1000 baris → paginate biar tidak kena cap PostgREST (max-rows 1000).
+  let passengers = [];
+  try {
+    for (let from = 0; ; from += 1000) {
+      const { data } = await db.from('trip_passengers')
+        .select('id, trip_id, visa_docs, visa_uploaded_docs, visa_uploads_last_viewed_at, visa_status, visa_biometric_date, include_visa, visa_ready, visa_result')
+        .order('id', { ascending: true })
+        .range(from, from + 999);
+      if (!data || data.length === 0) break;
+      passengers = passengers.concat(data);
+      if (data.length < 1000) break;
+    }
+  } catch { passengers = []; }
 
   let activeTrips = trips.filter((t) => t.status !== 'completed' && t.status !== 'cancelled');
   // KHASANAH: PIC hanya lihat trip visanya sendiri (teone tak terpengaruh)
