@@ -42,13 +42,13 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
 
   // ── Expense ──
   const addItem = (category = '', qty_source = null) => setExpense((rows) => [...rows, { type: 'item', category, component: '', unit_cost: 0, qty: 0, qty_source, qty_locked: false, noted: '' }]);
-  const addHotel = () => setExpense((rows) => [...rows, { type: 'hotel', city: '', noted: '', rooms: HROOMS.map((h) => ({ ...h, unit_cost: 0, qty: 0, qty_source: h.qty_source || null, qty_locked: false })) }]);
+  const addHotel = () => setExpense((rows) => [...rows, { type: 'hotel', city: '', noted: '', rooms: HROOMS.map((h) => ({ ...h, unit_cost: 0, qty: 0, qty_source: h.qty_source || null, qty_locked: false, nights: 1 })) }]);
   const delExp = (i) => setExpense((rows) => rows.filter((_, idx) => idx !== i));
   const setExpCell = (i, f, v) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, [f]: v } : r)));
   const setExpQty = (i, v) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, qty: v, qty_locked: true } : r)));
   const setHotelRoom = (i, ri, f, v) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, rooms: r.rooms.map((h, hi) => (hi === ri ? { ...h, [f]: v } : h)) } : r)));
   const setHotelRoomQty = (i, ri, v) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, rooms: r.rooms.map((h, hi) => (hi === ri ? { ...h, qty: v, qty_locked: true } : h)) } : r)));
-  const addHotelRoom = (i) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, rooms: [...r.rooms, { room: 'custom', label: 'Hotel', unit_cost: 0, qty: 0, qty_source: null, qty_locked: false }] } : r)));
+  const addHotelRoom = (i) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, rooms: [...r.rooms, { room: 'custom', label: 'Hotel', unit_cost: 0, qty: 0, qty_source: null, qty_locked: false, nights: 1 }] } : r)));
   const delHotelRoom = (i, ri) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, rooms: r.rooms.filter((_, hi) => hi !== ri) } : r)));
 
   // QTY expense OTOMATIS dari income di atas (headcount/visa/asuransi/tipping/room type),
@@ -65,7 +65,12 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
   const effQty = (r) => (r.qty_source && !r.qty_locked ? (Number(qtySources[r.qty_source]) || 0) : num(r.qty));
   const isAutoQty = (r) => !!(r.qty_source && !r.qty_locked);
 
-  const hotelTotal = (r) => (r.rooms || []).reduce((s, h) => s + num(h.unit_cost) * effQty(h), 0);
+  // Hotel: ops isi HARGA KAMAR (per malam). Biaya = (harga kamar / kapasitas) × pax × malam.
+  // Kapasitas dari tipe kamar: quad=4, triple=3, double=2, single=1.
+  const occ = (h) => { const s = String(h.room || h.label || '').toLowerCase(); if (s.includes('quad')) return 4; if (s.includes('triple')) return 3; if (s.includes('double') || s.includes('twin')) return 2; if (s.includes('single')) return 1; return 1; };
+  const nightsOf = (h) => (num(h.nights) > 0 ? num(h.nights) : 1);
+  const roomSubtotal = (h) => (num(h.unit_cost) / occ(h)) * effQty(h) * nightsOf(h);
+  const hotelTotal = (r) => (r.rooms || []).reduce((s, h) => s + roomSubtotal(h), 0);
 
   const totals = useMemo(() => {
     const totalIncome = income.reduce((s, r) => s + num(r.basic_fare) * num(r.pax), 0);
@@ -173,18 +178,20 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
               <table className="w-full text-xs border-collapse">
                 <thead className="bg-amber-50/50 text-[10px] uppercase text-amber-700"><tr>
                   <th className="border border-amber-200 px-1 py-1 text-left">Tipe Kamar</th>
-                  <th className="border border-amber-200 px-1 py-1 text-right">Harga/Unit</th>
-                  <th className="border border-amber-200 px-1 py-1 w-16">Qty</th>
+                  <th className="border border-amber-200 px-1 py-1 text-right">Harga Kamar<span className="normal-case font-normal">/malam</span></th>
+                  <th className="border border-amber-200 px-1 py-1 w-14">Pax</th>
+                  <th className="border border-amber-200 px-1 py-1 w-14">Malam</th>
                   <th className="border border-amber-200 px-1 py-1 text-right">Subtotal</th>
                   <th className="border border-amber-200 px-1 py-1 w-8 no-print"></th>
                 </tr></thead>
                 <tbody>
                   {r.rooms.map((h, ri) => (
                     <tr key={ri}>
-                      <td className="border border-amber-200 px-1 py-1"><input className={inp} value={h.label} onChange={(e) => setHotelRoom(i, ri, 'label', e.target.value)} /></td>
-                      <td className="border border-amber-200 px-1 py-1"><input className={`${inp} text-right`} inputMode="numeric" value={h.unit_cost} onChange={(e) => setHotelRoom(i, ri, 'unit_cost', e.target.value)} /></td>
+                      <td className="border border-amber-200 px-1 py-1"><input className={inp} value={h.label} onChange={(e) => setHotelRoom(i, ri, 'label', e.target.value)} /><span className="block text-[9px] text-slate-400 no-print">÷ {occ(h)} /pax</span></td>
+                      <td className="border border-amber-200 px-1 py-1"><input className={`${inp} text-right`} inputMode="numeric" value={h.unit_cost} onChange={(e) => setHotelRoom(i, ri, 'unit_cost', e.target.value)} placeholder="harga kamar" /></td>
                       <td className="border border-amber-200 px-1 py-1"><input className={`${inp} text-center ${isAutoQty(h) ? 'bg-emerald-50' : ''}`} title={isAutoQty(h) ? 'otomatis dari income (pax) — ketik untuk override' : ''} inputMode="numeric" value={effQty(h)} onChange={(e) => setHotelRoomQty(i, ri, e.target.value)} /></td>
-                      <td className="border border-amber-200 px-1 py-1 text-right font-semibold whitespace-nowrap">{rupiah(num(h.unit_cost) * effQty(h))}</td>
+                      <td className="border border-amber-200 px-1 py-1"><input className={`${inp} text-center`} inputMode="numeric" value={h.nights} onChange={(e) => setHotelRoom(i, ri, 'nights', e.target.value)} /></td>
+                      <td className="border border-amber-200 px-1 py-1 text-right font-semibold whitespace-nowrap">{rupiah(roomSubtotal(h))}</td>
                       <td className="border border-amber-200 px-1 py-1 text-center no-print"><button onClick={() => delHotelRoom(i, ri)} className="text-red-400 text-xs">✕</button></td>
                     </tr>
                   ))}
