@@ -32,6 +32,9 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
 
   const num = (v) => (v === '' || v == null ? 0 : Number(String(v).replace(/[^0-9.-]/g, '')) || 0);
   const inp = 'w-full px-1.5 py-1 border border-slate-300 rounded text-xs print:border-0';
+  // Tampilkan angka uang dengan titik ribuan biar tidak salah baca (200.000 vs 2.000.000).
+  const money = (v) => { const n = num(v); return n ? n.toLocaleString('id-ID') : ''; };
+  const digits = (v) => String(v).replace(/[^0-9]/g, '');
 
   // ── Income ──
   const setIncCell = (i, f, v) => setIncome((rows) => rows.map((r, idx) => (idx === i ? { ...r, [f]: v } : r)));
@@ -133,7 +136,7 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
                 <tr key={r.key} className="hover:bg-slate-50">
                   <td className="border border-slate-300 px-1 py-1 text-center text-slate-400">{i + 1}</td>
                   <td className="border border-slate-300 px-1 py-1">{r.standard ? <span className="font-medium">{r.label}</span> : <input className={inp} value={r.label} onChange={(e) => setIncCell(i, 'label', e.target.value)} placeholder="item" />}</td>
-                  <td className="border border-slate-300 px-1 py-1 text-right">{r.standard ? <span>{rupiah(r.basic_fare)}</span> : <input className={`${inp} text-right`} inputMode="numeric" value={r.basic_fare} onChange={(e) => setIncCell(i, 'basic_fare', e.target.value)} />}</td>
+                  <td className="border border-slate-300 px-1 py-1 text-right">{r.standard ? <span>{rupiah(r.basic_fare)}</span> : <input className={`${inp} text-right`} inputMode="numeric" value={money(r.basic_fare)} onChange={(e) => setIncCell(i, 'basic_fare', digits(e.target.value))} />}</td>
                   <td className="border border-slate-300 px-1 py-1">
                     <input className={`${inp} text-center`} inputMode="numeric" value={r.pax} onChange={(e) => setIncPax(i, e.target.value)} />
                     {r.standard && r.pax_override && num(r.pax) !== num(r.pax_master) && <span className="block text-[9px] text-amber-600 text-center no-print">master: {r.pax_master}</span>}
@@ -188,7 +191,7 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
                   {r.rooms.map((h, ri) => (
                     <tr key={ri}>
                       <td className="border border-amber-200 px-1 py-1"><input className={inp} value={h.label} onChange={(e) => setHotelRoom(i, ri, 'label', e.target.value)} /><span className="block text-[9px] text-slate-400 no-print">÷ {occ(h)} /pax</span></td>
-                      <td className="border border-amber-200 px-1 py-1"><input className={`${inp} text-right`} inputMode="numeric" value={h.unit_cost} onChange={(e) => setHotelRoom(i, ri, 'unit_cost', e.target.value)} placeholder="harga kamar" /></td>
+                      <td className="border border-amber-200 px-1 py-1"><input className={`${inp} text-right`} inputMode="numeric" value={money(h.unit_cost)} onChange={(e) => setHotelRoom(i, ri, 'unit_cost', digits(e.target.value))} placeholder="harga kamar" /></td>
                       <td className="border border-amber-200 px-1 py-1"><input className={`${inp} text-center ${isAutoQty(h) ? 'bg-emerald-50' : ''}`} title={isAutoQty(h) ? 'otomatis dari income (pax) — ketik untuk override' : ''} inputMode="numeric" value={effQty(h)} onChange={(e) => setHotelRoomQty(i, ri, e.target.value)} /></td>
                       <td className="border border-amber-200 px-1 py-1"><input className={`${inp} text-center`} inputMode="numeric" value={h.nights} onChange={(e) => setHotelRoom(i, ri, 'nights', e.target.value)} /></td>
                       <td className="border border-amber-200 px-1 py-1 text-right font-semibold whitespace-nowrap">{rupiah(roomSubtotal(h))}</td>
@@ -205,7 +208,7 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
                 <tr>
                   <td className="px-1 py-1 w-40"><input className={inp} value={r.category} onChange={(e) => setExpCell(i, 'category', e.target.value)} placeholder="Category (mis. Flight)" /></td>
                   <td className="px-1 py-1"><input className={inp} value={r.component} onChange={(e) => setExpCell(i, 'component', e.target.value)} placeholder="Component (mis. Adult)" /></td>
-                  <td className="px-1 py-1 w-28"><input className={`${inp} text-right`} inputMode="numeric" value={r.unit_cost} onChange={(e) => setExpCell(i, 'unit_cost', e.target.value)} placeholder="harga" /></td>
+                  <td className="px-1 py-1 w-28"><input className={`${inp} text-right`} inputMode="numeric" value={money(r.unit_cost)} onChange={(e) => setExpCell(i, 'unit_cost', digits(e.target.value))} placeholder="harga" /></td>
                   <td className="px-1 py-1 w-16"><input className={`${inp} text-center ${isAutoQty(r) ? 'bg-emerald-50' : ''}`} title={isAutoQty(r) ? 'otomatis dari income (pax) — ketik untuk override' : ''} inputMode="numeric" value={effQty(r)} onChange={(e) => setExpQty(i, e.target.value)} placeholder="qty" /></td>
                   <td className="px-1 py-1 w-28 text-right font-semibold whitespace-nowrap">{rupiah(num(r.unit_cost) * effQty(r))}</td>
                   <td className="px-1 py-1"><input className={inp} value={r.noted} onChange={(e) => setExpCell(i, 'noted', e.target.value)} placeholder="noted" /></td>
