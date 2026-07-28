@@ -1,6 +1,6 @@
 'use client';
 import { useState, useTransition } from 'react';
-import { PAY_METHODS, paymentFee } from '@/lib/shop/payment-fee';
+import { PAY_METHODS, paymentFee, QRIS_MAX } from '@/lib/shop/payment-fee';
 
 function fmtRp(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
 
@@ -45,21 +45,26 @@ export default function OnlinePayMethods({ amount = 0, pay, note, buttonLabel = 
       {PAY_METHODS.map((m) => {
         const fee = paymentFee(m.key, amount, { dpWeb });
         const total = (Number(amount) || 0) + fee;
+        // QRIS punya batas maks Rp 10 juta/transaksi — di atas itu QR tidak muncul di Midtrans.
+        const qrisOverLimit = m.key === 'qris' && total > QRIS_MAX;
+        const disabled = pending || qrisOverLimit;
         return (
           <button
             key={m.key}
             type="button"
             onClick={() => go(m.key)}
-            disabled={pending}
-            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-emerald-400 disabled:opacity-50 text-left transition-colors"
+            disabled={disabled}
+            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-emerald-400 disabled:opacity-50 disabled:hover:border-slate-200 disabled:cursor-not-allowed text-left transition-colors"
           >
             <span className="min-w-0">
               <span className="block text-sm font-bold text-slate-800">{m.short}{m.key === 'cc' ? ' (+3%)' : m.key === 'qris' ? ' (+0,7%)' : ''}</span>
-              {m.desc && <span className="block text-[11px] text-slate-500">{m.desc}</span>}
+              {qrisOverLimit
+                ? <span className="block text-[11px] text-amber-600 font-medium">Maks QRIS Rp 10 juta/transaksi — pakai Virtual Account untuk nominal ini.</span>
+                : (m.desc && <span className="block text-[11px] text-slate-500">{m.desc}</span>)}
             </span>
             <span className="text-right shrink-0">
-              {amount > 0 && <span className="block text-sm font-bold text-emerald-700">{fmtRp(total)}</span>}
-              {fee > 0 && <span className="block text-[10px] text-slate-400">termasuk biaya admin {fmtRp(fee)}</span>}
+              {amount > 0 && !qrisOverLimit && <span className="block text-sm font-bold text-emerald-700">{fmtRp(total)}</span>}
+              {fee > 0 && !qrisOverLimit && <span className="block text-[10px] text-slate-400">termasuk biaya admin {fmtRp(fee)}</span>}
               {busy === m.key && pending && <span className="block text-[10px] text-emerald-600">membuka…</span>}
             </span>
           </button>
