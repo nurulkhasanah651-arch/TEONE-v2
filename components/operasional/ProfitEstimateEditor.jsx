@@ -1,7 +1,8 @@
 'use client';
 
-// Editor Estimate Profit Group — income (harga jual auto dari master trip) + expense (manual),
-// total margin & margin per pax, bisa Print/Save PDF. Path: components/operasional/ProfitEstimateEditor.jsx
+// Editor Estimate Profit Group — income (harga & pax auto dari master trip) + expense
+// (template item + hotel per kota), margin & Print/Save PDF.
+// Path: components/operasional/ProfitEstimateEditor.jsx
 
 import { useState, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -9,31 +10,50 @@ import { saveProfitEstimate } from '@/lib/actions/profit-estimate';
 
 const rupiah = (n) => 'Rp ' + (Math.round(Number(n) || 0)).toLocaleString('id-ID');
 const HEADCOUNT_KEYS = ['quad', 'triple', 'double', 'single', 'child_no_bed', 'infant', 'land_tour'];
+const DEFAULT_TEMPLATES = [
+  { category: 'International Flight' }, { category: 'Domestic Flight' }, { category: 'Landtour' },
+  { category: 'Handling' }, { category: 'Visa' }, { category: 'Asuransi' },
+  { category: 'Tipping Driver' }, { category: 'Tour Leader' }, { category: 'Fee Mitra' }, { category: 'Cancellation Fee' },
+];
+const DEFAULT_HOTEL_ROOMS = [
+  { room: 'quad', label: 'Hotel Quad' }, { room: 'triple', label: 'Hotel Triple' },
+  { room: 'double', label: 'Hotel Double' }, { room: 'single', label: 'Hotel Single' },
+];
 
-export default function ProfitEstimateEditor({ trip, meta: metaInit, income: incomeInit, expense: expenseInit, savedAt }) {
+export default function ProfitEstimateEditor({ trip, meta: metaInit, income: incomeInit, expense: expenseInit, templates, hotelRooms, savedAt }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [savedMsg, setSavedMsg] = useState('');
   const [meta, setMeta] = useState(metaInit || { rate_kurs: 0, periode: '', noted: '' });
   const [income, setIncome] = useState(incomeInit || []);
   const [expense, setExpense] = useState(expenseInit || []);
+  const TPL = templates && templates.length ? templates : DEFAULT_TEMPLATES;
+  const HROOMS = hotelRooms && hotelRooms.length ? hotelRooms : DEFAULT_HOTEL_ROOMS;
 
   const num = (v) => (v === '' || v == null ? 0 : Number(String(v).replace(/[^0-9.-]/g, '')) || 0);
   const inp = 'w-full px-1.5 py-1 border border-slate-300 rounded text-xs print:border-0';
 
-  // ── Income helpers ──
+  // ── Income ──
   const setIncCell = (i, f, v) => setIncome((rows) => rows.map((r, idx) => (idx === i ? { ...r, [f]: v } : r)));
-  const addCustomIncome = () => setIncome((rows) => [...rows, { key: `custom_${Date.now()}`, label: '', standard: false, basic_fare: 0, pax: 0, status_payment: false, noted: '' }]);
+  const setIncPax = (i, v) => setIncome((rows) => rows.map((r, idx) => (idx === i ? { ...r, pax: v, pax_override: true } : r)));
+  const syncPax = () => setIncome((rows) => rows.map((r) => (r.standard ? { ...r, pax: r.pax_master || 0, pax_override: false } : r)));
+  const addCustomIncome = () => setIncome((rows) => [...rows, { key: `custom_${Date.now()}`, label: '', standard: false, basic_fare: 0, pax: 0, pax_master: 0, pax_override: true, status_payment: false, noted: '' }]);
   const delIncome = (i) => setIncome((rows) => rows.filter((_, idx) => idx !== i));
 
-  // ── Expense helpers ──
+  // ── Expense ──
+  const addItem = (category = '') => setExpense((rows) => [...rows, { type: 'item', category, component: '', unit_cost: 0, qty: 0, noted: '' }]);
+  const addHotel = () => setExpense((rows) => [...rows, { type: 'hotel', city: '', noted: '', rooms: HROOMS.map((h) => ({ ...h, unit_cost: 0, qty: 0 })) }]);
+  const delExp = (i) => setExpense((rows) => rows.filter((_, idx) => idx !== i));
   const setExpCell = (i, f, v) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, [f]: v } : r)));
-  const addExpense = () => setExpense((rows) => [...rows, { category: '', component: '', unit_cost: 0, qty: 0, amount: 0, noted: '' }]);
-  const delExpense = (i) => setExpense((rows) => rows.filter((_, idx) => idx !== i));
+  const setHotelRoom = (i, ri, f, v) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, rooms: r.rooms.map((h, hi) => (hi === ri ? { ...h, [f]: v } : h)) } : r)));
+  const addHotelRoom = (i) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, rooms: [...r.rooms, { room: 'custom', label: 'Hotel', unit_cost: 0, qty: 0 }] } : r)));
+  const delHotelRoom = (i, ri) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, rooms: r.rooms.filter((_, hi) => hi !== ri) } : r)));
+
+  const hotelTotal = (r) => (r.rooms || []).reduce((s, h) => s + num(h.unit_cost) * num(h.qty), 0);
 
   const totals = useMemo(() => {
     const totalIncome = income.reduce((s, r) => s + num(r.basic_fare) * num(r.pax), 0);
-    const totalExpense = expense.reduce((s, r) => s + num(r.unit_cost) * num(r.qty), 0);
+    const totalExpense = expense.reduce((s, r) => s + (r.type === 'hotel' ? hotelTotal(r) : num(r.unit_cost) * num(r.qty)), 0);
     const headcount = income.filter((r) => HEADCOUNT_KEYS.includes(r.key)).reduce((s, r) => s + num(r.pax), 0);
     const margin = totalIncome - totalExpense;
     const perPax = headcount > 0 ? margin / headcount : 0;
@@ -45,167 +65,149 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
     start(async () => {
       const res = await saveProfitEstimate(trip.id, { ...meta, income, expense });
       if (res?.error) { setSavedMsg('⚠ ' + res.error); return; }
-      setSavedMsg('✓ Tersimpan');
-      router.refresh();
+      setSavedMsg('✓ Tersimpan'); router.refresh();
     });
   }
 
   return (
     <div>
-      {/* Toolbar (tidak ikut print) */}
       <div className="flex flex-wrap items-center gap-2 mb-4 no-print">
-        <button onClick={doSave} disabled={pending}
-          className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold disabled:opacity-50">
-          {pending ? 'Menyimpan…' : '💾 Simpan'}
-        </button>
-        <button onClick={() => window.print()}
-          className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-800 text-white text-sm font-bold">🖨 Print / Save PDF</button>
+        <button onClick={doSave} disabled={pending} className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold disabled:opacity-50">{pending ? 'Menyimpan…' : '💾 Simpan'}</button>
+        <button onClick={() => window.print()} className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-800 text-white text-sm font-bold">🖨 Print / Save PDF</button>
         {savedMsg && <span className="text-sm font-medium text-slate-600">{savedMsg}</span>}
         {savedAt && <span className="text-xs text-slate-400 ml-auto">terakhir disimpan {new Date(savedAt).toLocaleString('id-ID')}</span>}
       </div>
 
-      {/* ══ AREA PRINT ══ */}
       <div id="profit-print" className="bg-white border border-slate-200 rounded-lg p-4 text-slate-800">
         {/* Header */}
         <div className="border-2 border-slate-700 mb-3">
-          <div className="bg-brand-700 text-white text-center py-2 font-bold text-sm">
-            QUOTATION — ESTIMATE PROFIT GROUP<br />{trip.name}
-          </div>
+          <div className="bg-brand-700 text-white text-center py-2 font-bold text-sm">QUOTATION — ESTIMATE PROFIT GROUP<br />{trip.name}</div>
           <div className="grid grid-cols-2 md:grid-cols-4 text-xs">
             <div className="border border-slate-300 px-2 py-1"><span className="text-slate-500">Trip Code</span><div className="font-bold">{trip.kode}</div></div>
             <div className="border border-slate-300 px-2 py-1"><span className="text-slate-500">Package</span><div className="font-bold">{trip.country || trip.name}</div></div>
-            <div className="border border-slate-300 px-2 py-1">
-              <span className="text-slate-500">Periode</span>
-              <input className={`${inp} font-bold`} value={meta.periode} onChange={(e) => setMeta({ ...meta, periode: e.target.value })} placeholder="tgl - tgl" />
-            </div>
-            <div className="border border-slate-300 px-2 py-1">
-              <span className="text-slate-500">Rate Kurs</span>
-              <input className={`${inp} font-bold`} inputMode="numeric" value={meta.rate_kurs} onChange={(e) => setMeta({ ...meta, rate_kurs: e.target.value })} placeholder="0" />
-            </div>
+            <div className="border border-slate-300 px-2 py-1"><span className="text-slate-500">Periode</span><input className={`${inp} font-bold`} value={meta.periode} onChange={(e) => setMeta({ ...meta, periode: e.target.value })} placeholder="tgl - tgl" /></div>
+            <div className="border border-slate-300 px-2 py-1"><span className="text-slate-500">Rate Kurs</span><input className={`${inp} font-bold`} inputMode="numeric" value={meta.rate_kurs} onChange={(e) => setMeta({ ...meta, rate_kurs: e.target.value })} placeholder="0" /></div>
           </div>
         </div>
 
         {/* INCOME */}
-        <p className="text-xs font-bold text-brand-700 mb-1">📥 INCOME (Harga Jual — otomatis dari Master Trip)</p>
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-xs font-bold text-brand-700">📥 INCOME (Harga & pax otomatis dari Master Trip)</p>
+          <button onClick={syncPax} className="text-[11px] px-2 py-1 rounded bg-brand-50 text-brand-700 font-semibold hover:bg-brand-100 no-print">↻ Ambil pax dari Master Trip</button>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse">
-            <thead className="bg-slate-100 text-[10px] uppercase text-slate-600">
-              <tr>
-                <th className="border border-slate-300 px-1 py-1 w-8">No</th>
-                <th className="border border-slate-300 px-1 py-1 text-left">Component</th>
-                <th className="border border-slate-300 px-1 py-1 text-right">Basic Fare</th>
-                <th className="border border-slate-300 px-1 py-1 w-16">Pax</th>
-                <th className="border border-slate-300 px-1 py-1 text-right">Income</th>
-                <th className="border border-slate-300 px-1 py-1 w-12">Bayar</th>
-                <th className="border border-slate-300 px-1 py-1 text-left">Noted</th>
-                <th className="border border-slate-300 px-1 py-1 w-8 no-print"></th>
-              </tr>
-            </thead>
+            <thead className="bg-slate-100 text-[10px] uppercase text-slate-600"><tr>
+              <th className="border border-slate-300 px-1 py-1 w-8">No</th>
+              <th className="border border-slate-300 px-1 py-1 text-left">Component</th>
+              <th className="border border-slate-300 px-1 py-1 text-right">Basic Fare</th>
+              <th className="border border-slate-300 px-1 py-1 w-20">Pax</th>
+              <th className="border border-slate-300 px-1 py-1 text-right">Income</th>
+              <th className="border border-slate-300 px-1 py-1 w-12">Bayar</th>
+              <th className="border border-slate-300 px-1 py-1 text-left">Noted</th>
+              <th className="border border-slate-300 px-1 py-1 w-8 no-print"></th>
+            </tr></thead>
             <tbody>
               {income.map((r, i) => (
                 <tr key={r.key} className="hover:bg-slate-50">
                   <td className="border border-slate-300 px-1 py-1 text-center text-slate-400">{i + 1}</td>
+                  <td className="border border-slate-300 px-1 py-1">{r.standard ? <span className="font-medium">{r.label}</span> : <input className={inp} value={r.label} onChange={(e) => setIncCell(i, 'label', e.target.value)} placeholder="item" />}</td>
+                  <td className="border border-slate-300 px-1 py-1 text-right">{r.standard ? <span>{rupiah(r.basic_fare)}</span> : <input className={`${inp} text-right`} inputMode="numeric" value={r.basic_fare} onChange={(e) => setIncCell(i, 'basic_fare', e.target.value)} />}</td>
                   <td className="border border-slate-300 px-1 py-1">
-                    {r.standard ? <span className="font-medium">{r.label}</span>
-                      : <input className={inp} value={r.label} onChange={(e) => setIncCell(i, 'label', e.target.value)} placeholder="item" />}
-                  </td>
-                  <td className="border border-slate-300 px-1 py-1 text-right">
-                    {r.standard ? <span>{rupiah(r.basic_fare)}</span>
-                      : <input className={`${inp} text-right`} inputMode="numeric" value={r.basic_fare} onChange={(e) => setIncCell(i, 'basic_fare', e.target.value)} />}
-                  </td>
-                  <td className="border border-slate-300 px-1 py-1">
-                    <input className={`${inp} text-center`} inputMode="numeric" value={r.pax} onChange={(e) => setIncCell(i, 'pax', e.target.value)} />
+                    <input className={`${inp} text-center`} inputMode="numeric" value={r.pax} onChange={(e) => setIncPax(i, e.target.value)} />
+                    {r.standard && r.pax_override && num(r.pax) !== num(r.pax_master) && <span className="block text-[9px] text-amber-600 text-center no-print">master: {r.pax_master}</span>}
                   </td>
                   <td className="border border-slate-300 px-1 py-1 text-right font-semibold whitespace-nowrap">{rupiah(num(r.basic_fare) * num(r.pax))}</td>
-                  <td className="border border-slate-300 px-1 py-1 text-center">
-                    <input type="checkbox" checked={r.status_payment} onChange={(e) => setIncCell(i, 'status_payment', e.target.checked)} />
-                  </td>
-                  <td className="border border-slate-300 px-1 py-1">
-                    <input className={inp} value={r.noted} onChange={(e) => setIncCell(i, 'noted', e.target.value)} />
-                  </td>
-                  <td className="border border-slate-300 px-1 py-1 text-center no-print">
-                    {!r.standard && <button onClick={() => delIncome(i)} className="text-red-500 text-xs">✕</button>}
-                  </td>
+                  <td className="border border-slate-300 px-1 py-1 text-center"><input type="checkbox" checked={r.status_payment} onChange={(e) => setIncCell(i, 'status_payment', e.target.checked)} /></td>
+                  <td className="border border-slate-300 px-1 py-1"><input className={inp} value={r.noted} onChange={(e) => setIncCell(i, 'noted', e.target.value)} /></td>
+                  <td className="border border-slate-300 px-1 py-1 text-center no-print">{!r.standard && <button onClick={() => delIncome(i)} className="text-red-500 text-xs">✕</button>}</td>
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr className="bg-emerald-50 font-bold">
-                <td className="border border-slate-300 px-1 py-1" colSpan={4}>TOTAL INCOME</td>
-                <td className="border border-slate-300 px-1 py-1 text-right text-emerald-700">{rupiah(totals.totalIncome)}</td>
-                <td className="border border-slate-300 px-1 py-1" colSpan={3}></td>
-              </tr>
-            </tfoot>
+            <tfoot><tr className="bg-emerald-50 font-bold">
+              <td className="border border-slate-300 px-1 py-1" colSpan={4}>TOTAL INCOME</td>
+              <td className="border border-slate-300 px-1 py-1 text-right text-emerald-700">{rupiah(totals.totalIncome)}</td>
+              <td className="border border-slate-300 px-1 py-1" colSpan={3}></td>
+            </tr></tfoot>
           </table>
         </div>
         <button onClick={addCustomIncome} className="mt-1 text-[11px] text-brand-600 font-semibold no-print">+ tambah item income</button>
 
         {/* EXPENSE */}
-        <p className="text-xs font-bold text-brand-700 mt-4 mb-1">📤 EXPENSE (Biaya Vendor — isi manual)</p>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs border-collapse">
-            <thead className="bg-slate-100 text-[10px] uppercase text-slate-600">
-              <tr>
-                <th className="border border-slate-300 px-1 py-1 w-8">No</th>
-                <th className="border border-slate-300 px-1 py-1 text-left">Category</th>
-                <th className="border border-slate-300 px-1 py-1 text-left">Component</th>
-                <th className="border border-slate-300 px-1 py-1 text-right">Basic Fare</th>
-                <th className="border border-slate-300 px-1 py-1 w-16">Qty</th>
-                <th className="border border-slate-300 px-1 py-1 text-right">Expense</th>
-                <th className="border border-slate-300 px-1 py-1 text-left">Noted</th>
-                <th className="border border-slate-300 px-1 py-1 w-8 no-print"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {expense.length === 0 && (
-                <tr><td colSpan={8} className="border border-slate-300 px-2 py-3 text-center text-slate-400 italic">Belum ada item. Klik "+ tambah item expense".</td></tr>
-              )}
-              {expense.map((r, i) => (
-                <tr key={i} className="hover:bg-slate-50">
-                  <td className="border border-slate-300 px-1 py-1 text-center text-slate-400">{i + 1}</td>
-                  <td className="border border-slate-300 px-1 py-1"><input className={inp} value={r.category} onChange={(e) => setExpCell(i, 'category', e.target.value)} placeholder="mis. Flight" /></td>
-                  <td className="border border-slate-300 px-1 py-1"><input className={inp} value={r.component} onChange={(e) => setExpCell(i, 'component', e.target.value)} placeholder="mis. Adult" /></td>
-                  <td className="border border-slate-300 px-1 py-1"><input className={`${inp} text-right`} inputMode="numeric" value={r.unit_cost} onChange={(e) => setExpCell(i, 'unit_cost', e.target.value)} /></td>
-                  <td className="border border-slate-300 px-1 py-1"><input className={`${inp} text-center`} inputMode="numeric" value={r.qty} onChange={(e) => setExpCell(i, 'qty', e.target.value)} /></td>
-                  <td className="border border-slate-300 px-1 py-1 text-right font-semibold whitespace-nowrap">{rupiah(num(r.unit_cost) * num(r.qty))}</td>
-                  <td className="border border-slate-300 px-1 py-1"><input className={inp} value={r.noted} onChange={(e) => setExpCell(i, 'noted', e.target.value)} /></td>
-                  <td className="border border-slate-300 px-1 py-1 text-center no-print"><button onClick={() => delExpense(i)} className="text-red-500 text-xs">✕</button></td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="bg-rose-50 font-bold">
-                <td className="border border-slate-300 px-1 py-1" colSpan={5}>TOTAL EXPENSE</td>
-                <td className="border border-slate-300 px-1 py-1 text-right text-rose-700">{rupiah(totals.totalExpense)}</td>
-                <td className="border border-slate-300 px-1 py-1" colSpan={2}></td>
-              </tr>
-            </tfoot>
-          </table>
+        <p className="text-xs font-bold text-brand-700 mt-4 mb-1">📤 EXPENSE / HPP (biaya vendor)</p>
+        <div className="flex flex-wrap gap-1 mb-2 no-print">
+          {TPL.map((t) => (
+            <button key={t.category} onClick={() => addItem(t.category)} className="text-[11px] px-2 py-1 rounded bg-slate-100 hover:bg-brand-100 text-slate-700 font-medium">+ {t.category}</button>
+          ))}
+          <button onClick={addHotel} className="text-[11px] px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold">🏨 + Hotel (kota)</button>
+          <button onClick={() => addItem('')} className="text-[11px] px-2 py-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium">+ Item custom</button>
         </div>
-        <button onClick={addExpense} className="mt-1 text-[11px] text-brand-600 font-semibold no-print">+ tambah item expense</button>
 
-        {/* RINGKASAN MARGIN */}
+        <div className="space-y-2">
+          {expense.length === 0 && <p className="text-xs text-slate-400 italic">Belum ada item. Klik tombol template di atas (mis. International Flight, Hotel).</p>}
+          {expense.map((r, i) => r.type === 'hotel' ? (
+            <div key={i} className="border border-amber-300 rounded-lg overflow-hidden">
+              <div className="bg-amber-50 px-2 py-1.5 flex items-center gap-2">
+                <span className="text-sm">🏨</span>
+                <span className="text-[11px] font-bold text-amber-800">Hotel —</span>
+                <input className="flex-1 px-1.5 py-1 border border-amber-300 rounded text-xs print:border-0" value={r.city} onChange={(e) => setExpCell(i, 'city', e.target.value)} placeholder="nama kota (mis. Chengdu)" />
+                <span className="text-[11px] font-bold text-amber-800 whitespace-nowrap">{rupiah(hotelTotal(r))}</span>
+                <button onClick={() => delExp(i)} className="text-red-500 text-xs no-print">✕</button>
+              </div>
+              <table className="w-full text-xs border-collapse">
+                <thead className="bg-amber-50/50 text-[10px] uppercase text-amber-700"><tr>
+                  <th className="border border-amber-200 px-1 py-1 text-left">Tipe Kamar</th>
+                  <th className="border border-amber-200 px-1 py-1 text-right">Harga/Unit</th>
+                  <th className="border border-amber-200 px-1 py-1 w-16">Qty</th>
+                  <th className="border border-amber-200 px-1 py-1 text-right">Subtotal</th>
+                  <th className="border border-amber-200 px-1 py-1 w-8 no-print"></th>
+                </tr></thead>
+                <tbody>
+                  {r.rooms.map((h, ri) => (
+                    <tr key={ri}>
+                      <td className="border border-amber-200 px-1 py-1"><input className={inp} value={h.label} onChange={(e) => setHotelRoom(i, ri, 'label', e.target.value)} /></td>
+                      <td className="border border-amber-200 px-1 py-1"><input className={`${inp} text-right`} inputMode="numeric" value={h.unit_cost} onChange={(e) => setHotelRoom(i, ri, 'unit_cost', e.target.value)} /></td>
+                      <td className="border border-amber-200 px-1 py-1"><input className={`${inp} text-center`} inputMode="numeric" value={h.qty} onChange={(e) => setHotelRoom(i, ri, 'qty', e.target.value)} /></td>
+                      <td className="border border-amber-200 px-1 py-1 text-right font-semibold whitespace-nowrap">{rupiah(num(h.unit_cost) * num(h.qty))}</td>
+                      <td className="border border-amber-200 px-1 py-1 text-center no-print"><button onClick={() => delHotelRoom(i, ri)} className="text-red-400 text-xs">✕</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="px-2 py-1 no-print"><button onClick={() => addHotelRoom(i)} className="text-[11px] text-amber-700 font-semibold">+ tambah tipe kamar</button></div>
+            </div>
+          ) : (
+            <div key={i} className="border border-slate-200 rounded-lg overflow-x-auto">
+              <table className="w-full text-xs border-collapse"><tbody>
+                <tr>
+                  <td className="px-1 py-1 w-40"><input className={inp} value={r.category} onChange={(e) => setExpCell(i, 'category', e.target.value)} placeholder="Category (mis. Flight)" /></td>
+                  <td className="px-1 py-1"><input className={inp} value={r.component} onChange={(e) => setExpCell(i, 'component', e.target.value)} placeholder="Component (mis. Adult)" /></td>
+                  <td className="px-1 py-1 w-28"><input className={`${inp} text-right`} inputMode="numeric" value={r.unit_cost} onChange={(e) => setExpCell(i, 'unit_cost', e.target.value)} placeholder="harga" /></td>
+                  <td className="px-1 py-1 w-16"><input className={`${inp} text-center`} inputMode="numeric" value={r.qty} onChange={(e) => setExpCell(i, 'qty', e.target.value)} placeholder="qty" /></td>
+                  <td className="px-1 py-1 w-28 text-right font-semibold whitespace-nowrap">{rupiah(num(r.unit_cost) * num(r.qty))}</td>
+                  <td className="px-1 py-1"><input className={inp} value={r.noted} onChange={(e) => setExpCell(i, 'noted', e.target.value)} placeholder="noted" /></td>
+                  <td className="px-1 py-1 w-8 text-center no-print"><button onClick={() => delExp(i)} className="text-red-500 text-xs">✕</button></td>
+                </tr>
+              </tbody></table>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center justify-between mt-2 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+          <span className="text-xs font-bold text-rose-700">TOTAL EXPENSE</span>
+          <span className="text-sm font-bold text-rose-800">{rupiah(totals.totalExpense)}</span>
+        </div>
+
+        {/* RINGKASAN */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2"><p className="text-[10px] uppercase text-emerald-700 font-bold">Total Income</p><p className="text-sm font-bold text-emerald-800">{rupiah(totals.totalIncome)}</p></div>
           <div className="rounded-lg border border-rose-200 bg-rose-50 p-2"><p className="text-[10px] uppercase text-rose-700 font-bold">Total Expense</p><p className="text-sm font-bold text-rose-800">{rupiah(totals.totalExpense)}</p></div>
-          <div className={`rounded-lg border p-2 ${totals.margin >= 0 ? 'border-blue-200 bg-blue-50' : 'border-red-300 bg-red-50'}`}>
-            <p className="text-[10px] uppercase font-bold text-slate-600">Total Margin</p>
-            <p className={`text-sm font-bold ${totals.margin >= 0 ? 'text-blue-800' : 'text-red-700'}`}>{rupiah(totals.margin)}</p>
-          </div>
-          <div className={`rounded-lg border p-2 ${totals.perPax >= 0 ? 'border-indigo-200 bg-indigo-50' : 'border-red-300 bg-red-50'}`}>
-            <p className="text-[10px] uppercase font-bold text-slate-600">Margin / Pax ({totals.headcount} pax)</p>
-            <p className={`text-sm font-bold ${totals.perPax >= 0 ? 'text-indigo-800' : 'text-red-700'}`}>{rupiah(totals.perPax)}</p>
-          </div>
+          <div className={`rounded-lg border p-2 ${totals.margin >= 0 ? 'border-blue-200 bg-blue-50' : 'border-red-300 bg-red-50'}`}><p className="text-[10px] uppercase font-bold text-slate-600">Total Margin</p><p className={`text-sm font-bold ${totals.margin >= 0 ? 'text-blue-800' : 'text-red-700'}`}>{rupiah(totals.margin)}</p></div>
+          <div className={`rounded-lg border p-2 ${totals.perPax >= 0 ? 'border-indigo-200 bg-indigo-50' : 'border-red-300 bg-red-50'}`}><p className="text-[10px] uppercase font-bold text-slate-600">Margin / Pax ({totals.headcount} pax)</p><p className={`text-sm font-bold ${totals.perPax >= 0 ? 'text-indigo-800' : 'text-red-700'}`}>{rupiah(totals.perPax)}</p></div>
         </div>
 
-        {/* Catatan */}
-        <div className="mt-3">
-          <p className="text-[10px] uppercase text-slate-500 font-bold mb-1">Noted</p>
-          <textarea className="w-full px-2 py-1 border border-slate-300 rounded text-xs print:border-0" rows={2} value={meta.noted} onChange={(e) => setMeta({ ...meta, noted: e.target.value })} placeholder="Catatan tambahan (mis. IF TAMBAH 2,5JT PER PAX, hotel, dll)" />
-        </div>
+        <div className="mt-3"><p className="text-[10px] uppercase text-slate-500 font-bold mb-1">Noted</p><textarea className="w-full px-2 py-1 border border-slate-300 rounded text-xs print:border-0" rows={2} value={meta.noted} onChange={(e) => setMeta({ ...meta, noted: e.target.value })} placeholder="Catatan tambahan (mis. IF TAMBAH 2,5JT PER PAX, hotel, dll)" /></div>
       </div>
 
-      {/* Print CSS */}
       <style jsx global>{`
         @media print {
           body * { visibility: hidden !important; }
