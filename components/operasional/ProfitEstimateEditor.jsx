@@ -41,24 +41,40 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
   const delIncome = (i) => setIncome((rows) => rows.filter((_, idx) => idx !== i));
 
   // ── Expense ──
-  const addItem = (category = '') => setExpense((rows) => [...rows, { type: 'item', category, component: '', unit_cost: 0, qty: 0, noted: '' }]);
-  const addHotel = () => setExpense((rows) => [...rows, { type: 'hotel', city: '', noted: '', rooms: HROOMS.map((h) => ({ ...h, unit_cost: 0, qty: 0 })) }]);
+  const addItem = (category = '', qty_source = null) => setExpense((rows) => [...rows, { type: 'item', category, component: '', unit_cost: 0, qty: 0, qty_source, qty_locked: false, noted: '' }]);
+  const addHotel = () => setExpense((rows) => [...rows, { type: 'hotel', city: '', noted: '', rooms: HROOMS.map((h) => ({ ...h, unit_cost: 0, qty: 0, qty_source: h.qty_source || null, qty_locked: false })) }]);
   const delExp = (i) => setExpense((rows) => rows.filter((_, idx) => idx !== i));
   const setExpCell = (i, f, v) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, [f]: v } : r)));
+  const setExpQty = (i, v) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, qty: v, qty_locked: true } : r)));
   const setHotelRoom = (i, ri, f, v) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, rooms: r.rooms.map((h, hi) => (hi === ri ? { ...h, [f]: v } : h)) } : r)));
-  const addHotelRoom = (i) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, rooms: [...r.rooms, { room: 'custom', label: 'Hotel', unit_cost: 0, qty: 0 }] } : r)));
+  const setHotelRoomQty = (i, ri, v) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, rooms: r.rooms.map((h, hi) => (hi === ri ? { ...h, qty: v, qty_locked: true } : h)) } : r)));
+  const addHotelRoom = (i) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, rooms: [...r.rooms, { room: 'custom', label: 'Hotel', unit_cost: 0, qty: 0, qty_source: null, qty_locked: false }] } : r)));
   const delHotelRoom = (i, ri) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, rooms: r.rooms.filter((_, hi) => hi !== ri) } : r)));
 
-  const hotelTotal = (r) => (r.rooms || []).reduce((s, h) => s + num(h.unit_cost) * num(h.qty), 0);
+  // QTY expense OTOMATIS dari income di atas (headcount/visa/asuransi/tipping/room type),
+  // kecuali sudah di-override manual (qty_locked).
+  const qtySources = useMemo(() => {
+    const paxOf = (k) => num(income.find((r) => r.key === k)?.pax);
+    const head = income.filter((r) => HEADCOUNT_KEYS.includes(r.key)).reduce((s, r) => s + num(r.pax), 0);
+    return {
+      headcount: head, visa: paxOf('visa'), asuransi: paxOf('asuransi'), tipping: paxOf('tips'),
+      quad: paxOf('quad'), triple: paxOf('triple'), double: paxOf('double'), single: paxOf('single'),
+      child_no_bed: paxOf('child_no_bed'), infant: paxOf('infant'), land_tour: paxOf('land_tour'),
+    };
+  }, [income]);
+  const effQty = (r) => (r.qty_source && !r.qty_locked ? (Number(qtySources[r.qty_source]) || 0) : num(r.qty));
+  const isAutoQty = (r) => !!(r.qty_source && !r.qty_locked);
+
+  const hotelTotal = (r) => (r.rooms || []).reduce((s, h) => s + num(h.unit_cost) * effQty(h), 0);
 
   const totals = useMemo(() => {
     const totalIncome = income.reduce((s, r) => s + num(r.basic_fare) * num(r.pax), 0);
-    const totalExpense = expense.reduce((s, r) => s + (r.type === 'hotel' ? hotelTotal(r) : num(r.unit_cost) * num(r.qty)), 0);
+    const totalExpense = expense.reduce((s, r) => s + (r.type === 'hotel' ? hotelTotal(r) : num(r.unit_cost) * effQty(r)), 0);
     const headcount = income.filter((r) => HEADCOUNT_KEYS.includes(r.key)).reduce((s, r) => s + num(r.pax), 0);
     const margin = totalIncome - totalExpense;
     const perPax = headcount > 0 ? margin / headcount : 0;
     return { totalIncome, totalExpense, headcount, margin, perPax };
-  }, [income, expense]);
+  }, [income, expense, qtySources]);
 
   function doSave() {
     setSavedMsg('');
@@ -137,7 +153,7 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
         <p className="text-xs font-bold text-brand-700 mt-4 mb-1">📤 EXPENSE / HPP (biaya vendor)</p>
         <div className="flex flex-wrap gap-1 mb-2 no-print">
           {TPL.map((t) => (
-            <button key={t.category} onClick={() => addItem(t.category)} className="text-[11px] px-2 py-1 rounded bg-slate-100 hover:bg-brand-100 text-slate-700 font-medium">+ {t.category}</button>
+            <button key={t.category} onClick={() => addItem(t.category, t.qty_source)} className="text-[11px] px-2 py-1 rounded bg-slate-100 hover:bg-brand-100 text-slate-700 font-medium">+ {t.category}</button>
           ))}
           <button onClick={addHotel} className="text-[11px] px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold">🏨 + Hotel (kota)</button>
           <button onClick={() => addItem('')} className="text-[11px] px-2 py-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium">+ Item custom</button>
@@ -167,8 +183,8 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
                     <tr key={ri}>
                       <td className="border border-amber-200 px-1 py-1"><input className={inp} value={h.label} onChange={(e) => setHotelRoom(i, ri, 'label', e.target.value)} /></td>
                       <td className="border border-amber-200 px-1 py-1"><input className={`${inp} text-right`} inputMode="numeric" value={h.unit_cost} onChange={(e) => setHotelRoom(i, ri, 'unit_cost', e.target.value)} /></td>
-                      <td className="border border-amber-200 px-1 py-1"><input className={`${inp} text-center`} inputMode="numeric" value={h.qty} onChange={(e) => setHotelRoom(i, ri, 'qty', e.target.value)} /></td>
-                      <td className="border border-amber-200 px-1 py-1 text-right font-semibold whitespace-nowrap">{rupiah(num(h.unit_cost) * num(h.qty))}</td>
+                      <td className="border border-amber-200 px-1 py-1"><input className={`${inp} text-center ${isAutoQty(h) ? 'bg-emerald-50' : ''}`} title={isAutoQty(h) ? 'otomatis dari income (pax) — ketik untuk override' : ''} inputMode="numeric" value={effQty(h)} onChange={(e) => setHotelRoomQty(i, ri, e.target.value)} /></td>
+                      <td className="border border-amber-200 px-1 py-1 text-right font-semibold whitespace-nowrap">{rupiah(num(h.unit_cost) * effQty(h))}</td>
                       <td className="border border-amber-200 px-1 py-1 text-center no-print"><button onClick={() => delHotelRoom(i, ri)} className="text-red-400 text-xs">✕</button></td>
                     </tr>
                   ))}
@@ -183,8 +199,8 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
                   <td className="px-1 py-1 w-40"><input className={inp} value={r.category} onChange={(e) => setExpCell(i, 'category', e.target.value)} placeholder="Category (mis. Flight)" /></td>
                   <td className="px-1 py-1"><input className={inp} value={r.component} onChange={(e) => setExpCell(i, 'component', e.target.value)} placeholder="Component (mis. Adult)" /></td>
                   <td className="px-1 py-1 w-28"><input className={`${inp} text-right`} inputMode="numeric" value={r.unit_cost} onChange={(e) => setExpCell(i, 'unit_cost', e.target.value)} placeholder="harga" /></td>
-                  <td className="px-1 py-1 w-16"><input className={`${inp} text-center`} inputMode="numeric" value={r.qty} onChange={(e) => setExpCell(i, 'qty', e.target.value)} placeholder="qty" /></td>
-                  <td className="px-1 py-1 w-28 text-right font-semibold whitespace-nowrap">{rupiah(num(r.unit_cost) * num(r.qty))}</td>
+                  <td className="px-1 py-1 w-16"><input className={`${inp} text-center ${isAutoQty(r) ? 'bg-emerald-50' : ''}`} title={isAutoQty(r) ? 'otomatis dari income (pax) — ketik untuk override' : ''} inputMode="numeric" value={effQty(r)} onChange={(e) => setExpQty(i, e.target.value)} placeholder="qty" /></td>
+                  <td className="px-1 py-1 w-28 text-right font-semibold whitespace-nowrap">{rupiah(num(r.unit_cost) * effQty(r))}</td>
                   <td className="px-1 py-1"><input className={inp} value={r.noted} onChange={(e) => setExpCell(i, 'noted', e.target.value)} placeholder="noted" /></td>
                   <td className="px-1 py-1 w-8 text-center no-print"><button onClick={() => delExp(i)} className="text-red-500 text-xs">✕</button></td>
                 </tr>
