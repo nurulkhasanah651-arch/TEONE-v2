@@ -50,15 +50,23 @@ export default function ProfitGroupPicker({ groups = [] }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 p-3">
             {m.trips.map((g) => (
               <Link key={g.id} href={`/operasional/profit-estimate?trip=${encodeURIComponent(g.id)}`}
-                className="block p-3 bg-white border border-slate-200 rounded-lg hover:border-brand-400 hover:shadow-sm transition">
+                className="flex flex-col p-3 bg-white border border-slate-200 rounded-lg hover:border-brand-400 hover:shadow-sm transition">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-brand-700 text-sm">{g.kode}</span>
-                  {g.hasEstimate
-                    ? <span className={`text-xs font-bold ${Number(g.profit) >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{rupiah(g.profit)}</span>
-                    : <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">belum</span>}
+                  <span className="text-[11px] text-slate-400">{g.departureFmt}</span>
                 </div>
-                <p className="text-xs text-slate-700 mt-1 line-clamp-2">{g.name}</p>
-                <p className="text-[11px] text-slate-400 mt-1">{g.departureFmt}</p>
+                <p className="text-xs text-slate-700 mt-1 line-clamp-2 min-h-[2rem]">{g.name}</p>
+                {g.hasEstimate ? (
+                  <div className={`mt-2 rounded-lg px-2.5 py-2 border ${Number(g.profit) >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500 leading-none">Profit</p>
+                    <p className={`text-base font-extrabold leading-tight ${Number(g.profit) >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{rupiah(g.profit)}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Income {rupiah(g.income)} · Exp {rupiah(g.expense)}</p>
+                  </div>
+                ) : (
+                  <div className="mt-2 rounded-lg px-2.5 py-2 border border-dashed border-slate-200 bg-slate-50">
+                    <p className="text-[11px] text-slate-400">Belum ada estimate — klik untuk isi</p>
+                  </div>
+                )}
               </Link>
             ))}
           </div>
