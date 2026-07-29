@@ -20,7 +20,7 @@ const DEFAULT_HOTEL_ROOMS = [
   { room: 'double', label: 'Hotel Double' }, { room: 'single', label: 'Hotel Single' },
 ];
 
-export default function ProfitEstimateEditor({ trip, meta: metaInit, income: incomeInit, expense: expenseInit, templates, hotelRooms, savedAt }) {
+export default function ProfitEstimateEditor({ trip, meta: metaInit, income: incomeInit, expense: expenseInit, templates, hotelRooms, savedAt, savedAtFmt, savedBy }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [savedMsg, setSavedMsg] = useState('');
@@ -101,7 +101,7 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
         <button onClick={doSave} disabled={pending} className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold disabled:opacity-50">{pending ? 'Menyimpan…' : '💾 Simpan'}</button>
         <button onClick={() => window.print()} className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-800 text-white text-sm font-bold">🖨 Print / Save PDF</button>
         {savedMsg && <span className="text-sm font-medium text-slate-600">{savedMsg}</span>}
-        {savedAt && <span className="text-xs text-slate-400 ml-auto">terakhir disimpan {new Date(savedAt).toLocaleString('id-ID')}</span>}
+        {savedAtFmt && <span className="text-xs text-slate-500 ml-auto">🕒 Terakhir diperbarui {savedAtFmt}{savedBy ? ` oleh ${savedBy}` : ''}</span>}
       </div>
 
       <div id="profit-print" className="bg-white border border-slate-200 rounded-lg p-4 text-slate-800">

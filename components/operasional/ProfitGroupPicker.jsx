@@ -62,6 +62,9 @@ export default function ProfitGroupPicker({ groups = [] }) {
                   <p className="text-[10px] text-slate-400 mt-0.5">Income {rupiah(g.income)} · Exp {rupiah(g.expense)}</p>
                   {!g.hasExpense && <p className="text-[10px] text-amber-600 mt-0.5">⚠ belum ada expense — klik untuk lengkapi</p>}
                 </div>
+                {g.hasEstimate && g.savedAtFmt && (
+                  <p className="text-[10px] text-slate-400 mt-1">🕒 update {g.savedAtFmt}{g.savedBy ? ` · ${g.savedBy}` : ''}</p>
+                )}
               </Link>
             ))}
           </div>

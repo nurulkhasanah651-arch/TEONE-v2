@@ -52,6 +52,8 @@ export default async function ProfitEstimatePage({ searchParams }) {
         templates={est.templates}
         hotelRooms={est.hotelRooms}
         savedAt={est.savedAt}
+        savedAtFmt={est.savedAtFmt}
+        savedBy={est.savedBy}
       />
     </div>
   );
