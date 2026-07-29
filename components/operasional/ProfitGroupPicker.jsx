@@ -1,37 +1,70 @@
 'use client';
 
-// Pemilih group/trip untuk Estimate Profit. Path: components/operasional/ProfitGroupPicker.jsx
-import { useState } from 'react';
+// Pemilih group/trip untuk Estimate Profit — dikelompokkan per bulan, tampil profit tiap
+// trip + total profit per bulan. Path: components/operasional/ProfitGroupPicker.jsx
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
+
+const rupiah = (n) => 'Rp ' + (Math.round(Number(n) || 0)).toLocaleString('id-ID');
 
 export default function ProfitGroupPicker({ groups = [] }) {
   const [q, setQ] = useState('');
   const s = q.trim().toLowerCase();
   const list = s ? groups.filter((g) => `${g.kode} ${g.name}`.toLowerCase().includes(s)) : groups;
 
+  // Kelompokkan per bulan (urutan mengikuti server: keberangkatan terbaru dulu).
+  const months = useMemo(() => {
+    const order = []; const byKey = {};
+    for (const g of list) {
+      if (!byKey[g.monthKey]) { byKey[g.monthKey] = { key: g.monthKey, label: g.monthLabel, trips: [] }; order.push(g.monthKey); }
+      byKey[g.monthKey].trips.push(g);
+    }
+    return order.map((k) => {
+      const m = byKey[k];
+      const withEst = m.trips.filter((t) => t.hasEstimate);
+      const totalProfit = withEst.reduce((sum, t) => sum + (Number(t.profit) || 0), 0);
+      return { ...m, totalProfit, estCount: withEst.length };
+    });
+  }, [list]);
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <input
         value={q} onChange={(e) => setQ(e.target.value)}
         placeholder="Cari group (kode / nama trip)…"
         className="w-full max-w-md px-3 py-2 border border-slate-300 rounded-lg text-sm"
       />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-        {list.map((g) => (
-          <Link key={g.id} href={`/operasional/profit-estimate?trip=${encodeURIComponent(g.id)}`}
-            className="block p-3 bg-white border border-slate-200 rounded-lg hover:border-brand-400 hover:shadow-sm transition">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-brand-700 text-sm">{g.kode}</span>
-              {g.hasEstimate
-                ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">✓ ada estimate</span>
-                : <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">belum</span>}
+
+      {months.map((m) => (
+        <div key={m.key} className="border border-slate-200 rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-200">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-brand-700">{m.label}</span>
+              <span className="text-xs text-slate-400">· {m.trips.length} trip{m.estCount > 0 ? ` · ${m.estCount} ada estimate` : ''}</span>
             </div>
-            <p className="text-xs text-slate-700 mt-1 line-clamp-2">{g.name}</p>
-            <p className="text-[11px] text-slate-400 mt-1">{g.departureFmt}</p>
-          </Link>
-        ))}
-        {list.length === 0 && <p className="text-sm text-slate-400 col-span-full">Tidak ada group cocok.</p>}
-      </div>
+            <div className="text-right">
+              <span className="block text-[10px] uppercase tracking-wide text-slate-400 leading-none">Total Profit Bulan Ini</span>
+              <span className={`text-sm font-bold ${m.totalProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{m.estCount ? rupiah(m.totalProfit) : '—'}</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 p-3">
+            {m.trips.map((g) => (
+              <Link key={g.id} href={`/operasional/profit-estimate?trip=${encodeURIComponent(g.id)}`}
+                className="block p-3 bg-white border border-slate-200 rounded-lg hover:border-brand-400 hover:shadow-sm transition">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-brand-700 text-sm">{g.kode}</span>
+                  {g.hasEstimate
+                    ? <span className={`text-xs font-bold ${Number(g.profit) >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{rupiah(g.profit)}</span>
+                    : <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">belum</span>}
+                </div>
+                <p className="text-xs text-slate-700 mt-1 line-clamp-2">{g.name}</p>
+                <p className="text-[11px] text-slate-400 mt-1">{g.departureFmt}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ))}
+      {months.length === 0 && <p className="text-sm text-slate-400">Tidak ada group cocok.</p>}
     </div>
   );
 }
