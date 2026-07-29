@@ -21,9 +21,9 @@ export default function ProfitGroupPicker({ groups = [] }) {
     }
     return order.map((k) => {
       const m = byKey[k];
-      const withEst = m.trips.filter((t) => t.hasEstimate);
-      const totalProfit = withEst.reduce((sum, t) => sum + (Number(t.profit) || 0), 0);
-      return { ...m, totalProfit, estCount: withEst.length };
+      const totalProfit = m.trips.reduce((sum, t) => sum + (Number(t.profit) || 0), 0);
+      const withExpense = m.trips.filter((t) => t.hasExpense).length;
+      return { ...m, totalProfit, withExpense };
     });
   }, [list]);
 
@@ -40,11 +40,11 @@ export default function ProfitGroupPicker({ groups = [] }) {
           <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-200">
             <div className="flex items-center gap-2">
               <span className="font-bold text-brand-700">{m.label}</span>
-              <span className="text-xs text-slate-400">· {m.trips.length} trip{m.estCount > 0 ? ` · ${m.estCount} ada estimate` : ''}</span>
+              <span className="text-xs text-slate-400">· {m.trips.length} trip{m.withExpense > 0 ? ` · ${m.withExpense} sudah isi expense` : ''}</span>
             </div>
             <div className="text-right">
-              <span className="block text-[10px] uppercase tracking-wide text-slate-400 leading-none">Total Profit Bulan Ini</span>
-              <span className={`text-sm font-bold ${m.totalProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{m.estCount ? rupiah(m.totalProfit) : '—'}</span>
+              <span className="block text-[10px] uppercase tracking-wide text-slate-400 leading-none">Total Margin Bulan Ini</span>
+              <span className={`text-sm font-bold ${m.totalProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{rupiah(m.totalProfit)}</span>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 p-3">
@@ -56,17 +56,12 @@ export default function ProfitGroupPicker({ groups = [] }) {
                   <span className="text-[11px] text-slate-400">{g.departureFmt}</span>
                 </div>
                 <p className="text-xs text-slate-700 mt-1 line-clamp-2 min-h-[2rem]">{g.name}</p>
-                {g.hasEstimate ? (
-                  <div className={`mt-2 rounded-lg px-2.5 py-2 border ${Number(g.profit) >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
-                    <p className="text-[10px] uppercase tracking-wide text-slate-500 leading-none">Profit</p>
-                    <p className={`text-base font-extrabold leading-tight ${Number(g.profit) >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{rupiah(g.profit)}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Income {rupiah(g.income)} · Exp {rupiah(g.expense)}</p>
-                  </div>
-                ) : (
-                  <div className="mt-2 rounded-lg px-2.5 py-2 border border-dashed border-slate-200 bg-slate-50">
-                    <p className="text-[11px] text-slate-400">Belum ada estimate — klik untuk isi</p>
-                  </div>
-                )}
+                <div className={`mt-2 rounded-lg px-2.5 py-2 border ${Number(g.profit) >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                  <p className="text-[10px] uppercase tracking-wide text-slate-500 leading-none">{g.hasExpense ? 'Profit (Margin)' : 'Margin (income − expense)'}</p>
+                  <p className={`text-base font-extrabold leading-tight ${Number(g.profit) >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{rupiah(g.profit)}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Income {rupiah(g.income)} · Exp {rupiah(g.expense)}</p>
+                  {!g.hasExpense && <p className="text-[10px] text-amber-600 mt-0.5">⚠ belum ada expense — klik untuk lengkapi</p>}
+                </div>
               </Link>
             ))}
           </div>
