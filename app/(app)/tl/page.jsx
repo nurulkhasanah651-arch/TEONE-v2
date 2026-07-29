@@ -296,6 +296,9 @@ export default async function TLPortalPage() {
                     <span className="font-semibold text-slate-700">Terisi {si.filled ?? 0}</span>
                     <span className={`font-semibold ${(si.left ?? 0) <= 5 ? 'text-red-600' : 'text-green-700'}`}>· Sisa {si.left ?? 0}</span>
                     <span className="text-slate-400">/ {si.quota ?? 0} seat</span>
+                    {(si.quota ?? 0) > 0 && ((si.left ?? 0) <= 0
+                      ? <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold">✅ FULL SEAT</span>
+                      : <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold">🔥 PERLU PUSH</span>)}
                     <div className="ml-auto flex items-center gap-2">
                       {si.webUrl && <a href={si.webUrl} target="_blank" rel="noreferrer" className="px-3 py-1 rounded bg-brand-500 hover:bg-brand-600 text-white font-semibold">🌐 Web Trip</a>}
                       {sameBrand && <CopyWaTemplateButton tripId={t.id} className="px-3 py-1 rounded bg-green-600 hover:bg-green-700 text-white font-semibold" />}
