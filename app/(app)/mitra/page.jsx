@@ -16,35 +16,42 @@ export default async function MitraPortalPage() {
       </div>
     );
   }
-  const { mitra, stats, openTrips } = res;
+  const { mitra, stats, openTrips, preview } = res;
 
-  const cards = [
+  const cards = stats ? [
     { label: 'Closingan (pax)', value: stats.sold, sub: 'total peserta dari kamu', cls: 'bg-blue-50 border-blue-200 text-blue-800' },
     { label: 'Total Fee', value: fmtRupiah(stats.feeEarned), sub: 'estimasi komisi', cls: 'bg-emerald-50 border-emerald-200 text-emerald-800' },
     { label: 'Fee Sudah Cair', value: fmtRupiah(stats.paid), sub: 'sudah dibayar', cls: 'bg-slate-50 border-slate-200 text-slate-700' },
     { label: 'Sisa Fee', value: fmtRupiah(stats.remaining), sub: 'belum dicairkan', cls: 'bg-amber-50 border-amber-200 text-amber-800' },
-  ];
+  ] : [];
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {preview && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-sm text-indigo-800">
+          👀 <b>Mode Preview (Tim)</b> — ini tampilan portal yang dilihat mitra saat login. Data closingan & fee tampil sesuai masing-masing mitra saat mereka login. Untuk rekap total semua mitra, buka <b>Master Mitra</b>.
+        </div>
+      )}
       <div>
         <h1 className="text-3xl font-bold text-brand-700">👋 Halo, {mitra.name}</h1>
-        <p className="mt-1 text-slate-600">Ringkasan closingan & fee kamu, plus trip yang sedang dijual untuk kamu tawarkan.</p>
+        <p className="mt-1 text-slate-600">{preview ? 'Preview halaman portal mitra: trip yang sedang dijual + template WA untuk ditawarkan.' : 'Ringkasan closingan & fee kamu, plus trip yang sedang dijual untuk kamu tawarkan.'}</p>
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {cards.map((c) => (
-          <div key={c.label} className={`rounded-xl border p-4 ${c.cls}`}>
-            <p className="text-[11px] font-bold uppercase tracking-wide leading-tight">{c.label}</p>
-            <p className="mt-1 text-2xl font-extrabold">{c.value}</p>
-            <p className="text-[10px] text-slate-400 mt-0.5">{c.sub}</p>
-          </div>
-        ))}
-      </div>
+      {cards.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {cards.map((c) => (
+            <div key={c.label} className={`rounded-xl border p-4 ${c.cls}`}>
+              <p className="text-[11px] font-bold uppercase tracking-wide leading-tight">{c.label}</p>
+              <p className="mt-1 text-2xl font-extrabold">{c.value}</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">{c.sub}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Rincian closingan per trip */}
-      {stats.trips.length > 0 && (
+      {stats && stats.trips.length > 0 && (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 font-bold text-brand-700 text-sm">Closingan kamu per trip</div>
           <table className="w-full text-sm">
