@@ -2,7 +2,9 @@
 // Path: app/(app)/tl/page.jsx
 
 import Link from 'next/link';
-import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
+import { brandServiceRoleKey, brandSupabaseUrl, serviceClientFor } from '@/lib/supabase/service-env';
+import { customerSiteUrlFor } from '@/lib/brand-shared';
+import { getBrandCode } from '@/lib/brand';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { fmtDate, daysUntil, fmtRupiah } from '@/lib/utils/format';
@@ -243,6 +245,27 @@ export default async function TLPortalPage() {
   const availRes = await getOpenSellingTrips().catch(() => null);
   const availTrips = availRes?.trips || [];
 
+  // Seat terisi/sisa + link web utk trip yang di-assign ke TL (per brand).
+  const currentBrand = getBrandCode();
+  const seatInfo = {};
+  try {
+    const byBrand = {};
+    for (const t of tlTrips) { const b = t._brand || currentBrand; (byBrand[b] = byBrand[b] || []).push(t.id); }
+    for (const [brand, ids] of Object.entries(byBrand)) {
+      const c = serviceClientFor(brand); if (!c) continue;
+      const soldMap = {};
+      for (let i = 0; i < ids.length; i += 100) {
+        const { data: pax } = await c.from('trip_passengers').select('trip_id, transfer_status, refund_status').in('trip_id', ids.slice(i, i + 100));
+        for (const p of (pax || [])) { if (p.transfer_status === 'transferred' || p.refund_status === 'refunded' || p.refund_status === 'partial_refund') continue; soldMap[p.trip_id] = (soldMap[p.trip_id] || 0) + 1; }
+      }
+      const domain = String(customerSiteUrlFor(brand) || '').replace(/\/$/, '');
+      for (const t of tlTrips.filter((x) => (x._brand || currentBrand) === brand)) {
+        const filled = soldMap[t.id] || 0; const quota = t.quota || 0;
+        seatInfo[`${brand}:${t.id}`] = { filled, left: Math.max(quota - filled, 0), quota, webUrl: `${domain}/trip/${t.slug || t.id}` };
+      }
+    }
+  } catch {}
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div>
@@ -263,7 +286,24 @@ export default async function TLPortalPage() {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {tlTrips.map((t) => <TripRow key={`${t._brand}-${t.id}`} trip={t} isMine />)}
+            {tlTrips.map((t) => {
+              const si = seatInfo[`${t._brand || currentBrand}:${t.id}`] || {};
+              const sameBrand = (t._brand || currentBrand) === currentBrand;
+              return (
+                <div key={`${t._brand}-${t.id}`}>
+                  <TripRow trip={t} isMine />
+                  <div className="px-5 py-2 bg-slate-50/70 flex flex-wrap items-center gap-2 text-xs">
+                    <span className="font-semibold text-slate-700">Terisi {si.filled ?? 0}</span>
+                    <span className={`font-semibold ${(si.left ?? 0) <= 5 ? 'text-red-600' : 'text-green-700'}`}>· Sisa {si.left ?? 0}</span>
+                    <span className="text-slate-400">/ {si.quota ?? 0} seat</span>
+                    <div className="ml-auto flex items-center gap-2">
+                      {si.webUrl && <a href={si.webUrl} target="_blank" rel="noreferrer" className="px-3 py-1 rounded bg-brand-500 hover:bg-brand-600 text-white font-semibold">🌐 Web Trip</a>}
+                      {sameBrand && <CopyWaTemplateButton tripId={t.id} className="px-3 py-1 rounded bg-green-600 hover:bg-green-700 text-white font-semibold" />}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>
