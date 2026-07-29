@@ -44,8 +44,8 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
   const delIncome = (i) => setIncome((rows) => rows.filter((_, idx) => idx !== i));
 
   // ── Expense ──
-  const addItem = (category = '', qty_source = null) => setExpense((rows) => [...rows, { type: 'item', category, component: '', unit_cost: 0, qty: 0, qty_source, qty_locked: false, noted: '' }]);
-  const addHotel = () => setExpense((rows) => [...rows, { type: 'hotel', city: '', noted: '', rooms: HROOMS.map((h) => ({ ...h, unit_cost: 0, qty: 0, qty_source: h.qty_source || null, qty_locked: false, nights: 1 })) }]);
+  const addItem = (category = '', qty_source = null) => setExpense((rows) => [...rows, { type: 'item', category, component: '', unit_cost: 0, kurs: 0, currency: '', qty: 0, qty_source, qty_locked: false, noted: '' }]);
+  const addHotel = () => setExpense((rows) => [...rows, { type: 'hotel', city: '', noted: '', kurs: 0, currency: '', rooms: HROOMS.map((h) => ({ ...h, unit_cost: 0, qty: 0, qty_source: h.qty_source || null, qty_locked: false, nights: 1 })) }]);
   const delExp = (i) => setExpense((rows) => rows.filter((_, idx) => idx !== i));
   const setExpCell = (i, f, v) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, [f]: v } : r)));
   const setExpQty = (i, v) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, qty: v, qty_locked: true } : r)));
@@ -72,12 +72,14 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
   // Kapasitas dari tipe kamar: quad=4, triple=3, double=2, single=1.
   const occ = (h) => { const s = String(h.room || h.label || '').toLowerCase(); if (s.includes('quad')) return 4; if (s.includes('triple')) return 3; if (s.includes('double') || s.includes('twin')) return 2; if (s.includes('single')) return 1; return 1; };
   const nightsOf = (h) => (num(h.nights) > 0 ? num(h.nights) : 1);
-  const roomSubtotal = (h) => (num(h.unit_cost) / occ(h)) * effQty(h) * nightsOf(h);
-  const hotelTotal = (r) => (r.rooms || []).reduce((s, h) => s + roomSubtotal(h), 0);
+  const kursOf = (v) => { const n = num(v); return n > 0 ? n : 1; }; // kosong/0 = 1 (harga sudah Rupiah)
+  const roomSubtotal = (h, kurs = 1) => (num(h.unit_cost) * kurs / occ(h)) * effQty(h) * nightsOf(h);
+  const hotelTotal = (r) => { const k = kursOf(r.kurs); return (r.rooms || []).reduce((s, h) => s + roomSubtotal(h, k), 0); };
+  const itemSubtotal = (r) => num(r.unit_cost) * kursOf(r.kurs) * effQty(r);
 
   const totals = useMemo(() => {
     const totalIncome = income.reduce((s, r) => s + num(r.basic_fare) * num(r.pax), 0);
-    const totalExpense = expense.reduce((s, r) => s + (r.type === 'hotel' ? hotelTotal(r) : num(r.unit_cost) * effQty(r)), 0);
+    const totalExpense = expense.reduce((s, r) => s + (r.type === 'hotel' ? hotelTotal(r) : itemSubtotal(r)), 0);
     const headcount = income.filter((r) => HEADCOUNT_KEYS.includes(r.key)).reduce((s, r) => s + num(r.pax), 0);
     const margin = totalIncome - totalExpense;
     const perPax = headcount > 0 ? margin / headcount : 0;
@@ -175,6 +177,8 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
                 <span className="text-sm">🏨</span>
                 <span className="text-[11px] font-bold text-amber-800">Hotel —</span>
                 <input className="flex-1 px-1.5 py-1 border border-amber-300 rounded text-xs print:border-0" value={r.city} onChange={(e) => setExpCell(i, 'city', e.target.value)} placeholder="nama kota (mis. Chengdu)" />
+                <span className="text-[10px] text-amber-700">Kurs</span>
+                <input className="w-20 px-1.5 py-1 border border-amber-300 rounded text-xs text-right print:border-0" inputMode="numeric" value={money(r.kurs)} onChange={(e) => setExpCell(i, 'kurs', digits(e.target.value))} placeholder="kosong=1" title="Kurs harga kamar ke Rupiah. Kosongkan/0 jika harga sudah Rupiah." />
                 <span className="text-[11px] font-bold text-amber-800 whitespace-nowrap">{rupiah(hotelTotal(r))}</span>
                 <button onClick={() => delExp(i)} className="text-red-500 text-xs no-print">✕</button>
               </div>
@@ -194,7 +198,7 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
                       <td className="border border-amber-200 px-1 py-1"><input className={`${inp} text-right`} inputMode="numeric" value={money(h.unit_cost)} onChange={(e) => setHotelRoom(i, ri, 'unit_cost', digits(e.target.value))} placeholder="harga kamar" /></td>
                       <td className="border border-amber-200 px-1 py-1"><input className={`${inp} text-center ${isAutoQty(h) ? 'bg-emerald-50' : ''}`} title={isAutoQty(h) ? 'otomatis dari income (pax) — ketik untuk override' : ''} inputMode="numeric" value={effQty(h)} onChange={(e) => setHotelRoomQty(i, ri, e.target.value)} /></td>
                       <td className="border border-amber-200 px-1 py-1"><input className={`${inp} text-center`} inputMode="numeric" value={h.nights} onChange={(e) => setHotelRoom(i, ri, 'nights', e.target.value)} /></td>
-                      <td className="border border-amber-200 px-1 py-1 text-right font-semibold whitespace-nowrap">{rupiah(roomSubtotal(h))}</td>
+                      <td className="border border-amber-200 px-1 py-1 text-right font-semibold whitespace-nowrap">{rupiah(roomSubtotal(h, kursOf(r.kurs)))}</td>
                       <td className="border border-amber-200 px-1 py-1 text-center no-print"><button onClick={() => delHotelRoom(i, ri)} className="text-red-400 text-xs">✕</button></td>
                     </tr>
                   ))}
@@ -208,9 +212,10 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
                 <tr>
                   <td className="px-1 py-1 w-40"><input className={inp} value={r.category} onChange={(e) => setExpCell(i, 'category', e.target.value)} placeholder="Category (mis. Flight)" /></td>
                   <td className="px-1 py-1"><input className={inp} value={r.component} onChange={(e) => setExpCell(i, 'component', e.target.value)} placeholder="Component (mis. Adult)" /></td>
-                  <td className="px-1 py-1 w-28"><input className={`${inp} text-right`} inputMode="numeric" value={money(r.unit_cost)} onChange={(e) => setExpCell(i, 'unit_cost', digits(e.target.value))} placeholder="harga" /></td>
+                  <td className="px-1 py-1 w-24"><input className={`${inp} text-right`} inputMode="numeric" value={money(r.unit_cost)} onChange={(e) => setExpCell(i, 'unit_cost', digits(e.target.value))} placeholder="harga" /></td>
+                  <td className="px-1 py-1 w-20"><input className={`${inp} text-right`} inputMode="numeric" value={money(r.kurs)} onChange={(e) => setExpCell(i, 'kurs', digits(e.target.value))} placeholder="kurs (kosong=1)" title="Kurs ke Rupiah. Kosongkan/0 jika harga sudah Rupiah." /></td>
                   <td className="px-1 py-1 w-16"><input className={`${inp} text-center ${isAutoQty(r) ? 'bg-emerald-50' : ''}`} title={isAutoQty(r) ? 'otomatis dari income (pax) — ketik untuk override' : ''} inputMode="numeric" value={effQty(r)} onChange={(e) => setExpQty(i, e.target.value)} placeholder="qty" /></td>
-                  <td className="px-1 py-1 w-28 text-right font-semibold whitespace-nowrap">{rupiah(num(r.unit_cost) * effQty(r))}</td>
+                  <td className="px-1 py-1 w-28 text-right font-semibold whitespace-nowrap">{rupiah(itemSubtotal(r))}</td>
                   <td className="px-1 py-1"><input className={inp} value={r.noted} onChange={(e) => setExpCell(i, 'noted', e.target.value)} placeholder="noted" /></td>
                   <td className="px-1 py-1 w-8 text-center no-print"><button onClick={() => delExp(i)} className="text-red-500 text-xs">✕</button></td>
                 </tr>
