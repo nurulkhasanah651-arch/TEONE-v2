@@ -132,7 +132,7 @@ export default function VisaMatrix({ tripId, template = [], passengers = [] }) {
         const progress = template.length > 0 ? Math.round((completeDocs.length / template.length) * 100) : 0;
         const status = p.visa_status || 'pending';
         const statusCfgItem = STATUS_MAP[status];
-        const autoStage = deriveVisaStage(p, template);   // status otomatis dari dokumen/biometrik/hasil
+        const autoStage = deriveVisaStage({ ...p, visaPaid: Number(p.visaPayment?.amount || 0) > 0 }, template);   // status otomatis dari dokumen/biometrik/hasil (checkbox ATAU sudah bayar)
         const biometricDate = p.visa_biometric_date;
         const bioDays = biometricDate ? daysUntil(biometricDate) : null;
         const isExpanded = expandedRow === p.id;
