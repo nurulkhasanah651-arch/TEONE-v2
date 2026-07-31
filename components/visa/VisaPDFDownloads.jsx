@@ -124,8 +124,9 @@ export default function VisaPDFDownloads({ trip, passengers = [] }) {
       doc.text(`Total peserta: ${rows.length} orang`, 14, y);
       y += 4;
 
-      // Table
-      const headers = [['#', 'Nama Lengkap', 'Gender', 'No. Passport', 'Berlaku Sampai', 'Tgl Lahir', 'Tempat Lahir', 'NIK', 'Phone']];
+      // Table — kolom Alamat KTP muncul otomatis kalau ada data NIK (khusus Khasanah).
+      const hasKtp = rows.some((r) => r.nik && r.nik !== '-');
+      const headers = [['#', 'Nama Lengkap', 'Gender', 'No. Passport', 'Berlaku Sampai', 'Tgl Lahir', 'Tempat Lahir', 'NIK', ...(hasKtp ? ['Alamat KTP'] : []), 'Phone']];
       const tableRows = rows.map((r, idx) => [
         idx + 1,
         r.name,
@@ -135,28 +136,23 @@ export default function VisaPDFDownloads({ trip, passengers = [] }) {
         fmtDateID(r.birth_date),
         r.birth_place,
         r.nik,
+        ...(hasKtp ? [r.address || '-'] : []),
         r.phone,
       ]);
+
+      const colStyles = hasKtp
+        ? { 0: { cellWidth: 7 }, 1: { cellWidth: 38 }, 2: { cellWidth: 10 }, 3: { cellWidth: 24 }, 4: { cellWidth: 20 }, 5: { cellWidth: 20 }, 6: { cellWidth: 24 }, 7: { cellWidth: 30 }, 8: { cellWidth: 52 }, 9: { cellWidth: 24 } }
+        : { 0: { cellWidth: 8 }, 1: { cellWidth: 50 }, 2: { cellWidth: 12 }, 3: { cellWidth: 30 }, 4: { cellWidth: 22 }, 5: { cellWidth: 22 }, 6: { cellWidth: 30 }, 7: { cellWidth: 30 }, 8: { cellWidth: 30 } };
 
       doc.autoTable({
         startY: y + 2,
         head: headers,
         body: tableRows,
-        styles: { fontSize: 8, cellPadding: 1.5 },
+        styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' },
         headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [248, 250, 252] },
         margin: { left: 14, right: 14 },
-        columnStyles: {
-          0: { cellWidth: 8 },
-          1: { cellWidth: 50 },
-          2: { cellWidth: 12 },
-          3: { cellWidth: 30 },
-          4: { cellWidth: 22 },
-          5: { cellWidth: 22 },
-          6: { cellWidth: 30 },
-          7: { cellWidth: 30 },
-          8: { cellWidth: 30 },
-        },
+        columnStyles: colStyles,
       });
 
       setFooter(doc);
