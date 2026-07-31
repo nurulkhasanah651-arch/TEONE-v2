@@ -6,14 +6,19 @@ import Link from 'next/link';
 import { setOfferingVendor } from '@/lib/actions/profit-estimate';
 import { markFollowup } from '@/lib/actions/manager-dashboard';
 
-function Card({ title, icon, accent, count, children }) {
+function Card({ title, icon, accent, count, open, onToggle, children }) {
   return (
     <div className={`bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden`}>
-      <div className={`px-4 py-2.5 border-b border-slate-200 flex items-center justify-between ${accent}`}>
-        <h2 className="font-bold text-slate-800 flex items-center gap-2 text-sm">{icon} {title}</h2>
-        {count != null && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/70 text-slate-700">{count}</span>}
-      </div>
-      <div className="p-3 space-y-3">{children}</div>
+      <button type="button" onClick={onToggle} className={`w-full px-4 py-3 flex items-center justify-between gap-3 text-left ${accent} hover:brightness-95 transition`}>
+        <h2 className="font-extrabold text-slate-800 flex items-center gap-2 text-sm tracking-wide">{icon} {title}</h2>
+        <span className="flex items-center gap-2 shrink-0">
+          {count > 0
+            ? <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">{count} perlu tindak</span>
+            : <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">aman ✅</span>}
+          <span className="text-slate-500 text-sm">{open ? '▲' : '▼'}</span>
+        </span>
+      </button>
+      {open && <div className="p-3 space-y-3 border-t border-slate-200">{children}</div>}
     </div>
   );
 }
@@ -45,6 +50,8 @@ export default function ManagerDashboard({ data }) {
   const [, start] = useTransition();
   const [offered, setOffered] = useState({}); // tripId -> bool override
   const [hidden, setHidden] = useState({}); // `${section}:${tripId}` -> bool
+  const [openCard, setOpenCard] = useState({}); // cardKey -> bool (default collapsed)
+  const toggleCard = (k) => setOpenCard((m) => ({ ...m, [k]: !m[k] }));
 
   function markOffered(tripId) {
     setOffered((m) => ({ ...m, [tripId]: true }));
@@ -78,14 +85,20 @@ export default function ManagerDashboard({ data }) {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-brand-700">📊 Dashboard Manager</h1>
-        <p className="text-sm text-slate-500">Pantauan harian · ticketing, visa, operasional, penjualan. Klik <span className="font-semibold text-sky-700">✓ Follow up</span> kalau sudah ditindaklanjuti — item hilang {days} hari, muncul lagi kalau belum diupdate tim. {data?.generatedAt && `· Update ${new Date(data.generatedAt).toLocaleString('id-ID')}`}</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-brand-700">📊 Dashboard Manager</h1>
+          <p className="text-sm text-slate-500">Klik judul monitor untuk buka detailnya. Tombol <span className="font-semibold text-sky-700">✓ Follow up</span> menandai sudah ditindaklanjuti — item hilang {days} hari, muncul lagi kalau belum diupdate tim. {data?.generatedAt && `· Update ${new Date(data.generatedAt).toLocaleString('id-ID')}`}</p>
+        </div>
+        <button type="button" onClick={() => { const anyOpen = ['ticketing','visa','operation','selling'].some((k) => openCard[k]); setOpenCard(anyOpen ? {} : { ticketing: true, visa: true, operation: true, selling: true }); }}
+          className="text-xs font-semibold text-brand-600 border border-brand-300 rounded-lg px-3 py-1.5 hover:bg-brand-50 whitespace-nowrap">
+          {['ticketing','visa','operation','selling'].some((k) => openCard[k]) ? 'Tutup semua' : 'Buka semua'}
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="space-y-3">
         {/* TICKETING */}
-        <Card title="Ticketing" icon="🎫" accent="bg-sky-50" count={cntTicketing}>
+        <Card title="MONITOR TICKETING" icon="🎫" accent="bg-sky-50" count={cntTicketing} open={!!openCard.ticketing} onToggle={() => toggleCard('ticketing')}>
           <Block label="Full tapi belum ada tiket" hint="Group full tapi belum ada PNR ke-connect — segera issue tiket." items={vis('ticketing.fullNoTicket', T.fullNoTicket).length} color="text-red-700">
             {vis('ticketing.fullNoTicket', T.fullNoTicket).map((t) => <TripLine key={t.id} t={t} href="/finance/pnr" right={<div className="flex items-center gap-1.5"><span className="text-[10px] font-bold text-red-600 whitespace-nowrap">FULL · no tiket</span><FollowBtn section="ticketing.fullNoTicket" tripId={t.id} /></div>} />)}
           </Block>
@@ -107,7 +120,7 @@ export default function ManagerDashboard({ data }) {
         </Card>
 
         {/* VISA */}
-        <Card title="Visa" icon="🛂" accent="bg-indigo-50" count={cntVisa}>
+        <Card title="MONITOR VISA" icon="🛂" accent="bg-indigo-50" count={cntVisa} open={!!openCard.visa} onToggle={() => toggleCard('visa')}>
           <Block label="Belum proses & belum bayar visa" hint="Peserta butuh visa tapi belum bayar & belum diproses — segera proses." items={vis('visa.notProcessed', V.notProcessed).length} color="text-red-700">
             {vis('visa.notProcessed', V.notProcessed).map((t) => (
               <div key={t.id} className="rounded-lg border border-slate-200 px-2.5 py-2">
@@ -136,7 +149,7 @@ export default function ManagerDashboard({ data }) {
         </Card>
 
         {/* OPERATION */}
-        <Card title="Operation" icon="⚙️" accent="bg-emerald-50" count={cntOps}>
+        <Card title="MONITOR OPERATION" icon="⚙️" accent="bg-emerald-50" count={cntOps} open={!!openCard.operation} onToggle={() => toggleCard('operation')}>
           <Block label="New release — siap minta offer vendor" hint="Trip baru rilis, siapkan permintaan penawaran vendor." items={vis('operation.newRelease', O.newRelease).length} color="text-blue-700">
             {vis('operation.newRelease', O.newRelease).map((t) => {
               const off = offered[t.id] || t.offeringRequested;
@@ -155,7 +168,7 @@ export default function ManagerDashboard({ data }) {
         </Card>
 
         {/* SELLING */}
-        <Card title="Selling" icon="📣" accent="bg-rose-50" count={cntSell}>
+        <Card title="MONITOR GROUP PENJUALAN" icon="📣" accent="bg-rose-50" count={cntSell} open={!!openCard.selling} onToggle={() => toggleCard('selling')}>
           <Block label="Hampir full — sisa ≤ 4 seat!" hint="Segera siapkan batch baru." items={vis('selling.almostFull', S.almostFull).length} color="text-emerald-700">
             {vis('selling.almostFull', S.almostFull).map((t) => <TripLine key={t.id} t={t} href={`/trips/${t.id}`} right={<div className="flex items-center gap-1.5"><span className="text-[10px] font-extrabold text-emerald-700 whitespace-nowrap">sisa {t.seatLeft}! BIKIN BATCH</span><FollowBtn section="selling.almostFull" tripId={t.id} /></div>} />)}
           </Block>
