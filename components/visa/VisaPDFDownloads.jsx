@@ -113,7 +113,13 @@ export default function VisaPDFDownloads({ trip, passengers = [] }) {
       if (res?.error) { setError('Gagal: ' + res.error); return; }
       const rows = res.rows || [];
       const showKtp = rows.some((r) => r && r.nik);
-      await downloadManifestPDF({ trip: res.trip || trip, rows, showKtp });
+      // downloadManifestPDF butuh baris berbentuk ARRAY (urutan kolom sama dgn COLS).
+      const pdfRows = rows.map((r) => [
+        r.no, r.first_name, r.last_name, r.gender, r.place_of_birth, r.birth_date, r.age,
+        r.passport_no, ...(showKtp ? [r.nik || '', r.ktp_alamat || ''] : []),
+        r.issue_date, r.issuing_office, r.expiry_date, r.phone, r.catatan || '',
+      ]);
+      await downloadManifestPDF({ trip: res.trip || trip, rows: pdfRows, showKtp });
     } catch (e) {
       setError('Gagal generate manifest PDF: ' + (e?.message || 'unknown'));
     } finally {
@@ -203,15 +209,6 @@ export default function VisaPDFDownloads({ trip, passengers = [] }) {
           title={passengers.length === 0 ? 'Belum ada peserta' : 'Download Manifest PDF'}
         >
           {pending === 'manifest' ? '⏳ Generating...' : '📄 Download Manifest (PDF)'}
-        </button>
-        <button
-          type="button"
-          onClick={downloadRoomlist}
-          disabled={!!pending || passengers.length === 0}
-          className="px-4 py-2 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white text-sm font-semibold rounded-lg flex items-center gap-2"
-          title={passengers.length === 0 ? 'Belum ada peserta' : 'Download Roomlist PDF'}
-        >
-          {pending === 'roomlist' ? '⏳ Generating...' : '🛏 Download Roomlist (PDF)'}
         </button>
       </div>
       {error && (
