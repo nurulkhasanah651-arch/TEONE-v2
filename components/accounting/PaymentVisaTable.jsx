@@ -142,7 +142,7 @@ export default function PaymentVisaTable({ rows = [] }) {
                     <tbody className="divide-y divide-slate-100">
                       {g.rows.map((r) => (
                         <tr key={r.passengerId} className="hover:bg-slate-50 align-top">
-                          <td className="px-2 py-1.5 font-semibold text-slate-800 min-w-[140px]">{r.nama}</td>
+                          <td className="px-2 py-1.5 font-semibold text-slate-800 min-w-[140px]">{r.nama}{r.pesertaStatus && <span className={`ml-1 text-[9px] font-bold px-1 py-0.5 rounded align-middle ${r.pesertaStatus === 'refund' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{r.pesertaStatus === 'refund' ? 'REFUND' : 'PINDAH'}</span>}</td>
                           <td className="px-2 py-1.5"><span className={`text-[10px] font-semibold px-2 py-0.5 rounded whitespace-nowrap ${STATUS_COLOR_CLASS[r.statusColor] || 'bg-slate-100 text-slate-700'}`}>{r.statusLabel}</span></td>
                           <td className="px-2 py-1.5 min-w-[110px]"><input className={inp} value={val(r, 'embassy') || ''} onChange={(e) => setVal(r.passengerId, 'embassy', e.target.value)} placeholder="Negara/kedutaan" /></td>
                           <td className="px-2 py-1.5 min-w-[110px]"><input className={inp} inputMode="numeric" value={val(r, 'fee_embassy_amount') || ''} onChange={(e) => setVal(r.passengerId, 'fee_embassy_amount', e.target.value)} placeholder="0" /></td>
