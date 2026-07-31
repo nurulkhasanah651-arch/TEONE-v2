@@ -53,7 +53,7 @@ export default function DailyTodo({ data, basePath = '/manager-dashboard' }) {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-brand-700">📝 To-Do List Harian</h1>
-          <p className="text-sm text-slate-500">Catatan kerja harian tim — otomatis jadi laporan ke owner. Update tiap hari.</p>
+          <p className="text-sm text-slate-500">Catatan kerja harian — otomatis jadi laporan ke owner &amp; accounting. Durasi pengerjaan dihitung dari ditambah sampai dicentang selesai.</p>
         </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => go(shiftDate(date, -1))} className="px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg hover:bg-slate-50">←</button>
@@ -96,6 +96,7 @@ export default function DailyTodo({ data, basePath = '/manager-dashboard' }) {
                       </button>
                       <div className="min-w-0 flex-1">
                         <p className={`text-sm ${item.done ? 'line-through text-slate-400' : 'text-slate-700'}`}>{item.content}</p>
+                        {item.done && item.durasi && <p className="text-[11px] text-emerald-600 mt-0.5">⏱ Selesai dalam {item.durasi}</p>}
                         {item.note && !editing && <p className="text-[11px] text-amber-600 mt-0.5">📌 {item.note}</p>}
                         {editing && (
                           <div className="mt-1 flex items-center gap-1.5">
@@ -143,6 +144,7 @@ export default function DailyTodo({ data, basePath = '/manager-dashboard' }) {
                         <span className={`mt-0.5 text-xs ${item.done ? 'text-emerald-600' : 'text-slate-300'}`}>{item.done ? '✅' : '⬜'}</span>
                         <div className="min-w-0">
                           <p className={`text-sm ${item.done ? 'line-through text-slate-400' : 'text-slate-700'}`}>{item.content}</p>
+                          {item.done && item.durasi && <p className="text-[11px] text-emerald-600">⏱ Selesai dalam {item.durasi}</p>}
                           {item.note && <p className="text-[11px] text-amber-600">📌 {item.note}</p>}
                         </div>
                       </li>
