@@ -20,7 +20,7 @@ const DEFAULT_HOTEL_ROOMS = [
   { room: 'double', label: 'Hotel Double' }, { room: 'single', label: 'Hotel Single' },
 ];
 
-export default function ProfitEstimateEditor({ trip, meta: metaInit, income: incomeInit, expense: expenseInit, templates, hotelRooms, savedAt, savedAtFmt, savedBy }) {
+export default function ProfitEstimateEditor({ trip, meta: metaInit, income: incomeInit, expense: expenseInit, autoIncome, autoExpense, templates, hotelRooms, savedAt, savedAtFmt, savedBy }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [savedMsg, setSavedMsg] = useState('');
@@ -77,14 +77,20 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
   const hotelTotal = (r) => { const k = kursOf(r.kurs); return (r.rooms || []).reduce((s, h) => s + roomSubtotal(h, k), 0); };
   const itemSubtotal = (r) => num(r.unit_cost) * kursOf(r.kurs) * effQty(r);
 
+  // Baris otomatis (read-only): dana hangus → income, biaya visa dari Payment Visa → HPP.
+  const AUTO_INCOME = Array.isArray(autoIncome) ? autoIncome : [];
+  const AUTO_EXPENSE = Array.isArray(autoExpense) ? autoExpense : [];
+  const autoIncomeTotal = AUTO_INCOME.reduce((s, r) => s + num(r.amount), 0);
+  const autoExpenseTotal = AUTO_EXPENSE.reduce((s, r) => s + num(r.amount), 0);
+
   const totals = useMemo(() => {
-    const totalIncome = income.reduce((s, r) => s + num(r.basic_fare) * num(r.pax), 0);
-    const totalExpense = expense.reduce((s, r) => s + (r.type === 'hotel' ? hotelTotal(r) : itemSubtotal(r)), 0);
+    const totalIncome = income.reduce((s, r) => s + num(r.basic_fare) * num(r.pax), 0) + autoIncomeTotal;
+    const totalExpense = expense.reduce((s, r) => s + (r.type === 'hotel' ? hotelTotal(r) : itemSubtotal(r)), 0) + autoExpenseTotal;
     const headcount = income.filter((r) => HEADCOUNT_KEYS.includes(r.key)).reduce((s, r) => s + num(r.pax), 0);
     const margin = totalIncome - totalExpense;
     const perPax = headcount > 0 ? margin / headcount : 0;
     return { totalIncome, totalExpense, headcount, margin, perPax };
-  }, [income, expense, qtySources]);
+  }, [income, expense, qtySources, autoIncomeTotal, autoExpenseTotal]);
 
   function doSave() {
     setSavedMsg('');
@@ -147,6 +153,16 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
                   <td className="border border-slate-300 px-1 py-1 text-center"><input type="checkbox" checked={r.status_payment} onChange={(e) => setIncCell(i, 'status_payment', e.target.checked)} /></td>
                   <td className="border border-slate-300 px-1 py-1"><input className={inp} value={r.noted} onChange={(e) => setIncCell(i, 'noted', e.target.value)} /></td>
                   <td className="border border-slate-300 px-1 py-1 text-center no-print">{!r.standard && <button onClick={() => delIncome(i)} className="text-red-500 text-xs">✕</button>}</td>
+                </tr>
+              ))}
+              {AUTO_INCOME.map((r) => (
+                <tr key={r.key} className="bg-emerald-50/40">
+                  <td className="border border-slate-300 px-1 py-1 text-center text-emerald-600">⟳</td>
+                  <td className="border border-slate-300 px-1 py-1"><span className="font-medium text-emerald-800">{r.label}</span> <span className="text-[9px] text-slate-400">otomatis</span></td>
+                  <td className="border border-slate-300 px-1 py-1 text-right text-slate-400">—</td>
+                  <td className="border border-slate-300 px-1 py-1 text-center text-slate-400">—</td>
+                  <td className="border border-slate-300 px-1 py-1 text-right font-semibold whitespace-nowrap text-emerald-700">{rupiah(num(r.amount))}</td>
+                  <td className="border border-slate-300 px-1 py-1" colSpan={3}></td>
                 </tr>
               ))}
             </tbody>
@@ -222,7 +238,26 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
               </tbody></table>
             </div>
           ))}
+          {AUTO_EXPENSE.map((r) => (
+            <div key={r.key} className="border border-emerald-200 bg-emerald-50/40 rounded-lg overflow-x-auto">
+              <table className="w-full text-xs border-collapse"><tbody>
+                <tr>
+                  <td className="px-1 py-1 w-40"><span className="font-medium text-emerald-800">{r.category || r.label}</span></td>
+                  <td className="px-1 py-1 text-slate-500">{r.label} <span className="text-[9px] text-slate-400">otomatis</span></td>
+                  <td className="px-1 py-1 w-24 text-right text-slate-400">—</td>
+                  <td className="px-1 py-1 w-20 text-center text-slate-400">—</td>
+                  <td className="px-1 py-1 w-16 text-center text-slate-400">—</td>
+                  <td className="px-1 py-1 w-28 text-right font-semibold whitespace-nowrap text-rose-700">{rupiah(num(r.amount))}</td>
+                  <td className="px-1 py-1"></td>
+                  <td className="px-1 py-1 w-8"></td>
+                </tr>
+              </tbody></table>
+            </div>
+          ))}
         </div>
+        {(AUTO_INCOME.length > 0 || AUTO_EXPENSE.length > 0) && (
+          <p className="text-[10px] text-slate-500 mt-2 no-print">⟳ Baris <b>otomatis</b> (Dana Hangus &amp; Visa dari Payment Visa) dihitung langsung dari data terkini — tidak perlu diisi manual &amp; tidak ikut tersimpan.</p>
+        )}
         <div className="flex items-center justify-between mt-2 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
           <span className="text-xs font-bold text-rose-700">TOTAL EXPENSE</span>
           <span className="text-sm font-bold text-rose-800">{rupiah(totals.totalExpense)}</span>

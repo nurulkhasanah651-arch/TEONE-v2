@@ -383,6 +383,16 @@ export default async function GroupCashflowDetailPage({ params }) {
               </SubSection>
             )}
 
+            {totalRefundAdminFee > 0 && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider">🔥 Dana Hangus (refund/cancel)</p>
+                  <p className="text-xs font-bold text-emerald-700">{fmtRupiah(totalRefundAdminFee)}</p>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-0.5">Admin fee peserta refund/cancel yang hangus = income retained perusahaan. Sudah tercakup di payment peserta transferred/refunded di atas (payment masuk − refund keluar), jadi tidak dihitung dobel.</p>
+              </div>
+            )}
+
             {manualIn > 0 && (
               <SubSection title="Manual Cash In" total={manualIn} color="text-green-700">
                 {accEntries.filter((e) => e.type === 'in').map((e) => (
