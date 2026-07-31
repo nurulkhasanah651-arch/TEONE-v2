@@ -23,6 +23,7 @@ const GROUPS = [
     label: 'Utama',
     items: [
       { href: '/ceo',       label: 'CEO · AI',    icon: '🧠', roles: ['owner'] },
+      { href: '/manager-dashboard', label: 'Morning Monitoring', icon: '🌅', roles: ['owner', 'manager', 'accounting'] },
       { href: '/dashboard', label: 'Dashboard',   icon: '◆', roles: ALL_ROLES },
       { href: '/trips',      label: 'Master Trip', icon: '✈', roles: ALL_ROLES },
       { href: '/cs',         label: 'CS Daily',    icon: '☎', roles: ALL_ROLES },
