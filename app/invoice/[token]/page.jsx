@@ -3,6 +3,7 @@
 // Fix: section "Sudah Dibayar + Sisa" SELALU tampil walaupun breakdown kosong
 
 import SignedFileLink from '@/components/common/SignedFileLink';
+import CopyRekButton from '@/components/invoice/CopyRekButton';
 import { notFound } from 'next/navigation';
 import { createPublicClient as createClient } from '@/lib/supabase/server';
 import { getExpectedAndPaidForPassenger } from '@/lib/actions/invoices';
@@ -511,6 +512,7 @@ export default async function PublicInvoicePage({ params }) {
               {company.bank_account_name && (
                 <p className="text-sm text-blue-800">a.n. {company.bank_account_name}</p>
               )}
+              {company.bank_account_no && <CopyRekButton value={company.bank_account_no} />}
             </div>
           </div>
         )}

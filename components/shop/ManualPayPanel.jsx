@@ -30,8 +30,14 @@ export default function ManualPayPanel({ booking, bank, waNumber, milestoneType,
       <p className="font-bold text-slate-800">🏦 Transfer Manual</p>
       <div className="bg-slate-50 rounded-xl p-3 text-sm">
         <div className="flex items-center justify-between"><span className="text-slate-500">Bank</span><span className="font-bold">{bank?.nama || '-'}</span></div>
-        <div className="flex items-center justify-between mt-1"><span className="text-slate-500">No. Rekening</span>
-          <button onClick={()=>copy(bank?.norek||'')} className="font-bold text-slate-900">{bank?.norek || '-'} <span className="text-[10px] text-emerald-600">{copied===bank?.norek?'tersalin':'salin'}</span></button></div>
+        <div className="flex items-center justify-between mt-1 gap-2"><span className="text-slate-500">No. Rekening</span>
+          <span className="flex items-center gap-2">
+            <span className="font-bold tracking-wider text-slate-900">{bank?.norek || '-'}</span>
+            <button type="button" onClick={()=>copy(bank?.norek||'')}
+              className={`shrink-0 px-2 py-1 rounded-lg text-[11px] font-bold border ${copied===bank?.norek ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'}`}>
+              {copied===bank?.norek ? '✓ Tersalin' : '📋 Salin'}
+            </button>
+          </span></div>
         <div className="flex items-center justify-between mt-1"><span className="text-slate-500">a.n.</span><span className="font-semibold text-right">{bank?.an || '-'}</span></div>
         <div className="flex items-center justify-between mt-1 pt-1 border-t border-slate-200"><span className="text-slate-500">Nominal transfer</span><span className="font-extrabold text-slate-900">{fmtRp(total)}</span></div>
       </div>
