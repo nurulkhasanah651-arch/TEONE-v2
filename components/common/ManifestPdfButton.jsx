@@ -16,14 +16,16 @@ export default function ManifestPdfButton({ tripId, label = '📋 Manifest PDF',
       const res = await getManifestRows(tripId);
       if (res?.error) { alert('Gagal: ' + res.error); return; }
       const { trip, rows } = res;
+      // NIK/KTP: kolom hanya kalau ada datanya (khusus Khasanah). Additive — TEONE tak berubah.
+      const showKtp = (rows || []).some((r) => r && r.nik);
       // Urutan kolom DISAMAKAN dgn manifest-pdf.js:
       // No., First Name, Last Name, Gender, Tempat Lahir, Tgl Lahir, Umur,
-      // No. Paspor, Tgl Issue, Issuing Office, Tgl Expired, No. HP, Catatan/Request
+      // No. Paspor, [NIK], Tgl Issue, Issuing Office, Tgl Expired, No. HP, Catatan/Request
       const pdfRows = (rows || []).map((r) => [
         r.no, r.first_name, r.last_name, r.gender, r.place_of_birth, r.birth_date, r.age,
-        r.passport_no, r.issue_date, r.issuing_office, r.expiry_date, r.phone, r.catatan || '',
+        r.passport_no, ...(showKtp ? [r.nik || ''] : []), r.issue_date, r.issuing_office, r.expiry_date, r.phone, r.catatan || '',
       ]);
-      await downloadManifestPDF({ trip, rows: pdfRows });
+      await downloadManifestPDF({ trip, rows: pdfRows, showKtp });
     } catch (e) {
       alert('Gagal download: ' + (e?.message || e));
     } finally {
