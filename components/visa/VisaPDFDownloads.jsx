@@ -44,6 +44,8 @@ function getPaxRows(passengers) {
       name: c.name || '-',
       passport: c.passport_no || c.passport_number || '-',
       passport_expired: c.passport_expiry || c.passport_expired || c.passport_expired_at || null,
+      issue_date: c.passport_issued_date || c.issue_date || c.passport_issue_date || null,
+      issuing_place: c.passport_issued_at || c.issuing_office || c.place_of_issue || '-',
       // Kolom kembar: data manual tersimpan di birthday/city, auto-scan di dob/place_of_birth.
       // Baca keduanya supaya manifest tidak kosong.
       birth_date: c.birthday || c.dob || c.birth_date || c.date_of_birth || null,
@@ -124,25 +126,27 @@ export default function VisaPDFDownloads({ trip, passengers = [] }) {
       doc.text(`Total peserta: ${rows.length} orang`, 14, y);
       y += 4;
 
-      // Table — kolom Alamat KTP muncul otomatis kalau ada data NIK (khusus Khasanah).
+      // Table — semua kolom paspor lengkap. NIK & Alamat KTP muncul otomatis kalau ada
+      // data NIK (khusus Khasanah); kolom lain tampil utk kedua brand.
       const hasKtp = rows.some((r) => r.nik && r.nik !== '-');
-      const headers = [['#', 'Nama Lengkap', 'Gender', 'No. Passport', 'Berlaku Sampai', 'Tgl Lahir', 'Tempat Lahir', 'NIK', ...(hasKtp ? ['Alamat KTP'] : []), 'Phone']];
+      const headers = [['#', 'Nama Lengkap', 'Gender', 'No. Passport', 'Tgl Issue', 'Issuing Place', 'Berlaku Sampai', 'Tgl Lahir', 'Tempat Lahir', ...(hasKtp ? ['NIK', 'Alamat KTP'] : []), 'Phone']];
       const tableRows = rows.map((r, idx) => [
         idx + 1,
         r.name,
         r.gender === 'male' ? 'L' : r.gender === 'female' ? 'P' : r.gender,
         r.passport,
+        fmtDateID(r.issue_date),
+        r.issuing_place,
         fmtDateID(r.passport_expired),
         fmtDateID(r.birth_date),
         r.birth_place,
-        r.nik,
-        ...(hasKtp ? [r.address || '-'] : []),
+        ...(hasKtp ? [r.nik, r.address || '-'] : []),
         r.phone,
       ]);
 
       const colStyles = hasKtp
-        ? { 0: { cellWidth: 7 }, 1: { cellWidth: 38 }, 2: { cellWidth: 10 }, 3: { cellWidth: 24 }, 4: { cellWidth: 20 }, 5: { cellWidth: 20 }, 6: { cellWidth: 24 }, 7: { cellWidth: 30 }, 8: { cellWidth: 52 }, 9: { cellWidth: 24 } }
-        : { 0: { cellWidth: 8 }, 1: { cellWidth: 50 }, 2: { cellWidth: 12 }, 3: { cellWidth: 30 }, 4: { cellWidth: 22 }, 5: { cellWidth: 22 }, 6: { cellWidth: 30 }, 7: { cellWidth: 30 }, 8: { cellWidth: 30 } };
+        ? { 0: { cellWidth: 7 }, 1: { cellWidth: 30 }, 2: { cellWidth: 9 }, 3: { cellWidth: 20 }, 4: { cellWidth: 17 }, 5: { cellWidth: 24 }, 6: { cellWidth: 17 }, 7: { cellWidth: 17 }, 8: { cellWidth: 20 }, 9: { cellWidth: 28 }, 10: { cellWidth: 38 }, 11: { cellWidth: 22 } }
+        : { 0: { cellWidth: 7 }, 1: { cellWidth: 34 }, 2: { cellWidth: 9 }, 3: { cellWidth: 22 }, 4: { cellWidth: 18 }, 5: { cellWidth: 26 }, 6: { cellWidth: 18 }, 7: { cellWidth: 18 }, 8: { cellWidth: 22 }, 9: { cellWidth: 26 } };
 
       doc.autoTable({
         startY: y + 2,
