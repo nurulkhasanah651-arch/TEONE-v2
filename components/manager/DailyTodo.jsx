@@ -4,6 +4,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { addTodo, toggleTodo, updateTodo, deleteTodo, carryOverUndone } from '@/lib/actions/daily-todo';
+import { TODO_KINDS, todoKind } from '@/lib/utils/daily-todo-kinds';
 
 function fmtTanggal(d) {
   try { return new Date(`${d}T00:00:00+07:00`).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); }
@@ -22,6 +23,7 @@ export default function DailyTodo({ data, basePath = '/manager-dashboard' }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [noteEdit, setNoteEdit] = useState({}); // id -> string draft
+  const [durEdit, setDurEdit] = useState({}); // id -> string draft
 
   const go = (dt) => router.push(`${basePath}?date=${dt}#todo`);
 
@@ -44,6 +46,14 @@ export default function DailyTodo({ data, basePath = '/manager-dashboard' }) {
   function carry() {
     start(async () => { const r = await carryOverUndone(date); if (r?.error) alert('Gagal: ' + r.error); else { router.refresh(); if ((r?.moved || 0) === 0) alert('Tidak ada item belum selesai dari kemarin.'); } });
   }
+  function setKind(item, kind) {
+    const next = item.kind === kind ? '' : kind;
+    start(async () => { const r = await updateTodo(item.id, { kind: next }); if (r?.error) alert('Gagal: ' + r.error); else router.refresh(); });
+  }
+  function saveDur(item) {
+    const durasi = durEdit[item.id] ?? item.durasi;
+    start(async () => { const r = await updateTodo(item.id, { durasi }); if (r?.error) alert('Gagal: ' + r.error); else { setDurEdit((m) => { const n = { ...m }; delete n[item.id]; return n; }); router.refresh(); } });
+  }
 
   const mine = d.mine || [];
   const doneN = mine.filter((i) => i.done).length;
@@ -53,7 +63,7 @@ export default function DailyTodo({ data, basePath = '/manager-dashboard' }) {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-brand-700">📝 To-Do List Harian</h1>
-          <p className="text-sm text-slate-500">Catatan kerja harian — otomatis jadi laporan ke owner &amp; accounting. Durasi pengerjaan dihitung dari ditambah sampai dicentang selesai.</p>
+          <p className="text-sm text-slate-500">Catatan kerja harian — otomatis jadi laporan ke owner &amp; accounting. Isi sendiri lama pengerjaan &amp; jenis kerja (delegasi / teknis / strategist) tiap item.</p>
         </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => go(shiftDate(date, -1))} className="px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg hover:bg-slate-50">←</button>
@@ -88,6 +98,7 @@ export default function DailyTodo({ data, basePath = '/manager-dashboard' }) {
             <ul className="divide-y divide-slate-100">
               {mine.map((item) => {
                 const editing = noteEdit[item.id] !== undefined;
+                const durEditing = durEdit[item.id] !== undefined;
                 return (
                   <li key={item.id} className="py-2">
                     <div className="flex items-start gap-2">
@@ -96,8 +107,38 @@ export default function DailyTodo({ data, basePath = '/manager-dashboard' }) {
                       </button>
                       <div className="min-w-0 flex-1">
                         <p className={`text-sm ${item.done ? 'line-through text-slate-400' : 'text-slate-700'}`}>{item.content}</p>
-                        {item.done && item.durasi && <p className="text-[11px] text-emerald-600 mt-0.5">⏱ Selesai dalam {item.durasi}</p>}
-                        {item.note && !editing && <p className="text-[11px] text-amber-600 mt-0.5">📌 {item.note}</p>}
+
+                        {/* Jenis kerja + durasi (diisi manager sendiri) */}
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                          {TODO_KINDS.map((k) => {
+                            const on = item.kind === k.key;
+                            return (
+                              <button key={k.key} type="button" onClick={() => setKind(item, k.key)}
+                                className={`text-[10px] px-2 py-0.5 rounded-full border transition ${on ? k.cls + ' font-bold' : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'}`}
+                                title={on ? 'Klik untuk batal' : `Tandai: ${k.label}`}>
+                                {on ? '● ' : ''}{k.short}
+                              </button>
+                            );
+                          })}
+                          <span className="mx-1 text-slate-200">|</span>
+                          {durEditing ? (
+                            <span className="inline-flex items-center gap-1">
+                              <input autoFocus value={durEdit[item.id]} onChange={(e) => setDurEdit((m) => ({ ...m, [item.id]: e.target.value }))}
+                                onKeyDown={(e) => { if (e.key === 'Enter') saveDur(item); }}
+                                placeholder="mis. 2 jam / 30 mnt" className="w-28 px-2 py-0.5 border border-slate-300 rounded text-[11px]" />
+                              <button type="button" onClick={() => saveDur(item)} className="text-[11px] font-semibold text-emerald-700">Simpan</button>
+                              <button type="button" onClick={() => setDurEdit((m) => { const n = { ...m }; delete n[item.id]; return n; })} className="text-[11px] text-slate-400">Batal</button>
+                            </span>
+                          ) : (
+                            <button type="button" onClick={() => setDurEdit((m) => ({ ...m, [item.id]: item.durasi || '' }))}
+                              className={`text-[10px] px-2 py-0.5 rounded-full border ${item.durasi ? 'bg-slate-50 border-slate-300 text-slate-600 font-semibold' : 'bg-white border-dashed border-slate-300 text-slate-400'} hover:bg-slate-100`}
+                              title="Isi lama pengerjaan">
+                              ⏱ {item.durasi ? item.durasi : '+ durasi'}
+                            </button>
+                          )}
+                        </div>
+
+                        {item.note && !editing && <p className="text-[11px] text-amber-600 mt-1">📌 {item.note}</p>}
                         {editing && (
                           <div className="mt-1 flex items-center gap-1.5">
                             <input autoFocus value={noteEdit[item.id]} onChange={(e) => setNoteEdit((m) => ({ ...m, [item.id]: e.target.value }))}
@@ -144,8 +185,11 @@ export default function DailyTodo({ data, basePath = '/manager-dashboard' }) {
                         <span className={`mt-0.5 text-xs ${item.done ? 'text-emerald-600' : 'text-slate-300'}`}>{item.done ? '✅' : '⬜'}</span>
                         <div className="min-w-0">
                           <p className={`text-sm ${item.done ? 'line-through text-slate-400' : 'text-slate-700'}`}>{item.content}</p>
-                          {item.done && item.durasi && <p className="text-[11px] text-emerald-600">⏱ Selesai dalam {item.durasi}</p>}
-                          {item.note && <p className="text-[11px] text-amber-600">📌 {item.note}</p>}
+                          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                            {item.kind && todoKind(item.kind) && <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${todoKind(item.kind).cls}`}>{todoKind(item.kind).short}</span>}
+                            {item.durasi && <span className="text-[10px] text-slate-500">⏱ {item.durasi}</span>}
+                          </div>
+                          {item.note && <p className="text-[11px] text-amber-600 mt-0.5">📌 {item.note}</p>}
                         </div>
                       </li>
                     ))}
