@@ -104,63 +104,16 @@ export default function VisaPDFDownloads({ trip, passengers = [] }) {
     setPending('manifest');
     setError('');
     try {
-      const jspdf = await loadJsPDF();
-      if (!jspdf) throw new Error('jsPDF gak ke-load');
-      const { jsPDF } = jspdf;
-      const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
-      const w = doc.internal.pageSize.getWidth();
-      const rows = getPaxRows(passengers);
-
-      setHeader(doc, 'MANIFEST PESERTA', trip);
-
-      // Trip info
-      let y = 26;
-      doc.setFontSize(16);
-      doc.setFont(undefined, 'bold');
-      doc.text(`${tripName}`, 14, y);
-      y += 6;
-      doc.setFontSize(10);
-      doc.setFont(undefined, 'normal');
-      doc.text(`Kode: ${tripLabel}  ·  Berangkat: ${fmtDateID(departure)}${arrival ? `  ·  Pulang: ${fmtDateID(arrival)}` : ''}`, 14, y);
-      y += 4;
-      doc.text(`Total peserta: ${rows.length} orang`, 14, y);
-      y += 4;
-
-      // Table — semua kolom paspor lengkap. NIK & Alamat KTP muncul otomatis kalau ada
-      // data NIK (khusus Khasanah); kolom lain tampil utk kedua brand.
-      const hasKtp = rows.some((r) => r.nik && r.nik !== '-');
-      const headers = [['#', 'Nama Lengkap', 'Gender', 'No. Passport', 'Tgl Issue', 'Issuing Place', 'Berlaku Sampai', 'Tgl Lahir', 'Tempat Lahir', ...(hasKtp ? ['NIK', 'Alamat KTP'] : []), 'Phone']];
-      const tableRows = rows.map((r, idx) => [
-        idx + 1,
-        r.name,
-        r.gender === 'male' ? 'L' : r.gender === 'female' ? 'P' : r.gender,
-        r.passport,
-        fmtDateID(r.issue_date),
-        r.issuing_place,
-        fmtDateID(r.passport_expired),
-        fmtDateID(r.birth_date),
-        r.birth_place,
-        ...(hasKtp ? [r.nik, r.address || '-'] : []),
-        r.phone,
-      ]);
-
-      const colStyles = hasKtp
-        ? { 0: { cellWidth: 7 }, 1: { cellWidth: 30 }, 2: { cellWidth: 9 }, 3: { cellWidth: 20 }, 4: { cellWidth: 17 }, 5: { cellWidth: 24 }, 6: { cellWidth: 17 }, 7: { cellWidth: 17 }, 8: { cellWidth: 20 }, 9: { cellWidth: 28 }, 10: { cellWidth: 38 }, 11: { cellWidth: 22 } }
-        : { 0: { cellWidth: 7 }, 1: { cellWidth: 34 }, 2: { cellWidth: 9 }, 3: { cellWidth: 22 }, 4: { cellWidth: 18 }, 5: { cellWidth: 26 }, 6: { cellWidth: 18 }, 7: { cellWidth: 18 }, 8: { cellWidth: 22 }, 9: { cellWidth: 26 } };
-
-      doc.autoTable({
-        startY: y + 2,
-        head: headers,
-        body: tableRows,
-        styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' },
-        headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
-        margin: { left: 14, right: 14 },
-        columnStyles: colStyles,
-      });
-
-      setFooter(doc);
-      doc.save(`manifest-${tripLabel}-${(tripName || '').replace(/\s+/g, '_').slice(0, 30)}.pdf`);
+      // Format PDF landscape yang SAMA dengan Roomlist (header biru, tabel bergaris, muat 1
+      // halaman) + kolom lengkap dari getManifestRows (baca kolom kembar). NIK & Alamat KTP
+      // otomatis khusus Khasanah kalau ada datanya.
+      const { getManifestRows } = await import('@/lib/actions/manifest');
+      const { downloadManifestPDF } = await import('@/lib/utils/manifest-pdf');
+      const res = await getManifestRows(trip?.id);
+      if (res?.error) { setError('Gagal: ' + res.error); return; }
+      const rows = res.rows || [];
+      const showKtp = rows.some((r) => r && r.nik);
+      await downloadManifestPDF({ trip: res.trip || trip, rows, showKtp });
     } catch (e) {
       setError('Gagal generate manifest PDF: ' + (e?.message || 'unknown'));
     } finally {
