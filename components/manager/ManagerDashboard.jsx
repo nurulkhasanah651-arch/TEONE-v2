@@ -66,13 +66,12 @@ export default function ManagerDashboard({ data }) {
 
   const d = data || {};
   const T = d.ticketing || {}, V = d.visa || {}, O = d.operation || {}, S = d.selling || {};
-  const days = d.followupDays || 3;
   const vis = (section, arr) => (arr || []).filter((t) => !hidden[`${section}:${t.id}`]);
 
-  // Tombol "sudah follow up" — sembunyikan item 3 hari, muncul lagi kalau belum dikerjakan.
+  // Tombol "sudah follow up" — sembunyikan item HARI INI saja, muncul lagi besok kalau tim belum update.
   const FollowBtn = ({ section, tripId, label = '✓ Follow up' }) => (
     <button type="button" onClick={() => follow(section, tripId)}
-      title={`Tandai sudah ditindaklanjuti — hilang ${days} hari, muncul lagi kalau belum diupdate tim`}
+      title="Tandai sudah ditindaklanjuti hari ini — muncul lagi besok kalau belum diupdate tim"
       className="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-300 rounded px-1.5 py-0.5 whitespace-nowrap hover:bg-sky-100">
       {label}
     </button>
@@ -88,7 +87,7 @@ export default function ManagerDashboard({ data }) {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-brand-700">📊 Dashboard Manager</h1>
-          <p className="text-sm text-slate-500">Klik judul monitor untuk buka detailnya. Tombol <span className="font-semibold text-sky-700">✓ Follow up</span> menandai sudah ditindaklanjuti — item hilang {days} hari, muncul lagi kalau belum diupdate tim. {data?.generatedAt && `· Update ${new Date(data.generatedAt).toLocaleString('id-ID')}`}</p>
+          <p className="text-sm text-slate-500">Klik judul monitor untuk buka detailnya. Tombol <span className="font-semibold text-sky-700">✓ Follow up</span> menandai sudah ditindaklanjuti hari ini — item <span className="font-semibold">muncul lagi besok</span> kalau tim belum update di divisinya. {data?.generatedAt && `· Update ${new Date(data.generatedAt).toLocaleString('id-ID')}`}</p>
         </div>
         <button type="button" onClick={() => { const anyOpen = ['ticketing','visa','operation','selling'].some((k) => openCard[k]); setOpenCard(anyOpen ? {} : { ticketing: true, visa: true, operation: true, selling: true }); }}
           className="text-xs font-semibold text-brand-600 border border-brand-300 rounded-lg px-3 py-1.5 hover:bg-brand-50 whitespace-nowrap">
