@@ -6,6 +6,8 @@ import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-en
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { redirect } from 'next/navigation';
 import EditPassportClient from './EditPassportClient';
+import { getBrandCode } from '@/lib/brand';
+import KtpUploadAI from '@/components/cs/KtpUploadAI';
 
 function getServiceClient() {
   const url = brandSupabaseUrl();
@@ -65,6 +67,7 @@ export default async function EditPassportPage({ params }) {
   };
 
   const fullName = `${initialData.first_name} ${initialData.last_name}`.trim() || c.name || `Peserta #${passengerId}`;
+  const showKtp = getBrandCode() === 'khasanah';   // fitur KTP khusus Khasanah
 
   // Foto/scan paspor yg diupload peserta -> ditampilkan di form biar CS gampang cek
   let passportFileUrl = null;
@@ -115,6 +118,15 @@ export default async function EditPassportPage({ params }) {
         nameMismatch={!!pax.passport_name_mismatch}
         scanName={pax.passport_scan_name || null}
       />
+      {showKtp && (
+        <div className="max-w-2xl mx-auto">
+          <KtpUploadAI
+            tripId={tripId}
+            passengerId={passengerId}
+            initial={{ nik: c.nik || '', ktp_alamat: c.ktp_alamat || '', ktp_photo_url: c.ktp_photo_url || '' }}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { createPassportUploadTicket, confirmPassportUpload, confirmPassportExtra } from '@/lib/actions/passport-upload';
+import { createKtpUploadTicket, confirmKtpUpload } from '@/lib/actions/ktp-upload';
 
 async function compressImage(file) {
   if (!file.type.startsWith('image/')) return file;
@@ -34,6 +35,48 @@ async function uploadOne(token, memberId, file) {
   const up = await sb.storage.from(t.bucket).uploadToSignedUrl(t.path, t.token, out, { contentType: ct, upsert: true });
   if (up.error) return { error: 'Gagal upload file: ' + up.error.message };
   return { ok: true, path: t.path };
+}
+
+// KTP: tiket & upload terpisah (path prefix 'ktp/'), auto-scan di confirmKtpUpload.
+async function uploadOneKtp(token, memberId, file) {
+  const out = await compressImage(file);
+  const ct = out.type || 'application/octet-stream';
+  const t = (await createKtpUploadTicket(token, memberId, ct)) || {};
+  if (!t.ok) return { error: t.error || 'Gagal menyiapkan upload' };
+  const sb = createClient(t.supabaseUrl, t.anonKey);
+  const up = await sb.storage.from(t.bucket).uploadToSignedUrl(t.path, t.token, out, { contentType: ct, upsert: true });
+  if (up.error) return { error: 'Gagal upload file: ' + up.error.message };
+  return { ok: true, path: t.path };
+}
+
+function KtpBlock({ token, member }) {
+  const [status, setStatus] = useState(member.ktpUploaded ? 'done' : 'idle');
+  const [msg, setMsg] = useState('');
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setStatus('uploading'); setMsg('');
+    try {
+      const u = await uploadOneKtp(token, member.id, file);
+      if (u.error) { setStatus('error'); setMsg(u.error); return; }
+      const c = (await confirmKtpUpload(token, member.id, u.path)) || {};
+      if (c.error) { setStatus('error'); setMsg(c.error); }
+      else if (c.ok) { setStatus('done'); setMsg(c.autofilled ? 'Terbaca otomatis' : 'Tersimpan'); }
+      else { setStatus('error'); setMsg('Upload gagal — coba lagi.'); }
+    } catch (err) { setStatus('error'); setMsg(err?.message || 'Gagal upload'); }
+  }
+  const done = status === 'done';
+  return (
+    <div className="mt-3 pt-3 border-t border-slate-200">
+      <p className="text-[11px] font-semibold text-slate-500 uppercase">KTP {done && <span className="text-emerald-600">✅ {msg}</span>}</p>
+      <p className="text-[10px] text-slate-400">Foto e-KTP yang jelas — data (NIK, alamat) akan terbaca otomatis.</p>
+      <label className={`mt-2 block w-full text-center py-2 rounded-lg text-sm font-semibold cursor-pointer transition-colors ${done ? 'bg-white border border-emerald-300 text-emerald-700' : 'bg-slate-700 hover:bg-slate-800 text-white'}`}>
+        {status === 'uploading' ? 'Mengunggah…' : done ? '🔄 Ganti / Upload Ulang KTP' : '🪪 Pilih Foto / PDF KTP'}
+        <input type="file" accept="image/*,application/pdf" className="hidden" disabled={status === 'uploading'} onChange={handleFile} />
+      </label>
+      {status === 'error' && <p className="text-xs text-red-600 mt-1">{msg}</p>}
+    </div>
+  );
 }
 
 function ExtraRow({ token, memberId }) {
@@ -69,7 +112,7 @@ function ExtraRow({ token, memberId }) {
   );
 }
 
-function Row({ token, member }) {
+function Row({ token, member, showKtp }) {
   const [status, setStatus] = useState(member.uploaded ? 'done' : 'idle');
   const [msg, setMsg] = useState('');
   const [extraSlots, setExtraSlots] = useState(() => Math.max(1, member.extraCount || 0));
@@ -110,6 +153,8 @@ function Row({ token, member }) {
       </label>
       {status === 'error' && <p className="text-xs text-red-600 mt-2">{msg}</p>}
 
+      {showKtp && <KtpBlock token={token} member={member} />}
+
       <div className="mt-3 pt-3 border-t border-slate-200">
         <p className="text-[11px] font-semibold text-slate-500 uppercase">Dokumen tambahan (opsional)</p>
         <p className="text-[10px] text-slate-400">Mis. halaman endorse, visa lama, atau dokumen lain yang diminta.</p>
@@ -122,13 +167,13 @@ function Row({ token, member }) {
   );
 }
 
-export default function PassportPublicUploadClient({ token, members = [] }) {
+export default function PassportPublicUploadClient({ token, members = [], showKtp = false }) {
   return (
     <div className="space-y-3">
       <p className="text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded-lg p-3">
-        📸 Foto <b>halaman biodata paspor</b> (yang ada foto & nama). Pastikan jelas, tidak buram, dan semua teks terbaca. Kalau ada dokumen tambahan (mis. endorse), upload di bagian "Dokumen tambahan".
+        📸 Foto <b>halaman biodata paspor</b> (yang ada foto & nama){showKtp ? ' dan foto e-KTP' : ''}. Pastikan jelas, tidak buram, dan semua teks terbaca. Kalau ada dokumen tambahan (mis. endorse), upload di bagian "Dokumen tambahan".
       </p>
-      {members.map((m) => <Row key={m.id} token={token} member={m} />)}
+      {members.map((m) => <Row key={m.id} token={token} member={m} showKtp={showKtp} />)}
     </div>
   );
 }

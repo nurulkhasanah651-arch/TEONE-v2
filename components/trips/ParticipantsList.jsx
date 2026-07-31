@@ -199,6 +199,12 @@ export default function ParticipantsList(props) {
                         )}
                       </p>
                     )}
+                    {c.nik && (
+                      <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                        <span>🪪 NIK {c.nik}</span>
+                        {c.ktp_alamat && <span className="text-slate-400 truncate max-w-[280px]" title={c.ktp_alamat}>· {c.ktp_alamat}</span>}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {p.price_paid > 0 && <span className="text-xs font-bold text-green-700">{fmtRupiah(p.price_paid)}</span>}

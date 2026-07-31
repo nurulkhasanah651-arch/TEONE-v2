@@ -1,6 +1,7 @@
 // PUBLIC — halaman upload paspor via link bertoken (tanpa login).
 // Aman: file ke bucket privat; akses dibatasi token per kepala keluarga/solo.
 import { getPassportUploadContext } from '@/lib/actions/passport-upload';
+import { getKtpStatus } from '@/lib/actions/ktp-upload';
 import PassportPublicUploadClient from '@/components/passport/PassportPublicUploadClient';
 
 export const dynamic = 'force-dynamic';
@@ -8,6 +9,9 @@ export const dynamic = 'force-dynamic';
 export default async function PassportUploadPage({ params }) {
   const { token } = await params;
   const ctx = await getPassportUploadContext(token);
+  const ktp = await getKtpStatus(token).catch(() => null);
+  const showKtp = !!ktp?.enabled;
+  const ktpMap = Object.fromEntries((ktp?.members || []).map((m) => [m.id, m.ktpUploaded]));
 
   if (!ctx?.ok) {
     return (
@@ -26,10 +30,10 @@ export default async function PassportUploadPage({ params }) {
       <div className="max-w-lg mx-auto">
         <div className="text-center mb-5">
           <p className="text-3xl">🛂</p>
-          <h1 className="text-xl font-bold text-slate-800 mt-1">Upload Paspor</h1>
+          <h1 className="text-xl font-bold text-slate-800 mt-1">Upload Paspor{showKtp ? ' & KTP' : ''}</h1>
           <p className="text-sm text-slate-500 mt-1">{ctx.tripName}</p>
         </div>
-        <PassportPublicUploadClient token={token} members={ctx.members} />
+        <PassportPublicUploadClient token={token} members={ctx.members.map((m) => ({ ...m, ktpUploaded: !!ktpMap[m.id] }))} showKtp={showKtp} />
         <p className="text-center text-[11px] text-slate-400 mt-6">Data Anda aman & hanya dipakai untuk pengurusan dokumen trip 🙏</p>
       </div>
     </div>
