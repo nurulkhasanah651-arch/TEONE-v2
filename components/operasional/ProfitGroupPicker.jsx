@@ -76,6 +76,15 @@ export default function ProfitGroupPicker({ groups = [] }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 p-3">
             {m.trips.map((g) => {
               const req = isRequested(g);
+              // Sudah minta offering vendor TAPI proyeksi (expense/HPP) belum di-update sejak itu
+              // -> ingatkan ops utk update. Hilang begitu estimate disimpan setelah offering.
+              const justToggledOn = off[g.id] === true && !g.offeringRequested;
+              let needsUpdate = false;
+              if (req) {
+                if (!g.savedAt) needsUpdate = true;
+                else if (justToggledOn) needsUpdate = true;
+                else if (g.offeringAt && new Date(g.savedAt) < new Date(g.offeringAt)) needsUpdate = true;
+              }
               return (
                 <div key={g.id} className="flex flex-col bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-sm transition">
                   <Link href={`/operasional/profit-estimate?trip=${encodeURIComponent(g.id)}`} className="flex flex-col p-3 hover:bg-slate-50">
@@ -98,9 +107,17 @@ export default function ProfitGroupPicker({ groups = [] }) {
                   {/* Offering vendor + link web/itinerary (di luar Link biar bisa diklik sendiri) */}
                   <div className="px-3 pb-3 pt-1 space-y-1.5">
                     {req ? (
-                      <div className="flex items-center justify-between gap-2 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-1.5">
-                        <span className="text-[11px] font-bold text-emerald-700">✅ Offering vendor sudah diminta</span>
-                        <button type="button" onClick={() => toggleOffering(g)} className="text-[10px] text-slate-500 hover:underline">batal</button>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-2 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-1.5">
+                          <span className="text-[11px] font-bold text-emerald-700">✅ Offering vendor sudah diminta</span>
+                          <button type="button" onClick={() => toggleOffering(g)} className="text-[10px] text-slate-500 hover:underline">batal</button>
+                        </div>
+                        {needsUpdate && (
+                          <Link href={`/operasional/profit-estimate?trip=${encodeURIComponent(g.id)}`}
+                            className="block w-full text-center rounded-md bg-amber-100 hover:bg-amber-200 border border-amber-400 px-2 py-1.5 text-[11px] font-extrabold text-amber-800 animate-pulse">
+                            ⚠ UPDATE PROYEKSI INCOME
+                          </Link>
+                        )}
                       </div>
                     ) : (
                       <button type="button" onClick={() => toggleOffering(g)}
