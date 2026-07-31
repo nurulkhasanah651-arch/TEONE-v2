@@ -39,9 +39,24 @@ export async function GET(request) {
   const sb = createServiceClient(`https://${ref}.supabase.co`, key, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const { data, error } = await sb.storage.from(p.bucket).createSignedUrl(p.path, 3600);
+  const { data, error } = await sb.storage.from(p.bucket).createSignedUrl(p.path, 120);
   if (error || !data?.signedUrl) {
     return NextResponse.json({ error: error?.message || 'File tidak ditemukan' }, { status: 404 });
   }
-  return NextResponse.redirect(data.signedUrl, 302);
+  // PROXY isi file (bukan redirect) supaya URL di browser tetap /api/proof — di-sign ulang
+  // tiap dibuka/refresh, jadi tak pernah muncul "InvalidJWT / exp claim" walau tab lama.
+  try {
+    const upstream = await fetch(data.signedUrl);
+    if (!upstream.ok || !upstream.body) return NextResponse.redirect(data.signedUrl, 302);
+    const headers = new Headers();
+    const ct = upstream.headers.get('content-type');
+    if (ct) headers.set('content-type', ct);
+    const len = upstream.headers.get('content-length');
+    if (len) headers.set('content-length', len);
+    headers.set('content-disposition', 'inline');
+    headers.set('cache-control', 'private, max-age=60');
+    return new NextResponse(upstream.body, { status: 200, headers });
+  } catch {
+    return NextResponse.redirect(data.signedUrl, 302);
+  }
 }
