@@ -65,7 +65,7 @@ export default function ManagerDashboard({ data }) {
           <Block label="Full tapi belum ada tiket" hint="Group full tapi belum ada PNR ke-connect — segera issue tiket." items={T.fullNoTicket?.length || 0} color="text-red-700">
             {(T.fullNoTicket || []).map((t) => <TripLine key={t.id} t={t} href="/finance/pnr" right={<span className="text-[10px] font-bold text-red-600 whitespace-nowrap">FULL · no tiket</span>} />)}
           </Block>
-          <Block label="Peserta belum di-issue" hint="Group yg tiketnya sudah ada tapi peserta belum dicentang issued. Checklist di PNR Inventory." items={T.notIssued?.length || 0} color="text-amber-700">
+          <Block label="Peserta belum di-issue" hint="Tiket FIT/Domestik yg sudah ke-connect tapi peserta belum dicentang issued. Checklist ada di Edit PNR." items={T.notIssued?.length || 0} color="text-amber-700">
             {(T.notIssued || []).map((t) => (
               <div key={t.id} className="rounded-lg border border-amber-200 bg-amber-50/40 px-2.5 py-2">
                 <div className="flex items-center justify-between gap-2">
@@ -73,7 +73,7 @@ export default function ManagerDashboard({ data }) {
                   <span className="text-[10px] font-bold text-amber-700 whitespace-nowrap">{t.belum}/{t.total} belum</span>
                 </div>
                 <p className="text-[10px] text-slate-500 mt-0.5">{t.peserta.map((p) => p.nama).join(', ')}</p>
-                <Link href="/finance/pnr" className="text-[10px] font-semibold text-brand-600 hover:underline">→ centang di PNR Inventory</Link>
+                <Link href="/finance/pnr" className="text-[10px] font-semibold text-brand-600 hover:underline">→ buka PNR, centang di Edit PNR</Link>
               </div>
             ))}
           </Block>
