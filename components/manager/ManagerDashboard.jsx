@@ -4,7 +4,7 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { setOfferingVendor } from '@/lib/actions/profit-estimate';
-import { markFollowup } from '@/lib/actions/manager-dashboard';
+import { markFollowup, setDeparturePrep } from '@/lib/actions/manager-dashboard';
 
 function Card({ title, icon, accent, count, open, onToggle, children }) {
   return (
@@ -64,6 +64,15 @@ export default function ManagerDashboard({ data }) {
     start(async () => { const r = await markFollowup(section, tripId); if (r?.error) { setHidden((m) => ({ ...m, [key]: false })); alert('Gagal: ' + r.error); } });
   }
 
+  const [prep, setPrep] = useState({}); // `${tripId}:${key}` -> bool override
+  function togglePrep(tripId, itemKey, current) {
+    const k = `${tripId}:${itemKey}`;
+    const next = !current;
+    setPrep((m) => ({ ...m, [k]: next }));
+    start(async () => { const r = await setDeparturePrep(tripId, itemKey, next); if (r?.error) { setPrep((m) => ({ ...m, [k]: current })); alert('Gagal: ' + r.error); } });
+  }
+  const prepDone = (tripId, it) => { const k = `${tripId}:${it.key}`; return prep[k] !== undefined ? prep[k] : it.done; };
+
   const d = data || {};
   const T = d.ticketing || {}, V = d.visa || {}, O = d.operation || {}, S = d.selling || {};
   const vis = (section, arr) => (arr || []).filter((t) => !hidden[`${section}:${t.id}`]);
@@ -81,6 +90,10 @@ export default function ManagerDashboard({ data }) {
   const cntVisa = vis('visa.groupH60', V.groupH60).length + vis('visa.notProcessed', V.notProcessed).length + vis('visa.paidUnscheduled', V.paidUnscheduled).length + vis('visa.fullH5', V.fullH5).length;
   const cntOps = vis('operation.newRelease', O.newRelease).length + vis('operation.fullNoOffering', O.fullNoOffering).length + vis('operation.estimateNotUpdated', O.estimateNotUpdated).length;
   const cntSell = vis('selling.slowSelling', S.slowSelling).length + vis('selling.almostFull', S.almostFull).length;
+  const P = d.preparation || {};
+  const prepTrips = P.trips || [];
+  const prepReady = (t) => t.items.every((it) => prepDone(t.id, it));
+  const cntPrep = prepTrips.filter((t) => !prepReady(t)).length;
 
   return (
     <div className="space-y-5">
@@ -89,9 +102,9 @@ export default function ManagerDashboard({ data }) {
           <h1 className="text-2xl font-bold text-brand-700">📊 Dashboard Manager</h1>
           <p className="text-sm text-slate-500">Klik judul monitor untuk buka detailnya. Tombol <span className="font-semibold text-sky-700">✓ Follow up</span> menandai sudah ditindaklanjuti hari ini — item <span className="font-semibold">muncul lagi besok</span> kalau tim belum update di divisinya. {data?.generatedAt && `· Update ${new Date(data.generatedAt).toLocaleString('id-ID')}`}</p>
         </div>
-        <button type="button" onClick={() => { const anyOpen = ['ticketing','visa','operation','selling'].some((k) => openCard[k]); setOpenCard(anyOpen ? {} : { ticketing: true, visa: true, operation: true, selling: true }); }}
+        <button type="button" onClick={() => { const anyOpen = ['ticketing','visa','operation','selling','preparation'].some((k) => openCard[k]); setOpenCard(anyOpen ? {} : { ticketing: true, visa: true, operation: true, selling: true, preparation: true }); }}
           className="text-xs font-semibold text-brand-600 border border-brand-300 rounded-lg px-3 py-1.5 hover:bg-brand-50 whitespace-nowrap">
-          {['ticketing','visa','operation','selling'].some((k) => openCard[k]) ? 'Tutup semua' : 'Buka semua'}
+          {['ticketing','visa','operation','selling','preparation'].some((k) => openCard[k]) ? 'Tutup semua' : 'Buka semua'}
         </button>
       </div>
 
@@ -177,6 +190,41 @@ export default function ManagerDashboard({ data }) {
           <Block label="Penjualan lambat — jalan tapi belum full" hint="Sudah open selling & mendekati keberangkatan tapi masih < 60% terisi." items={vis('selling.slowSelling', S.slowSelling).length} color="text-red-700">
             {vis('selling.slowSelling', S.slowSelling).map((t) => <TripLine key={t.id} t={t} href={`/trips/${t.id}`} right={<div className="flex items-center gap-1.5"><span className="text-[10px] font-bold text-red-600 whitespace-nowrap">{t.fillPct}% · sisa {t.seatLeft}</span><FollowBtn section="selling.slowSelling" tripId={t.id} /></div>} />)}
           </Block>
+        </Card>
+
+        {/* PREPARATION KEBERANGKATAN GROUP (H-20) */}
+        <Card title="MONITOR PREPARATION KEBERANGKATAN" icon="🧳" accent="bg-amber-50" count={cntPrep} open={!!openCard.preparation} onToggle={() => toggleCard('preparation')}>
+          <p className="text-[10px] text-slate-400 -mt-1">Group yang berangkat ≤ {P.windowDays || 20} hari lagi. Centang tiap kesiapan; kalau semua ✅ berarti siap berangkat.</p>
+          {prepTrips.length === 0 ? (
+            <p className="text-[11px] text-emerald-600">Belum ada group dalam H-{P.windowDays || 20} ✅</p>
+          ) : prepTrips.map((t) => {
+            const ready = prepReady(t);
+            const doneN = t.items.filter((it) => prepDone(t.id, it)).length;
+            return (
+              <div key={t.id} className={`rounded-lg border px-2.5 py-2 ${ready ? 'border-emerald-200 bg-emerald-50/40' : 'border-amber-200 bg-amber-50/40'}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <Link href={`/trips/${t.id}`} className="min-w-0 hover:underline">
+                    <span className="text-xs font-bold text-brand-700">{t.kode}</span>
+                    <span className="text-xs text-slate-600"> · {t.name}</span>
+                    <span className="block text-[10px] text-slate-400">{t.departureFmt} · H-{t.daysToDep} · {t.sold} pax</span>
+                  </Link>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${ready ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{ready ? 'SIAP ✅' : `${doneN}/${t.items.length} siap`}</span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {t.items.map((it) => {
+                    const done = prepDone(t.id, it);
+                    return (
+                      <button key={it.key} type="button" onClick={() => togglePrep(t.id, it.key, done)}
+                        className={`text-[11px] px-2 py-1 rounded border transition ${done ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-slate-300 text-slate-700 hover:bg-amber-50'}`}
+                        title={done ? 'Sudah — klik untuk batal' : 'Klik kalau sudah siap'}>
+                        {done ? '✅ ' : '⬜ '}{it.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </Card>
       </div>
     </div>
