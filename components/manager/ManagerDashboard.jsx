@@ -79,7 +79,7 @@ export default function ManagerDashboard({ data }) {
   );
 
   const cntTicketing = vis('ticketing.fullNoTicket', T.fullNoTicket).length + vis('ticketing.notIssued', T.notIssued).length;
-  const cntVisa = vis('visa.notProcessed', V.notProcessed).length + vis('visa.paidUnscheduled', V.paidUnscheduled).length + vis('visa.fullH5', V.fullH5).length;
+  const cntVisa = vis('visa.groupH60', V.groupH60).length + vis('visa.notProcessed', V.notProcessed).length + vis('visa.paidUnscheduled', V.paidUnscheduled).length + vis('visa.fullH5', V.fullH5).length;
   const cntOps = vis('operation.newRelease', O.newRelease).length + vis('operation.fullNoOffering', O.fullNoOffering).length + vis('operation.estimateNotUpdated', O.estimateNotUpdated).length;
   const cntSell = vis('selling.slowSelling', S.slowSelling).length + vis('selling.almostFull', S.almostFull).length;
 
@@ -121,7 +121,10 @@ export default function ManagerDashboard({ data }) {
 
         {/* VISA */}
         <Card title="MONITOR VISA" icon="🛂" accent="bg-indigo-50" count={cntVisa} open={!!openCard.visa} onToggle={() => toggleCard('visa')}>
-          <Block label="Belum proses & belum bayar visa" hint="Peserta butuh visa tapi belum bayar & belum diproses — segera proses." items={vis('visa.notProcessed', V.notProcessed).length} color="text-red-700">
+          <Block label="🚨 URUS VISA GROUP! udah H-60!" hint="Trip visa GROUP sudah ≤ 2 bulan ke keberangkatan — visa group harus segera diurus." items={vis('visa.groupH60', V.groupH60).length} color="text-red-700">
+            {vis('visa.groupH60', V.groupH60).map((t) => <TripLine key={t.id} t={t} href={`/visa/${t.id}`} right={<div className="flex items-center gap-1.5"><span className="text-[10px] font-extrabold text-red-700 whitespace-nowrap">URUS VISA GROUP! H-{t.daysToDep}</span><FollowBtn section="visa.groupH60" tripId={t.id} /></div>} />)}
+          </Block>
+          <Block label="Belum proses & belum bayar visa" hint="Trip visa individual: peserta butuh visa tapi belum bayar & belum diproses — segera proses." items={vis('visa.notProcessed', V.notProcessed).length} color="text-red-700">
             {vis('visa.notProcessed', V.notProcessed).map((t) => (
               <div key={t.id} className="rounded-lg border border-slate-200 px-2.5 py-2">
                 <div className="flex items-center justify-between gap-2">
