@@ -4,6 +4,7 @@
 
 import SignedFileLink from '@/components/common/SignedFileLink';
 import CopyRekButton from '@/components/invoice/CopyRekButton';
+import { normalizeBankAccounts } from '@/lib/shop/data';
 import { notFound } from 'next/navigation';
 import { createPublicClient as createClient } from '@/lib/supabase/server';
 import { getExpectedAndPaidForPassenger } from '@/lib/actions/invoices';
@@ -501,18 +502,20 @@ export default async function PublicInvoicePage({ params }) {
         </div>
 
         {/* Bank Info */}
-        {inv.status !== 'paid' && !inv.paid_at && (company.bank_account_no || company.bank_name) && (
+        {inv.status !== 'paid' && !inv.paid_at && normalizeBankAccounts(company).length > 0 && (
           <div className="px-6 pt-4 pb-4">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-2">💳 Transfer ke:</p>
-              <p className="text-lg font-bold text-blue-900">{company.bank_name}</p>
-              {company.bank_account_no && (
-                <p className="font-mono text-xl font-bold text-blue-900 select-all">{company.bank_account_no}</p>
-              )}
-              {company.bank_account_name && (
-                <p className="text-sm text-blue-800">a.n. {company.bank_account_name}</p>
-              )}
-              {company.bank_account_no && <CopyRekButton value={company.bank_account_no} />}
+              <p className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-2">💳 Transfer ke{normalizeBankAccounts(company).length > 1 ? ' (pilih salah satu)' : ''}:</p>
+              <div className="space-y-3">
+                {normalizeBankAccounts(company).map((a, i) => (
+                  <div key={i} className={i > 0 ? 'pt-3 border-t border-blue-200' : ''}>
+                    <p className="text-lg font-bold text-blue-900">{a.bank_name}</p>
+                    <p className="font-mono text-xl font-bold text-blue-900 select-all">{a.account_no}</p>
+                    {a.account_name && <p className="text-sm text-blue-800">a.n. {a.account_name}</p>}
+                    <CopyRekButton value={a.account_no} />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}

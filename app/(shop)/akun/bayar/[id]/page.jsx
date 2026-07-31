@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect, notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
-import { getBooking } from '@/lib/shop/data';
+import { getBooking, getBrandBank } from '@/lib/shop/data';
 import { getBookingPaymentPlan } from '@/lib/shop/payments';
 import { storefrontConfig } from '@/lib/shop/storefront-config';
 import { resolveBrandCode } from '@/lib/brand-shared';
@@ -31,6 +31,7 @@ export default async function BayarLanjutanPage({ params }) {
 
   const plan = await getBookingPaymentPlan(b);
   const cfg = storefrontConfig(brandCode());
+  const bank = await getBrandBank().catch(() => null); // rekening dari DB brand (bisa >1)
   const next = plan?.nextUnpaid;
 
   return (
@@ -73,7 +74,7 @@ export default async function BayarLanjutanPage({ params }) {
           </div>
           <PayNextButton bookingId={b.id} milestoneType={next.type} label={next.label} total={next.total} />
           <div className="relative text-center"><span className="text-xs text-slate-400 bg-white px-2">atau</span><div className="absolute top-1/2 inset-x-0 -z-10 border-t border-slate-200" /></div>
-          <ManualPayPanel booking={{ id: b.id, order_code: b.order_code, trip_id: b.trip_id, lead_name: b.lead_name }} bank={cfg.bank} waNumber={cfg.waNumber} milestoneType={next.type} total={next.total} />
+          <ManualPayPanel booking={{ id: b.id, order_code: b.order_code, trip_id: b.trip_id, lead_name: b.lead_name }} bank={cfg.bank} accounts={bank?.accounts || []} waNumber={cfg.waNumber} milestoneType={next.type} total={next.total} />
         </div>
       ) : (
         <div className="mt-6 text-center bg-emerald-50 border border-emerald-200 rounded-2xl p-5 text-emerald-800 font-bold">🎉 Semua pembayaran sudah lunas!</div>

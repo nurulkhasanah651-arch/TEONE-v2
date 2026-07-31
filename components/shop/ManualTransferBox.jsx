@@ -14,7 +14,7 @@ function fmtRp(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
 export default function ManualTransferBox({ bookingId, amount = 0, bank = {} }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [copied, setCopied] = useState(false);
+  const [copiedNo, setCopiedNo] = useState('');
   const [proofUrl, setProofUrl] = useState('');
   const [proofName, setProofName] = useState('');
   const [note, setNote] = useState('');
@@ -22,17 +22,18 @@ export default function ManualTransferBox({ bookingId, amount = 0, bank = {} }) 
   const [uploadError, setUploadError] = useState('');
   const [done, setDone] = useState(false);
 
-  const bankName = bank.bank_name || 'BCA';
-  const accNo = bank.bank_account_no || '';
-  const accName = bank.bank_account_name || '';
+  // Daftar rekening (bisa lebih dari satu). Fallback ke kolom tunggal utk kompat lama.
+  const accounts = (Array.isArray(bank.accounts) && bank.accounts.length)
+    ? bank.accounts
+    : (bank.bank_account_no ? [{ bank_name: bank.bank_name, account_no: bank.bank_account_no, account_name: bank.bank_account_name }] : []);
 
-  async function copyRek() {
+  async function copyRek(no) {
     try {
-      await navigator.clipboard.writeText(String(accNo).replace(/\s/g, ''));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
+      await navigator.clipboard.writeText(String(no).replace(/\s/g, ''));
+      setCopiedNo(no);
+      setTimeout(() => setCopiedNo(''), 1800);
     } catch {
-      alert('Nomor rekening: ' + accNo);
+      alert('Nomor rekening: ' + no);
     }
   }
 
@@ -81,7 +82,7 @@ export default function ManualTransferBox({ bookingId, amount = 0, bank = {} }) 
 
   return (
     <div className="space-y-3">
-      <p className="text-sm font-extrabold text-slate-800">🏦 Transfer Bank Manual (Transfer Bank BCA)</p>
+      <p className="text-sm font-extrabold text-slate-800">🏦 Transfer Bank Manual</p>
       {/* Nominal */}
       <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
         <p className="text-xs text-slate-500">Nominal yang ditransfer</p>
@@ -89,20 +90,26 @@ export default function ManualTransferBox({ bookingId, amount = 0, bank = {} }) 
         <p className="text-[11px] text-slate-500 mt-1">Mohon transfer sesuai nominal di atas agar mudah diverifikasi.</p>
       </div>
 
-      {/* Rekening */}
-      <div className="border border-slate-200 rounded-xl p-4">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Transfer ke rekening</p>
-        <div className="flex items-center gap-2">
-          <div className="w-12 h-8 rounded bg-blue-600 text-white text-xs font-bold flex items-center justify-center">{bankName}</div>
-          <div className="flex-1">
-            <p className="text-lg font-extrabold tracking-wider text-slate-900 leading-tight">{accNo || '—'}</p>
-            <p className="text-xs text-slate-600">a.n. {accName || '—'}</p>
-          </div>
-          <button type="button" onClick={copyRek}
-            className={`shrink-0 px-3 py-2 rounded-lg text-xs font-bold border ${copied ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'}`}>
-            {copied ? '✓ Tersalin' : '📋 Salin'}
-          </button>
-        </div>
+      {/* Rekening (bisa lebih dari satu — pilih salah satu) */}
+      <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Transfer ke rekening{accounts.length > 1 ? ' (pilih salah satu)' : ''}</p>
+        {accounts.length === 0 && <p className="text-sm text-slate-400">—</p>}
+        {accounts.map((a, i) => {
+          const no = a.account_no || '';
+          return (
+            <div key={i} className={`flex items-center gap-2 ${i > 0 ? 'pt-3 border-t border-slate-100' : ''}`}>
+              <div className="w-14 h-8 shrink-0 rounded bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center text-center leading-tight px-0.5">{a.bank_name || 'BCA'}</div>
+              <div className="flex-1 min-w-0">
+                <p className="text-lg font-extrabold tracking-wider text-slate-900 leading-tight">{no || '—'}</p>
+                <p className="text-xs text-slate-600">a.n. {a.account_name || '—'}</p>
+              </div>
+              <button type="button" onClick={() => copyRek(no)}
+                className={`shrink-0 px-3 py-2 rounded-lg text-xs font-bold border ${copiedNo === no && no ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'}`}>
+                {copiedNo === no && no ? '✓ Tersalin' : '📋 Salin'}
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       {/* Upload bukti */}
