@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import PnrRow from '@/components/finance/PnrRow';
 import DownloadButtons from '@/components/common/DownloadButtons';
+import TicketIssueChecklist from '@/components/finance/TicketIssueChecklist';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,8 +29,41 @@ export default async function PnrListPage() {
   }
 
   // Fetch trips untuk join nama trip
-  const { data: trips } = await supabase.from('trips').select('id, kode_trip, name');
+  const { data: trips } = await supabase.from('trips').select('id, kode_trip, name, departure, status');
   const tripMap = Object.fromEntries((trips || []).map((t) => [t.id, t]));
+
+  // ── Checklist Issued Peserta: trip yg PNR-nya sudah ke-connect + masih aktif ──
+  const connectedTripIds = [...new Set((pnrs || []).map((p) => p.trip_id).filter(Boolean))];
+  let ticketGroups = [];
+  try {
+    if (connectedTripIds.length) {
+      let paxRows = [];
+      for (let i = 0; i < connectedTripIds.length; i += 100) {
+        const { data } = await supabase.from('trip_passengers')
+          .select('id, trip_id, customer_id, transfer_status, refund_status, ticket_issued')
+          .in('trip_id', connectedTripIds.slice(i, i + 100));
+        paxRows = paxRows.concat(data || []);
+      }
+      const active = paxRows.filter((p) => p.transfer_status !== 'transferred' && p.refund_status !== 'refunded' && p.refund_status !== 'partial_refund');
+      const custIds = [...new Set(active.map((p) => p.customer_id).filter(Boolean))];
+      const nameOf = {};
+      for (let i = 0; i < custIds.length; i += 500) {
+        const { data } = await supabase.from('customers').select('id, name').in('id', custIds.slice(i, i + 500));
+        for (const c of (data || [])) nameOf[c.id] = c.name || '';
+      }
+      const byTrip = {};
+      for (const p of active) (byTrip[p.trip_id] = byTrip[p.trip_id] || []).push(p);
+      ticketGroups = connectedTripIds
+        .filter((tid) => (byTrip[tid] || []).length > 0 && !['completed', 'cancelled'].includes(String(tripMap[tid]?.status || '').toLowerCase()))
+        .map((tid) => {
+          const t = tripMap[tid] || {};
+          const peserta = (byTrip[tid] || []).map((p) => ({ id: p.id, nama: nameOf[p.customer_id] || `Peserta #${p.id}`, ticket_issued: p.ticket_issued === true }))
+            .sort((a, b) => a.nama.localeCompare(b.nama));
+          return { id: tid, kode: t.kode_trip || `#${tid}`, name: t.name || '', departure: t.departure || null, peserta };
+        })
+        .sort((a, b) => String(a.departure || '').localeCompare(String(b.departure || '')));
+    }
+  } catch {}
 
   const totalDeposit = (pnrs || []).reduce((s, p) => s + (p.deposit_total || 0), 0);
   const totalPayoff = (pnrs || []).reduce((s, p) => s + (p.payoff_amount || 0), 0);
@@ -125,6 +159,8 @@ export default async function PnrListPage() {
         <StatCard label="Total Deposit" value={fmtRupiah(totalDeposit)} color="text-amber-700" bg="bg-amber-50" small />
         <StatCard label="Total Pelunasan" value={fmtRupiah(totalPayoff)} color="text-blue-700" bg="bg-blue-50" small />
       </div>
+
+      <TicketIssueChecklist groups={ticketGroups} />
 
       {(!pnrs || pnrs.length === 0) ? (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">

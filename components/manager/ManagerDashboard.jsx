@@ -3,7 +3,6 @@
 // Manager Dashboard "Morning Monitoring". Path: components/manager/ManagerDashboard.jsx
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { toggleTicketIssued } from '@/lib/actions/manager-dashboard';
 import { setOfferingVendor } from '@/lib/actions/profit-estimate';
 
 function Card({ title, icon, accent, count, children }) {
@@ -43,13 +42,8 @@ function TripLine({ t, href, right }) {
 
 export default function ManagerDashboard({ data }) {
   const [, start] = useTransition();
-  const [issued, setIssued] = useState({});   // passengerId -> bool override
   const [offered, setOffered] = useState({}); // tripId -> bool override
 
-  function markIssued(pid) {
-    setIssued((m) => ({ ...m, [pid]: true }));
-    start(async () => { const r = await toggleTicketIssued(pid, true); if (r?.error) { setIssued((m) => ({ ...m, [pid]: false })); alert('Gagal: ' + r.error); } });
-  }
   function markOffered(tripId) {
     setOffered((m) => ({ ...m, [tripId]: true }));
     start(async () => { const r = await setOfferingVendor(tripId, true); if (r?.error) { setOffered((m) => ({ ...m, [tripId]: false })); alert('Gagal: ' + r.error); } });
@@ -71,25 +65,15 @@ export default function ManagerDashboard({ data }) {
           <Block label="Full tapi belum ada tiket" hint="Group full tapi belum ada PNR ke-connect — segera issue tiket." items={T.fullNoTicket?.length || 0} color="text-red-700">
             {(T.fullNoTicket || []).map((t) => <TripLine key={t.id} t={t} href="/finance/pnr" right={<span className="text-[10px] font-bold text-red-600 whitespace-nowrap">FULL · no tiket</span>} />)}
           </Block>
-          <Block label="Peserta belum di-issue" hint="Group yg tiketnya sudah ada tapi peserta belum ditandai issued." items={T.notIssued?.length || 0} color="text-amber-700">
+          <Block label="Peserta belum di-issue" hint="Group yg tiketnya sudah ada tapi peserta belum dicentang issued. Checklist di PNR Inventory." items={T.notIssued?.length || 0} color="text-amber-700">
             {(T.notIssued || []).map((t) => (
               <div key={t.id} className="rounded-lg border border-amber-200 bg-amber-50/40 px-2.5 py-2">
                 <div className="flex items-center justify-between gap-2">
                   <Link href="/finance/pnr" className="text-xs font-bold text-brand-700 hover:underline">{t.kode} · <span className="font-normal text-slate-600">{t.name}</span></Link>
                   <span className="text-[10px] font-bold text-amber-700 whitespace-nowrap">{t.belum}/{t.total} belum</span>
                 </div>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {t.peserta.map((p) => {
-                    const done = issued[p.id];
-                    return (
-                      <button key={p.id} type="button" onClick={() => !done && markIssued(p.id)} disabled={done}
-                        className={`text-[10px] px-1.5 py-0.5 rounded border ${done ? 'bg-emerald-50 border-emerald-300 text-emerald-700 line-through' : 'bg-white border-slate-300 text-slate-700 hover:bg-emerald-50'}`}
-                        title={done ? 'Sudah issued' : 'Klik jika sudah issued'}>
-                        {done ? '✓ ' : ''}{p.nama}
-                      </button>
-                    );
-                  })}
-                </div>
+                <p className="text-[10px] text-slate-500 mt-0.5">{t.peserta.map((p) => p.nama).join(', ')}</p>
+                <Link href="/finance/pnr" className="text-[10px] font-semibold text-brand-600 hover:underline">→ centang di PNR Inventory</Link>
               </div>
             ))}
           </Block>
