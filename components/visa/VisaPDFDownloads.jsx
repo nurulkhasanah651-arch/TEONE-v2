@@ -42,15 +42,17 @@ function getPaxRows(passengers) {
     const c = p.customers || {};
     return {
       name: c.name || '-',
-      passport: c.passport_number || c.passport_no || '-',
-      passport_expired: c.passport_expired || c.passport_expiry || c.passport_expired_at || null,
-      birth_date: c.birth_date || c.dob || null,
-      birth_place: c.birth_place || c.place_of_birth || '-',
+      passport: c.passport_no || c.passport_number || '-',
+      passport_expired: c.passport_expiry || c.passport_expired || c.passport_expired_at || null,
+      // Kolom kembar: data manual tersimpan di birthday/city, auto-scan di dob/place_of_birth.
+      // Baca keduanya supaya manifest tidak kosong.
+      birth_date: c.birthday || c.dob || c.birth_date || c.date_of_birth || null,
+      birth_place: c.place_of_birth || c.city || c.birth_place || '-',
       nik: c.nik || c.ktp_number || '-',
       phone: c.phone || c.whatsapp || '-',
       email: c.email || '-',
-      address: c.address || '-',
-      gender: c.gender || '-',
+      address: c.ktp_alamat || c.address || '-',
+      gender: c.gender || c.sex || '-',
       room_type: p.room_type || '-',
       room_mate: p.room_mate || p.roommate || '-',
       notes: p.notes || '',
