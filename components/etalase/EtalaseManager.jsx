@@ -3,7 +3,7 @@
 // Kelola Etalase: foto header slider + region (judul/ikon/foto/keyword).
 import { useState, useRef, useTransition } from 'react';
 import { uploadStorefrontImage } from '@/lib/actions/shop-admin';
-import { saveHeroImages, saveRegions, savePrivateImages, saveTermsDefault, saveLogo, saveAboutImage } from '@/lib/actions/storefront-settings';
+import { saveHeroImages, saveRegions, savePrivateImages, saveTermsDefault, saveLogo, saveAboutImage, saveReasonsDefault } from '@/lib/actions/storefront-settings';
 
 function Toast({ msg }) {
   if (!msg) return null;
@@ -52,10 +52,11 @@ async function doUpload(file) {
   return r;
 }
 
-export default function EtalaseManager({ initialHero, initialRegions, initialPrivate, initialTerms, termsSeed, initialLogo, initialAbout }) {
+export default function EtalaseManager({ initialHero, initialRegions, initialPrivate, initialTerms, termsSeed, initialLogo, initialAbout, initialReasons }) {
   const [hero, setHero] = useState(Array.isArray(initialHero) ? initialHero : []);
   const [priv, setPriv] = useState(Array.isArray(initialPrivate) ? initialPrivate : []);
   const [terms, setTerms] = useState((initialTerms && initialTerms.trim()) ? initialTerms : (termsSeed || ''));
+  const [reasons, setReasons] = useState(initialReasons || '');
   const [regions, setRegions] = useState(Array.isArray(initialRegions) && initialRegions.length ? initialRegions : []);
   const [msg, setMsg] = useState(null);
   const [pending, startTransition] = useTransition();
@@ -225,6 +226,12 @@ export default function EtalaseManager({ initialHero, initialRegions, initialPri
   }
   function resetTermsToStandard() {
     setTerms(termsSeed || '');
+  }
+  function saveReasons() {
+    startTransition(async () => {
+      const sv = await saveReasonsDefault(reasons);
+      if (sv?.error) toast(sv.error, 'error'); else toast('✓ Alasan default disimpan');
+    });
   }
 
   return (
@@ -398,6 +405,21 @@ export default function EtalaseManager({ initialHero, initialRegions, initialPri
         <button type="button" onClick={saveAllRegions} disabled={pending}
           className="mt-4 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-bold">
           {pending ? '⏳ Menyimpan...' : '💾 Simpan Semua Region'}
+        </button>
+      </section>
+
+      {/* ====== ALASAN "KENAPA HARUS BARENG KAMI" DEFAULT ====== */}
+      <section className="bg-white border border-slate-200 rounded-2xl p-5">
+        <div className="mb-1">
+          <h2 className="text-lg font-bold text-slate-900">💚 Alasan "Kenapa Harus Bareng Kami" (Default Web)</h2>
+        </div>
+        <p className="text-xs text-slate-500 mb-3">Ini template yang otomatis tampil (jadi checklist) di halaman detail trip, jadi <b>tiap bikin trip tidak perlu isi ulang</b>. Kalau sebuah trip mengisi alasan khusus sendiri, yang dipakai punya trip itu. <b>Satu alasan per baris</b> (maks 8 baris tampil).</p>
+        <textarea value={reasons} onChange={(e) => setReasons(e.target.value)} rows={6}
+          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm leading-relaxed focus:ring-1 focus:ring-emerald-500 outline-none"
+          placeholder={"Harga terhemat dan terlengkap!\nAmanah!\nSudah memberangkatkan 20.000 jamaah"} />
+        <button type="button" onClick={saveReasons} disabled={pending}
+          className="mt-3 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-bold">
+          {pending ? '⏳ Menyimpan...' : '💾 Simpan Alasan Default'}
         </button>
       </section>
 
