@@ -30,6 +30,10 @@ const nextConfig = {
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+          // CSP minimal & aman: tidak membatasi script/gambar/style (biar Midtrans, Google Maps,
+          // YouTube, Sentry, CDN dll tetap jalan) — hanya cegah clickjacking, base-tag injection,
+          // plugin/objek, dan paksa HTTPS. Tidak ada dampak ke tampilan.
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests" },
         ],
       },
       {

@@ -28,7 +28,11 @@ export default async function AkunPage() {
   let _brand = 'teone';
   try { const h = headers(); _brand = h.get('x-brand') || resolveBrandCode({ host: h.get('host') }) || 'teone'; } catch {}
   const csWa = storefrontConfig(_brand).waNumber || '6282210991200';
-  // Self-heal pembayaran online yang webhook-nya telat/terlewat
+
+  let { customer, bookings } = await getPesertaData(user);
+  // Self-heal pembayaran online yang webhook-nya telat/terlewat.
+  // (Sebelumnya blok ini di ATAS deklarasi bookings → selalu error & ketelan, jadi
+  //  jamaah yg sudah bayar online tetap "menunggu". Sekarang dijalankan setelah data ada.)
   try {
     const pend = (bookings || []).filter((bk) => bk && bk.status !== 'paid' && bk.midtrans_order_id);
     if (pend.length) {
@@ -36,8 +40,6 @@ export default async function AkunPage() {
       if (res.some(Boolean)) { const r = await getPesertaData(user); customer = r.customer; bookings = r.bookings; }
     }
   } catch {}
-
-  let { customer, bookings } = await getPesertaData(user);
   const name = customer?.name || user.user_metadata?.name || 'Peserta';
   // Sinkron checklist payment: total harga, sudah dibayar pokok, sisa — per booking
   const plans = {};
