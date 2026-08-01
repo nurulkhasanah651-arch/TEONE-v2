@@ -17,7 +17,15 @@ function envFor() {
   return {
     verifyToken: process.env.META_WABA_VERIFY_TOKEN_KHASANAH || '',
     appSecret: process.env.META_WABA_APP_SECRET_KHASANAH || '',
+    // Kunci rahasia OPSIONAL untuk webhook Api.co.id (yg tak bisa tanda tangan Meta).
+    // Kalau di-set, request wajib bawa ?k=<secret> (atau header x-webhook-secret) yg cocok.
+    // Kalau kosong → perilaku lama (tidak ada perubahan / tidak memutus inbound).
+    webhookSecret: process.env.WABA_WEBHOOK_SECRET || '',
   };
+}
+
+function timingEq(a, b) {
+  try { const x = Buffer.from(String(a)); const y = Buffer.from(String(b)); return x.length === y.length && crypto.timingSafeEqual(x, y); } catch { return false; }
 }
 
 // ---- GET: verifikasi webhook ----
@@ -27,8 +35,6 @@ export async function GET(request) {
   const token = searchParams.get('hub.verify_token');
   const challenge = searchParams.get('hub.challenge');
   const { verifyToken } = envFor();
-  // DEBUG sementara — tidak membocorkan token (cuma panjang & kecocokan).
-  console.log('[waba verify] mode=' + mode + ' envSet=' + !!verifyToken + ' envLen=' + (verifyToken ? verifyToken.length : 0) + ' recvLen=' + (token ? String(token).length : 0) + ' match=' + (token === verifyToken));
   if (mode === 'subscribe' && verifyToken && token === verifyToken) {
     return new NextResponse(challenge || '', { status: 200 });
   }
@@ -211,14 +217,23 @@ async function handleApicoid(db, payload, brand) {
 }
 
 export async function POST(request) {
+  const url = new URL(request.url);
+  const { appSecret, webhookSecret } = envFor();
+
+  // Kunci rahasia opsional: kalau di-set, tolak (diam) request yg tak bawa token cocok.
+  // Kalau tak di-set → lewati cek ini (perilaku lama, tak memutus inbound Api.co.id).
+  if (webhookSecret) {
+    const provided = url.searchParams.get('k') || request.headers.get('x-webhook-secret') || '';
+    if (!timingEq(provided, webhookSecret)) {
+      return NextResponse.json({ ok: true, skipped: true }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+  }
+
   const raw = await request.text();
-  const { appSecret } = envFor();
   // Api.co.id (BSP) meneruskan webhook TANPA tanda tangan Meta -> jangan pernah 401,
-  // cukup catat validitas utk audit. Kembalikan 200 apa pun kondisinya supaya provider
-  // tidak meng-auto-disable webhook karena "delivery failure".
+  // kembalikan 200 apa pun kondisinya supaya provider tak meng-auto-disable webhook.
+  // (Signature Meta hanya relevan utk jalur Meta Cloud API langsung.)
   const sigOk = verifySignature(appSecret, raw, request.headers.get('x-hub-signature-256'));
-  // DEBUG sementara: tangkap bentuk payload Api.co.id utk penyesuaian parser.
-  console.log('[waba inbound] sigOk=' + sigOk + ' len=' + raw.length + ' body=' + raw.slice(0, 1500));
   let payload;
   try { payload = JSON.parse(raw); } catch { return NextResponse.json({ ok: true, parse: false }); }
 
@@ -236,6 +251,10 @@ export async function POST(request) {
     if (payload && (payload.event_type || payload.data)) {
       await handleApicoid(db, payload, brand);
     } else {
+    // Jalur Meta Cloud API langsung: Meta SELALU menandatangani. Kalau appSecret di-set
+    // tapi tanda tangan tak valid → tolak (diam). Kalau appSecret kosong → tetap diterima
+    // (perilaku lama, tak memutus). Jalur Api.co.id di atas tak terpengaruh.
+    if (appSecret && !sigOk) return NextResponse.json({ ok: true, skipped: true });
     for (const entry of (payload.entry || [])) {
       for (const ch of (entry.changes || [])) {
         const val = ch.value || {};
