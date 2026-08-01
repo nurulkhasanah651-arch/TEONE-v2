@@ -10,13 +10,18 @@ export default async function TripListPage({ searchParams }) {
   const sub = searchParams?.sub || null;
   const month = searchParams?.month || null;
   const noFilter = !region && !sub && !month;
-  let trips = await getPublishedTrips(region);
-  const categories = noFilter ? await getCategorizedTrips() : [];
-  if (noFilter) {
-    const early2027 = await getEarlyBooking2027Trips(30);
-    if (early2027.length) categories.push({ key: 'early-2027', icon: '🎟️', title: 'Early Booking Trip 2027', subtitle: 'Amankan kursi lebih awal untuk keberangkatan sepanjang 2027', trips: early2027 });
+  // Paralel: daftar trip, setting, kategori & early-2027 (sebelumnya berurutan).
+  const [trips0, settings, categories0, early2027] = await Promise.all([
+    getPublishedTrips(region),
+    getStorefrontSettingsPublic(),
+    noFilter ? getCategorizedTrips() : Promise.resolve([]),
+    noFilter ? getEarlyBooking2027Trips(30) : Promise.resolve([]),
+  ]);
+  let trips = trips0;
+  const categories = noFilter ? [...categories0] : [];
+  if (noFilter && early2027.length) {
+    categories.push({ key: 'early-2027', icon: '🎟️', title: 'Early Booking Trip 2027', subtitle: 'Amankan kursi lebih awal untuk keberangkatan sepanjang 2027', trips: early2027 });
   }
-  const settings = await getStorefrontSettingsPublic();
   const regions = effectiveRegions(settings?.regions);
   const activeLabel = region ? (regions.find((r) => r.key === region)?.label || region) : null;
 

@@ -22,21 +22,38 @@ function Stars({ n = 5 }) {
 export default async function StorefrontHome() {
   const code = brandCode();
   const cfg = storefrontConfig(code);
-  const settings = await getStorefrontSettingsPublic();
+  // Semua fetch dijalankan PARALEL (sebelumnya berurutan → lambat). Hasil & tampilan sama persis.
+  const [
+    settings,
+    flashSale,
+    yearEnd,
+    availMonths,
+    bestSeller,
+    auroraTrips,
+    asiaHematTrips,
+    japanTrips,
+    chinaTrips,
+    newZealandTrips,
+    nextLevelTrips,
+    early2027,
+    live,
+  ] = await Promise.all([
+    getStorefrontSettingsPublic(),
+    getFlashSaleTrips(20),
+    getYearEndSpecialTrips(30),
+    getAvailableDepartureMonths(),
+    getBestSellerTrips(20),
+    getCategoryTrips(['aurora','russia','rusia','scandi','iceland','islandia','norwegia','norway','finlandia','finland','swedia','sweden','tromso','lapland'], 20),
+    getCategoryTrips(['hongkong','hong kong','macau','macao','makau','vietnam','korea','korean','seoul'], 20),
+    getCategoryTrips(['jepang','japan'], 20),
+    getCategoryTrips(['china','tiongkok'], 20),
+    getCategoryTrips(['new zealand','selandia baru','lupin'], 20),
+    getCategoryTrips(['canada','kanada','usa','amerika','america','united states','new york','west coast','east coast','bhutan','nepal'], 20),
+    getEarlyBooking2027Trips(30),
+    loadGoogleReviews({ placeId: cfg.googlePlaceId || null, query: cfg.googlePlaceQuery || null, bias: cfg.googlePlaceBias || null }),
+  ]);
   const heroImages = (settings?.hero_images && settings.hero_images.length) ? settings.hero_images : (cfg.heroImages || (cfg.heroImage ? [cfg.heroImage] : []));
   const regions = effectiveRegions(settings?.regions);
-  const flashSale = await getFlashSaleTrips(20);
-  const yearEnd = await getYearEndSpecialTrips(30);
-  const availMonths = await getAvailableDepartureMonths();
-  const bestSeller = await getBestSellerTrips(20);
-  const auroraTrips = await getCategoryTrips(['aurora','russia','rusia','scandi','iceland','islandia','norwegia','norway','finlandia','finland','swedia','sweden','tromso','lapland'], 20);
-  const asiaHematTrips = await getCategoryTrips(['hongkong','hong kong','macau','macao','makau','vietnam','korea','korean','seoul'], 20);
-  const japanTrips = await getCategoryTrips(['jepang','japan'], 20);
-  const chinaTrips = await getCategoryTrips(['china','tiongkok'], 20);
-  const newZealandTrips = await getCategoryTrips(['new zealand','selandia baru','lupin'], 20);
-  const nextLevelTrips = await getCategoryTrips(['canada','kanada','usa','amerika','america','united states','new york','west coast','east coast','bhutan','nepal'], 20);
-  const early2027 = await getEarlyBooking2027Trips(30);
-  const live = await loadGoogleReviews({ placeId: cfg.googlePlaceId || null, query: cfg.googlePlaceQuery || null, bias: cfg.googlePlaceBias || null });
   const rating = live?.rating || cfg.googleRating;
   const count = live?.count || cfg.googleCount;
   const reviews = (live?.reviews && live.reviews.length) ? live.reviews : cfg.testimonials;

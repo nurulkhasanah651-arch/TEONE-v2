@@ -51,9 +51,14 @@ function lines(s) { return String(s || '').split('\n').map((l) => l.trim()).filt
 
 export default async function TripDetailPage({ params }) {
   const { id } = await params;
-  const t = await getPublishedTrip(id);
+  // Paralel: detail trip, flash sale, & setting storefront (sebelumnya berurutan).
+  const [t, flashRaw, settings] = await Promise.all([
+    getPublishedTrip(id),
+    getFlashSaleTrips(8),
+    getStorefrontSettingsPublic(),
+  ]);
   if (!t) notFound();
-  const flashTrips = (await getFlashSaleTrips(8)).filter((x) => String(x.id) !== String(t.id)).slice(0, 4);
+  const flashTrips = (flashRaw || []).filter((x) => String(x.id) !== String(t.id)).slice(0, 4);
   const seat = tripSeatLeft(t);
   const seatShown = seat > 10 ? 10 : seat; // tampilan maks 10; booking tetap pakai sisa asli
   const itin = Array.isArray(t.itinerary) ? t.itinerary : [];
@@ -64,7 +69,6 @@ export default async function TripDetailPage({ params }) {
   let brand = 'teone';
   try { const h = headers(); brand = h.get('x-brand') || resolveBrandCode({ host: h.get('host') }) || 'teone'; } catch {}
   const csWa = storefrontConfig(brand).waNumber || '6282210991200';
-  const settings = await getStorefrontSettingsPublic();
   const skText = (t.syarat_ketentuan && t.syarat_ketentuan.trim())
     ? t.syarat_ketentuan
     : ((settings?.terms_default && settings.terms_default.trim()) ? settings.terms_default : defaultTermsFor(brand));
