@@ -76,8 +76,8 @@ export default async function StorefrontHome() {
           <h1 className="mt-5 text-3xl sm:text-5xl font-extrabold text-white leading-tight max-w-2xl">{cfg.heroTitle}</h1>
           <p className="mt-4 text-base sm:text-lg text-slate-200 max-w-xl">{cfg.heroSubtitle}</p>
           <div className="mt-7 sm:mt-8 flex flex-wrap gap-2.5 sm:gap-3">
-            <Link href="/trip" className="px-5 sm:px-6 py-2.5 sm:py-3 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold shadow-lg text-sm sm:text-base">Cari Destinasi</Link>
-            <Link href="/request-trip" className="px-5 sm:px-6 py-2.5 sm:py-3 rounded-full bg-white text-slate-900 hover:bg-slate-100 font-bold shadow-lg text-sm sm:text-base">✈ Custom Trip</Link>
+            <Link href="/trip" className="px-5 sm:px-6 py-2.5 sm:py-3 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold shadow-lg text-sm sm:text-base">{_isKh ? 'Pilih Paket Umroh' : 'Cari Destinasi'}</Link>
+            <Link href="/request-trip" className="px-5 sm:px-6 py-2.5 sm:py-3 rounded-full bg-white text-slate-900 hover:bg-slate-100 font-bold shadow-lg text-sm sm:text-base">{_isKh ? '🕋 Umroh Private' : '✈ Custom Trip'}</Link>
             <a href={`https://wa.me/${cfg.waNumber}`} target="_blank" rel="noreferrer" className="px-5 sm:px-6 py-2.5 sm:py-3 rounded-full bg-white/10 hover:bg-white/20 border border-white/30 text-white font-bold text-sm sm:text-base">Tanya CS</a>
           </div>
         </div>
@@ -109,8 +109,7 @@ export default async function StorefrontHome() {
                       ? <img src={r.image} alt={r.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                       : <div className="w-full h-full flex items-center justify-center text-5xl opacity-30">{r.icon}</div>}
                   </div>
-                  <div className="p-3 flex items-center gap-2">
-                    <span className="text-lg shrink-0">{r.icon}</span>
+                  <div className="p-3">
                     <span className="text-slate-800 font-bold text-sm leading-tight">{r.label}</span>
                   </div>
                 </Link>
@@ -317,21 +316,24 @@ export default async function StorefrontHome() {
         </div>
       </section>
 
-      {/* PRIVATE / CUSTOM TRIP */}
+      {/* PRIVATE / CUSTOM TRIP — Khasanah: Request Umroh Private (Lebih Exclusive) */}
       <section className="max-w-6xl mx-auto px-4 py-12 sm:py-14">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-600 to-sky-500 px-6 py-10 sm:px-12 sm:py-14 text-center sm:text-left">
+        <div className={`relative overflow-hidden rounded-3xl px-6 py-10 sm:px-12 sm:py-14 text-center sm:text-left bg-gradient-to-br ${_isKh ? 'from-emerald-800 via-emerald-700 to-emerald-500' : 'from-blue-700 via-blue-600 to-sky-500'}`}>
           <div className="relative z-10 sm:flex sm:items-center sm:justify-between sm:gap-8">
             <div className="max-w-2xl">
-              <span className="inline-block text-3xl sm:text-4xl mb-2">✨</span>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight">Mau trip yang bener-bener kamu banget?</h2>
-              <p className="mt-3 text-blue-50 text-sm sm:text-base leading-relaxed">
-                Request <b>Private Trip</b> — kamu tentukan destinasi, tanggal, jumlah peserta, budget, dan itinerary.
-                Tim kami susunkan penawaran custom sesuai keinginanmu. Cocok untuk honeymoon, keluarga, rombongan kantor, atau komunitas.
+              <span className="inline-block text-3xl sm:text-4xl mb-2">{_isKh ? '🕋' : '✨'}</span>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight">
+                {_isKh ? 'Request Umroh Private — Lebih Exclusive' : 'Mau trip yang bener-bener kamu banget?'}
+              </h2>
+              <p className={`mt-3 text-sm sm:text-base leading-relaxed ${_isKh ? 'text-emerald-50' : 'text-blue-50'}`}>
+                {_isKh
+                  ? <>Umroh private yang benar-benar eksklusif — kamu tentukan tanggal keberangkatan, jumlah jamaah, pilihan hotel dekat Masjidil Haram &amp; Masjid Nabawi, dan itinerary ibadah. Tim kami susun paket khusus sesuai kebutuhanmu. Cocok untuk keluarga, rombongan pengajian, kantor, atau komunitas yang ingin ibadah lebih personal, nyaman, dan berkesan.</>
+                  : <>Request <b>Private Trip</b> — kamu tentukan destinasi, tanggal, jumlah peserta, budget, dan itinerary. Tim kami susunkan penawaran custom sesuai keinginanmu. Cocok untuk honeymoon, keluarga, rombongan kantor, atau komunitas.</>}
               </p>
             </div>
             <div className="mt-6 sm:mt-0 shrink-0">
-              <Link href="/request-trip" className="inline-block px-7 py-3.5 rounded-full bg-white text-blue-700 font-bold shadow-xl hover:bg-blue-50 text-sm sm:text-base">
-                Buat Request Trip →
+              <Link href="/request-trip" className={`inline-block px-7 py-3.5 rounded-full bg-white font-bold shadow-xl text-sm sm:text-base ${_isKh ? 'text-emerald-700 hover:bg-emerald-50' : 'text-blue-700 hover:bg-blue-50'}`}>
+                {_isKh ? 'Request Umroh Private →' : 'Buat Request Trip →'}
               </Link>
             </div>
           </div>
