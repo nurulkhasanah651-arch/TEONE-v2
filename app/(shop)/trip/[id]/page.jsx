@@ -166,26 +166,45 @@ export default async function TripDetailPage({ params }) {
       <div className="max-w-6xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Kiri */}
         <div className="lg:col-span-2 space-y-8">
-          {t.highlights && (
+          {/* Highlight — khusus TEONE. Khasanah tidak pakai box highlight. */}
+          {!isKh && t.highlights && (
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
               <p className="font-bold text-amber-900 mb-1">✨ Highlight</p>
               <p className="text-sm text-amber-800 whitespace-pre-line">{t.highlights}</p>
             </div>
           )}
+
+          {/* Tentang Trip */}
           {t.description && (
-            <div>
-              <h2 className="text-xl font-bold text-slate-900 mb-2">Tentang Trip</h2>
-              <p className="text-slate-600 whitespace-pre-line leading-relaxed">{t.description}</p>
-            </div>
+            isKh ? (
+              <div className="bg-white border border-emerald-100 rounded-2xl p-6 shadow-sm">
+                <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2"><span aria-hidden>🕋</span> Tentang Trip</h2>
+                <ul className="space-y-3">
+                  {String(t.description).split('\n').map((x) => x.trim()).filter(Boolean).map((line, i) => (
+                    <li key={i} className="flex items-start gap-3">
+                      <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 text-sm flex items-center justify-center mt-0.5">✓</span>
+                      <span className="text-slate-700 leading-relaxed">{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 mb-2">Tentang Trip</h2>
+                <p className="text-slate-600 whitespace-pre-line leading-relaxed">{t.description}</p>
+              </div>
+            )
           )}
+
+          {/* Kenapa harus umroh bareng Khasanah Travel */}
           {isKh && reasons.length > 0 && (
-            <div>
-              <h2 className="text-xl font-bold text-slate-900 mb-3">Kenapa harus umroh bareng Khasanah Travel?</h2>
-              <ul className="space-y-2.5">
+            <div className="bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 rounded-2xl p-6 shadow-sm">
+              <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2"><span aria-hidden>💚</span> Kenapa harus umroh bareng Khasanah Travel?</h2>
+              <ul className="space-y-3">
                 {reasons.map((r, i) => (
                   <li key={i} className="flex items-start gap-3">
-                    <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-sm flex items-center justify-center mt-1">✓</span>
-                    <span className="text-lg font-bold text-slate-800 leading-snug">{r}</span>
+                    <span className="shrink-0 w-7 h-7 rounded-full bg-emerald-600 text-white text-sm flex items-center justify-center mt-0.5 shadow-sm">✓</span>
+                    <span className="text-base md:text-lg font-bold text-slate-800 leading-snug">{r}</span>
                   </li>
                 ))}
               </ul>
