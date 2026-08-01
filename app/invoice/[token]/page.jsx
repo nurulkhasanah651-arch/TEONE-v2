@@ -11,6 +11,8 @@ import { createPublicClient as createClient } from '@/lib/supabase/server';
 import { getExpectedAndPaidForPassenger } from '@/lib/actions/invoices';
 import { getInvoiceBilling } from '@/lib/shop/invoice-bill';
 import { invoiceAllInOutstanding } from '@/lib/shop/fulfillment';
+import { getTourAddonTemplatesPublic } from '@/lib/shop/data';
+import { detectTourAddon, isInfantRoom } from '@/lib/utils/umroh-plus';
 
 export const dynamic = 'force-dynamic';
 
@@ -141,6 +143,17 @@ export default async function PublicInvoicePage({ params }) {
     } catch (e) { errors.push(`trip: ${e.message}`); }
   }
 
+  // KHASANAH: kalau trip "Umroh Plus <negara>", pecah pokok di invoice jadi Paket Umroh + Paket Tour.
+  let _tourAddon = null;
+  try {
+    let _isKh = inv.brand_id === 2;
+    if (!_isKh) { const { headers } = await import('next/headers'); const h = headers(); const b = h.get('x-brand') || (await import('@/lib/brand-shared')).resolveBrandCode({ host: h.get('host') }); if (b === 'khasanah') _isKh = true; }
+    if (_isKh && (trip?.name || inv.trip_name)) {
+      const _tpl = await getTourAddonTemplatesPublic();
+      _tourAddon = detectTourAddon(trip?.name || inv.trip_name, _tpl);
+    }
+  } catch {}
+
   // Fetch passenger + participant_payments
   let passenger = null;
   let participantPayments = [];
@@ -264,7 +277,22 @@ export default async function PublicInvoicePage({ params }) {
     : [{ roomType: String(passenger?.room_type || '').trim() || 'Room', n: 1, amount: Number(roomPrice) || 0 }];
   const rRoom = _grupKamar.reduce((t, g) => t + g.amount, 0);
   for (const g of _grupKamar) {
-    if (g.amount > 0) tourItems.push({ label: `Paket Tour · ${labelKamar(g.roomType)} (${g.n} pax)`, amount: g.amount });
+    if (g.amount <= 0) continue;
+    if (_tourAddon) {
+      // Umroh Plus: pecah jadi Paket Umroh + Paket Tour <negara>. Infant TIDAK dipecah.
+      const infant = isInfantRoom(g.roomType);
+      const tourTotal = infant ? 0 : (Number(_tourAddon.amount) || 0) * g.n;
+      const umroh = g.amount - tourTotal;
+      if (tourTotal > 0 && umroh > 0) {
+        tourItems.push({ label: `Paket Umroh · ${labelKamar(g.roomType)} (${g.n} pax)`, amount: umroh });
+        tourItems.push({ label: `Paket Tour ${_tourAddon.label} (${g.n} pax)`, amount: tourTotal });
+      } else {
+        // infant / harga lebih kecil dari tour → tampil sbg Paket Umroh saja (tak dipecah)
+        tourItems.push({ label: `Paket Umroh · ${labelKamar(g.roomType)} (${g.n} pax)`, amount: g.amount });
+      }
+    } else {
+      tourItems.push({ label: `Paket Tour · ${labelKamar(g.roomType)} (${g.n} pax)`, amount: g.amount });
+    }
   }
   // Harga khusus/nego (price_paid beda dari harga Master Trip) -> tampilkan terpisah
   // supaya baris2 tetap menjumlah ke TOTAL PAKET, tanpa memalsukan harga kamar.

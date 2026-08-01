@@ -8,6 +8,8 @@ import { fmtRupiah } from '@/lib/utils/format';
 import { computeIncomeProjection } from '@/lib/utils/price-breakdown';
 import { getManualTransfers } from '@/lib/shop/data';
 import PaymentReminderPanel from '@/components/finance/PaymentReminderPanel';
+import TourTemplateManager from '@/components/finance/TourTemplateManager';
+import { getTourTemplates } from '@/lib/actions/tour-templates';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +25,8 @@ export default async function FinancePage() {
   ]);
 
   const trips = tripsRes.data || [];
+  const _isKh = currentBrandCode() === 'khasanah';
+  const _tourTpl = _isKh ? await getTourTemplates().catch(() => null) : null;
   let manualPendingCount = 0;
   try {
     const mt = await getManualTransfers({ limit: 150 });
@@ -70,6 +74,8 @@ export default async function FinancePage() {
         <h1 className="text-3xl font-bold text-brand-700">Finance</h1>
         <p className="mt-1 text-slate-600">Kelola cashflow, payment, dan inventory tiket dalam satu tempat.</p>
       </div>
+
+      {_isKh && <TourTemplateManager initial={_tourTpl?.items || []} />}
 
       <PaymentReminderPanel />
 
