@@ -4,7 +4,7 @@ import { resolveBrandCode } from '@/lib/brand-shared';
 import { storefrontConfig } from '@/lib/shop/storefront-config';
 import { effectiveRegions } from '@/lib/shop/regions';
 import { getFlashSaleTrips, getBestSellerTrips, getYearEndSpecialTrips, getAvailableDepartureMonths, getStorefrontSettingsPublic, getCategoryTrips, getEarlyBooking2027Trips } from '@/lib/shop/data';
-import { getGoogleReviews } from '@/lib/shop/google-reviews';
+import { loadGoogleReviews } from '@/lib/shop/google-reviews';
 import TripCard from '@/components/shop/TripCard';
 import HeroSlider from '@/components/shop/HeroSlider';
 
@@ -36,10 +36,11 @@ export default async function StorefrontHome() {
   const newZealandTrips = await getCategoryTrips(['new zealand','selandia baru','lupin'], 20);
   const nextLevelTrips = await getCategoryTrips(['canada','kanada','usa','amerika','america','united states','new york','west coast','east coast','bhutan','nepal'], 20);
   const early2027 = await getEarlyBooking2027Trips(30);
-  const live = await getGoogleReviews(cfg.googlePlaceId);
+  const live = await loadGoogleReviews({ placeId: cfg.googlePlaceId || null, query: cfg.googlePlaceQuery || null, bias: cfg.googlePlaceBias || null });
   const rating = live?.rating || cfg.googleRating;
   const count = live?.count || cfg.googleCount;
   const reviews = (live?.reviews && live.reviews.length) ? live.reviews : cfg.testimonials;
+  const reviewsUrl = live?.mapsUrl || cfg.googleReviewUrl;
 
   const _isKh = code === 'khasanah';
   const _orgName = _isKh ? 'Khasanah Travel' : 'Traveling Eropa';
@@ -389,7 +390,7 @@ export default async function StorefrontHome() {
             ))}
           </div>
           <div className="text-center mt-8">
-            <a href={cfg.googleReviewUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white border border-slate-200 text-sm font-bold text-slate-700 hover:shadow-sm">
+            <a href={reviewsUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white border border-slate-200 text-sm font-bold text-slate-700 hover:shadow-sm">
               Lihat semua ulasan di Google →
             </a>
           </div>
