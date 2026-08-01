@@ -12,7 +12,10 @@ function authed(request, url) {
   const provided = url.searchParams.get('secret') || (auth.startsWith('Bearer ') ? auth.slice(7) : '');
   const cronSecret = process.env.CRON_SECRET;
   const windsorKey = process.env.WINDSOR_API_KEY;
-  return !cronSecret || provided === cronSecret || (windsorKey && provided === windsorKey);
+  // FAIL-CLOSED: kalau tidak ada secret yang di-set, tolak (jangan buka endpoint).
+  if (!cronSecret && !windsorKey) return false;
+  if (!provided) return false;
+  return (!!cronSecret && provided === cronSecret) || (!!windsorKey && provided === windsorKey);
 }
 
 async function handle(request) {

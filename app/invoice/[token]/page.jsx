@@ -3,6 +3,7 @@
 // Fix: section "Sudah Dibayar + Sisa" SELALU tampil walaupun breakdown kosong
 
 import SignedFileLink from '@/components/common/SignedFileLink';
+import { signProof } from '@/lib/utils/proof-sign';
 import CopyRekButton from '@/components/invoice/CopyRekButton';
 import { normalizeBankAccounts } from '@/lib/shop/data';
 import { notFound } from 'next/navigation';
@@ -568,9 +569,10 @@ export default async function PublicInvoicePage({ params }) {
                          p.status === 'rejected' ? '✕ Ditolak' :
                          '⏳ Menunggu Verifikasi'}
                       </span>
-                      {p.proof_url && (
-                        <SignedFileLink url={p.proof_url} className="block mt-1 text-[10px] underline no-print cursor-pointer">Lihat bukti</SignedFileLink>
-                      )}
+                      {p.proof_url && (() => {
+                        const _sg = signProof(p.proof_url);
+                        return <SignedFileLink url={p.proof_url} sig={_sg?.s} exp={_sg?.e} className="block mt-1 text-[10px] underline no-print cursor-pointer">Lihat bukti</SignedFileLink>;
+                      })()}
                     </div>
                   </div>
                   {p.note_from_customer && <p className="mt-1 italic text-slate-600">"{p.note_from_customer}"</p>}
