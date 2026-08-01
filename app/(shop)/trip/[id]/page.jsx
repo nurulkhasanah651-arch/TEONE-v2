@@ -216,6 +216,14 @@ export default async function TripDetailPage({ params }) {
               </ul>
             </div>
           )}
+
+          {/* Foto poster paket (di bawah section "Kenapa harus...") */}
+          {isKh && t.web_poster_url && (
+            <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
+              <img src={t.web_poster_url} alt={`Poster ${t.public_title || t.name}`} className="w-full h-auto block" />
+            </div>
+          )}
+
           {isKh && (
             <a href={_waDaftar} target="_blank" rel="noreferrer" className="block text-center w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-lg shadow-lg shadow-emerald-200">
               📲 Daftar Lewat CS WhatsApp

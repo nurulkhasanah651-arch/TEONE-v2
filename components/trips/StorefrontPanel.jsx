@@ -17,8 +17,9 @@ export default function StorefrontPanel({ trip }) {
   const [flashSale, setFlashSale] = useState(!!trip.is_flash_sale);
   const [bestSeller, setBestSeller] = useState(!!trip.is_best_seller);
   const [cover, setCover] = useState(trip.cover_image_url || '');
+  const [poster, setPoster] = useState(trip.web_poster_url || '');
   const [gallery, setGallery] = useState(Array.isArray(trip.gallery_images) ? trip.gallery_images : []);
-  const [uploading, setUploading] = useState(null); // 'cover' | 'gallery' | 'day-<i>'
+  const [uploading, setUploading] = useState(null); // 'cover' | 'poster' | 'gallery' | 'day-<i>'
   const [highlights, setHighlights] = useState(trip.highlights || '');
   const [description, setDescription] = useState(trip.description || '');
   const [included, setIncluded] = useState(trip.included || '');
@@ -66,6 +67,7 @@ export default function StorefrontPanel({ trip }) {
     if (r?.error) { setMsg({ t: 'e', x: r.error }); return; }
     if (r?.url) {
       if (kind === 'cover') setCover(r.url);
+      else if (kind === 'poster') setPoster(r.url);
       else setGallery((g) => [...g, r.url]);
     }
   }
@@ -108,6 +110,7 @@ export default function StorefrontPanel({ trip }) {
     fd.set('is_best_seller', bestSeller ? '1' : '0');
     fd.set('_name', trip.name || '');
     fd.set('cover_image_url', cover || '');
+    fd.set('web_poster_url', poster || '');
     fd.set('gallery_images', JSON.stringify(gallery));
     fd.set('itinerary_json', JSON.stringify(itin));
     startTransition(async () => {
@@ -275,6 +278,24 @@ export default function StorefrontPanel({ trip }) {
           <textarea name="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={inp} /></label>
         <label className="block"><span className="text-xs font-bold text-slate-600">Alasan pilih kami <span className="font-normal text-slate-400">(khusus tampilan Khasanah — 1 alasan per baris. Kosongkan = pakai template default dari menu Etalase)</span></span>
           <textarea name="web_reasons" defaultValue={trip.web_reasons || ''} rows={3} placeholder={"Kosongkan untuk pakai template default (atur sekali di menu Etalase)"} className={inp} /></label>
+
+        {/* FOTO POSTER — tampil di bawah section "Kenapa harus..." di halaman detail trip */}
+        <div className="block">
+          <span className="text-xs font-bold text-slate-600">Foto Poster <span className="font-normal text-slate-400">(tampil di bawah section "Kenapa harus umroh bareng kami" — mis. poster paket)</span></span>
+          <div className="mt-1 flex items-center gap-3">
+            <div className="w-24 h-24 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center text-[10px] text-slate-400">
+              {poster ? <img src={poster} alt="poster" className="w-full h-full object-cover" /> : 'belum ada'}
+            </div>
+            <div>
+              <label className="inline-flex items-center px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold cursor-pointer">
+                {uploading === 'poster' ? 'Mengunggah…' : '🖼 Upload Poster'}
+                <input type="file" accept="image/*" className="hidden" disabled={uploading === 'poster'}
+                  onChange={(e) => { doUpload(e.target.files?.[0], 'poster'); e.target.value = ''; }} />
+              </label>
+              {poster && <button type="button" onClick={() => setPoster('')} className="ml-2 text-xs text-red-600 hover:underline">Hapus</button>}
+            </div>
+          </div>
+        </div>
 
         {/* ITINERARY per hari + foto */}
         <div>
