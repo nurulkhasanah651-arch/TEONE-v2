@@ -148,9 +148,13 @@ export default async function TripDetailPage({ params }) {
   const _ttl = t.public_title || t.name;
   const _waDaftar = `https://wa.me/${csWa}?text=${encodeURIComponent(`Halo Khasanah Travel, saya mau *daftar* trip ${t.kode_trip ? t.kode_trip + ' ' : ''}${_ttl}${t.departure ? ` (${fmtDate(t.departure)})` : ''}. Mohon info & langkah pendaftarannya ya 🙏`)}`;
   const _waTanya = `https://wa.me/${csWa}?text=${encodeURIComponent(`Halo Khasanah Travel, saya mau *tanya* tentang trip ${t.kode_trip ? t.kode_trip + ' ' : ''}${_ttl}.`)}`;
-  // Reasons: pakai punya trip; kalau kosong, pakai template default dari Etalase.
-  const reasonsSrc = (t.web_reasons && t.web_reasons.trim()) ? t.web_reasons : (settings?.reasons_default || '');
-  const reasons = String(reasonsSrc || '').split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 8);
+  // Reasons: kalau "pakai untuk semua trip" aktif → selalu template Etalase.
+  // Selain itu: pakai punya trip; kalau kosong, pakai template default.
+  const _tmpl = settings?.reasons_default || '';
+  const reasonsSrc = settings?.reasons_force
+    ? _tmpl
+    : ((t.web_reasons && t.web_reasons.trim()) ? t.web_reasons : _tmpl);
+  const reasons = String(reasonsSrc || '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean).slice(0, 8);
 
   return (
     <div>

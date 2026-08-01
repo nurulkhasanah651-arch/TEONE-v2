@@ -52,11 +52,12 @@ async function doUpload(file) {
   return r;
 }
 
-export default function EtalaseManager({ initialHero, initialRegions, initialPrivate, initialTerms, termsSeed, initialLogo, initialAbout, initialReasons }) {
+export default function EtalaseManager({ initialHero, initialRegions, initialPrivate, initialTerms, termsSeed, initialLogo, initialAbout, initialReasons, initialReasonsForce }) {
   const [hero, setHero] = useState(Array.isArray(initialHero) ? initialHero : []);
   const [priv, setPriv] = useState(Array.isArray(initialPrivate) ? initialPrivate : []);
   const [terms, setTerms] = useState((initialTerms && initialTerms.trim()) ? initialTerms : (termsSeed || ''));
   const [reasons, setReasons] = useState(initialReasons || '');
+  const [reasonsForce, setReasonsForce] = useState(initialReasonsForce === true);
   const [regions, setRegions] = useState(Array.isArray(initialRegions) && initialRegions.length ? initialRegions : []);
   const [msg, setMsg] = useState(null);
   const [pending, startTransition] = useTransition();
@@ -229,7 +230,7 @@ export default function EtalaseManager({ initialHero, initialRegions, initialPri
   }
   function saveReasons() {
     startTransition(async () => {
-      const sv = await saveReasonsDefault(reasons);
+      const sv = await saveReasonsDefault(reasons, reasonsForce);
       if (sv?.error) toast(sv.error, 'error'); else toast('✓ Alasan default disimpan');
     });
   }
@@ -417,6 +418,10 @@ export default function EtalaseManager({ initialHero, initialRegions, initialPri
         <textarea value={reasons} onChange={(e) => setReasons(e.target.value)} rows={6}
           className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm leading-relaxed focus:ring-1 focus:ring-emerald-500 outline-none"
           placeholder={"Harga terhemat dan terlengkap!\nAmanah!\nSudah memberangkatkan 20.000 jamaah"} />
+        <label className="mt-3 flex items-start gap-2 cursor-pointer">
+          <input type="checkbox" checked={reasonsForce} onChange={(e) => setReasonsForce(e.target.checked)} className="mt-0.5 w-4 h-4" />
+          <span className="text-xs text-slate-600"><b>Pakai template ini untuk SEMUA trip</b> — menimpa alasan yang mungkin sudah diisi di masing-masing trip. Aktifkan kalau mau seragam di semua trip.</span>
+        </label>
         <button type="button" onClick={saveReasons} disabled={pending}
           className="mt-3 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-bold">
           {pending ? '⏳ Menyimpan...' : '💾 Simpan Alasan Default'}
