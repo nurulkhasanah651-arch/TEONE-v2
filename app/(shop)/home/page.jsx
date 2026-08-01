@@ -95,27 +95,51 @@ export default async function StorefrontHome() {
         </div>
       </section>
 
-      {/* KATEGORI PER BENUA — paling atas */}
-      <section className="bg-slate-50 border-y border-slate-100">
-        <div className="max-w-6xl mx-auto px-4 py-14">
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Jelajahi per Benua</h2>
-          <p className="text-slate-500 mt-1">Pilih region favoritmu — Eropa, UK + Ireland, Asia, dan lainnya.</p>
-          <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-            {regions.map((r) => (
-              <Link key={r.key} prefetch={false} href={`/trip?region=${r.key}`} className="group relative rounded-2xl overflow-hidden aspect-[3/4] shadow-sm hover:shadow-lg transition-shadow bg-gradient-to-br from-slate-700 to-slate-900">
-                {r.image
-                  ? <img src={r.image} alt={r.label} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                  : <div className="absolute inset-0 flex items-center justify-center text-5xl opacity-30">{r.icon}</div>}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-900/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-3">
-                  <p className="text-2xl">{r.icon}</p>
-                  <p className="text-white font-bold text-sm leading-tight mt-1">{r.label}</p>
-                </div>
-              </Link>
-            ))}
+      {/* KATEGORI — Khasanah: Pilih Paket Umroh (card kotak/IG, label di bawah poster) · TEONE: per Benua */}
+      {_isKh ? (
+        <section className="bg-slate-50 border-y border-slate-100">
+          <div className="max-w-6xl mx-auto px-4 py-14">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Pilih Paket Umroh</h2>
+            <p className="text-slate-500 mt-1">Umroh Hemat, Umroh VIP Bintang 5, Umroh Plus, dan paket lainnya.</p>
+            <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {regions.map((r) => (
+                <Link key={r.key} prefetch={false} href={`/trip?region=${r.key}`} className="group block rounded-2xl overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-lg transition-shadow">
+                  <div className="aspect-square bg-slate-100 overflow-hidden">
+                    {r.image
+                      ? <img src={r.image} alt={r.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      : <div className="w-full h-full flex items-center justify-center text-5xl opacity-30">{r.icon}</div>}
+                  </div>
+                  <div className="p-3 flex items-center gap-2">
+                    <span className="text-lg shrink-0">{r.icon}</span>
+                    <span className="text-slate-800 font-bold text-sm leading-tight">{r.label}</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : (
+        <section className="bg-slate-50 border-y border-slate-100">
+          <div className="max-w-6xl mx-auto px-4 py-14">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Jelajahi per Benua</h2>
+            <p className="text-slate-500 mt-1">Pilih region favoritmu — Eropa, UK + Ireland, Asia, dan lainnya.</p>
+            <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+              {regions.map((r) => (
+                <Link key={r.key} prefetch={false} href={`/trip?region=${r.key}`} className="group relative rounded-2xl overflow-hidden aspect-[3/4] shadow-sm hover:shadow-lg transition-shadow bg-gradient-to-br from-slate-700 to-slate-900">
+                  {r.image
+                    ? <img src={r.image} alt={r.label} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    : <div className="absolute inset-0 flex items-center justify-center text-5xl opacity-30">{r.icon}</div>}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-900/20 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <p className="text-2xl">{r.icon}</p>
+                    <p className="text-white font-bold text-sm leading-tight mt-1">{r.label}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* PILIH BULAN KEBERANGKATAN — pill kecil, arah ke daftar trip terfilter */}
       {availMonths.length > 0 && (
