@@ -187,6 +187,7 @@ export default async function PublicInvoicePage({ params }) {
   let addonPaidReal = 0;
   let sisaReal = 0;
   let discountReal = 0;
+  let ppnReal = 0, ppnLabelReal = '';
   let famRoom = 0, famTips = 0, famCity = 0, famFlight = 0, famBaggage = 0, famBase = 0, famVisa = 0, famAsuransi = 0, famCount = 1, famResolved = false;
   let famVisaCount = 0, famAsuransiCount = 0, famPerlengkapan = 0;
   let famAsrTipsLocal = 0, famHandlingPerl = 0, famVisaAsr = 0;
@@ -202,6 +203,8 @@ export default async function PublicInvoicePage({ params }) {
       addonPaidReal = bill.addonPaid;
       sisaReal = bill.sisa;
       discountReal = bill.discount;
+      ppnReal = Number(bill.ppnTotal) || 0;
+      ppnLabelReal = bill.ppnLabel || '';
       famMembers = bill.members || [];
       famRoom = bill.members.reduce((t, m) => t + (m.roomPrice || 0), 0);
       famTips = bill.members.reduce((t, m) => t + (m.tips || 0), 0);
@@ -258,7 +261,8 @@ export default async function PublicInvoicePage({ params }) {
   const paxNote = famCount > 1 ? ` (${famCount} peserta)` : '';
   const rTips = famResolved ? famTips : tips;
   const rCity = famResolved ? famCity : cityTax;
-  const _pokokGross = (Number(expectedTotalReal) || 0) + (Number(discountReal) || 0);
+  // expectedTotalReal sudah termasuk PPN → keluarkan PPN dulu supaya baris kamar/penyesuaian tidak ketambahan.
+  const _pokokGross = (Number(expectedTotalReal) || 0) + (Number(discountReal) || 0) - (Number(ppnReal) || 0);
   const _extras = (rTips || 0) + (rCity || 0) + (famFlight || 0) + (famBaggage || 0) + (famBase || 0) + (famPerlengkapan || 0)
     + (famVisaPokok || 0) + (famAsuransiPokok || 0)
     + (famAsrTipsLocal || 0) + (famHandlingPerl || 0) + (famVisaAsr || 0);
@@ -320,6 +324,8 @@ export default async function PublicInvoicePage({ params }) {
   // Biaya tambahan di luar paket (jadwal ulang visa, translate, dll) — ditagihkan, bukan potongan.
   for (const ad of famAddonItems) if (Number(ad.amount) > 0) tourItems.push({ label: ad.type, amount: Number(ad.amount), detail: 'biaya tambahan' });
   if (discountReal > 0) tourItems.push({ label: 'Diskon', amount: -discountReal, detail: 'potongan' });
+  // KHASANAH: PPN 1,1% atas paket tour (Umroh Plus, berangkat Okt 2026+). Ditagihkan.
+  if (ppnReal > 0) tourItems.push({ label: `PPN 1,1% (Paket Tour${ppnLabelReal ? ' ' + ppnLabelReal : ''})`, amount: ppnReal, detail: 'pajak' });
   const tourTotal = tourItems.reduce((s2, it) => s2 + (Number(it.amount) || 0), 0);
   // RINGKASAN: utk invoice ALL-IN (Pelunasan+Visa+Asuransi) tampilkan total/dibayar/sisa SEMUA
   //   supaya konsisten dgn nominal invoice (tidak membingungkan peserta). Invoice biasa = pokok saja.
