@@ -21,7 +21,7 @@ export default async function AccountingPpnPage() {
       <div>
         <Link href="/accounting" className="text-sm text-brand-600 font-medium hover:underline">← Accounting</Link>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">PPN Paket Tour per Group</h1>
-        <p className="mt-1 text-slate-600">PPN 1,1%, keberangkatan Okt 2026+. <b>PPN Peserta</b> = dari harga paket tour per kamar (ditagih &amp; dibayar peserta). <b>PPN Perusahaan</b> = potensi dari biaya non-kamar yang ditanggung perusahaan (base, flight/bagasi domestik, tips, perlengkapan, visa) — kecuali city tax &amp; asuransi.</p>
+        <p className="mt-1 text-slate-600">PPN 1,1% — hanya <b>pendaftar baru TEONE sejak 2 Agu 2026</b> (peserta lama &amp; Khasanah tidak kena PPN). <b>PPN Peserta</b> = dari harga paket tour per kamar (ditagih &amp; dibayar peserta). <b>PPN Perusahaan</b> = potensi dari biaya non-kamar yang ditanggung perusahaan (base, flight/bagasi domestik, tips, perlengkapan, visa) — kecuali city tax &amp; asuransi.</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -45,7 +45,7 @@ export default async function AccountingPpnPage() {
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         {rows.length === 0 ? (
-          <div className="p-8 text-center text-sm text-slate-400">Belum ada group Umroh Plus yang kena PPN (berangkat Okt 2026+).</div>
+          <div className="p-8 text-center text-sm text-slate-400">Belum ada peserta yang kena PPN (pendaftar baru TEONE sejak 2 Agu 2026).</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

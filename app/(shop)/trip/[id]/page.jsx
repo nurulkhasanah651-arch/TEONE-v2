@@ -149,8 +149,9 @@ export default async function TripDetailPage({ params }) {
   };
 
   const isKh = brand === 'khasanah';
-  // TEONE: trip berangkat Okt 2026+ kena PPN 1,1% → tampilkan di kolom "Tidak Termasuk".
-  const _hasPpn = !isKh && !!t.departure && String(t.departure).slice(0, 10) >= '2026-10-01';
+  // TEONE: pendaftar baru (per 2 Agu 2026) kena PPN 1,1% → tampilkan di kolom "Tidak Termasuk".
+  // Khasanah: PPN dibatalkan (tidak tampil).
+  const _hasPpn = !isKh;
   const _ttl = t.public_title || t.name;
   const _waDaftar = `https://wa.me/${csWa}?text=${encodeURIComponent(`Halo Khasanah Travel, saya mau *daftar* trip ${t.kode_trip ? t.kode_trip + ' ' : ''}${_ttl}${t.departure ? ` (${fmtDate(t.departure)})` : ''}. Mohon info & langkah pendaftarannya ya 🙏`)}`;
   const _waTanya = `https://wa.me/${csWa}?text=${encodeURIComponent(`Halo Khasanah Travel, saya mau *tanya* tentang trip ${t.kode_trip ? t.kode_trip + ' ' : ''}${_ttl}.`)}`;
