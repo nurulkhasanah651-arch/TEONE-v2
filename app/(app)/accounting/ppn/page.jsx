@@ -21,21 +21,25 @@ export default async function AccountingPpnPage() {
       <div>
         <Link href="/accounting" className="text-sm text-brand-600 font-medium hover:underline">← Accounting</Link>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">PPN Paket Tour per Group</h1>
-        <p className="mt-1 text-slate-600">PPN 1,1% atas paket tour, keberangkatan Okt 2026+. Dari harga tour &amp; PPN yang sudah dibayar peserta.</p>
+        <p className="mt-1 text-slate-600">PPN 1,1%, keberangkatan Okt 2026+. <b>PPN Peserta</b> = dari harga paket tour per kamar (ditagih &amp; dibayar peserta). <b>PPN Perusahaan</b> = potensi dari biaya non-kamar yang ditanggung perusahaan (base, flight/bagasi domestik, tips, perlengkapan, visa) — kecuali city tax &amp; asuransi.</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="rounded-xl border border-slate-200 shadow-card p-4 bg-slate-50">
           <p className="text-[11px] font-bold text-slate-500 uppercase">Total Harga Tour</p>
           <p className="mt-1 text-xl font-bold text-slate-700">{fmtRupiah(res.totalTour)}</p>
         </div>
         <div className="rounded-xl border border-slate-200 shadow-card p-4 bg-amber-50">
-          <p className="text-[11px] font-bold text-slate-500 uppercase">PPN Potensi (semua pax)</p>
+          <p className="text-[11px] font-bold text-slate-500 uppercase">PPN Peserta (Potensi)</p>
           <p className="mt-1 text-xl font-bold text-amber-700">{fmtRupiah(res.totalExpected)}</p>
         </div>
         <div className="rounded-xl border border-slate-200 shadow-card p-4 bg-emerald-50">
-          <p className="text-[11px] font-bold text-slate-500 uppercase">PPN Sudah Dibayar</p>
+          <p className="text-[11px] font-bold text-slate-500 uppercase">PPN Peserta Dibayar</p>
           <p className="mt-1 text-xl font-bold text-emerald-700">{fmtRupiah(res.totalCollected)}</p>
+        </div>
+        <div className="rounded-xl border border-slate-200 shadow-card p-4 bg-fuchsia-50">
+          <p className="text-[11px] font-bold text-slate-500 uppercase">PPN Perusahaan (Potensi)</p>
+          <p className="mt-1 text-xl font-bold text-fuchsia-700">{fmtRupiah(res.totalCompany)}</p>
         </div>
       </div>
 
@@ -52,8 +56,10 @@ export default async function AccountingPpnPage() {
                   <th className="px-3 py-2">Paket Tour</th>
                   <th className="px-3 py-2 text-right">Pax</th>
                   <th className="px-3 py-2 text-right">Total Harga Tour</th>
-                  <th className="px-3 py-2 text-right">PPN Potensi</th>
-                  <th className="px-3 py-2 text-right">PPN Dibayar</th>
+                  <th className="px-3 py-2 text-right">PPN Peserta Potensi</th>
+                  <th className="px-3 py-2 text-right">PPN Peserta Dibayar</th>
+                  <th className="px-3 py-2 text-right">Biaya Non-Kamar</th>
+                  <th className="px-3 py-2 text-right">PPN Perusahaan Potensi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -66,6 +72,8 @@ export default async function AccountingPpnPage() {
                     <td className="px-3 py-2 text-right text-slate-700">{fmtRupiah(r.tourTotal)}</td>
                     <td className="px-3 py-2 text-right text-amber-700">{fmtRupiah(r.ppnExpected)}</td>
                     <td className="px-3 py-2 text-right font-bold text-emerald-700">{fmtRupiah(r.ppnCollected)}</td>
+                    <td className="px-3 py-2 text-right text-slate-500">{fmtRupiah(r.coBase)}</td>
+                    <td className="px-3 py-2 text-right font-bold text-fuchsia-700">{fmtRupiah(r.ppnCompany)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -75,6 +83,8 @@ export default async function AccountingPpnPage() {
                   <td className="px-3 py-2 text-right">{fmtRupiah(res.totalTour)}</td>
                   <td className="px-3 py-2 text-right text-amber-700">{fmtRupiah(res.totalExpected)}</td>
                   <td className="px-3 py-2 text-right text-emerald-700">{fmtRupiah(res.totalCollected)}</td>
+                  <td className="px-3 py-2 text-right text-slate-500">{fmtRupiah(res.totalCoBase)}</td>
+                  <td className="px-3 py-2 text-right text-fuchsia-700">{fmtRupiah(res.totalCompany)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -82,7 +92,7 @@ export default async function AccountingPpnPage() {
         )}
       </div>
 
-      <p className="text-[11px] text-slate-400">Catatan: "PPN Dibayar" dihitung proporsional dari pokok yang sudah dibayar tiap peserta. Nilai ini juga masuk sebagai income di Estimate Profit & Real Proyeksi Group.</p>
+      <p className="text-[11px] text-slate-400">Catatan: "PPN Peserta Dibayar" dihitung setelah pokok peserta lunas (kelebihan bayar di atas pokok) &amp; masuk sebagai income di Estimate Profit + Real Proyeksi Group. "PPN Perusahaan (Potensi)" = perkiraan PPN atas biaya non-kamar yang ditanggung perusahaan (belum masuk income/estimate — hanya perhitungan potensi).</p>
     </div>
   );
 }
