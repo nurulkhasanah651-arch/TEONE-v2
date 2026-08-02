@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { getTripBookkeeping } from '@/lib/actions/bookkeeping';
 import { fmtRupiah } from '@/lib/utils/format';
+import BookkeepingDownloads from '@/components/accounting/BookkeepingDownloads';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ export default async function TripBookkeepingPage({ params }) {
   if (res?.error) {
     return <div className="max-w-5xl mx-auto"><div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">⚠ {res.error}</div></div>;
   }
-  const { trip, peserta, vendor, omzet, cashIn, biaya, laba, pph } = res;
+  const { trip, peserta, vendor, buktiCount, omzet, cashIn, biaya, laba, pph } = res;
   const ratePct = Math.round((res.rate || 0.22) * 1000) / 10;
 
   return (
@@ -20,6 +21,12 @@ export default async function TripBookkeepingPage({ params }) {
         <Link href="/accounting/pembukuan" className="text-sm text-brand-600 font-medium hover:underline">← Pembukuan Trip</Link>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">{trip.kode} · {trip.name}</h1>
         <p className="mt-1 text-slate-600">Berangkat {trip.depFmt} · Tahun pajak {trip.year || '—'}</p>
+      </div>
+
+      {/* Download dokumen untuk audit */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4">
+        <p className="text-[11px] font-bold text-slate-500 uppercase mb-2">Download Dokumen Pembukuan</p>
+        <BookkeepingDownloads trip={trip} peserta={peserta} vendor={vendor} buktiCount={buktiCount} />
       </div>
 
       {/* Ringkasan laba–rugi */}
