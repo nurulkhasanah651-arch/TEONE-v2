@@ -21,7 +21,7 @@ export default async function AccountingPpnPage() {
       <div>
         <Link href="/accounting" className="text-sm text-brand-600 font-medium hover:underline">← Accounting</Link>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">PPN Paket Tour per Group</h1>
-        <p className="mt-1 text-slate-600">PPN 1,1% atas paket tour non-umroh (Umroh Plus), keberangkatan Okt 2026+. Dari harga tour &amp; PPN yang sudah dibayar peserta.</p>
+        <p className="mt-1 text-slate-600">PPN 1,1% atas paket tour, keberangkatan Okt 2026+. Dari harga tour &amp; PPN yang sudah dibayar peserta.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

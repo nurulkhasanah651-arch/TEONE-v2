@@ -454,7 +454,7 @@ export default async function AccountingDashboard({ searchParams }) {
         <SectionCard href="/accounting/balance-sheet" icon="📋" title="Balance Sheet" color="from-purple-500 to-purple-700" />
         <SectionCard href="/accounting/reconcile" icon="🔄" title="Bank Reconciliation" color="from-cyan-500 to-blue-700" />
         <SectionCard href="/accounting/pajak" icon="🧾" title="Pajak Tahunan" color="from-rose-500 to-red-700" />
-        <SectionCard href="/accounting/ppn" icon="🕋" title="PPN Paket Tour per Group" color="from-fuchsia-500 to-purple-700" />
+        <SectionCard href="/accounting/ppn" icon="💠" title="PPN Paket Tour per Group" color="from-fuchsia-500 to-purple-700" />
         <SectionCard href="/accounting/payment-visa" icon="🛂" title="Payment Visa" color="from-teal-500 to-cyan-700" />
         <SectionCard href="/accounting/new" icon="➕" title="Entry Manual" color="from-amber-500 to-orange-700" />
       </div>
