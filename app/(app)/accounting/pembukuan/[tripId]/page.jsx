@@ -35,12 +35,14 @@ export default async function TripBookkeepingPage({ params }) {
           <p className="text-[11px] text-slate-400 mt-0.5">{vendor.length} item</p>
         </div>
         <div className="rounded-xl border border-slate-200 shadow-card p-4 bg-emerald-50">
-          <p className="text-[11px] font-bold text-slate-500 uppercase">Laba Kena Pajak</p>
+          <p className="text-[11px] font-bold text-slate-500 uppercase">Laba Kotor Trip</p>
           <p className={`mt-1 text-lg font-bold ${laba < 0 ? 'text-red-600' : 'text-emerald-700'}`}>{fmtRupiah(laba)}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Omzet − HPP vendor</p>
         </div>
-        <div className="rounded-xl border border-slate-200 shadow-card p-4 bg-fuchsia-50">
-          <p className="text-[11px] font-bold text-slate-500 uppercase">PPh Badan {ratePct}%</p>
-          <p className="mt-1 text-lg font-bold text-fuchsia-700">{fmtRupiah(pph)}</p>
+        <div className="rounded-xl border border-slate-200 shadow-card p-4 bg-slate-100">
+          <p className="text-[11px] font-bold text-slate-500 uppercase">PPh Badan</p>
+          <p className="mt-1 text-sm font-medium text-slate-600">Dihitung per tahun</p>
+          <Link href="/accounting/pembukuan" className="text-[11px] text-brand-600 hover:underline">Lihat PPh tahunan →</Link>
         </div>
       </div>
 
@@ -128,17 +130,15 @@ export default async function TripBookkeepingPage({ params }) {
         )}
       </div>
 
-      {/* Perhitungan PPh */}
+      {/* Laba kotor trip */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
-        <h2 className="font-bold text-slate-800 mb-3">Perhitungan PPh Badan (Trip Ini)</h2>
+        <h2 className="font-bold text-slate-800 mb-3">Laba Kotor Trip Ini</h2>
         <div className="space-y-1.5 text-sm max-w-md">
           <div className="flex justify-between"><span className="text-slate-600">Peredaran Usaha (Omzet)</span><span className="font-medium text-slate-800">{fmtRupiah(omzet)}</span></div>
           <div className="flex justify-between"><span className="text-slate-600">Biaya / HPP Vendor</span><span className="font-medium text-rose-700">− {fmtRupiah(biaya)}</span></div>
-          <div className="flex justify-between border-t border-slate-200 pt-1.5"><span className="font-bold text-slate-700">Laba Kena Pajak</span><span className={`font-bold ${laba < 0 ? 'text-red-600' : 'text-emerald-700'}`}>{fmtRupiah(laba)}</span></div>
-          <div className="flex justify-between"><span className="text-slate-600">Tarif PPh Badan</span><span className="font-medium text-slate-800">{ratePct}%</span></div>
-          <div className="flex justify-between border-t border-slate-200 pt-1.5"><span className="font-bold text-slate-700">PPh Badan</span><span className="font-bold text-fuchsia-700">{fmtRupiah(pph)}</span></div>
+          <div className="flex justify-between border-t border-slate-200 pt-1.5"><span className="font-bold text-slate-700">Laba Kotor Trip</span><span className={`font-bold ${laba < 0 ? 'text-red-600' : 'text-emerald-700'}`}>{fmtRupiah(laba)}</span></div>
         </div>
-        <p className="text-[11px] text-slate-400 mt-3">PPh trip ini hanya alokasi/estimasi. PPh terutang final dihitung dari total laba kena pajak seluruh trip dalam satu tahun pajak (lihat halaman Pembukuan). Bukan nasihat pajak.</p>
+        <p className="text-[11px] text-slate-400 mt-3"><b>PPh Badan tidak dihitung per trip.</b> Laba kotor semua trip dalam satu tahun dikurangi biaya operasional kantor (refund, gaji, iklan, biaya kantor), lalu dikenai PPh Badan {ratePct}% — lihat halaman <Link href="/accounting/pembukuan" className="text-brand-600 hover:underline">Pembukuan Trip &amp; PPh Badan</Link>. Bukan nasihat pajak.</p>
       </div>
     </div>
   );

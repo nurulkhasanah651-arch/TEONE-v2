@@ -19,13 +19,13 @@ export default async function PembukuanPage() {
       <div>
         <Link href="/accounting" className="text-sm text-brand-600 font-medium hover:underline">← Accounting</Link>
         <h1 className="mt-2 text-3xl font-bold text-brand-700">Pembukuan Trip &amp; PPh Badan</h1>
-        <p className="mt-1 text-slate-600">Gabungan omzet peserta &amp; biaya vendor per trip untuk dokumentasi pajak. <b>PPh Badan {ratePct}%</b> dihitung dari laba kena pajak per tahun (laba/rugi antar-trip saling menutup). Klik trip untuk rincian dokumen.</p>
+        <p className="mt-1 text-slate-600">Gabungan omzet peserta &amp; biaya vendor per trip, lalu dikurangi biaya operasional kantor. <b>PPh Badan {ratePct}% dihitung PER TAHUN</b> dari laba bersih (setelah refund, gaji, iklan &amp; biaya kantor). Klik trip untuk rincian dokumen.</p>
       </div>
 
       {years.length === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card p-8 text-center text-sm text-slate-400">Belum ada data trip.</div>
       ) : years.map((y) => (
-        <div key={y.label} className="space-y-3">
+        <div key={y.label} className="space-y-3 border border-slate-200 rounded-2xl p-4 bg-slate-50/40">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-xl font-bold text-slate-800">Tahun Pajak {y.label}</h2>
             {y.nIncomplete > 0 && (
@@ -33,25 +33,7 @@ export default async function PembukuanPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="rounded-xl border border-slate-200 shadow-card p-4 bg-slate-50">
-              <p className="text-[11px] font-bold text-slate-500 uppercase">Omzet (Peredaran Usaha)</p>
-              <p className="mt-1 text-lg font-bold text-slate-700">{fmtRupiah(y.omzet)}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 shadow-card p-4 bg-rose-50">
-              <p className="text-[11px] font-bold text-slate-500 uppercase">Biaya Vendor (HPP)</p>
-              <p className="mt-1 text-lg font-bold text-rose-700">{fmtRupiah(y.biaya)}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 shadow-card p-4 bg-emerald-50">
-              <p className="text-[11px] font-bold text-slate-500 uppercase">Laba Kena Pajak</p>
-              <p className="mt-1 text-lg font-bold text-emerald-700">{fmtRupiah(y.laba)}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 shadow-card p-4 bg-fuchsia-50">
-              <p className="text-[11px] font-bold text-slate-500 uppercase">PPh Badan {ratePct}%</p>
-              <p className="mt-1 text-lg font-bold text-fuchsia-700">{fmtRupiah(y.pph)}</p>
-            </div>
-          </div>
-
+          {/* Trip laba kotor */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -62,8 +44,7 @@ export default async function PembukuanPage() {
                     <th className="px-3 py-2 text-right">Pax</th>
                     <th className="px-3 py-2 text-right">Omzet</th>
                     <th className="px-3 py-2 text-right">Biaya Vendor</th>
-                    <th className="px-3 py-2 text-right">Laba</th>
-                    <th className="px-3 py-2 text-right">PPh {ratePct}%</th>
+                    <th className="px-3 py-2 text-right">Laba Kotor</th>
                     <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
@@ -76,28 +57,51 @@ export default async function PembukuanPage() {
                       <td className="px-3 py-2 text-right text-slate-700">{fmtRupiah(r.omzet)}</td>
                       <td className="px-3 py-2 text-right text-rose-700">{r.nItem === 0 ? <span className="text-amber-600" title="Belum ada biaya vendor">{fmtRupiah(0)} ⚠</span> : fmtRupiah(r.biaya)}</td>
                       <td className={`px-3 py-2 text-right font-bold ${r.laba < 0 ? 'text-red-600' : 'text-emerald-700'}`}>{fmtRupiah(r.laba)}</td>
-                      <td className="px-3 py-2 text-right text-fuchsia-700">{fmtRupiah(r.pph)}</td>
                       <td className="px-3 py-2 text-right"><Link href={`/accounting/pembukuan/${r.id}`} className="text-brand-600 font-medium hover:underline whitespace-nowrap">Rincian →</Link></td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-slate-200 font-bold bg-slate-50">
-                    <td className="px-3 py-2" colSpan={3}>TOTAL {y.label}</td>
+                    <td className="px-3 py-2" colSpan={3}>LABA KOTOR TRIP</td>
                     <td className="px-3 py-2 text-right">{fmtRupiah(y.omzet)}</td>
                     <td className="px-3 py-2 text-right text-rose-700">{fmtRupiah(y.biaya)}</td>
-                    <td className="px-3 py-2 text-right text-emerald-700">{fmtRupiah(y.laba)}</td>
-                    <td className="px-3 py-2 text-right text-fuchsia-700">{fmtRupiah(y.pph)}</td>
+                    <td className="px-3 py-2 text-right text-emerald-700">{fmtRupiah(y.labaTrip)}</td>
                     <td className="px-3 py-2"></td>
                   </tr>
                 </tfoot>
               </table>
             </div>
           </div>
+
+          {/* Biaya kantor + rekap PPh tahunan */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4">
+              <p className="text-[11px] font-bold text-slate-500 uppercase mb-2">Biaya Operasional Kantor {y.label}</p>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between"><span className="text-slate-600">Gaji Karyawan</span><span className="font-medium text-slate-800">{fmtRupiah(y.office.gaji)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-600">Iklan / Ads</span><span className="font-medium text-slate-800">{fmtRupiah(y.office.ads)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-600">Refund Peserta</span><span className="font-medium text-slate-800">{fmtRupiah(y.office.refund)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-600">Biaya Kantor Lain</span><span className="font-medium text-slate-800">{fmtRupiah(y.office.lain)}</span></div>
+                <div className="flex justify-between border-t border-slate-200 pt-1.5"><span className="font-bold text-slate-700">Total Biaya Kantor</span><span className="font-bold text-rose-700">{fmtRupiah(y.office.total)}</span></div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4">
+              <p className="text-[11px] font-bold text-slate-500 uppercase mb-2">Perhitungan PPh Badan {y.label}</p>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between"><span className="text-slate-600">Laba Kotor Trip</span><span className="font-medium text-emerald-700">{fmtRupiah(y.labaTrip)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-600">Biaya Operasional Kantor</span><span className="font-medium text-rose-700">− {fmtRupiah(y.office.total)}</span></div>
+                <div className="flex justify-between border-t border-slate-200 pt-1.5"><span className="font-bold text-slate-700">Laba Bersih Kena Pajak</span><span className={`font-bold ${y.labaBersih < 0 ? 'text-red-600' : 'text-emerald-700'}`}>{fmtRupiah(y.labaBersih)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-600">Tarif PPh Badan</span><span className="font-medium text-slate-800">{ratePct}%</span></div>
+                <div className="flex justify-between border-t border-slate-200 pt-1.5 text-base"><span className="font-bold text-slate-800">PPh Badan {y.label}</span><span className="font-bold text-fuchsia-700">{fmtRupiah(y.pph)}</span></div>
+              </div>
+            </div>
+          </div>
         </div>
       ))}
 
-      <p className="text-[11px] text-slate-400">Catatan: Omzet = nilai jual peserta aktif (price paid, sudah dikurangi diskon; PPN tidak termasuk). Biaya Vendor = total item HPP (trip_finance_items). PPh Badan {ratePct}% = tarif umum atas laba kena pajak per tahun — bukan nasihat pajak; sesuaikan dengan konsultan bila memakai fasilitas Pasal 31E / PP-23.</p>
+      <p className="text-[11px] text-slate-400">Catatan: Omzet = nilai jual peserta aktif (price paid, dikurangi diskon; PPN tidak termasuk). Biaya Vendor = item HPP (trip_finance_items). Biaya kantor: Gaji = payroll, Iklan = ads, Refund = refund disetujui, Biaya Kantor Lain = entry manual pengeluaran. PPh Badan {ratePct}% = tarif umum atas laba bersih kena pajak per tahun — bukan nasihat pajak; sesuaikan dengan konsultan bila memakai fasilitas Pasal 31E / PP-23.</p>
     </div>
   );
 }
