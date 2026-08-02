@@ -149,6 +149,8 @@ export default async function TripDetailPage({ params }) {
   };
 
   const isKh = brand === 'khasanah';
+  // TEONE: trip berangkat Okt 2026+ kena PPN 1,1% → tampilkan di kolom "Tidak Termasuk".
+  const _hasPpn = !isKh && !!t.departure && String(t.departure).slice(0, 10) >= '2026-10-01';
   const _ttl = t.public_title || t.name;
   const _waDaftar = `https://wa.me/${csWa}?text=${encodeURIComponent(`Halo Khasanah Travel, saya mau *daftar* trip ${t.kode_trip ? t.kode_trip + ' ' : ''}${_ttl}${t.departure ? ` (${fmtDate(t.departure)})` : ''}. Mohon info & langkah pendaftarannya ya 🙏`)}`;
   const _waTanya = `https://wa.me/${csWa}?text=${encodeURIComponent(`Halo Khasanah Travel, saya mau *tanya* tentang trip ${t.kode_trip ? t.kode_trip + ' ' : ''}${_ttl}.`)}`;
@@ -264,7 +266,7 @@ export default async function TripDetailPage({ params }) {
           )}
           {/* Harga — di HP muncul tepat di bawah itinerary (TEONE) */}
           {!isKh && <div className="lg:hidden">{priceCard}</div>}
-          {(t.included || t.excluded) && (
+          {(t.included || t.excluded || _hasPpn) && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {t.included && (
                 <div className="border border-slate-200 rounded-2xl p-4">
@@ -272,10 +274,11 @@ export default async function TripDetailPage({ params }) {
                   <p className="text-sm text-slate-600 whitespace-pre-line">{t.included}</p>
                 </div>
               )}
-              {t.excluded && (
+              {(t.excluded || _hasPpn) && (
                 <div className="border border-slate-200 rounded-2xl p-4">
                   <p className="font-bold text-red-600 mb-1">❌ Tidak Termasuk</p>
-                  <p className="text-sm text-slate-600 whitespace-pre-line">{t.excluded}</p>
+                  {t.excluded && <p className="text-sm text-slate-600 whitespace-pre-line">{t.excluded}</p>}
+                  {_hasPpn && <p className="text-sm text-slate-600 whitespace-pre-line">PPN 1,1%</p>}
                 </div>
               )}
             </div>

@@ -31,6 +31,8 @@ export default async function TripPdfPage({ params }) {
   const visa = lines(t.syarat_visa);
   const incl = lines(t.included);
   const excl = lines(t.excluded);
+  // TEONE: trip berangkat Okt 2026+ kena PPN 1,1% → masuk daftar "Tidak Termasuk".
+  if (brand !== 'khasanah' && t.departure && String(t.departure).slice(0, 10) >= '2026-10-01') excl.push('PPN 1,1%');
   const title = t.public_title || t.name;
   const dates = `${fmtDate(t.departure)}${t.return_date ? ' – ' + fmtDate(t.return_date) : ''}`;
   const web = (c.email && c.email.split('@')[1]) || 'travelingeropa.com';
