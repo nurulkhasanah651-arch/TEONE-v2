@@ -11,6 +11,22 @@ import { getApicoidCustomerName, apicoidKeyForBrand } from '@/lib/utils/waba-api
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// Ambil alasan gagal dari payload status (Meta: errors[]; Api.co.id: reason/error/raw).
+// Dipakai saat status='failed' agar wa_messages.error terisi (biar ketahuan KENAPA tak terkirim).
+function waFailReason(obj) {
+  try {
+    if (!obj || typeof obj !== 'object') return null;
+    if (Array.isArray(obj.errors) && obj.errors.length) {
+      const e = obj.errors[0] || {};
+      return [e.code, e.title, e.message || e.error_data?.details].filter(Boolean).join(' - ').slice(0, 300) || null;
+    }
+    const r = obj.reason || obj.error || obj.error_message || obj.errorMessage || obj.failure_reason || obj.failedReason;
+    if (r) return String(typeof r === 'object' ? JSON.stringify(r) : r).slice(0, 300);
+    if (obj.raw && obj.raw !== obj) { const rr = waFailReason(obj.raw); if (rr) return rr; }
+    return null;
+  } catch { return null; }
+}
+
 const WABA_BRANDS = ['khasanah', 'teone'];
 
 function envFor() {
@@ -124,7 +140,14 @@ async function handleApicoid(db, payload, brand) {
     const status = ev.includes('.') ? ev.split('.').pop() : (d.status || null);
     if (wamid) {
       const { data: existing } = await db.from('wa_messages').select('id').eq('wa_message_id', wamid).maybeSingle();
-      if (existing) { if (status) { try { await db.from('wa_messages').update({ status }).eq('id', existing.id); } catch {} } return; }
+      if (existing) {
+        if (status) {
+          const _upd = { status };
+          if (status === 'failed') { const _r = waFailReason(d); if (_r) _upd.error = _r; }
+          try { await db.from('wa_messages').update(_upd).eq('id', existing.id); } catch {}
+        }
+        return;
+      }
     }
     // Echo dari HP: butuh isi pesan atau media + nomor bisnis.
     const echoBody = d.content || textFromApicoidRaw(d.raw) || '';
@@ -301,7 +324,9 @@ export async function POST(request) {
         // ---- Update STATUS pesan keluar ----
         for (const st of (val.statuses || [])) {
           if (!st.id) continue;
-          try { await db.from('wa_messages').update({ status: st.status || null }).eq('wa_message_id', st.id); } catch {}
+          const _upd = { status: st.status || null };
+          if (st.status === 'failed') { const _r = waFailReason(st); if (_r) _upd.error = _r; }
+          try { await db.from('wa_messages').update(_upd).eq('wa_message_id', st.id); } catch {}
         }
       }
     }
