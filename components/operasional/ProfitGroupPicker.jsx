@@ -93,21 +93,22 @@ export default function ProfitGroupPicker({ groups = [] }) {
                       <span className="text-[11px] text-slate-400">{g.departureFmt}</span>
                     </div>
                     <p className="text-xs text-slate-700 mt-1 line-clamp-2 min-h-[2rem]">{g.name}</p>
-                    <div className={`mt-2 rounded-lg px-2.5 py-2 border ${Number(g.profit) >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500 leading-none">{g.hasExpense ? 'Profit (Margin)' : 'Margin (income − expense)'}</p>
-                      <p className={`text-base font-extrabold leading-tight ${Number(g.profit) >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{rupiah(g.profit)}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Income {rupiah(g.income)} · Exp {rupiah(g.expense)}</p>
-                      {!g.hasExpense && <p className="text-[10px] text-amber-600 mt-0.5">⚠ belum ada expense — klik untuk lengkapi</p>}
-                    </div>
-                    {Array.isArray(g.vendors) && g.vendors.length > 1 && (
-                      <div className="mt-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
-                        <p className="text-[9px] uppercase tracking-wide text-slate-400 leading-none mb-1">Perbandingan Vendor</p>
+                    {Array.isArray(g.vendors) && g.vendors.length > 1 ? (
+                      <div className="mt-2 space-y-1.5">
                         {g.vendors.map((v, i) => (
-                          <div key={i} className="flex items-center justify-between text-[10px] leading-tight gap-2">
-                            <span className="text-slate-600 truncate">{v.name}{i === 0 ? ' ⭐' : ''}</span>
-                            <span className={`font-bold whitespace-nowrap ${Number(v.margin) >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{rupiah(v.margin)}</span>
+                          <div key={i} className={`rounded-lg px-2.5 py-2 border ${Number(v.margin) >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                            <p className="text-[10px] uppercase tracking-wide text-slate-500 leading-none">Profit Margin — {v.name}{i === 0 ? ' ⭐' : ''}</p>
+                            <p className={`text-base font-extrabold leading-tight ${Number(v.margin) >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{rupiah(v.margin)}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">Income {rupiah(g.income)} · Exp {rupiah(v.expense)}</p>
                           </div>
                         ))}
+                      </div>
+                    ) : (
+                      <div className={`mt-2 rounded-lg px-2.5 py-2 border ${Number(g.profit) >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500 leading-none">{g.hasExpense ? 'Profit (Margin)' : 'Margin (income − expense)'}</p>
+                        <p className={`text-base font-extrabold leading-tight ${Number(g.profit) >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{rupiah(g.profit)}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Income {rupiah(g.income)} · Exp {rupiah(g.expense)}</p>
+                        {!g.hasExpense && <p className="text-[10px] text-amber-600 mt-0.5">⚠ belum ada expense — klik untuk lengkapi</p>}
                       </div>
                     )}
                     {g.hasEstimate && g.savedAtFmt && (
