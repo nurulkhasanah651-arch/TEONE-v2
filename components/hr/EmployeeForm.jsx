@@ -84,6 +84,9 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan',
     waba_tpl_pengiriman: employee?.waba_tpl_pengiriman || '',
     waba_tpl_perubahan_jadwal: employee?.waba_tpl_perubahan_jadwal || '',
     waba_tpl_finalisasi_tiket: employee?.waba_tpl_finalisasi_tiket || '',
+    waba_tpl_resi: employee?.waba_tpl_resi || '',
+    waba_tpl_visa_nonbio: employee?.waba_tpl_visa_nonbio || '',
+    waba_tpl_dokumen: employee?.waba_tpl_dokumen || '',
     notes: employee?.notes || '',
   });
 
@@ -368,6 +371,24 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan',
           <Field label="Nama Template Finalisasi Tiket (Api.co.id) — khusus nomor PIC ini">
             <input autoComplete="off" type="text" name="waba_tpl_finalisasi_tiket" value={form.waba_tpl_finalisasi_tiket} onChange={(e) => upd('waba_tpl_finalisasi_tiket', e.target.value)} placeholder={`mis. info_finalisasi_tiket_${isKhasanah ? 'khasanah' : 'teone'}_nama`} className={inputCls} />
             <p className="text-[11px] text-slate-500 mt-1">Nama template broadcast finalisasi/issued tiket yang disetujui di WABA nomor PIC ini. Cukup isi judul template-nya.</p>
+          </Field>
+        )}
+        {wabaBrand && (
+          <Field label="Nama Template Kirim Resi (Api.co.id) — khusus nomor PIC ini">
+            <input autoComplete="off" type="text" name="waba_tpl_resi" value={form.waba_tpl_resi} onChange={(e) => upd('waba_tpl_resi', e.target.value)} placeholder={`mis. pengiriman_resi_${isKhasanah ? 'khasanah' : 'teone'}_nama`} className={inputCls} />
+            <p className="text-[11px] text-slate-500 mt-1">Template notif paket sudah dikirim (kurir + no resi) — tombol "sudah kirim" di Finance Checklist. Kosong = teks/Fonnte spt biasa.</p>
+          </Field>
+        )}
+        {wabaBrand && (
+          <Field label="Nama Template Visa Tanpa Biometrik (Api.co.id) — khusus nomor PIC ini">
+            <input autoComplete="off" type="text" name="waba_tpl_visa_nonbio" value={form.waba_tpl_visa_nonbio} onChange={(e) => upd('waba_tpl_visa_nonbio', e.target.value)} placeholder={`mis. visa_nonbiometrik_${isKhasanah ? 'khasanah' : 'teone'}_nama`} className={inputCls} />
+            <p className="text-[11px] text-slate-500 mt-1">Template info visa tanpa biometrik + link lengkapi dokumen. Kosong = teks/Fonnte spt biasa.</p>
+          </Field>
+        )}
+        {wabaBrand && (
+          <Field label="Nama Template Pengumpulan Dokumen (Api.co.id) — khusus nomor PIC ini">
+            <input autoComplete="off" type="text" name="waba_tpl_dokumen" value={form.waba_tpl_dokumen} onChange={(e) => upd('waba_tpl_dokumen', e.target.value)} placeholder={`mis. pengumpulan_dokumen_${isKhasanah ? 'khasanah' : 'teone'}_nama`} className={inputCls} />
+            <p className="text-[11px] text-slate-500 mt-1">Template minta jamaah unggah dokumen sebelum keberangkatan. Kosong = teks/Fonnte spt biasa.</p>
           </Field>
         )}
         <Field label="Catatan">
