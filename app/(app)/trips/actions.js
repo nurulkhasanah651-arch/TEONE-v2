@@ -217,7 +217,18 @@ export async function changeTripPic(tripId, picName, picEmail) {
       return { error: 'PIC hanya bisa mengganti PIC untuk trip miliknya sendiri.' };
     }
   }
-  const { error } = await db.from('trips').update({ pic: picName || null, pic_email: picEmail || null }).eq('id', tripId);
+  // Selalu selaraskan teks `pic` dengan PEMILIK pic_email (nickname karyawan) supaya nama PIC
+  // lama tidak nyangkut → cegah trip dobel muncul di Master Trip PIC lama. Email kosong = pakai picName.
+  let picText = picName || null;
+  const _emailNorm = String(picEmail || '').trim().toLowerCase();
+  if (_emailNorm) {
+    try {
+      const { data: emp } = await db.from('employees').select('nickname, full_name').ilike('email', _emailNorm).maybeSingle();
+      const canon = (emp?.nickname && emp.nickname.trim()) || (emp?.full_name && emp.full_name.trim()) || '';
+      if (canon) picText = canon;
+    } catch {}
+  }
+  const { error } = await db.from('trips').update({ pic: picText, pic_email: picEmail || null }).eq('id', tripId);
   if (error) return { error: error.message };
   revalidatePath('/trips'); revalidatePath(`/trips/${tripId}`); revalidatePath('/dashboard');
   return { ok: true };
