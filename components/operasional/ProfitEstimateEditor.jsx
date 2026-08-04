@@ -20,13 +20,21 @@ const DEFAULT_HOTEL_ROOMS = [
   { room: 'double', label: 'Hotel Double' }, { room: 'single', label: 'Hotel Single' },
 ];
 
-export default function ProfitEstimateEditor({ trip, meta: metaInit, income: incomeInit, expense: expenseInit, autoIncome, autoExpense, templates, hotelRooms, savedAt, savedAtFmt, savedBy }) {
+export default function ProfitEstimateEditor({ trip, meta: metaInit, income: incomeInit, expense: expenseInit, vendors: vendorsInit, autoIncome, autoExpense, templates, hotelRooms, savedAt, savedAtFmt, savedBy }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [savedMsg, setSavedMsg] = useState('');
   const [meta, setMeta] = useState(metaInit || { rate_kurs: 0, periode: '', noted: '' });
   const [income, setIncome] = useState(incomeInit || []);
-  const [expense, setExpense] = useState(expenseInit || []);
+  // Vendor perbandingan: tiap vendor punya set EXPENSE sendiri; INCOME dipakai bersama.
+  // Vendor #1 = utama (dipakai Proyeksi/Accounting), sisanya perbandingan.
+  const [vendors, setVendors] = useState(() => {
+    const base = (Array.isArray(vendorsInit) && vendorsInit.length) ? vendorsInit : [{ name: 'Vendor 1', expense: expenseInit || [] }];
+    return base.map((v, i) => ({ name: v?.name || `Vendor ${i + 1}`, expense: Array.isArray(v?.expense) ? v.expense : [] }));
+  });
+  const [activeV, setActiveV] = useState(0);
+  const expense = vendors[activeV]?.expense || [];
+  const setExpense = (updater) => setVendors((vs) => vs.map((v, idx) => (idx === activeV ? { ...v, expense: (typeof updater === 'function' ? updater(v.expense) : updater) } : v)));
   const TPL = templates && templates.length ? templates : DEFAULT_TEMPLATES;
   const HROOMS = hotelRooms && hotelRooms.length ? hotelRooms : DEFAULT_HOTEL_ROOMS;
 
@@ -53,6 +61,13 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
   const setHotelRoomQty = (i, ri, v) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, rooms: r.rooms.map((h, hi) => (hi === ri ? { ...h, qty: v, qty_locked: true } : h)) } : r)));
   const addHotelRoom = (i) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, rooms: [...r.rooms, { room: 'custom', label: 'Hotel', unit_cost: 0, qty: 0, qty_source: null, qty_locked: false, nights: 1 }] } : r)));
   const delHotelRoom = (i, ri) => setExpense((rows) => rows.map((r, idx) => (idx === i ? { ...r, rooms: r.rooms.filter((_, hi) => hi !== ri) } : r)));
+
+  // ── Vendor perbandingan ──
+  const addVendor = () => { const cur = vendors[activeV]?.expense || []; const at = vendors.length; setVendors((vs) => [...vs, { name: `Vendor ${vs.length + 1}`, expense: JSON.parse(JSON.stringify(cur)) }]); setActiveV(at); };
+  const delVendor = (idx) => { if (vendors.length <= 1) return; const newLen = vendors.length - 1; setVendors((vs) => vs.filter((_, i) => i !== idx)); setActiveV((a) => { let n = a; if (idx < a) n = a - 1; else if (idx === a) n = idx; return Math.max(0, Math.min(n, newLen - 1)); }); };
+  const renameVendor = (idx, name) => setVendors((vs) => vs.map((v, i) => (i === idx ? { ...v, name } : v)));
+  const setPrimary = (idx) => { if (idx === 0) return; setVendors((vs) => { const nv = [...vs]; const [p] = nv.splice(idx, 1); nv.unshift(p); return nv; }); setActiveV(0); };
+  const printVendor = (idx) => { setActiveV(idx); setTimeout(() => window.print(), 80); };
 
   // QTY expense OTOMATIS dari income di atas (headcount/visa/asuransi/tipping/room type),
   // kecuali sudah di-override manual (qty_locked).
@@ -92,10 +107,17 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
     return { totalIncome, totalExpense, headcount, margin, perPax };
   }, [income, expense, qtySources, autoIncomeTotal, autoExpenseTotal]);
 
+  // Margin per vendor (income sama, HPP beda) untuk tabel perbandingan.
+  const vendorTotals = useMemo(() => vendors.map((v) => {
+    const exp = (v.expense || []).reduce((s, r) => s + (r.type === 'hotel' ? hotelTotal(r) : itemSubtotal(r)), 0) + autoExpenseTotal;
+    const margin = totals.totalIncome - exp;
+    return { name: v.name, expense: exp, margin, perPax: totals.headcount > 0 ? margin / totals.headcount : 0 };
+  }), [vendors, totals.totalIncome, totals.headcount, qtySources, autoExpenseTotal]);
+
   function doSave() {
     setSavedMsg('');
     start(async () => {
-      const res = await saveProfitEstimate(trip.id, { ...meta, income, expense });
+      const res = await saveProfitEstimate(trip.id, { ...meta, income, vendors });
       if (res?.error) { setSavedMsg('⚠ ' + res.error); return; }
       setSavedMsg('✓ Tersimpan'); router.refresh();
     });
@@ -175,8 +197,23 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
         </div>
         <button onClick={addCustomIncome} className="mt-1 text-[11px] text-brand-600 font-semibold no-print">+ tambah item income</button>
 
-        {/* EXPENSE */}
-        <p className="text-xs font-bold text-brand-700 mt-4 mb-1">📤 EXPENSE / HPP (biaya vendor)</p>
+        {/* EXPENSE + VENDOR PERBANDINGAN */}
+        <div className="flex items-center justify-between mt-4 mb-1">
+          <p className="text-xs font-bold text-brand-700">📤 EXPENSE / HPP — <span className="text-slate-800">{vendors[activeV]?.name || 'Vendor'}</span></p>
+          <span className="text-[10px] text-slate-400 no-print">Vendor #1 ⭐ = dipakai untuk Proyeksi/Accounting</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1 mb-2 no-print">
+          {vendors.map((v, idx) => (
+            <button key={idx} onClick={() => setActiveV(idx)} className={`text-[11px] px-2 py-1 rounded font-semibold border ${idx === activeV ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}>{v.name || `Vendor ${idx + 1}`}{idx === 0 ? ' ⭐' : ''}</button>
+          ))}
+          <button onClick={addVendor} className="text-[11px] px-2 py-1 rounded bg-emerald-100 text-emerald-800 font-semibold hover:bg-emerald-200">+ Tambah Vendor (perbandingan)</button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 mb-2 no-print">
+          <span className="text-[11px] text-slate-500">Nama vendor:</span>
+          <input className="px-2 py-1 border border-slate-300 rounded text-xs" value={vendors[activeV]?.name || ''} onChange={(e) => renameVendor(activeV, e.target.value)} placeholder="mis. Vendor A / PT Xxx" />
+          {activeV !== 0 && <button onClick={() => setPrimary(activeV)} className="text-[11px] px-2 py-1 rounded bg-amber-100 text-amber-800 font-semibold hover:bg-amber-200">⭐ Jadikan Utama</button>}
+          {vendors.length > 1 && <button onClick={() => delVendor(activeV)} className="text-[11px] px-2 py-1 rounded bg-red-50 text-red-600 font-semibold hover:bg-red-100">🗑 Hapus vendor ini</button>}
+        </div>
         <div className="flex flex-wrap gap-1 mb-2 no-print">
           {TPL.map((t) => (
             <button key={t.category} onClick={() => addItem(t.category, t.qty_source)} className="text-[11px] px-2 py-1 rounded bg-slate-100 hover:bg-brand-100 text-slate-700 font-medium">+ {t.category}</button>
@@ -270,6 +307,41 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
           <div className={`rounded-lg border p-2 ${totals.margin >= 0 ? 'border-blue-200 bg-blue-50' : 'border-red-300 bg-red-50'}`}><p className="text-[10px] uppercase font-bold text-slate-600">Total Margin</p><p className={`text-sm font-bold ${totals.margin >= 0 ? 'text-blue-800' : 'text-red-700'}`}>{rupiah(totals.margin)}</p></div>
           <div className={`rounded-lg border p-2 ${totals.perPax >= 0 ? 'border-indigo-200 bg-indigo-50' : 'border-red-300 bg-red-50'}`}><p className="text-[10px] uppercase font-bold text-slate-600">Margin / Pax ({totals.headcount} pax)</p><p className={`text-sm font-bold ${totals.perPax >= 0 ? 'text-indigo-800' : 'text-red-700'}`}>{rupiah(totals.perPax)}</p></div>
         </div>
+
+        {/* PERBANDINGAN VENDOR (layar saja) */}
+        {vendors.length > 1 && (
+          <div className="mt-4 no-print">
+            <p className="text-xs font-bold text-brand-700 mb-1">📊 Perbandingan Margin per Vendor</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border-collapse">
+                <thead className="bg-slate-100 text-[10px] uppercase text-slate-600"><tr>
+                  <th className="border border-slate-300 px-2 py-1 text-left">Vendor</th>
+                  <th className="border border-slate-300 px-2 py-1 text-right">Income</th>
+                  <th className="border border-slate-300 px-2 py-1 text-right">HPP</th>
+                  <th className="border border-slate-300 px-2 py-1 text-right">Margin</th>
+                  <th className="border border-slate-300 px-2 py-1 text-right">Margin/Pax</th>
+                  <th className="border border-slate-300 px-2 py-1"></th>
+                </tr></thead>
+                <tbody>
+                  {vendorTotals.map((vt, idx) => (
+                    <tr key={idx} className={idx === activeV ? 'bg-brand-50' : ''}>
+                      <td className="border border-slate-300 px-2 py-1 font-semibold">{vt.name || `Vendor ${idx + 1}`}{idx === 0 ? ' ⭐' : ''}</td>
+                      <td className="border border-slate-300 px-2 py-1 text-right text-emerald-700">{rupiah(totals.totalIncome)}</td>
+                      <td className="border border-slate-300 px-2 py-1 text-right text-rose-700">{rupiah(vt.expense)}</td>
+                      <td className={`border border-slate-300 px-2 py-1 text-right font-bold ${vt.margin >= 0 ? 'text-blue-700' : 'text-red-600'}`}>{rupiah(vt.margin)}</td>
+                      <td className={`border border-slate-300 px-2 py-1 text-right ${vt.perPax >= 0 ? 'text-indigo-700' : 'text-red-600'}`}>{rupiah(vt.perPax)}</td>
+                      <td className="border border-slate-300 px-2 py-1 text-center whitespace-nowrap">
+                        <button onClick={() => setActiveV(idx)} className="text-brand-600 font-semibold mr-2">Buka</button>
+                        <button onClick={() => printVendor(idx)} className="text-slate-700 font-semibold">🖨 PDF</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1">Income sama untuk semua vendor. Margin = Income − HPP vendor. ⭐ = vendor utama (dipakai Proyeksi/Accounting). Tombol 🖨 PDF mencetak perhitungan vendor tsb.</p>
+          </div>
+        )}
 
         <div className="mt-3"><p className="text-[10px] uppercase text-slate-500 font-bold mb-1">Noted</p><textarea className="w-full px-2 py-1 border border-slate-300 rounded text-xs print:border-0" rows={2} value={meta.noted} onChange={(e) => setMeta({ ...meta, noted: e.target.value })} placeholder="Catatan tambahan (mis. IF TAMBAH 2,5JT PER PAX, hotel, dll)" /></div>
       </div>

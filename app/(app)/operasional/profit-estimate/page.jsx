@@ -49,6 +49,7 @@ export default async function ProfitEstimatePage({ searchParams }) {
         meta={est.meta}
         income={est.income}
         expense={est.expense}
+        vendors={est.vendors}
         autoIncome={est.autoIncome}
         autoExpense={est.autoExpense}
         templates={est.templates}
