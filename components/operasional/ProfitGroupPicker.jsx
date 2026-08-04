@@ -5,15 +5,86 @@
 // Path: components/operasional/ProfitGroupPicker.jsx
 import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { setOfferingVendor } from '@/lib/actions/profit-estimate';
+import { setOfferingVendor, setOwnerReview } from '@/lib/actions/profit-estimate';
 
 const rupiah = (n) => 'Rp ' + (Math.round(Number(n) || 0)).toLocaleString('id-ID');
+
+const APPROVAL_META = {
+  approved: { label: '✅ Disetujui', cls: 'bg-emerald-50 border-emerald-300 text-emerald-700' },
+  revisi: { label: '✏️ Perlu Revisi', cls: 'bg-amber-50 border-amber-300 text-amber-700' },
+  hold: { label: '⏸️ Ditahan', cls: 'bg-slate-100 border-slate-300 text-slate-600' },
+};
+
+// Kartu catatan + approval owner/manager/accounting (di luar Link biar bisa diinput sendiri).
+function OwnerReviewBox({ g, canReview }) {
+  const [note, setNote] = useState(g.ownerNote || '');
+  const [appr, setAppr] = useState(g.ownerApproval || '');
+  const [savedMsg, setSavedMsg] = useState('');
+  const [busy, start] = useTransition();
+
+  function save(nextAppr) {
+    const _appr = nextAppr !== undefined ? nextAppr : appr;
+    setAppr(_appr || '');
+    setSavedMsg('');
+    start(async () => {
+      const r = await setOwnerReview(g.id, note, _appr || null);
+      if (r?.error) { alert('Gagal simpan: ' + r.error); return; }
+      setSavedMsg('Tersimpan ✓');
+    });
+  }
+
+  const meta = APPROVAL_META[g.ownerApproval];
+
+  if (!canReview) {
+    // Tampilan read-only untuk role lain — hanya muncul jika ada catatan/approval.
+    if (!g.ownerNote && !g.ownerApproval) return null;
+    return (
+      <div className="rounded-md bg-indigo-50 border border-indigo-200 px-2 py-1.5 space-y-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-600">📝 Catatan Owner</span>
+          {meta && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${meta.cls}`}>{meta.label}</span>}
+        </div>
+        {g.ownerNote && <p className="text-[11px] text-slate-700 whitespace-pre-wrap">{g.ownerNote}</p>}
+        {(g.reviewBy || g.reviewAtFmt) && (
+          <p className="text-[9px] text-slate-400">{g.reviewBy}{g.reviewBy && g.reviewAtFmt ? ' · ' : ''}{g.reviewAtFmt}</p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md bg-indigo-50 border border-indigo-200 px-2 py-1.5 space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-600">📝 Catatan / Approval Owner</span>
+        {meta && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${meta.cls}`}>{meta.label}</span>}
+      </div>
+      <textarea
+        value={note} onChange={(e) => setNote(e.target.value)}
+        placeholder="Tulis catatan untuk trip ini…" rows={2}
+        className="w-full px-2 py-1 border border-indigo-200 rounded text-[11px] resize-y bg-white"
+      />
+      <div className="flex flex-wrap items-center gap-1">
+        <button type="button" disabled={busy} onClick={() => save('approved')}
+          className="text-[10px] font-bold px-2 py-1 rounded border bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50">✅ Setujui</button>
+        <button type="button" disabled={busy} onClick={() => save('revisi')}
+          className="text-[10px] font-bold px-2 py-1 rounded border bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 disabled:opacity-50">✏️ Revisi</button>
+        <button type="button" disabled={busy} onClick={() => save('hold')}
+          className="text-[10px] font-bold px-2 py-1 rounded border bg-slate-100 border-slate-300 text-slate-600 hover:bg-slate-200 disabled:opacity-50">⏸️ Tahan</button>
+        <button type="button" disabled={busy} onClick={() => save()}
+          className="text-[10px] font-bold px-2 py-1 rounded border bg-indigo-100 border-indigo-300 text-indigo-700 hover:bg-indigo-200 disabled:opacity-50 ml-auto">💾 Simpan catatan</button>
+      </div>
+      {(savedMsg || g.reviewBy || g.reviewAtFmt) && (
+        <p className="text-[9px] text-slate-400">{savedMsg || `${g.reviewBy}${g.reviewBy && g.reviewAtFmt ? ' · ' : ''}${g.reviewAtFmt}`}</p>
+      )}
+    </div>
+  );
+}
 
 function nowMonthKey() {
   try { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; } catch { return '0000-00'; }
 }
 
-export default function ProfitGroupPicker({ groups = [] }) {
+export default function ProfitGroupPicker({ groups = [], canReview = false }) {
   const [q, setQ] = useState('');
   const [off, setOff] = useState({});        // override status offering per trip id (optimistic)
   const [, start] = useTransition();
@@ -116,8 +187,9 @@ export default function ProfitGroupPicker({ groups = [] }) {
                     )}
                   </Link>
 
-                  {/* Offering vendor + link web/itinerary (di luar Link biar bisa diklik sendiri) */}
+                  {/* Offering vendor + link web/itinerary + catatan owner (di luar Link biar bisa diklik sendiri) */}
                   <div className="px-3 pb-3 pt-1 space-y-1.5">
+                    <OwnerReviewBox g={g} canReview={canReview} />
                     {req ? (
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between gap-2 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-1.5">

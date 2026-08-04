@@ -23,7 +23,7 @@ export default async function ProfitEstimatePage({ searchParams }) {
           <h1 className="text-3xl font-bold text-brand-700">📈 Estimate Profit Group</h1>
           <p className="mt-1 text-slate-600">Pilih group untuk hitung estimasi profit. Harga jual otomatis dari Master Trip — ops tinggal isi jumlah pax & biaya vendor (expense). Bisa di-download PDF.</p>
         </div>
-        <ProfitGroupPicker groups={groupsRes.rows || []} />
+        <ProfitGroupPicker groups={groupsRes.rows || []} canReview={!!groupsRes.canReview} />
       </div>
     );
   }
