@@ -99,6 +99,17 @@ export default function ProfitGroupPicker({ groups = [] }) {
                       <p className="text-[10px] text-slate-400 mt-0.5">Income {rupiah(g.income)} · Exp {rupiah(g.expense)}</p>
                       {!g.hasExpense && <p className="text-[10px] text-amber-600 mt-0.5">⚠ belum ada expense — klik untuk lengkapi</p>}
                     </div>
+                    {Array.isArray(g.vendors) && g.vendors.length > 1 && (
+                      <div className="mt-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
+                        <p className="text-[9px] uppercase tracking-wide text-slate-400 leading-none mb-1">Perbandingan Vendor</p>
+                        {g.vendors.map((v, i) => (
+                          <div key={i} className="flex items-center justify-between text-[10px] leading-tight gap-2">
+                            <span className="text-slate-600 truncate">{v.name}{i === 0 ? ' ⭐' : ''}</span>
+                            <span className={`font-bold whitespace-nowrap ${Number(v.margin) >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{rupiah(v.margin)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {g.hasEstimate && g.savedAtFmt && (
                       <p className="text-[10px] text-slate-400 mt-1">🕒 update {g.savedAtFmt}{g.savedBy ? ` · ${g.savedBy}` : ''}</p>
                     )}
