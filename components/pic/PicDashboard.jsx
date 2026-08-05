@@ -67,7 +67,7 @@ export default function PicDashboard({ data }) {
   const T = M.ticketing || {}, V = M.visa || {}, P = M.preparation || {};
   const PAY = d.payment || {};
 
-  const cntTicket = (T.fullNoTicket || []).length + (T.notIssued || []).length;
+  const cntTicket = (T.fullNoTicket || []).length + (T.readyToBuyTicket || []).length + (T.notIssued || []).length;
   const cntVisa = (V.groupH60 || []).length + (V.notProcessed || []).length + (V.paidUnscheduled || []).length + (V.fullH5 || []).length;
   const cntPay = (PAY.soonToday || []).length + (PAY.soonWeek || []).length + (PAY.overdueByTrip || []).length;
   const prepTrips = P.trips || [];
@@ -92,6 +92,9 @@ export default function PicDashboard({ data }) {
         <Card title="MONITOR TIKET" icon="🎫" accent="bg-sky-50" count={cntTicket} open={!!openCard.ticketing} onToggle={() => toggleCard('ticketing')}>
           <Block label="Full tapi belum ada tiket" hint="Group full tapi belum ada PNR ke-connect — segera issue tiket." items={(T.fullNoTicket || []).length} color="text-red-700">
             {(T.fullNoTicket || []).map((t) => <TripLine key={t.id} t={t} href="/finance/pnr" right={<span className="text-[10px] font-bold text-red-600 whitespace-nowrap">FULL · no tiket</span>} />)}
+          </Block>
+          <Block label="Siap beli tiket (≥70% terisi)" hint="Group sudah terisi ≥70% tapi belum ada PNR ke-connect — siapkan/kunci tiket sebelum penuh." items={(T.readyToBuyTicket || []).length} color="text-orange-700">
+            {(T.readyToBuyTicket || []).map((t) => <TripLine key={t.id} t={t} href="/finance/pnr" right={<span className="text-[10px] font-bold text-orange-600 whitespace-nowrap">{t.fillPct}% · siap beli tiket</span>} />)}
           </Block>
           <Block label="Peserta belum di-issue" hint="Tiket FIT/Domestik sudah ke-connect tapi peserta belum dicentang issued (di Edit PNR)." items={(T.notIssued || []).length} color="text-amber-700">
             {(T.notIssued || []).map((t) => (

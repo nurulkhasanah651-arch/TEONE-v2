@@ -86,7 +86,7 @@ export default function ManagerDashboard({ data }) {
     </button>
   );
 
-  const cntTicketing = vis('ticketing.fullNoTicket', T.fullNoTicket).length + vis('ticketing.notIssued', T.notIssued).length;
+  const cntTicketing = vis('ticketing.fullNoTicket', T.fullNoTicket).length + vis('ticketing.readyToBuy', T.readyToBuyTicket).length + vis('ticketing.notIssued', T.notIssued).length;
   const cntVisa = vis('visa.groupH60', V.groupH60).length + vis('visa.notProcessed', V.notProcessed).length + vis('visa.paidUnscheduled', V.paidUnscheduled).length + vis('visa.fullH5', V.fullH5).length;
   const cntOps = vis('operation.newRelease', O.newRelease).length + vis('operation.fullNoOffering', O.fullNoOffering).length + vis('operation.estimateNotUpdated', O.estimateNotUpdated).length;
   const cntSell = vis('selling.slowSelling', S.slowSelling).length + vis('selling.almostFull', S.almostFull).length;
@@ -113,6 +113,9 @@ export default function ManagerDashboard({ data }) {
         <Card title="MONITOR TICKETING" icon="🎫" accent="bg-sky-50" count={cntTicketing} open={!!openCard.ticketing} onToggle={() => toggleCard('ticketing')}>
           <Block label="Full tapi belum ada tiket" hint="Group full tapi belum ada PNR ke-connect — segera issue tiket." items={vis('ticketing.fullNoTicket', T.fullNoTicket).length} color="text-red-700">
             {vis('ticketing.fullNoTicket', T.fullNoTicket).map((t) => <TripLine key={t.id} t={t} href="/finance/pnr" right={<div className="flex items-center gap-1.5"><span className="text-[10px] font-bold text-red-600 whitespace-nowrap">FULL · no tiket</span><FollowBtn section="ticketing.fullNoTicket" tripId={t.id} /></div>} />)}
+          </Block>
+          <Block label="Siap beli tiket (≥70% terisi)" hint="Group sudah terisi ≥70% tapi belum ada PNR ke-connect — siapkan/kunci tiket sebelum penuh." items={vis('ticketing.readyToBuy', T.readyToBuyTicket).length} color="text-orange-700">
+            {vis('ticketing.readyToBuy', T.readyToBuyTicket).map((t) => <TripLine key={t.id} t={t} href="/finance/pnr" right={<div className="flex items-center gap-1.5"><span className="text-[10px] font-bold text-orange-600 whitespace-nowrap">{t.fillPct}% · siap beli tiket</span><FollowBtn section="ticketing.readyToBuy" tripId={t.id} /></div>} />)}
           </Block>
           <Block label="Peserta belum di-issue" hint="Tiket FIT/Domestik yg sudah ke-connect tapi peserta belum dicentang issued. Checklist ada di Edit PNR." items={vis('ticketing.notIssued', T.notIssued).length} color="text-amber-700">
             {vis('ticketing.notIssued', T.notIssued).map((t) => (
