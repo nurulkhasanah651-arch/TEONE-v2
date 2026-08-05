@@ -46,6 +46,14 @@ export default async function OperasionalPage() {
           badge="TC per trip"
           color="from-sky-500 to-blue-700"
         />
+        <SectionCard
+          href="/operasional/itinerary"
+          icon="🧭"
+          title="Itinerary Only"
+          desc="Itinerary per trip: tabel detail penerbangan + jadwal perjalanan harian (bisa diedit / input flight kalau belum ada). Download PDF format itinerary."
+          badge="Itinerary PDF"
+          color="from-indigo-500 to-violet-700"
+        />
       </div>
     </div>
   );
