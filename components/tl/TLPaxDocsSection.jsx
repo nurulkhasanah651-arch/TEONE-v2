@@ -14,7 +14,7 @@ function buildU(supaUrl, bucket, pathOrUrl) {
   return `${supaUrl}/storage/v1/object/authenticated/${bucket}/${clean}`;
 }
 
-// visa_result bisa berupa URL publik lama ATAU path baru relatif bucket visa-results.
+// visa_result_photo_url bisa berupa URL publik lama ATAU path baru relatif bucket visa-results.
 function visaResultPath(stored) {
   if (!stored) return null;
   const s = String(stored);
@@ -39,24 +39,28 @@ function DocChip({ u, label, tone = 'brand' }) {
 export default function TLPaxDocsSection({ passengers = [], customerMap = {}, supaUrl = '' }) {
   const rows = passengers.map((p, idx) => {
     const c = customerMap[p.customer_id] || {};
-    // Paspor — sinkron dengan Passport AI (passport_photo_url, bucket tl-uploads).
-    // Fallback ke passport_upload_path (bucket passport-uploads) bila via upload token.
+    // Paspor — sinkron dengan Passport AI: foto tersimpan di record CUSTOMER
+    // (customers.passport_photo_url, URL publik bucket tl-uploads).
+    // Fallback ke passport_upload_path di trip_passengers (upload via token).
     const passports = [];
-    if (p.passport_photo_url) passports.push({ label: 'Paspor', u: buildU(supaUrl, 'tl-uploads', p.passport_photo_url) });
+    const passportPhoto = c.passport_photo_url || p.passport_photo_url;
+    if (passportPhoto) passports.push({ label: 'Paspor', u: buildU(supaUrl, 'tl-uploads', passportPhoto) });
     else if (p.passport_upload_path) passports.push({ label: 'Paspor', u: buildU(supaUrl, 'passport-uploads', p.passport_upload_path) });
     if (Array.isArray(p.passport_extra_paths)) {
       p.passport_extra_paths.forEach((pp, i) => passports.push({ label: `Paspor hal.${i + 2}`, u: buildU(supaUrl, 'passport-uploads', pp) }));
     }
     const passportDocs = passports.filter((x) => x.u);
-    // Dokumen visa = VISA APPROVAL yang diupload staf di tab Visa (bucket visa-results).
-    const vrp = visaResultPath(p.visa_result);
+    // Visa approval (visa jadi) = file yang diupload staf di tab Visa → visa_result_photo_url
+    // (path di bucket visa-results). Catatan: kolom visa_result hanya STATUS ('approved' dll).
+    const vrp = visaResultPath(p.visa_result_photo_url);
     const visaApproval = vrp ? { label: 'Visa Approval', u: buildU(supaUrl, 'visa-results', vrp) } : null;
+    const visaStatus = String(p.visa_result || '').toLowerCase() === 'approved' && !visaApproval ? 'approved (file belum diupload)' : '';
 
     const has = passportDocs.length || !!visaApproval;
     return {
       id: p.id, idx, name: c.name || `Peserta #${p.id}`,
-      passportNo: p.passport_no || p.passport_number || '',
-      passportDocs, visaApproval, has,
+      passportNo: c.passport_no || c.passport_number || p.passport_no || p.passport_number || '',
+      passportDocs, visaApproval, visaStatus, has,
     };
   });
 
@@ -79,11 +83,11 @@ export default function TLPaxDocsSection({ passengers = [], customerMap = {}, su
                 <p className="font-semibold text-slate-800">{r.name}</p>
                 {r.passportNo && <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-mono">{r.passportNo}</span>}
               </div>
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              <div className="mt-2 flex flex-wrap gap-1.5 items-center">
                 {r.passportDocs.map((d, i) => <DocChip key={`p${i}`} u={d.u} label={d.label} tone="brand" />)}
                 {r.visaApproval && <DocChip u={r.visaApproval.u} label={r.visaApproval.label} tone="green" />}
                 {r.passportDocs.length === 0 && <span className="text-[11px] text-slate-400">paspor belum ada</span>}
-                {!r.visaApproval && <span className="text-[11px] text-slate-400">visa approval belum ada</span>}
+                {!r.visaApproval && <span className="text-[11px] text-slate-400">{r.visaStatus ? `visa ${r.visaStatus}` : 'visa approval belum ada'}</span>}
               </div>
             </div>
           ))}
