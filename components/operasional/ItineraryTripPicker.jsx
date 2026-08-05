@@ -25,6 +25,16 @@ export default function ItineraryTripPicker({ trips = [] }) {
                 : <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">belum</span>}
             </div>
             <p className="text-xs text-slate-700 mt-1 line-clamp-2 min-h-[2rem]">{t.name}</p>
+            {Array.isArray(t.ticketTypes) && t.ticketTypes.length > 0 ? (
+              <div className="mt-1 flex flex-wrap items-center gap-1">
+                {t.ticketTypes.map((tt) => (
+                  <span key={tt} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-700">✈ {tt}</span>
+                ))}
+                {t.ticketIssued && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">🎫 tiket terbit</span>}
+              </div>
+            ) : (
+              <div className="mt-1"><span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-400">belum ada tiket</span></div>
+            )}
             <p className="text-[10px] text-slate-400 mt-1">{fmt(t.departure)}{t.pax ? ` · ${t.pax} pax` : ''}{t.pic ? ` · ${t.pic}` : ''}</p>
           </Link>
         ))}
