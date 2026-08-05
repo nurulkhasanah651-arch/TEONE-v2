@@ -78,8 +78,8 @@ export default function PicDashboard({ data }) {
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-brand-700">🧭 Dashboard PIC · {d.name || ''}</h1>
-          <p className="text-sm text-slate-500">Monitor khusus trip yang di-assign ke Anda. Klik judul untuk buka detail. {d.monitor?.generatedAt && `· Update ${new Date(d.monitor.generatedAt).toLocaleString('id-ID')}`}</p>
+          <h1 className="text-2xl font-bold text-brand-700">🧭 Dashboard PIC · {d.name || ''}{d.seeAll ? ' · SPV' : ''}</h1>
+          <p className="text-sm text-slate-500">{d.seeAll ? 'Monitor SEMUA trip (SPV PIC).' : 'Monitor khusus trip yang di-assign ke Anda.'} Klik judul untuk buka detail. {d.monitor?.generatedAt && `· Update ${new Date(d.monitor.generatedAt).toLocaleString('id-ID')}`}</p>
         </div>
         <button type="button" onClick={() => { const anyOpen = ['ticketing','payment','visa','preparation'].some((k) => openCard[k]); setOpenCard(anyOpen ? {} : { ticketing: true, payment: true, visa: true, preparation: true }); }}
           className="text-xs font-semibold text-brand-600 border border-brand-300 rounded-lg px-3 py-1.5 hover:bg-brand-50 whitespace-nowrap">
