@@ -39,27 +39,24 @@ function DocChip({ u, label, tone = 'brand' }) {
 export default function TLPaxDocsSection({ passengers = [], customerMap = {}, supaUrl = '' }) {
   const rows = passengers.map((p, idx) => {
     const c = customerMap[p.customer_id] || {};
-    // Paspor
+    // Paspor — sinkron dengan Passport AI (passport_photo_url, bucket tl-uploads).
+    // Fallback ke passport_upload_path (bucket passport-uploads) bila via upload token.
     const passports = [];
-    const pMain = p.passport_upload_path || p.passport_photo_url;
-    if (pMain) passports.push({ label: 'Paspor', u: buildU(supaUrl, 'passport-uploads', pMain) });
+    if (p.passport_photo_url) passports.push({ label: 'Paspor', u: buildU(supaUrl, 'tl-uploads', p.passport_photo_url) });
+    else if (p.passport_upload_path) passports.push({ label: 'Paspor', u: buildU(supaUrl, 'passport-uploads', p.passport_upload_path) });
     if (Array.isArray(p.passport_extra_paths)) {
       p.passport_extra_paths.forEach((pp, i) => passports.push({ label: `Paspor hal.${i + 2}`, u: buildU(supaUrl, 'passport-uploads', pp) }));
     }
     const passportDocs = passports.filter((x) => x.u);
-    // Dokumen visa yang diupload peserta (tab Visa)
-    const visaDocs = (Array.isArray(p.visa_uploaded_docs) ? p.visa_uploaded_docs : [])
-      .map((d) => ({ label: d.doc_name || d.original_name || 'Dokumen Visa', u: buildU(supaUrl, 'visa-documents', d.file_path || d.file_url) }))
-      .filter((x) => x.u);
-    // Hasil visa (visa jadi)
+    // Dokumen visa = VISA APPROVAL yang diupload staf di tab Visa (bucket visa-results).
     const vrp = visaResultPath(p.visa_result);
-    const visaResult = vrp ? { label: 'Visa (hasil)', u: buildU(supaUrl, 'visa-results', vrp) } : null;
+    const visaApproval = vrp ? { label: 'Visa Approval', u: buildU(supaUrl, 'visa-results', vrp) } : null;
 
-    const has = passportDocs.length || visaDocs.length || !!visaResult;
+    const has = passportDocs.length || !!visaApproval;
     return {
       id: p.id, idx, name: c.name || `Peserta #${p.id}`,
       passportNo: p.passport_no || p.passport_number || '',
-      passportDocs, visaDocs, visaResult, has,
+      passportDocs, visaApproval, has,
     };
   });
 
@@ -69,7 +66,7 @@ export default function TLPaxDocsSection({ passengers = [], customerMap = {}, su
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-200 bg-slate-50">
         <h2 className="font-bold text-brand-700">📄 Dokumen Peserta — Paspor &amp; Visa ({withDocs.length}/{rows.length})</h2>
-        <p className="text-xs text-slate-500 mt-0.5">Paspor & dokumen/hasil visa yang sudah diupload. Klik untuk buka file.</p>
+        <p className="text-xs text-slate-500 mt-0.5">Paspor (dari Passport AI) &amp; visa approval (dari tab Visa). Klik untuk buka file.</p>
       </div>
       {withDocs.length === 0 ? (
         <p className="p-6 text-center text-sm text-slate-500">Belum ada dokumen paspor / visa yang terupload.</p>
@@ -84,8 +81,9 @@ export default function TLPaxDocsSection({ passengers = [], customerMap = {}, su
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {r.passportDocs.map((d, i) => <DocChip key={`p${i}`} u={d.u} label={d.label} tone="brand" />)}
-                {r.visaDocs.map((d, i) => <DocChip key={`v${i}`} u={d.u} label={d.label} tone="brand" />)}
-                {r.visaResult && <DocChip u={r.visaResult.u} label={r.visaResult.label} tone="green" />}
+                {r.visaApproval && <DocChip u={r.visaApproval.u} label={r.visaApproval.label} tone="green" />}
+                {r.passportDocs.length === 0 && <span className="text-[11px] text-slate-400">paspor belum ada</span>}
+                {!r.visaApproval && <span className="text-[11px] text-slate-400">visa approval belum ada</span>}
               </div>
             </div>
           ))}
