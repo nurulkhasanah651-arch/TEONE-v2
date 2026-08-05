@@ -24,6 +24,7 @@ const GROUPS = [
     items: [
       { href: '/ceo',       label: 'CEO · AI',    icon: '🧠', roles: ['owner'] },
       { href: '/manager-dashboard', label: 'Dashboard Manager', icon: '📊', roles: ['owner', 'manager', 'accounting'] },
+      { href: '/pic-dashboard', label: 'Dashboard PIC', icon: '🧭', roles: ['pic'] },
       { href: '/dashboard', label: 'Dashboard',   icon: '◆', roles: ALL_ROLES },
       { href: '/trips',      label: 'Master Trip', icon: '✈', roles: ALL_ROLES },
       { href: '/cs',         label: 'CS Daily',    icon: '☎', roles: ALL_ROLES },

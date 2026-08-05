@@ -63,7 +63,7 @@ export default function DailyTodo({ data, basePath = '/manager-dashboard' }) {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-brand-700">📝 To-Do List Harian</h1>
-          <p className="text-sm text-slate-500">Catatan kerja harian — otomatis jadi laporan ke owner &amp; accounting. Isi sendiri lama pengerjaan &amp; jenis kerja (delegasi / teknis / strategist) tiap item.</p>
+          <p className="text-sm text-slate-500">Catatan kerja harian — otomatis jadi laporan ke atasan (tim/PIC → manager, owner, accounting · manager → owner). Isi sendiri lama pengerjaan &amp; jenis kerja (delegasi / teknis / strategist) tiap item.</p>
         </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => go(shiftDate(date, -1))} className="px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg hover:bg-slate-50">←</button>
