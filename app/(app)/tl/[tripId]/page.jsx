@@ -19,6 +19,8 @@ import SignedFileLink from '@/components/common/SignedFileLink';
 import FinalReportForm from '@/components/tl/FinalReportForm';
 import VendorReviewSection from '@/components/tl/VendorReviewSection';
 import TLManifestRoomlist from '@/components/tl/TLManifestRoomlist';
+import TLPaxDocsSection from '@/components/tl/TLPaxDocsSection';
+import { supabaseEnvFor } from '@/lib/brand-shared';
 // R177v2: TL payment request — OPS ONLY
 import RequestTLPaymentButtons from '@/components/tl/RequestTLPaymentButtons';
 import { requestTLPayment, getTLPaymentsForTrip } from '@/lib/actions/tl-payments';
@@ -40,6 +42,7 @@ export default async function TLTripDetailPage({ params, searchParams }) {
   const brandParam = String(sp.tb || '').toLowerCase();
   const crossBrand = BRAND_CODES.includes(brandParam) && brandParam !== currentBrandCode();
   const brandCode = crossBrand ? brandParam : currentBrandCode();
+  const supaUrl = supabaseEnvFor(brandCode).url;  // untuk buka file paspor/visa (brand trip)
   const supabase = createClient();
   // Lintas-brand: baca/tulis ke DB brand trip (service client), bukan sesi user (beda project).
   const svcCross = crossBrand ? serviceClientFor(brandParam) : null;
@@ -296,6 +299,7 @@ export default async function TLTripDetailPage({ params, searchParams }) {
                 </div>
               )}
             </div>
+            <TLPaxDocsSection passengers={passengers} customerMap={customerMap} supaUrl={supaUrl} />
           </>
         );
       })()}
