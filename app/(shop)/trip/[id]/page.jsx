@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { resolveBrandCode } from '@/lib/brand-shared';
 import { storefrontConfig } from '@/lib/shop/storefront-config';
 import { defaultTermsFor } from '@/lib/shop/default-terms';
-import { getPublishedTrip, tripSeatLeft, tripPrice, tripRoomPrices, landTourFrom, getStorefrontSettingsPublic, getFlashSaleTrips } from '@/lib/shop/data';
+import { getPublishedTrip, tripSeatLeft, tripPrice, tripRoomPrices, khMandatoryAddons, landTourFrom, getStorefrontSettingsPublic, getFlashSaleTrips } from '@/lib/shop/data';
 import HeroSlider from '@/components/shop/HeroSlider';
 import HotelSlider from '@/components/shop/HotelSlider';
 import ShareTrip from '@/components/shop/ShareTrip';
@@ -92,6 +92,12 @@ export default async function TripDetailPage({ params }) {
   const sk = lines(skText);
   const visa = lines(t.syarat_visa);
 
+  // Biaya wajib yg tampil di card. Khasanah: SEMUA field pokok yg diisi di master trip
+  // (visa, asuransi, visa & asuransi, handling & perlengkapan, tips, bagasi domestik, dll).
+  // TEONE: tetap seperti semula (hanya main addon dari tipe kamar pertama).
+  const _isKhCard = brand === 'khasanah';
+  const wajibAddons = _isKhCard ? khMandatoryAddons(t) : (rooms[0]?.addons || []);
+
   const priceCard = (
           <div className="sticky top-20 border border-slate-200 rounded-2xl p-5 shadow-sm">
             <p className="text-xs text-slate-500">Harga mulai</p>
@@ -109,18 +115,18 @@ export default async function TripDetailPage({ params }) {
                     </li>
                   ))}
                 </ul>
-                {rooms[0]?.addons?.length > 0 && (
+                {wajibAddons.length > 0 && (
                   <div className="mt-3">
                     <p className="text-xs font-bold text-slate-500 mb-1.5">Biaya wajib (semua peserta)</p>
                     <ul className="space-y-1">
-                      {rooms[0].addons.map((a, i) => (
+                      {wajibAddons.map((a, i) => (
                         <li key={i} className="flex items-center justify-between text-sm">
                           <span className="text-slate-600">{a.label}</span>
                           <span className="font-semibold text-slate-700">{fmtRp(a.value)}</span>
                         </li>
                       ))}
                     </ul>
-                    <p className="text-[11px] text-slate-400 mt-2">Harga akhir per orang = harga tipe + biaya wajib. Visa & opsional tidak termasuk.</p>
+                    <p className="text-[11px] text-slate-400 mt-2">{_isKhCard ? 'Harga akhir per orang = harga tipe kamar + biaya wajib (sudah termasuk visa & asuransi).' : 'Harga akhir per orang = harga tipe + biaya wajib. Visa & opsional tidak termasuk.'}</p>
                   </div>
                 )}
               </div>
@@ -300,8 +306,8 @@ export default async function TripDetailPage({ params }) {
                 ))}
               </div>
               {t.dp_amount > 0 && <p className="text-sm text-emerald-700 font-semibold mt-2">Booking cukup DP {fmtRp(t.dp_amount)}</p>}
-              {rooms[0]?.addons?.length > 0 && (
-                <p className="text-[11px] text-slate-400 mt-1">Biaya wajib: {rooms[0].addons.map((a) => `${a.label} ${fmtRp(a.value)}`).join(' · ')}. Harga akhir = tipe kamar + biaya wajib.</p>
+              {wajibAddons.length > 0 && (
+                <p className="text-[11px] text-slate-400 mt-1">Biaya wajib: {wajibAddons.map((a) => `${a.label} ${fmtRp(a.value)}`).join(' · ')}. Harga akhir = tipe kamar + biaya wajib.</p>
               )}
             </div>
           )}
