@@ -267,7 +267,7 @@ export default async function TripDetailPage({ params }) {
           {isKh && Array.isArray(t.web_hotels) && t.web_hotels.length > 0 && (
             <div>
               <h2 className="text-xl font-bold text-slate-900 mb-1 flex items-center gap-2"><span aria-hidden>🏨</span> Hotel</h2>
-              <p className="text-[11px] text-slate-400 italic mb-3">*Hotel dapat berupa hotel setaraf — dipilih berdasarkan fasilitas & harga yang sama sesuai paket umroh.</p>
+              <p className="text-[11px] text-slate-400 italic mb-3">*Hotel dapat berubah ke hotel setaraf dengan fasilitas dan kategori yang sebanding, disesuaikan dengan ketersediaan serta harga yang sesuai dengan paket umrah.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {t.web_hotels.map((h, i) => {
                   const imgs = Array.isArray(h.images) ? h.images.filter(Boolean) : (h.image ? [h.image] : []);
