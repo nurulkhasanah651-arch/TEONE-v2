@@ -387,9 +387,6 @@ export default async function TripDetailPage({ params }) {
               <a href={_waDaftar} target="_blank" rel="noreferrer" className="block text-center w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-lg shadow-lg shadow-emerald-200">
                 📲 Daftar Lewat CS WhatsApp
               </a>
-              <a href={_waTanya} target="_blank" rel="noreferrer" className="block text-center w-full py-3 rounded-xl border-2 border-emerald-500 text-emerald-700 font-bold hover:bg-emerald-50">
-                💬 Pesan / tanya dulu lewat WhatsApp
-              </a>
             </div>
           )}
 
