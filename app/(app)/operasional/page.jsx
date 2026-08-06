@@ -54,6 +54,14 @@ export default async function OperasionalPage() {
           badge="Itinerary PDF"
           color="from-indigo-500 to-violet-700"
         />
+        <SectionCard
+          href="/operasional/roomlist"
+          icon="🛏"
+          title="Final Roomlist"
+          desc="Susun / edit Final Roomlist per trip. Begitu disimpan, master trip, Proyeksi Income & semua PDF (roomlist/manifest) otomatis mengikuti."
+          badge="Roomlist per trip"
+          color="from-teal-500 to-cyan-700"
+        />
       </div>
     </div>
   );
