@@ -62,8 +62,8 @@ export default async function ShopLayout({ children }) {
             )}
           </Link>
           <nav className="flex items-center gap-1.5 sm:gap-4 text-[13px] sm:text-sm font-semibold text-slate-600">
-            <Link href="/trip" className="hover:text-slate-900 px-2 py-1.5">Open Trip</Link>
-            <Link href="/request-trip" className="hover:text-emerald-700 text-emerald-600 px-2 py-1.5 whitespace-nowrap">✈ Custom Trip</Link>
+            <Link href="/trip" className="hover:text-slate-900 px-2 py-1.5">{isKh ? 'Paket Umroh' : 'Open Trip'}</Link>
+            <Link href="/request-trip" className="hover:text-emerald-700 text-emerald-600 px-2 py-1.5 whitespace-nowrap">✈ {isKh ? 'Umroh Private' : 'Custom Trip'}</Link>
             <Link href="/akun" className="hover:text-slate-900 px-2 py-1.5">Akun</Link>
             <a href={`https://wa.me/${wa}`} target="_blank" rel="noreferrer" className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white whitespace-nowrap">
               <span className="sm:hidden">💬</span><span className="hidden sm:inline">Tanya CS</span>

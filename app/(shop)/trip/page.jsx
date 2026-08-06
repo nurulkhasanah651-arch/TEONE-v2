@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { headers } from 'next/headers';
+import { resolveBrandCode } from '@/lib/brand-shared';
 import { getPublishedTrips, getCategorizedTrips, getStorefrontSettingsPublic, tripSeatLeft, TRIP_CATEGORY_DEFS, getEarlyBooking2027Trips } from '@/lib/shop/data';
 import { effectiveRegions, subcatsForRegion, subcatLabel, tripSubcat } from '@/lib/shop/regions';
 import TripCard from '@/components/shop/TripCard';
@@ -6,6 +8,10 @@ import TripCard from '@/components/shop/TripCard';
 export const dynamic = 'force-dynamic';
 
 export default async function TripListPage({ searchParams }) {
+  let _isKh = false;
+  try { const h = headers(); _isKh = (h.get('x-brand') || resolveBrandCode({ host: h.get('host') })) === 'khasanah'; } catch {}
+  const OPEN_LABEL = _isKh ? 'Paket Umroh' : 'Open Trip';
+  const CUSTOM_LABEL = _isKh ? 'Umroh Private' : 'Custom Trip';
   const region = searchParams?.region || null;
   const sub = searchParams?.sub || null;
   const month = searchParams?.month || null;
@@ -25,8 +31,9 @@ export default async function TripListPage({ searchParams }) {
   const regions = effectiveRegions(settings?.regions);
   const activeLabel = region ? (regions.find((r) => r.key === region)?.label || region) : null;
 
-  // Sub-kategori (mis. Eropa → West/East Europe, Spain, Santorini, Scandinavia)
-  const subcats = region ? subcatsForRegion(region) : [];
+  // Sub-kategori (mis. Eropa → West/East Europe, Spain, Santorini, Scandinavia) — TEONE only.
+  // Khasanah tidak pakai sub-kategori benua (Jepang/Korea/Mediterania dll).
+  const subcats = (region && !_isKh) ? subcatsForRegion(region) : [];
   if (region && sub) {
     trips = trips.filter((t) => tripSubcat(t, region) === sub);
   }
@@ -73,7 +80,7 @@ export default async function TripListPage({ searchParams }) {
     catGroups.sort((a, b) => (_hasSeat(a) ? 0 : 1) - (_hasSeat(b) ? 0 : 1));
   }
   const activeSubLabel = (region && sub) ? subcatLabel(region, sub) : null;
-  const heading = activeSubLabel ? `Open Trip — ${activeSubLabel}` : (activeLabel ? `Open Trip — ${activeLabel}` : 'Open Trip');
+  const heading = activeSubLabel ? `${OPEN_LABEL} — ${activeSubLabel}` : (activeLabel ? `${OPEN_LABEL} — ${activeLabel}` : OPEN_LABEL);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -82,7 +89,7 @@ export default async function TripListPage({ searchParams }) {
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">{heading}</h1>
           <p className="text-slate-500 mt-1 text-sm sm:text-base">Pilih destinasi & tanggal keberangkatanmu. Booking online, bayar aman.</p>
         </div>
-        <Link href="/request-trip" className="shrink-0 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold whitespace-nowrap">✈ Custom Trip</Link>
+        <Link href="/request-trip" className="shrink-0 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold whitespace-nowrap">✈ {CUSTOM_LABEL}</Link>
       </div>
 
       {/* Filter region (top-level) */}

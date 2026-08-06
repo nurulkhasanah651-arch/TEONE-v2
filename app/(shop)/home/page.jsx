@@ -36,6 +36,9 @@ export default async function StorefrontHome() {
     newZealandTrips,
     nextLevelTrips,
     early2027,
+    ramadhan2027,
+    winterJan2027,
+    wisataHalal,
     live,
   ] = await Promise.all([
     getStorefrontSettingsPublic(),
@@ -50,6 +53,9 @@ export default async function StorefrontHome() {
     getCategoryTrips(['new zealand','selandia baru','lupin'], 20),
     getCategoryTrips(['canada','kanada','usa','amerika','america','united states','new york','west coast','east coast','bhutan','nepal'], 20),
     getEarlyBooking2027Trips(30),
+    code === 'khasanah' ? getCategoryTrips(['ramadhan','ramadan','ramadhan 2027','ramadan 2027'], 20) : Promise.resolve([]),
+    code === 'khasanah' ? getCategoryTrips(['winter'], 20) : Promise.resolve([]),
+    code === 'khasanah' ? getCategoryTrips(['turki','cappadocia','abu dhabi','abudhabi','dubai','aqsa','west europe','europe','jordania'], 20) : Promise.resolve([]),
     loadGoogleReviews({ placeId: cfg.googlePlaceId || null, query: cfg.googlePlaceQuery || null, bias: cfg.googlePlaceBias || null }),
   ]);
   const heroImages = (settings?.hero_images && settings.hero_images.length) ? settings.hero_images : (cfg.heroImages || (cfg.heroImage ? [cfg.heroImage] : []));
@@ -60,6 +66,8 @@ export default async function StorefrontHome() {
   const reviewsUrl = live?.mapsUrl || cfg.googleReviewUrl;
 
   const _isKh = code === 'khasanah';
+  // Umroh Winter — hanya keberangkatan Januari 2027.
+  const _winterJan = (winterJan2027 || []).filter((t) => String(t.departure || '').slice(0, 7) === '2027-01');
   const _orgName = _isKh ? 'Khasanah Travel' : 'Traveling Eropa';
   const _orgUrl = _isKh ? 'https://www.khasanahtravel.com' : 'https://www.travelingeropa.com';
   const _orgLogo = (settings?.logo_url) || `${_orgUrl}/icon.png`;
@@ -194,7 +202,7 @@ export default async function StorefrontHome() {
       <section className="max-w-6xl mx-auto px-4 py-14">
         <div className="flex items-end justify-between mb-6">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-indigo-600">❄️ Trip Spesial Liburan Akhir Tahun</h2>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-indigo-600">❄️ {_isKh ? 'Umroh Spesial Libur Akhir Tahun' : 'Trip Spesial Liburan Akhir Tahun'}</h2>
             <p className="text-slate-500 mt-1">Amanin liburan akhir tahunmu dari sekarang! Belasan trip liburan akhir tahun sudah sold out — sisa ini aja!</p>
           </div>
           <Link href="/trip" className="hidden sm:inline text-sm font-bold text-indigo-600 hover:text-indigo-700">Lihat semua →</Link>
@@ -205,7 +213,55 @@ export default async function StorefrontHome() {
       </section>
       )}
 
-      {auroraTrips.length > 0 && (
+      {/* KHASANAH: Umroh Spesial Ramadhan 2027 */}
+      {_isKh && ramadhan2027.length > 0 && (
+      <section className="max-w-6xl mx-auto px-4 py-14">
+        <div className="flex items-end justify-between mb-6">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-emerald-600">🌙 Umroh Spesial Ramadhan 2027</h2>
+            <p className="text-slate-500 mt-1">Raih keberkahan umroh di bulan Ramadhan 2027 — kuota terbatas.</p>
+          </div>
+          <Link href="/trip" className="hidden sm:inline text-sm font-bold text-emerald-600 hover:text-emerald-700">Lihat semua →</Link>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+          {ramadhan2027.map((t) => <TripCard key={t.id} t={t} />)}
+        </div>
+      </section>
+      )}
+
+      {/* KHASANAH: Umroh Winter Januari 2027 */}
+      {_isKh && _winterJan.length > 0 && (
+      <section className="max-w-6xl mx-auto px-4 py-14">
+        <div className="flex items-end justify-between mb-6">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-sky-600">🏔️ Umroh Winter Januari 2027</h2>
+            <p className="text-slate-500 mt-1">Umroh plus suasana winter — keberangkatan Januari 2027.</p>
+          </div>
+          <Link href="/trip" className="hidden sm:inline text-sm font-bold text-sky-600 hover:text-sky-700">Lihat semua →</Link>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+          {_winterJan.map((t) => <TripCard key={t.id} t={t} />)}
+        </div>
+      </section>
+      )}
+
+      {/* KHASANAH: Umroh Plus Wisata Halal (semua umroh plus) */}
+      {_isKh && wisataHalal.length > 0 && (
+      <section className="max-w-6xl mx-auto px-4 py-14">
+        <div className="flex items-end justify-between mb-6">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-amber-600">🕌 Umroh Plus Wisata Halal</h2>
+            <p className="text-slate-500 mt-1">Umroh sekaligus wisata halal ke Turki, Dubai, Aqsa, Eropa, dan lainnya.</p>
+          </div>
+          <Link href="/trip" className="hidden sm:inline text-sm font-bold text-amber-600 hover:text-amber-700">Lihat semua →</Link>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+          {wisataHalal.map((t) => <TripCard key={t.id} t={t} />)}
+        </div>
+      </section>
+      )}
+
+      {!_isKh && auroraTrips.length > 0 && (
       <section className="max-w-6xl mx-auto px-4 py-14">
         <div className="flex items-end justify-between mb-6">
           <div>
@@ -220,7 +276,7 @@ export default async function StorefrontHome() {
       </section>
       )}
 
-      {asiaHematTrips.length > 0 && (
+      {!_isKh && asiaHematTrips.length > 0 && (
       <section className="max-w-6xl mx-auto px-4 py-14">
         <div className="flex items-end justify-between mb-6">
           <div>
@@ -235,7 +291,7 @@ export default async function StorefrontHome() {
       </section>
       )}
 
-      {japanTrips.length > 0 && (
+      {!_isKh && japanTrips.length > 0 && (
       <section className="max-w-6xl mx-auto px-4 py-14">
         <div className="flex items-end justify-between mb-6">
           <div>
@@ -250,7 +306,7 @@ export default async function StorefrontHome() {
       </section>
       )}
 
-      {chinaTrips.length > 0 && (
+      {!_isKh && chinaTrips.length > 0 && (
       <section className="max-w-6xl mx-auto px-4 py-14">
         <div className="flex items-end justify-between mb-6">
           <div>
@@ -265,7 +321,7 @@ export default async function StorefrontHome() {
       </section>
       )}
 
-      {newZealandTrips.length > 0 && (
+      {!_isKh && newZealandTrips.length > 0 && (
       <section className="max-w-6xl mx-auto px-4 py-14">
         <div className="flex items-end justify-between mb-6">
           <div>
@@ -280,7 +336,7 @@ export default async function StorefrontHome() {
       </section>
       )}
 
-      {nextLevelTrips.length > 0 && (
+      {!_isKh && nextLevelTrips.length > 0 && (
       <section className="max-w-6xl mx-auto px-4 py-14">
         <div className="flex items-end justify-between mb-6">
           <div>
@@ -295,7 +351,7 @@ export default async function StorefrontHome() {
       </section>
       )}
 
-      {early2027.length > 0 && (
+      {!_isKh && early2027.length > 0 && (
       <section className="max-w-6xl mx-auto px-4 py-14">
         <div className="flex items-end justify-between mb-6">
           <div>
