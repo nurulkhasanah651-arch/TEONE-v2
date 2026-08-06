@@ -388,6 +388,7 @@ export default function StorefrontPanel({ trip, isKh = false }) {
           <label className="block"><span className="text-xs font-bold text-slate-600">Termasuk (1 per baris)</span>
             <textarea name="included" value={included} onChange={(e) => setIncluded(e.target.value)} rows={3} className={inp} /></label>
           <label className="block"><span className="text-xs font-bold text-slate-600">Tidak Termasuk (1 per baris)</span>
+            {isKh && <span className="block text-[10px] text-slate-400 mb-1">Untuk sub-item (mis. isi perlengkapan) — akhiri baris induk dengan tanda titik dua (:) lalu tulis isinya di baris berikutnya, atau awali dengan "-". Sub-item tak diberi silang merah.</span>}
             <textarea name="excluded" value={excluded} onChange={(e) => setExcluded(e.target.value)} rows={3} className={inp} /></label>
         </div>
 

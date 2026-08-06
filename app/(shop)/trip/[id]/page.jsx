@@ -294,13 +294,17 @@ export default async function TripDetailPage({ params }) {
             (t.included || t.excluded) && (() => {
               // Baris berakhiran ":" = judul; baris setelahnya (sampai baris KOSONG) = sub-item
               // (isi dari item itu, mis. isi perlengkapan) → tampil sebagai daftar bawahan TANPA tanda.
+              // Sub-item = baris setelah judul berakhiran ":" (sampai baris kosong),
+              // ATAU baris yang diawali "-"/"•"/"*" / indentasi. Sub-item tak diberi tanda.
               const parseList = (text) => {
                 const out = []; let inSub = false;
                 for (const raw of String(text || '').split(/\r?\n/)) {
-                  const line = raw.trim();
-                  if (!line) { inSub = false; continue; }
+                  if (!raw.trim()) { inSub = false; continue; }
+                  const marked = /^\s+/.test(raw) || /^\s*[-•*·]\s?/.test(raw);
+                  const line = raw.trim().replace(/^[-•*·]\s?/, '').trim();
+                  if (!line) continue;
                   if (line.endsWith(':')) { out.push({ text: line, sub: false }); inSub = true; continue; }
-                  out.push({ text: line, sub: inSub });
+                  out.push({ text: line, sub: inSub || marked });
                 }
                 return out;
               };
