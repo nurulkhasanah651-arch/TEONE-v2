@@ -254,16 +254,24 @@ export default async function TripDetailPage({ params }) {
             </div>
           )}
 
-          {isKh && (
-            <a href={_waDaftar} target="_blank" rel="noreferrer" className="block text-center w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-lg shadow-lg shadow-emerald-200">
-              📲 Daftar Lewat CS WhatsApp
-            </a>
-          )}
-          {isKh && <div className="lg:hidden">{priceCard}</div>}
-          {isKh && (
-            <a href={_waTanya} target="_blank" rel="noreferrer" className="block text-center w-full py-3 rounded-xl border-2 border-emerald-500 text-emerald-700 font-bold hover:bg-emerald-50">
-              💬 Pesan / tanya dulu lewat WhatsApp
-            </a>
+          {/* Harga per tipe kamar (Khasanah) — satu baris kolom Quad/Triple/Double/Single */}
+          {isKh && rooms.length > 0 && (
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 mb-3 flex items-center gap-2"><span aria-hidden>💰</span> Harga per Tipe Kamar</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {rooms.map((r) => (
+                  <div key={r.key} className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
+                    <p className="text-xs font-semibold text-slate-500">{r.label}</p>
+                    <p className="text-lg font-extrabold text-emerald-700 mt-1 leading-tight">{fmtRp(r.base)}</p>
+                    <p className="text-[10px] text-slate-400">/orang</p>
+                  </div>
+                ))}
+              </div>
+              {t.dp_amount > 0 && <p className="text-sm text-emerald-700 font-semibold mt-2">Booking cukup DP {fmtRp(t.dp_amount)}</p>}
+              {rooms[0]?.addons?.length > 0 && (
+                <p className="text-[11px] text-slate-400 mt-1">Biaya wajib: {rooms[0].addons.map((a) => `${a.label} ${fmtRp(a.value)}`).join(' · ')}. Harga akhir = tipe kamar + biaya wajib.</p>
+              )}
+            </div>
           )}
           {itin.length > 0 && (
             <div>
@@ -369,6 +377,19 @@ export default async function TripDetailPage({ params }) {
                 )}
               </div>
             )
+          )}
+
+          {/* Kartu harga + booking (Khasanah) — di bawah Termasuk/Tidak Termasuk */}
+          {isKh && (
+            <div className="space-y-3">
+              <div className="lg:hidden">{priceCard}</div>
+              <a href={_waDaftar} target="_blank" rel="noreferrer" className="block text-center w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-lg shadow-lg shadow-emerald-200">
+                📲 Daftar Lewat CS WhatsApp
+              </a>
+              <a href={_waTanya} target="_blank" rel="noreferrer" className="block text-center w-full py-3 rounded-xl border-2 border-emerald-500 text-emerald-700 font-bold hover:bg-emerald-50">
+                💬 Pesan / tanya dulu lewat WhatsApp
+              </a>
+            </div>
           )}
 
           {/* Accordion: Syarat & Ketentuan + Syarat Visa (klik buka-tutup) */}
