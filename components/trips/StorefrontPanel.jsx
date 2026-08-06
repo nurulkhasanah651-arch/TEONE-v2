@@ -34,9 +34,11 @@ export default function StorefrontPanel({ trip, isKh = false }) {
       : [{ title: '', detail: '', image: '' }]
   );
 
-  // Hotel (Khasanah): daftar hotel dengan foto, nama, fasilitas singkat — jumlah custom.
+  // Hotel (Khasanah): daftar hotel dengan BEBERAPA foto (slider), nama, fasilitas singkat — jumlah custom.
   const [hotels, setHotels] = useState(
-    Array.isArray(trip.web_hotels) ? trip.web_hotels.map((h) => ({ name: h.name || '', facilities: h.facilities || '', image: h.image || '' })) : []
+    Array.isArray(trip.web_hotels)
+      ? trip.web_hotels.map((h) => ({ name: h.name || '', facilities: h.facilities || '', images: Array.isArray(h.images) ? h.images.filter(Boolean) : (h.image ? [h.image] : []) }))
+      : []
   );
 
   // Skema cicilan KHUSUS tampilan web (trip.web_payment_schedule) — TERPISAH dari payment checklist finance.
@@ -92,15 +94,16 @@ export default function StorefrontPanel({ trip, isKh = false }) {
 
   // ---- Hotel helpers (Khasanah) ----
   function setHotel(i, field, val) { setHotels((a) => a.map((h, j) => j === i ? { ...h, [field]: val } : h)); }
-  function addHotel() { setHotels((a) => [...a, { name: '', facilities: '', image: '' }]); }
+  function addHotel() { setHotels((a) => [...a, { name: '', facilities: '', images: [] }]); }
   function removeHotel(i) { setHotels((a) => a.filter((_, j) => j !== i)); }
+  function removeHotelPhoto(i, k) { setHotels((a) => a.map((h, j) => j === i ? { ...h, images: h.images.filter((_, m) => m !== k) } : h)); }
   async function uploadHotel(i, file) {
     if (!file) return;
     setUploading('hotel-' + i); setMsg(null);
     const r = await uploadOne(file);
     setUploading(null);
     if (r?.error) { setMsg({ t: 'e', x: r.error }); return; }
-    if (r?.url) setHotel(i, 'image', r.url);
+    if (r?.url) setHotels((a) => a.map((h, j) => j === i ? { ...h, images: [...(h.images || []), r.url] } : h));
   }
 
   useEffect(() => {
@@ -131,7 +134,7 @@ export default function StorefrontPanel({ trip, isKh = false }) {
     fd.set('web_poster_url', poster || '');
     fd.set('gallery_images', JSON.stringify(gallery));
     fd.set('itinerary_json', JSON.stringify(itin));
-    if (isKh) fd.set('hotels_json', JSON.stringify(hotels.filter((h) => (h.name || h.facilities || h.image))));
+    if (isKh) fd.set('hotels_json', JSON.stringify(hotels.filter((h) => (h.name || h.facilities || (h.images && h.images.length)))));
     startTransition(async () => {
       const r = await updateTripPublicContent(trip.id, fd);
       if (r?.error) { setMsg({ t: 'e', x: r.error }); return; }
@@ -327,21 +330,24 @@ export default function StorefrontPanel({ trip, isKh = false }) {
                     <span className="text-xs font-bold text-slate-700 bg-emerald-600 text-white rounded-full px-2.5 py-0.5">Hotel {i + 1}</span>
                     <button type="button" onClick={() => removeHotel(i)} className="text-xs text-red-600 hover:underline">Hapus hotel</button>
                   </div>
-                  <div className="flex gap-3">
-                    <div className="shrink-0">
-                      <div className="w-24 h-20 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center text-slate-300 text-xs">
-                        {h.image ? <img src={h.image} alt="" className="w-full h-full object-cover" /> : 'foto'}
+                  <div className="space-y-2">
+                    <input value={h.name} onChange={(e) => setHotel(i, 'name', e.target.value)} placeholder="Nama hotel (mis: Hotel Madinah — Tharawat Worth)" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                    <textarea value={h.facilities} onChange={(e) => setHotel(i, 'facilities', e.target.value)} rows={2} placeholder="Fasilitas singkat (mis: Bintang 4 · dekat Masjid Nabawi · include sarapan)" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-600">Foto (bisa beberapa — akan jadi slider)</span>
+                      <div className="mt-1 flex flex-wrap gap-2 items-center">
+                        {(h.images || []).map((url, k) => (
+                          <div key={k} className="relative w-20 h-16 rounded-lg overflow-hidden border border-slate-200 group">
+                            <img src={url} alt="" className="w-full h-full object-cover" />
+                            <button type="button" onClick={() => removeHotelPhoto(i, k)} className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-90 hover:opacity-100">×</button>
+                          </div>
+                        ))}
+                        <label className="w-20 h-16 rounded-lg border-2 border-dashed border-emerald-300 flex items-center justify-center text-emerald-600 text-xs font-bold cursor-pointer hover:bg-emerald-50">
+                          {uploading === 'hotel-' + i ? '…' : '+ Foto'}
+                          <input type="file" accept="image/*" className="hidden" disabled={uploading === 'hotel-' + i}
+                            onChange={(e) => { uploadHotel(i, e.target.files?.[0]); e.target.value = ''; }} />
+                        </label>
                       </div>
-                      <label className="mt-1 block text-center text-[11px] font-bold text-emerald-700 cursor-pointer hover:underline">
-                        {uploading === 'hotel-' + i ? 'Unggah…' : (h.image ? 'Ganti foto' : '📷 Upload')}
-                        <input type="file" accept="image/*" className="hidden" disabled={uploading === 'hotel-' + i}
-                          onChange={(e) => { uploadHotel(i, e.target.files?.[0]); e.target.value = ''; }} />
-                      </label>
-                      {h.image && <button type="button" onClick={() => setHotel(i, 'image', '')} className="block w-full text-center text-[11px] text-red-500 hover:underline">hapus foto</button>}
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      <input value={h.name} onChange={(e) => setHotel(i, 'name', e.target.value)} placeholder="Nama hotel (mis: Hotel Madinah — Tharawat Worth)" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
-                      <textarea value={h.facilities} onChange={(e) => setHotel(i, 'facilities', e.target.value)} rows={2} placeholder="Fasilitas singkat (mis: Bintang 4 · dekat Masjid Nabawi · include sarapan)" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
                     </div>
                   </div>
                 </div>

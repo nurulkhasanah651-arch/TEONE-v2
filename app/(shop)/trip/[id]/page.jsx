@@ -6,6 +6,7 @@ import { storefrontConfig } from '@/lib/shop/storefront-config';
 import { defaultTermsFor } from '@/lib/shop/default-terms';
 import { getPublishedTrip, tripSeatLeft, tripPrice, tripRoomPrices, landTourFrom, getStorefrontSettingsPublic, getFlashSaleTrips } from '@/lib/shop/data';
 import HeroSlider from '@/components/shop/HeroSlider';
+import HotelSlider from '@/components/shop/HotelSlider';
 import ShareTrip from '@/components/shop/ShareTrip';
 import TripCard from '@/components/shop/TripCard';
 
@@ -237,19 +238,18 @@ export default async function TripDetailPage({ params }) {
             <div>
               <h2 className="text-xl font-bold text-slate-900 mb-3 flex items-center gap-2"><span aria-hidden>🏨</span> Hotel</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {t.web_hotels.map((h, i) => (
-                  <div key={i} className="rounded-2xl border border-slate-200 overflow-hidden shadow-sm bg-white flex flex-col">
-                    {h.image && (
-                      <div className="h-44 bg-slate-100 overflow-hidden">
-                        <img src={h.image} alt={h.name || `Hotel ${i + 1}`} className="w-full h-full object-cover" />
+                {t.web_hotels.map((h, i) => {
+                  const imgs = Array.isArray(h.images) ? h.images.filter(Boolean) : (h.image ? [h.image] : []);
+                  return (
+                    <div key={i} className="rounded-2xl border border-slate-200 overflow-hidden shadow-sm bg-white flex flex-col">
+                      {imgs.length > 0 && <HotelSlider images={imgs} alt={h.name || `Hotel ${i + 1}`} />}
+                      <div className="p-4">
+                        <p className="font-bold text-slate-900">{h.name || `Hotel ${i + 1}`}</p>
+                        {h.facilities && <p className="text-sm text-slate-600 mt-1 whitespace-pre-line leading-relaxed">{h.facilities}</p>}
                       </div>
-                    )}
-                    <div className="p-4">
-                      <p className="font-bold text-slate-900">{h.name || `Hotel ${i + 1}`}</p>
-                      {h.facilities && <p className="text-sm text-slate-600 mt-1 whitespace-pre-line leading-relaxed">{h.facilities}</p>}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
