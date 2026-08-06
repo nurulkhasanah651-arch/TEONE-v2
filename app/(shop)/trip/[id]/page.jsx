@@ -9,6 +9,11 @@ import HeroSlider from '@/components/shop/HeroSlider';
 import HotelSlider from '@/components/shop/HotelSlider';
 import ShareTrip from '@/components/shop/ShareTrip';
 import TripCard from '@/components/shop/TripCard';
+import { loadGoogleReviews } from '@/lib/shop/google-reviews';
+
+function Stars({ n = 5 }) {
+  return <span className="text-amber-400 text-sm">{'★'.repeat(n)}<span className="text-slate-200">{'★'.repeat(Math.max(0, 5 - n))}</span></span>;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -64,6 +69,17 @@ export default async function TripDetailPage({ params }) {
   const seatShown = seat > 10 ? 10 : seat; // tampilan maks 10; booking tetap pakai sisa asli
   const itin = Array.isArray(t.itinerary) ? t.itinerary : [];
   const rooms = tripRoomPrices(t);
+  // Keterangan kecil per tipe kamar (khusus tampilan Khasanah).
+  const roomDesc = (r) => {
+    const s = `${r?.key || ''} ${r?.label || ''}`.toLowerCase();
+    if (s.includes('quad')) return 'Sekamar isi 4 orang';
+    if (s.includes('triple')) return 'Sekamar isi 3 orang';
+    if (s.includes('double') || s.includes('twin')) return 'Sekamar isi 2 orang';
+    if (s.includes('single')) return 'Sekamar sendiri (1 orang)';
+    if (s.includes('child') || s.includes('anak')) return 'Anak tanpa bed (gabung dengan orang tua)';
+    if (s.includes('infant') || s.includes('bayi')) return 'Bayi, tanpa bed (gabung dengan orang tua)';
+    return '';
+  };
   const landTourMin = landTourFrom(t);
   const gallery = Array.isArray(t.gallery_images) ? t.gallery_images : [];
   const heroImgs = [t.cover_image_url, ...gallery].filter(Boolean);
@@ -164,6 +180,20 @@ export default async function TripDetailPage({ params }) {
     : ((t.web_reasons && t.web_reasons.trim()) ? t.web_reasons : _tmpl);
   const reasons = String(reasonsSrc || '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean).slice(0, 8);
 
+  // Google Review (khusus Khasanah) — sama seperti homepage.
+  let _rv = null;
+  if (isKh) {
+    const _cfg = storefrontConfig(brand);
+    let _live = null;
+    try { _live = await loadGoogleReviews({ placeId: _cfg.googlePlaceId || null, query: _cfg.googlePlaceQuery || null, bias: _cfg.googlePlaceBias || null }); } catch {}
+    _rv = {
+      rating: _live?.rating || _cfg.googleRating,
+      count: _live?.count || _cfg.googleCount,
+      reviews: (_live?.reviews && _live.reviews.length) ? _live.reviews : (_cfg.testimonials || []),
+      url: _live?.mapsUrl || _cfg.googleReviewUrl,
+    };
+  }
+
   return (
     <div>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(_jsonLd) }} />
@@ -263,7 +293,8 @@ export default async function TripDetailPage({ params }) {
                 {rooms.map((r) => (
                   <div key={r.key} className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
                     <p className="text-xs font-semibold text-slate-500">{r.label}</p>
-                    <p className="text-lg font-extrabold text-emerald-700 mt-1 leading-tight">{fmtRp(r.base)}</p>
+                    {roomDesc(r) && <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">{roomDesc(r)}</p>}
+                    <p className="text-lg font-extrabold text-emerald-700 mt-1.5 leading-tight">{fmtRp(r.base)}</p>
                     <p className="text-[10px] text-slate-400">/orang</p>
                   </div>
                 ))}
@@ -490,10 +521,48 @@ export default async function TripDetailPage({ params }) {
               </div>
             </div>
           )}
+          {/* GOOGLE REVIEW (Khasanah) — tampil DULU, baru jelajah paket lain */}
+          {isKh && _rv && (_rv.reviews || []).length > 0 && (
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 mb-8">
+              <div className="flex flex-col items-center text-center mb-6">
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">⭐ Review Bintang 5 dari Ribuan Jamaah</h2>
+                <div className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+                  <Stars n={5} />
+                  <span className="font-bold">{_rv.rating}</span>
+                  {_rv.count ? <span>· {_rv.count} ulasan di Google</span> : null}
+                </div>
+              </div>
+              <div className="grid md:grid-cols-3 gap-5">
+                {_rv.reviews.slice(0, 6).map((rv, i) => (
+                  <div key={i} className="rounded-2xl bg-slate-50 border border-slate-200 p-5 shadow-sm">
+                    <Stars n={rv.stars || 5} />
+                    <p className="mt-3 text-sm text-slate-600 leading-relaxed">“{rv.text}”</p>
+                    <div className="mt-4 flex items-center gap-3">
+                      {rv.photo
+                        ? <img src={rv.photo} alt="" className="w-9 h-9 rounded-full object-cover" />
+                        : <span className="w-9 h-9 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-bold">{(rv.name || 'J').charAt(0)}</span>}
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">{rv.name}</p>
+                        <p className="text-[11px] text-slate-400">{rv.when ? `Google Review · ${rv.when}` : 'Google Review'}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {_rv.url && (
+                <div className="text-center mt-8">
+                  <a href={_rv.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white border border-slate-200 text-sm font-bold text-slate-700 hover:shadow-sm">
+                    Lihat semua ulasan di Google →
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="text-center bg-white border border-slate-200 rounded-2xl p-6">
-            <p className="font-bold text-slate-800 text-lg">Mau lihat-lihat destinasi lain?</p>
-            <p className="text-sm text-slate-500 mt-1">Jelajahi semua open trip ke Eropa, Asia, dan dunia.</p>
-            <Link href="/trip" className="inline-block mt-4 px-6 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold">Pilih Trip Lainnya</Link>
+            <p className="font-bold text-slate-800 text-lg">{isKh ? 'Mau lihat paket umroh lainnya?' : 'Mau lihat-lihat destinasi lain?'}</p>
+            <p className="text-sm text-slate-500 mt-1">{isKh ? 'Lihat semua pilihan paket umroh & umroh plus kami.' : 'Jelajahi semua open trip ke Eropa, Asia, dan dunia.'}</p>
+            <Link href="/trip" className="inline-block mt-4 px-6 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold">{isKh ? 'Lihat Paket Umroh Lainnya' : 'Pilih Trip Lainnya'}</Link>
           </div>
         </div>
       </div>
