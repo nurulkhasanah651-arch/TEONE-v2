@@ -8,7 +8,7 @@ import { compressImage } from '@/lib/utils/compress-image';
 
 function fmtRp(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
 
-export default function StorefrontPanel({ trip }) {
+export default function StorefrontPanel({ trip, isKh = false }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
@@ -32,6 +32,11 @@ export default function StorefrontPanel({ trip }) {
     Array.isArray(trip.itinerary) && trip.itinerary.length
       ? trip.itinerary.map((d) => ({ title: d.title || '', detail: d.detail || '', image: d.image || '' }))
       : [{ title: '', detail: '', image: '' }]
+  );
+
+  // Hotel (Khasanah): daftar hotel dengan foto, nama, fasilitas singkat — jumlah custom.
+  const [hotels, setHotels] = useState(
+    Array.isArray(trip.web_hotels) ? trip.web_hotels.map((h) => ({ name: h.name || '', facilities: h.facilities || '', image: h.image || '' })) : []
   );
 
   // Skema cicilan KHUSUS tampilan web (trip.web_payment_schedule) — TERPISAH dari payment checklist finance.
@@ -85,6 +90,19 @@ export default function StorefrontPanel({ trip }) {
     if (r?.url) setDay(i, 'image', r.url);
   }
 
+  // ---- Hotel helpers (Khasanah) ----
+  function setHotel(i, field, val) { setHotels((a) => a.map((h, j) => j === i ? { ...h, [field]: val } : h)); }
+  function addHotel() { setHotels((a) => [...a, { name: '', facilities: '', image: '' }]); }
+  function removeHotel(i) { setHotels((a) => a.filter((_, j) => j !== i)); }
+  async function uploadHotel(i, file) {
+    if (!file) return;
+    setUploading('hotel-' + i); setMsg(null);
+    const r = await uploadOne(file);
+    setUploading(null);
+    if (r?.error) { setMsg({ t: 'e', x: r.error }); return; }
+    if (r?.url) setHotel(i, 'image', r.url);
+  }
+
   useEffect(() => {
     listStorefrontTemplates(trip.id).then((r) => { if (r?.templates) setTemplates(r.templates); }).catch(() => {});
   }, []);
@@ -113,6 +131,7 @@ export default function StorefrontPanel({ trip }) {
     fd.set('web_poster_url', poster || '');
     fd.set('gallery_images', JSON.stringify(gallery));
     fd.set('itinerary_json', JSON.stringify(itin));
+    if (isKh) fd.set('hotels_json', JSON.stringify(hotels.filter((h) => (h.name || h.facilities || h.image))));
     startTransition(async () => {
       const r = await updateTripPublicContent(trip.id, fd);
       if (r?.error) { setMsg({ t: 'e', x: r.error }); return; }
@@ -296,6 +315,41 @@ export default function StorefrontPanel({ trip }) {
             </div>
           </div>
         </div>
+
+        {/* HOTEL (Khasanah) — foto + nama + fasilitas singkat, jumlah custom, tampil di bawah poster */}
+        {isKh && (
+          <div>
+            <span className="text-xs font-bold text-slate-600">🏨 Hotel (tampil di bawah poster — foto, nama, fasilitas singkat)</span>
+            <div className="mt-1 space-y-3">
+              {hotels.map((h, i) => (
+                <div key={i} className="rounded-xl border border-slate-200 p-3 bg-slate-50">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-slate-700 bg-emerald-600 text-white rounded-full px-2.5 py-0.5">Hotel {i + 1}</span>
+                    <button type="button" onClick={() => removeHotel(i)} className="text-xs text-red-600 hover:underline">Hapus hotel</button>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="shrink-0">
+                      <div className="w-24 h-20 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center text-slate-300 text-xs">
+                        {h.image ? <img src={h.image} alt="" className="w-full h-full object-cover" /> : 'foto'}
+                      </div>
+                      <label className="mt-1 block text-center text-[11px] font-bold text-emerald-700 cursor-pointer hover:underline">
+                        {uploading === 'hotel-' + i ? 'Unggah…' : (h.image ? 'Ganti foto' : '📷 Upload')}
+                        <input type="file" accept="image/*" className="hidden" disabled={uploading === 'hotel-' + i}
+                          onChange={(e) => { uploadHotel(i, e.target.files?.[0]); e.target.value = ''; }} />
+                      </label>
+                      {h.image && <button type="button" onClick={() => setHotel(i, 'image', '')} className="block w-full text-center text-[11px] text-red-500 hover:underline">hapus foto</button>}
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <input value={h.name} onChange={(e) => setHotel(i, 'name', e.target.value)} placeholder="Nama hotel (mis: Hotel Madinah — Tharawat Worth)" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                      <textarea value={h.facilities} onChange={(e) => setHotel(i, 'facilities', e.target.value)} rows={2} placeholder="Fasilitas singkat (mis: Bintang 4 · dekat Masjid Nabawi · include sarapan)" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button type="button" onClick={addHotel} className="mt-2 px-3 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-300 rounded-lg hover:bg-emerald-50">+ Tambah Hotel</button>
+          </div>
+        )}
 
         {/* ITINERARY per hari + foto */}
         <div>

@@ -101,7 +101,7 @@ export default async function EditTripPage({ params }) {
       {/* R198: TL WA Confirmation Panel — taruh di bawah form */}
       <TLAssignmentPanel trip={trip} />
 
-      <StorefrontPanel trip={trip} />
+      <StorefrontPanel trip={trip} isKh={(() => { try { return currentBrandCode() === 'khasanah'; } catch { return false; } })()} />
     </div>
   );
 }

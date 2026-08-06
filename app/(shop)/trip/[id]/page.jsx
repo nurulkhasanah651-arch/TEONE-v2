@@ -213,11 +213,11 @@ export default async function TripDetailPage({ params }) {
           {isKh && reasons.length > 0 && (
             <div className="bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 rounded-2xl p-6 shadow-sm">
               <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2"><span aria-hidden>💚</span> Kenapa harus umroh bareng Khasanah Travel?</h2>
-              <ul className="space-y-3">
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
                 {reasons.map((r, i) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <span className="shrink-0 w-7 h-7 rounded-full bg-emerald-600 text-white text-sm flex items-center justify-center mt-0.5 shadow-sm">✓</span>
-                    <span className="text-base md:text-lg font-bold text-slate-800 leading-snug">{r}</span>
+                  <li key={i} className="flex items-start gap-2.5">
+                    <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs flex items-center justify-center mt-0.5 shadow-sm">✓</span>
+                    <span className="text-sm sm:text-[15px] font-semibold text-slate-800 leading-snug">{r}</span>
                   </li>
                 ))}
               </ul>
@@ -228,6 +228,28 @@ export default async function TripDetailPage({ params }) {
           {isKh && t.web_poster_url && (
             <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
               <img src={t.web_poster_url} alt={`Poster ${t.public_title || t.name}`} className="w-full h-auto block" />
+            </div>
+          )}
+
+          {/* Hotel — foto + nama + fasilitas singkat (di bawah poster) */}
+          {isKh && Array.isArray(t.web_hotels) && t.web_hotels.length > 0 && (
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 mb-3 flex items-center gap-2"><span aria-hidden>🏨</span> Hotel</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {t.web_hotels.map((h, i) => (
+                  <div key={i} className="rounded-2xl border border-slate-200 overflow-hidden shadow-sm bg-white flex flex-col">
+                    {h.image && (
+                      <div className="h-44 bg-slate-100 overflow-hidden">
+                        <img src={h.image} alt={h.name || `Hotel ${i + 1}`} className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div className="p-4">
+                      <p className="font-bold text-slate-900">{h.name || `Hotel ${i + 1}`}</p>
+                      {h.facilities && <p className="text-sm text-slate-600 mt-1 whitespace-pre-line leading-relaxed">{h.facilities}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -267,22 +289,59 @@ export default async function TripDetailPage({ params }) {
           )}
           {/* Harga — di HP muncul tepat di bawah itinerary (TEONE) */}
           {!isKh && <div className="lg:hidden">{priceCard}</div>}
-          {(t.included || t.excluded || _hasPpn) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {t.included && (
-                <div className="border border-slate-200 rounded-2xl p-4">
-                  <p className="font-bold text-emerald-700 mb-1">✅ Termasuk</p>
-                  <p className="text-sm text-slate-600 whitespace-pre-line">{t.included}</p>
+          {isKh ? (
+            (t.included || t.excluded) && (() => {
+              const incArr = String(t.included || '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+              const excArr = String(t.excluded || '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {incArr.length > 0 && (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-5">
+                      <p className="font-extrabold text-emerald-700 mb-3 flex items-center gap-2"><span aria-hidden>✅</span> Termasuk</p>
+                      <ul className="grid grid-cols-1 gap-2.5">
+                        {incArr.map((x, i) => (
+                          <li key={i} className="flex items-start gap-2.5">
+                            <span className="shrink-0 w-5 h-5 rounded-full bg-emerald-600 text-white text-[11px] flex items-center justify-center mt-0.5">✓</span>
+                            <span className="text-sm text-slate-700 leading-snug">{x}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {excArr.length > 0 && (
+                    <div className="rounded-2xl border border-red-200 bg-red-50/40 p-5">
+                      <p className="font-extrabold text-red-600 mb-3 flex items-center gap-2"><span aria-hidden>❌</span> Tidak Termasuk</p>
+                      <ul className="grid grid-cols-1 gap-2.5">
+                        {excArr.map((x, i) => (
+                          <li key={i} className="flex items-start gap-2.5">
+                            <span className="shrink-0 w-5 h-5 rounded-full bg-red-500 text-white text-[11px] flex items-center justify-center mt-0.5">✕</span>
+                            <span className="text-sm text-slate-700 leading-snug">{x}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
-              )}
-              {(t.excluded || _hasPpn) && (
-                <div className="border border-slate-200 rounded-2xl p-4">
-                  <p className="font-bold text-red-600 mb-1">❌ Tidak Termasuk</p>
-                  {t.excluded && <p className="text-sm text-slate-600 whitespace-pre-line">{t.excluded}</p>}
-                  {_hasPpn && <p className="text-sm text-slate-600 whitespace-pre-line">PPN 1,1%</p>}
-                </div>
-              )}
-            </div>
+              );
+            })()
+          ) : (
+            (t.included || t.excluded || _hasPpn) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {t.included && (
+                  <div className="border border-slate-200 rounded-2xl p-4">
+                    <p className="font-bold text-emerald-700 mb-1">✅ Termasuk</p>
+                    <p className="text-sm text-slate-600 whitespace-pre-line">{t.included}</p>
+                  </div>
+                )}
+                {(t.excluded || _hasPpn) && (
+                  <div className="border border-slate-200 rounded-2xl p-4">
+                    <p className="font-bold text-red-600 mb-1">❌ Tidak Termasuk</p>
+                    {t.excluded && <p className="text-sm text-slate-600 whitespace-pre-line">{t.excluded}</p>}
+                    {_hasPpn && <p className="text-sm text-slate-600 whitespace-pre-line">PPN 1,1%</p>}
+                  </div>
+                )}
+              </div>
+            )
           )}
 
           {/* Accordion: Syarat & Ketentuan + Syarat Visa (klik buka-tutup) */}
