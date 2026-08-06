@@ -211,13 +211,14 @@ export default async function TripDetailPage({ params }) {
 
           {/* Kenapa harus umroh bareng Khasanah Travel */}
           {isKh && reasons.length > 0 && (
-            <div className="bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 rounded-2xl p-6 shadow-sm">
-              <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2"><span aria-hidden>💚</span> Kenapa harus umroh bareng Khasanah Travel?</h2>
-              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-7 shadow-sm">
+              <h2 className="text-2xl font-extrabold text-emerald-700 tracking-tight mb-1.5">Kenapa Umroh bareng Khasanah Travel</h2>
+              <p className="text-slate-500 text-sm mb-5">Selain beribadah dengan tenang, Anda ditemani tim berpengalaman & terpercaya.</p>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3.5">
                 {reasons.map((r, i) => (
-                  <li key={i} className="flex items-start gap-2.5">
-                    <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs flex items-center justify-center mt-0.5 shadow-sm">✓</span>
-                    <span className="text-sm sm:text-[15px] font-semibold text-slate-800 leading-snug">{r}</span>
+                  <li key={i} className="flex items-start gap-3">
+                    <span className="shrink-0 text-emerald-500 text-lg leading-none mt-0.5" aria-hidden>✅</span>
+                    <span className="text-[15px] font-medium text-slate-700 leading-relaxed">{r}</span>
                   </li>
                 ))}
               </ul>
@@ -291,18 +292,35 @@ export default async function TripDetailPage({ params }) {
           {!isKh && <div className="lg:hidden">{priceCard}</div>}
           {isKh ? (
             (t.included || t.excluded) && (() => {
-              const incArr = String(t.included || '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
-              const excArr = String(t.excluded || '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+              // Baris berakhiran ":" = judul; baris setelahnya (sampai baris KOSONG) = sub-item
+              // (isi dari item itu, mis. isi perlengkapan) → tampil sebagai daftar bawahan TANPA tanda.
+              const parseList = (text) => {
+                const out = []; let inSub = false;
+                for (const raw of String(text || '').split(/\r?\n/)) {
+                  const line = raw.trim();
+                  if (!line) { inSub = false; continue; }
+                  if (line.endsWith(':')) { out.push({ text: line, sub: false }); inSub = true; continue; }
+                  out.push({ text: line, sub: inSub });
+                }
+                return out;
+              };
+              const incArr = parseList(t.included);
+              const excArr = parseList(t.excluded);
               return (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {incArr.length > 0 && (
                     <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-5">
                       <p className="font-extrabold text-emerald-700 mb-3 flex items-center gap-2"><span aria-hidden>✅</span> Termasuk</p>
                       <ul className="grid grid-cols-1 gap-2.5">
-                        {incArr.map((x, i) => (
+                        {incArr.map((x, i) => x.sub ? (
+                          <li key={i} className="flex items-start gap-2 pl-7">
+                            <span className="shrink-0 text-emerald-400 mt-0.5">–</span>
+                            <span className="text-[13px] text-slate-500 leading-snug">{x.text}</span>
+                          </li>
+                        ) : (
                           <li key={i} className="flex items-start gap-2.5">
                             <span className="shrink-0 w-5 h-5 rounded-full bg-emerald-600 text-white text-[11px] flex items-center justify-center mt-0.5">✓</span>
-                            <span className="text-sm text-slate-700 leading-snug">{x}</span>
+                            <span className="text-sm text-slate-700 leading-snug">{x.text}</span>
                           </li>
                         ))}
                       </ul>
@@ -312,10 +330,15 @@ export default async function TripDetailPage({ params }) {
                     <div className="rounded-2xl border border-red-200 bg-red-50/40 p-5">
                       <p className="font-extrabold text-red-600 mb-3 flex items-center gap-2"><span aria-hidden>❌</span> Tidak Termasuk</p>
                       <ul className="grid grid-cols-1 gap-2.5">
-                        {excArr.map((x, i) => (
+                        {excArr.map((x, i) => x.sub ? (
+                          <li key={i} className="flex items-start gap-2 pl-7">
+                            <span className="shrink-0 text-red-300 mt-0.5">–</span>
+                            <span className="text-[13px] text-slate-500 leading-snug">{x.text}</span>
+                          </li>
+                        ) : (
                           <li key={i} className="flex items-start gap-2.5">
                             <span className="shrink-0 w-5 h-5 rounded-full bg-red-500 text-white text-[11px] flex items-center justify-center mt-0.5">✕</span>
-                            <span className="text-sm text-slate-700 leading-snug">{x}</span>
+                            <span className="text-sm text-slate-700 leading-snug">{x.text}</span>
                           </li>
                         ))}
                       </ul>
