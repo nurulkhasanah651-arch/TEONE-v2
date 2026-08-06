@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { resolveBrandCode } from '@/lib/brand-shared';
-import { getPublishedTrips, getCategorizedTrips, getStorefrontSettingsPublic, tripSeatLeft, TRIP_CATEGORY_DEFS, getEarlyBooking2027Trips } from '@/lib/shop/data';
+import { getPublishedTrips, getCategorizedTrips, getStorefrontSettingsPublic, tripSeatLeft, TRIP_CATEGORY_DEFS, getEarlyBooking2027Trips, getFlashSaleTrips, getYearEndSpecialTrips, getCategoryTrips } from '@/lib/shop/data';
 import { effectiveRegions, subcatsForRegion, subcatLabel, tripSubcat } from '@/lib/shop/regions';
 import TripCard from '@/components/shop/TripCard';
 
@@ -16,16 +16,46 @@ export default async function TripListPage({ searchParams }) {
   const sub = searchParams?.sub || null;
   const month = searchParams?.month || null;
   const noFilter = !region && !sub && !month;
+  // Khasanah: kategori khusus (sama dgn homepage) untuk tab Semua & per-bulan.
+  const _needKhCats = _isKh && (noFilter || (!!month && !region));
   // Paralel: daftar trip, setting, kategori & early-2027 (sebelumnya berurutan).
-  const [trips0, settings, categories0, early2027] = await Promise.all([
+  const [trips0, settings, categories0, early2027, khRaw] = await Promise.all([
     getPublishedTrips(region),
     getStorefrontSettingsPublic(),
-    noFilter ? getCategorizedTrips() : Promise.resolve([]),
-    noFilter ? getEarlyBooking2027Trips(30) : Promise.resolve([]),
+    (noFilter && !_isKh) ? getCategorizedTrips() : Promise.resolve([]),
+    (noFilter && !_isKh) ? getEarlyBooking2027Trips(30) : Promise.resolve([]),
+    _needKhCats ? Promise.all([
+      getFlashSaleTrips(40),
+      getYearEndSpecialTrips(40),
+      getCategoryTrips(['hemat', 'reguler'], 60),
+      getCategoryTrips(['pelataran'], 60),
+      getCategoryTrips(['ramadhan', 'ramadan'], 60),
+      getCategoryTrips(['winter'], 60),
+      getCategoryTrips(['turki', 'cappadocia', 'abu dhabi', 'abudhabi', 'dubai', 'aqsa', 'west europe', 'europe', 'jordania'], 60),
+    ]) : Promise.resolve(null),
   ]);
   let trips = trips0;
-  const categories = noFilter ? [...categories0] : [];
-  if (noFilter && early2027.length) {
+
+  // Bangun daftar kategori Khasanah (urutan tetap sesuai homepage). mFilter = filter bulan (opsional).
+  const buildKhCats = (mFilter) => {
+    if (!khRaw) return [];
+    const [flash, year, hemat, pelataran, ramadhan, winter, halal] = khRaw;
+    const inM = (arr) => (mFilter ? (arr || []).filter((t) => (t.departure || '').slice(0, 7) === mFilter) : (arr || []));
+    const winterJan = (winter || []).filter((t) => (t.departure || '').slice(0, 7) === '2027-01');
+    const defs = [
+      { key: 'flash', icon: '⚡', title: 'Flash Sale Trip', subtitle: 'Promo & diskon spesial — buruan sebelum kehabisan!', trips: inM(flash) },
+      { key: 'hemat', icon: '🕋', title: 'Umroh Hemat', subtitle: 'Paket hemat & reguler, all-in', trips: inM(hemat) },
+      { key: 'pelataran', icon: '🏨', title: 'Umroh Hotel Makkah Pelataran', subtitle: 'Hotel pelataran dekat Masjidil Haram', trips: inM(pelataran) },
+      { key: 'yearend', icon: '❄️', title: 'Umroh Spesial Libur Akhir Tahun', subtitle: 'Keberangkatan libur akhir tahun', trips: inM(year) },
+      { key: 'ramadhan', icon: '🌙', title: 'Umroh Spesial Ramadhan 2027', subtitle: 'Umroh di bulan Ramadhan 2027', trips: inM(ramadhan) },
+      { key: 'winter', icon: '🏔️', title: 'Umroh Winter Januari 2027', subtitle: 'Suasana winter, berangkat Januari 2027', trips: inM(winterJan) },
+      { key: 'halal', icon: '🕌', title: 'Umroh Plus Wisata Halal', subtitle: 'Umroh + wisata halal (Turki, Dubai, Aqsa, Eropa)', trips: inM(halal) },
+    ];
+    return defs.filter((d) => d.trips.length > 0);
+  };
+
+  const categories = noFilter ? (_isKh ? buildKhCats(null) : [...categories0]) : [];
+  if (noFilter && !_isKh && early2027.length) {
     categories.push({ key: 'early-2027', icon: '🎟️', title: 'Early Booking Trip 2027', subtitle: 'Amankan kursi lebih awal untuk keberangkatan sepanjang 2027', trips: early2027 });
   }
   const regions = effectiveRegions(settings?.regions);
@@ -64,7 +94,10 @@ export default async function TripListPage({ searchParams }) {
   // (West Europe Best Seller, China Mewah, dll) — first-match-wins, sama seperti Open Trip.
   const groupByCategory = !!month && !region;
   let catGroups = [];
-  if (groupByCategory) {
+  if (groupByCategory && _isKh) {
+    // Khasanah: kelompokkan per kategori khusus (sama dgn homepage), difilter bulan.
+    catGroups = buildKhCats(month);
+  } else if (groupByCategory) {
     const buckets = TRIP_CATEGORY_DEFS.map((c) => ({ ...c, trips: [] }));
     const other = [];
     for (const t of trips) {
