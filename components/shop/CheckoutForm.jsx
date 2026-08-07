@@ -173,10 +173,10 @@ export default function CheckoutForm({ trip }) {
       <div className="pr-2">
         <p className="text-sm font-semibold text-slate-800">{it.label}</p>
         {showBase && it.discount > 0 && it.base > 0 ? (
-          <p className="text-xs font-bold text-red-600">
-            <span className="text-slate-400 font-normal line-through mr-1.5">{fmtRp(it.baseBefore)}</span>
-            {fmtRp(it.base)} / orang <span className="ml-1 text-[10px] font-bold">(Hemat {fmtRp(it.discount)})</span>
-          </p>
+          <>
+            <p className="text-[11px] text-slate-400 font-normal line-through leading-tight">{fmtRp(it.baseBefore)}</p>
+            <p className="text-xs font-bold text-red-600 leading-tight">{fmtRp(it.base)} / orang <span className="ml-1 text-[10px] font-bold">(Hemat {fmtRp(it.discount)})</span></p>
+          </>
         ) : (
           <p className="text-xs font-bold text-slate-700">{fmtRp(showBase && it.base > 0 ? it.base : it.price)} / orang</p>
         )}

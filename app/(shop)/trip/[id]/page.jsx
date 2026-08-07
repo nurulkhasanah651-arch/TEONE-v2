@@ -112,11 +112,11 @@ export default async function TripDetailPage({ params }) {
                 <p className="text-xs font-bold text-slate-500 mb-1.5">Harga dasar per tipe (per orang)</p>
                 <ul className="space-y-1">
                   {rooms.map((r) => (
-                    <li key={r.key} className="flex items-center justify-between text-sm">
+                    <li key={r.key} className="flex items-start justify-between text-sm">
                       <span className="text-slate-600">{r.label}</span>
                       {r.discount > 0 ? (
-                        <span className="text-right leading-tight">
-                          <span className="text-[11px] text-slate-400 line-through mr-1.5">{fmtRp(r.baseBefore)}</span>
+                        <span className="text-right leading-tight flex flex-col items-end">
+                          <span className="text-[11px] text-slate-400 line-through">{fmtRp(r.baseBefore)}</span>
                           <span className="font-bold text-red-600">{fmtRp(r.base)}</span>
                         </span>
                       ) : (
