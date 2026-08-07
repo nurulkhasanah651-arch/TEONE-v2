@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { resolveBrandCode } from '@/lib/brand-shared';
 import { storefrontConfig } from '@/lib/shop/storefront-config';
 import { defaultTermsFor } from '@/lib/shop/default-terms';
-import { getPublishedTrip, tripSeatLeft, tripPrice, tripRoomPrices, khMandatoryAddons, landTourFrom, getStorefrontSettingsPublic, getFlashSaleTrips } from '@/lib/shop/data';
+import { getPublishedTrip, tripSeatLeft, tripPrice, tripPriceBefore, tripRoomPrices, khMandatoryAddons, landTourFrom, getStorefrontSettingsPublic, getFlashSaleTrips } from '@/lib/shop/data';
 import HeroSlider from '@/components/shop/HeroSlider';
 import HotelSlider from '@/components/shop/HotelSlider';
 import ShareTrip from '@/components/shop/ShareTrip';
@@ -101,7 +101,10 @@ export default async function TripDetailPage({ params }) {
   const priceCard = (
           <div className="sticky top-20 border border-slate-200 rounded-2xl p-5 shadow-sm">
             <p className="text-xs text-slate-500">Harga mulai</p>
-            <p className="text-3xl font-extrabold text-slate-900">{fmtRp(tripPrice(t))}<span className="text-sm font-medium text-slate-500"> /pax</span></p>
+            {tripPriceBefore(t) > 0 && (
+              <p className="text-sm text-slate-400 line-through -mb-1">{fmtRp(tripPriceBefore(t))} <span className="ml-1 inline-block align-middle text-[10px] font-bold text-red-600 no-underline bg-red-50 border border-red-200 rounded px-1 py-0.5">HEMAT 1 JUTA</span></p>
+            )}
+            <p className={`text-3xl font-extrabold ${tripPriceBefore(t) > 0 ? 'text-red-600' : 'text-slate-900'}`}>{fmtRp(tripPrice(t))}<span className="text-sm font-medium text-slate-500"> /pax</span></p>
             {t.dp_amount > 0 && <p className="text-sm text-emerald-700 font-semibold mt-1">Booking cukup DP {fmtRp(t.dp_amount)}</p>}
 
             {rooms.length > 0 && (
@@ -111,7 +114,14 @@ export default async function TripDetailPage({ params }) {
                   {rooms.map((r) => (
                     <li key={r.key} className="flex items-center justify-between text-sm">
                       <span className="text-slate-600">{r.label}</span>
-                      <span className="font-bold text-slate-800">{fmtRp(r.base)}</span>
+                      {r.discount > 0 ? (
+                        <span className="text-right leading-tight">
+                          <span className="text-[11px] text-slate-400 line-through mr-1.5">{fmtRp(r.baseBefore)}</span>
+                          <span className="font-bold text-red-600">{fmtRp(r.base)}</span>
+                        </span>
+                      ) : (
+                        <span className="font-bold text-slate-800">{fmtRp(r.base)}</span>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -297,11 +307,13 @@ export default async function TripDetailPage({ params }) {
               <h2 className="text-xl font-bold text-slate-900 mb-3 flex items-center gap-2"><span aria-hidden>💰</span> Harga per Tipe Kamar</h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {rooms.map((r) => (
-                  <div key={r.key} className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
+                  <div key={r.key} className={`rounded-2xl border bg-white p-4 text-center shadow-sm ${r.discount > 0 ? 'border-red-200' : 'border-slate-200'}`}>
                     <p className="text-xs font-semibold text-slate-500">{r.label}</p>
                     {roomDesc(r) && <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">{roomDesc(r)}</p>}
-                    <p className="text-lg font-extrabold text-emerald-700 mt-1.5 leading-tight">{fmtRp(r.base)}</p>
+                    {r.discount > 0 && <p className="text-[11px] text-slate-400 line-through mt-1.5 -mb-0.5">{fmtRp(r.baseBefore)}</p>}
+                    <p className={`text-lg font-extrabold mt-1.5 leading-tight ${r.discount > 0 ? 'text-red-600' : 'text-emerald-700'}`}>{fmtRp(r.base)}</p>
                     <p className="text-[10px] text-slate-400">/orang</p>
+                    {r.discount > 0 && <p className="text-[9px] font-bold text-red-600 mt-0.5">HEMAT {fmtRp(r.discount)}</p>}
                   </div>
                 ))}
               </div>

@@ -172,7 +172,14 @@ export default function CheckoutForm({ trip }) {
     <div className="flex items-center justify-between gap-3 py-2 border-b border-slate-100 last:border-0">
       <div className="pr-2">
         <p className="text-sm font-semibold text-slate-800">{it.label}</p>
-        <p className="text-xs font-bold text-slate-700">{fmtRp(showBase && it.base > 0 ? it.base : it.price)} / orang</p>
+        {showBase && it.discount > 0 && it.base > 0 ? (
+          <p className="text-xs font-bold text-red-600">
+            <span className="text-slate-400 font-normal line-through mr-1.5">{fmtRp(it.baseBefore)}</span>
+            {fmtRp(it.base)} / orang <span className="ml-1 text-[10px] font-bold">(Hemat {fmtRp(it.discount)})</span>
+          </p>
+        ) : (
+          <p className="text-xs font-bold text-slate-700">{fmtRp(showBase && it.base > 0 ? it.base : it.price)} / orang</p>
+        )}
         {!showBase && it.addons?.length > 0 && it.base > 0 && (
           <p className="text-[10px] text-slate-400 mt-0.5 leading-snug">
             {it.label} {fmtRp(it.base)}{it.addons.map((a, k) => ` + ${a.label} ${fmtRp(a.value)}`).join('')}

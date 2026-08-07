@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { tripSeatLeft, tripPrice } from '@/lib/shop/data';
+import { tripSeatLeft, tripPrice, tripPriceBefore } from '@/lib/shop/data';
 
 function fmtRp(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
 function fmtDate(d) { if (!d) return ''; try { return new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return d; } }
@@ -34,7 +34,8 @@ export default function TripCard({ t }) {
           <p className="mt-3 text-sm font-extrabold uppercase tracking-wide text-slate-400">SOLD OUT</p>
         ) : (
           <>
-            <p className="mt-2 sm:mt-3 text-base sm:text-lg font-extrabold text-slate-900">{fmtRp(tripPrice(t))}</p>
+            {tripPriceBefore(t) > 0 && <p className="mt-2 sm:mt-3 -mb-0.5 text-xs text-slate-400 line-through">{fmtRp(tripPriceBefore(t))}</p>}
+            <p className={`${tripPriceBefore(t) > 0 ? 'mt-0' : 'mt-2 sm:mt-3'} text-base sm:text-lg font-extrabold ${tripPriceBefore(t) > 0 ? 'text-red-600' : 'text-slate-900'}`}>{fmtRp(tripPrice(t))}</p>
             {t.dp_amount > 0 && <p className="text-[11px] text-emerald-700">Bisa DP {fmtRp(t.dp_amount)}</p>}
           </>
         )}
