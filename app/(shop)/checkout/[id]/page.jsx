@@ -1,5 +1,7 @@
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { resolveBrandCode } from '@/lib/brand-shared';
 import { getPublishedTrip, tripSeatLeft, tripPrice, tripPriceItems, ADMIN_FEE } from '@/lib/shop/data';
 import CheckoutForm from '@/components/shop/CheckoutForm';
 
@@ -12,6 +14,9 @@ export default async function CheckoutPage({ params }) {
   const t = await getPublishedTrip(id);
   if (!t) notFound();
   const seat = tripSeatLeft(t);
+  let _brand = 'teone';
+  try { const h = headers(); _brand = h.get('x-brand') || resolveBrandCode({ host: h.get('host') }) || 'teone'; } catch {}
+  const _isKh = _brand === 'khasanah';
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -32,7 +37,7 @@ export default async function CheckoutPage({ params }) {
       {seat <= 0 ? (
         <p className="mt-6 text-center text-red-600 font-bold">Maaf, seat trip ini sudah habis.</p>
       ) : (
-        <CheckoutForm trip={{ id: t.id, name: t.name, return_date: t.return_date || t.arrival || t.departure || null, dp_amount: Number(t.dp_amount || 0), seat, priceItems: tripPriceItems(t), adminFee: ADMIN_FEE, visaRequirement: t.visa_requirement || '', visaPrice: Number(t?.price_breakdown?.visa || 0), visaEpassportPrice: Number(t?.price_breakdown?.visa_epassport || 0), asuransiPrice: Number(t?.price_breakdown?.asuransi || 0) }} />
+        <CheckoutForm trip={{ id: t.id, name: t.name, return_date: t.return_date || t.arrival || t.departure || null, dp_amount: Number(t.dp_amount || 0), seat, priceItems: tripPriceItems(t, _isKh), adminFee: ADMIN_FEE, visaRequirement: t.visa_requirement || '', visaPrice: Number(t?.price_breakdown?.visa || 0), visaEpassportPrice: Number(t?.price_breakdown?.visa_epassport || 0), asuransiPrice: Number(t?.price_breakdown?.asuransi || 0) }} />
       )}
     </div>
   );
