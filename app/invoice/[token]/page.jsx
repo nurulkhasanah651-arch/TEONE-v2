@@ -15,6 +15,11 @@ import { getTourAddonTemplatesPublic } from '@/lib/shop/data';
 import { detectTourAddon, isInfantRoom } from '@/lib/utils/umroh-plus';
 
 export const dynamic = 'force-dynamic';
+// Paksa SEMUA fetch di halaman invoice (termasuk fetch trip di getExpectedAndPaidForPassenger)
+// bypass Data Cache. Tanpa ini, breakdown trip bisa terbaca dari cache lama (mis. sebelum harga
+// kamar diisi) → harga kamar hilang di invoice walau master sudah benar.
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
 
 function fmtRupiah(n) { return 'Rp ' + (Number(n) || 0).toLocaleString('id-ID'); }
 function fmtDate(s) {
