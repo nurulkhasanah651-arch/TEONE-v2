@@ -269,16 +269,21 @@ export default async function PublicInvoicePage({ params }) {
   // Paket Tour = HARGA KAMAR dari Master Trip, dikelompokkan per tipe kamar & disebut tipenya.
   // Dulu dihitung mundur (total − komponen lain); kalau price_paid salah, baris ini ikut jadi
   // angka karangan (mis. trip 501: tampil 48jt utk 2 pax padahal double 27,9jt/orang).
+  // FLAG price_breakdown._harga_final: harga per peserta = harga FINAL apa adanya (bukan template),
+  // jadi baris kamar tampil sesuai harga peserta & TIDAK ada "Penyesuaian harga khusus".
+  const _hargaFinal = !!(breakdown && breakdown._harga_final === true);
+  const _mExtras = (m) => (Number(m.tips)||0)+(Number(m.cityTax)||0)+(Number(m.flight)||0)+(Number(m.baggage)||0)+(Number(m.baseFee)||0)+(Number(m.perlengkapan)||0)+(Number(m.visaPokok)||0)+(Number(m.asuransiPokok)||0)+(Number(m.asuransiTipsLocalGuide)||0)+(Number(m.handlingPerlengkapan)||0)+(Number(m.visaAsuransi)||0);
+  const _roomAmt = (m) => _hargaFinal ? Math.max((Number(m.expectedTotal)||0) - (Number(m.ppn)||0) - _mExtras(m), 0) : (Number(m.roomPrice) || 0);
   const _grupKamar = (famResolved && famMembers.length)
     ? Object.values(famMembers.reduce((acc, m) => {
         const rt = String(m.roomType || passenger?.room_type || '').trim() || 'Room';
         const k = rt.toLowerCase();
         acc[k] = acc[k] || { roomType: rt, n: 0, amount: 0 };
         acc[k].n += 1;
-        acc[k].amount += Number(m.roomPrice) || 0;
+        acc[k].amount += _roomAmt(m);
         return acc;
       }, {}))
-    : [{ roomType: String(passenger?.room_type || '').trim() || 'Room', n: 1, amount: Number(roomPrice) || 0 }];
+    : [{ roomType: String(passenger?.room_type || '').trim() || 'Room', n: 1, amount: _hargaFinal ? Math.max((Number(_pokokGross)||0) - (Number(_extras)||0), 0) : (Number(roomPrice) || 0) }];
   const rRoom = _grupKamar.reduce((t, g) => t + g.amount, 0);
   for (const g of _grupKamar) {
     if (g.amount <= 0) continue;
@@ -301,7 +306,7 @@ export default async function PublicInvoicePage({ params }) {
   // Harga khusus/nego (price_paid beda dari harga Master Trip) -> tampilkan terpisah
   // supaya baris2 tetap menjumlah ke TOTAL PAKET, tanpa memalsukan harga kamar.
   const _selisihHarga = _pokokGross > 0 ? (_pokokGross - (rRoom + _extras)) : 0;
-  if (Math.abs(_selisihHarga) >= 1000) {
+  if (!_hargaFinal && Math.abs(_selisihHarga) >= 1000) {
     tourItems.push({ label: _selisihHarga > 0 ? 'Penyesuaian harga khusus' : 'Penyesuaian harga khusus', amount: _selisihHarga, detail: 'harga nego' });
   }
   // Jumlah peserta per-komponen (infant/child-no-bed dikecualikan dari tips/city/dll)
