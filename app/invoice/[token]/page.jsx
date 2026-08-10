@@ -285,6 +285,23 @@ export default async function PublicInvoicePage({ params }) {
       }, {}))
     : [{ roomType: String(passenger?.room_type || '').trim() || 'Room', n: 1, amount: _hargaFinal ? Math.max((Number(_pokokGross)||0) - (Number(_extras)||0), 0) : (Number(roomPrice) || 0) }];
   const rRoom = _grupKamar.reduce((t, g) => t + g.amount, 0);
+  // _harga_final + rincian per peserta (price_detail) → tampilkan breakdown komponen
+  // persis tabel: Land Tour + Tiket + Visa + Add On (jumlah = harga all-in).
+  const _hfDetail = (_hargaFinal && famResolved && famMembers.length && famMembers.every((m) => m.hargaDetail))
+    ? famMembers.reduce((a, m) => ({
+        landtour: a.landtour + (Number(m.hargaDetail.landtour) || 0),
+        tiket: a.tiket + (Number(m.hargaDetail.tiket) || 0),
+        visa: a.visa + (Number(m.hargaDetail.visa) || 0),
+        addon: a.addon + (Number(m.hargaDetail.addon) || 0),
+      }), { landtour: 0, tiket: 0, visa: 0, addon: 0 })
+    : null;
+  if (_hfDetail) {
+    const _pn = famCount > 1 ? ` (${famCount} pax)` : '';
+    if (_hfDetail.landtour > 0) tourItems.push({ label: `Land Tour${_pn}`, amount: _hfDetail.landtour });
+    if (_hfDetail.tiket > 0) tourItems.push({ label: `Tiket${_pn}`, amount: _hfDetail.tiket });
+    if (_hfDetail.visa > 0) tourItems.push({ label: `Visa${_pn}`, amount: _hfDetail.visa });
+    if (_hfDetail.addon > 0) tourItems.push({ label: `Add On${_pn}`, amount: _hfDetail.addon });
+  } else {
   for (const g of _grupKamar) {
     if (g.amount <= 0) continue;
     if (_tourAddon) {
@@ -302,6 +319,7 @@ export default async function PublicInvoicePage({ params }) {
     } else {
       tourItems.push({ label: `Paket Tour · ${labelKamar(g.roomType)} (${g.n} pax)`, amount: g.amount });
     }
+  }
   }
   // Harga khusus/nego (price_paid beda dari harga Master Trip) -> tampilkan terpisah
   // supaya baris2 tetap menjumlah ke TOTAL PAKET, tanpa memalsukan harga kamar.
