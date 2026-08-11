@@ -16,11 +16,14 @@ export default function CheckoutForm({ trip }) {
   const items = trip.priceItems || { rooms: [], specials: [] };
   const adminFee = Number(trip.adminFee || 0);
   const visaReq = trip.visaRequirement || '';
-  const showVisaQ = visaReq === 'individual' || visaReq === 'group';
-  const visaLocked = visaReq === 'group';
   const asuransiPrice = Number(trip.asuransiPrice || 0);
   const visaPrice = Number(trip.visaPrice || 0);
   const visaEpassportPrice = Number(trip.visaEpassportPrice || 0);
+  // Pertanyaan visa muncul kalau: wajib (group/individual) ATAU harga visa diisi di master trip
+  // (price-driven, seperti asuransi/e-visa). visa_requirement 'none' = sengaja tanpa visa → sembunyikan.
+  const _hasVisaPrice = visaPrice > 0 || visaEpassportPrice > 0;
+  const showVisaQ = visaReq === 'individual' || visaReq === 'group' || (_hasVisaPrice && visaReq !== 'none');
+  const visaLocked = visaReq === 'group';
   const visaEvisaPrice = Number(trip.visaEvisaPrice || 0);
   // Pilihan tipe visa BIASA yg harganya diisi di master trip (Jepang: biasa + e-paspor).
   const visaTypeOptions = [
@@ -336,16 +339,16 @@ export default function CheckoutForm({ trip }) {
               )}
             </div>
           )}
+          {showEvisaQ && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={incEvisa} onChange={(e) => setIncEvisa(e.target.checked)} className="w-4 h-4" />
+              <span className="text-sm text-slate-700">Include E-Visa ({fmtRp(visaEvisaPrice)}) <span className="text-[11px] text-slate-400">— bisa bareng visa biasa (mis. visa USA + e-Visa Canada)</span></span>
+            </label>
+          )}
           {showAsuransiQ && (
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={incAsuransi} onChange={(e) => setIncAsuransi(e.target.checked)} className="w-4 h-4" />
               <span className="text-sm text-slate-700">Include Asuransi ({fmtRp(asuransiPrice)})</span>
-            </label>
-          )}
-          {showEvisaQ && (
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={incEvisa} onChange={(e) => setIncEvisa(e.target.checked)} className="w-4 h-4" />
-              <span className="text-sm text-slate-700">Include E-Visa ({fmtRp(visaEvisaPrice)}) <span className="text-[11px] text-slate-400">— bisa bareng visa biasa</span></span>
             </label>
           )}
           <p className="text-[11px] text-slate-400">Pilihan ini dicatat di tagihan; dibayar bertahap, tidak menambah nominal DP saat ini.</p>
