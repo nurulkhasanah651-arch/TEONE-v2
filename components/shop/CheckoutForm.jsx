@@ -22,19 +22,22 @@ export default function CheckoutForm({ trip }) {
   const visaPrice = Number(trip.visaPrice || 0);
   const visaEpassportPrice = Number(trip.visaEpassportPrice || 0);
   const visaEvisaPrice = Number(trip.visaEvisaPrice || 0);
-  // Pilihan tipe visa yg harganya diisi di master trip (Canada: biasa + e-visa; Jepang: biasa + e-paspor).
+  // Pilihan tipe visa BIASA yg harganya diisi di master trip (Jepang: biasa + e-paspor).
   const visaTypeOptions = [
     { value: 'biasa', label: 'Visa Biasa', price: visaPrice },
     { value: 'epassport', label: 'Visa E-Paspor', price: visaEpassportPrice },
-    { value: 'evisa', label: 'Visa E-Visa', price: visaEvisaPrice },
   ].filter((o) => o.price > 0);
   const hasMultiVisaTypes = visaTypeOptions.length > 1;
   const soleVisaType = visaTypeOptions.length === 1 ? visaTypeOptions[0].value : 'biasa';
   const soleVisaPrice = visaTypeOptions.length === 1 ? visaTypeOptions[0].price : visaPrice;
   const showAsuransiQ = asuransiPrice > 0;
+  // E-Visa = pilihan TERPISAH (independen dari visa biasa). Case Canada: peserta bisa
+  // Include Visa (USA) + Include E-Visa (Canada) sekaligus → harganya dijumlah.
+  const showEvisaQ = visaEvisaPrice > 0;
   const [visaChoice, setVisaChoice] = useState(visaReq === 'group' ? 'include' : '');
   const [visaType, setVisaType] = useState('');
   const [incAsuransi, setIncAsuransi] = useState(false);
+  const [incEvisa, setIncEvisa] = useState(false);
   const [agreeTnc, setAgreeTnc] = useState(false);
   const [showLandTour, setShowLandTour] = useState(false);
   const allItems = [...(items.rooms || []), ...(items.specials || []), ...(items.landTour || [])];
@@ -163,6 +166,7 @@ export default function CheckoutForm({ trip }) {
     // Tipe visa: kalau ada >1 pilihan pakai pilihan user; kalau cuma 1 tipe & bukan biasa (mis. e-visa saja) tetap simpan tipenya.
     fd.set('visa_type', _visaIncluded ? (hasMultiVisaTypes ? visaType : (soleVisaType === 'biasa' ? '' : soleVisaType)) : '');
     fd.set('include_asuransi', (showAsuransiQ && incAsuransi) ? '1' : '');
+    fd.set('include_evisa', (showEvisaQ && incEvisa) ? '1' : '');
     fd.set('agree_tnc', agreeTnc ? '1' : '');
     startTransition(async () => {
       const r = await createBooking(fd);
@@ -299,7 +303,7 @@ export default function CheckoutForm({ trip }) {
         </div>
       </div>
 
-      {(showVisaQ || showAsuransiQ) && (
+      {(showVisaQ || showAsuransiQ || showEvisaQ) && (
         <div className="border border-slate-200 rounded-2xl p-4 bg-white space-y-2">
           <p className="text-sm font-bold text-slate-800">Tambahan (ditagih bertahap bersama pelunasan)</p>
           {showVisaQ && (
@@ -336,6 +340,12 @@ export default function CheckoutForm({ trip }) {
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={incAsuransi} onChange={(e) => setIncAsuransi(e.target.checked)} className="w-4 h-4" />
               <span className="text-sm text-slate-700">Include Asuransi ({fmtRp(asuransiPrice)})</span>
+            </label>
+          )}
+          {showEvisaQ && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={incEvisa} onChange={(e) => setIncEvisa(e.target.checked)} className="w-4 h-4" />
+              <span className="text-sm text-slate-700">Include E-Visa ({fmtRp(visaEvisaPrice)}) <span className="text-[11px] text-slate-400">— bisa bareng visa biasa</span></span>
             </label>
           )}
           <p className="text-[11px] text-slate-400">Pilihan ini dicatat di tagihan; dibayar bertahap, tidak menambah nominal DP saat ini.</p>

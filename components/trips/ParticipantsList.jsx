@@ -128,7 +128,7 @@ export default function ParticipantsList(props) {
                       passport_no: c.passport_no, passport_issued_at: c.passport_issued_at,
                       passport_issued_date: c.passport_issued_date, passport_expiry: c.passport_expiry,
                       room_type: p.room_type, price_paid: p.price_paid, mitra_id: p.mitra_id,
-                      include_visa: p.include_visa, visa_ready: p.visa_ready, include_asuransi: p.include_asuransi, visa_type: p.visa_type,
+                      include_visa: p.include_visa, visa_ready: p.visa_ready, include_asuransi: p.include_asuransi, include_evisa: p.include_evisa, visa_type: p.visa_type,
                       notes: p.notes,
                     }}
                     onSubmit={(fd) => handleUpdate(p.id, p.customer_id, fd)}
@@ -291,9 +291,11 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
               <select name="visa_type" defaultValue={initial.visa_type || ''} className="px-2 py-1 border border-slate-300 rounded-lg text-xs">
                 <option value="">Visa Biasa</option>
                 <option value="epassport">Visa E-Paspor</option>
-                <option value="evisa">Visa E-Visa</option>
               </select>
             </div>
+            {/* E-Visa = include TERPISAH (independen dari visa biasa). Case Canada: peserta bisa
+                Include Visa (USA) + Include E-Visa (Canada) sekaligus → harganya dijumlah. */}
+            <label className="flex items-center gap-1.5 cursor-pointer text-sm mt-2"><input type="checkbox" name="include_evisa" value="1" defaultChecked={!!initial.include_evisa} className="w-4 h-4" /> Include E-Visa <span className="text-[11px] text-slate-400">(bisa dicentang bareng visa biasa)</span></label>
           </Field>
           <Field label="Asuransi">
             <label className="flex items-center gap-1.5 cursor-pointer text-sm pt-2"><input type="checkbox" name="include_asuransi" value="1" defaultChecked={!!initial.include_asuransi} className="w-4 h-4" /> Include Asuransi</label>

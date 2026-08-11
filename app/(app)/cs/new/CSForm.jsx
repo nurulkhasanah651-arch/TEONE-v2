@@ -39,7 +39,7 @@ function parseInput(s) {
 
 const BLANK_PAX = {
   first_name: '', last_name: '', phone: '', email: '',
-  source: 'whatsapp', room_type: '', price_paid: '', discount: '', include_visa: false, visa_ready: false, include_asuransi: false,
+  source: 'whatsapp', room_type: '', price_paid: '', discount: '', include_visa: false, visa_ready: false, include_asuransi: false, include_evisa: false,
   dp_amount: '', dp_date: new Date().toISOString().slice(0, 10),
   dp_method: 'transfer', dp_proof_url: '',
   family_name: '',
@@ -68,6 +68,8 @@ export default function CSForm({ trips, mitraList = [] }) {
   const selectedTrip = trips.find((t) => String(t.id) === String(tripId));
   const _visaReq = selectedTrip?.visa_requirement || '';
   const _visaLocked = _visaReq === 'group';
+  // E-Visa = include TERPISAH (independen dari visa biasa, case Canada). Muncul kalau harga diisi di master trip.
+  const _evisaPrice = Number(selectedTrip?.price_breakdown?.visa_evisa || 0);
   const totalTerjual = Object.values(sources).reduce((a, b) => a + (+b || 0), 0);
   const sisaSeat = selectedTrip ? selectedTrip.seat_left ?? 0 : 0;
 
@@ -318,6 +320,12 @@ export default function CSForm({ trips, mitraList = [] }) {
                           <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold text-slate-700">
                             <input type="checkbox" checked={!!p.include_asuransi} onChange={(e) => updParticipant(i, 'include_asuransi', e.target.checked)} className="w-3.5 h-3.5" />
                             Include Asuransi
+                          </label>
+                        )}
+                        {_evisaPrice > 0 && (
+                          <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold text-slate-700">
+                            <input type="checkbox" checked={!!p.include_evisa} onChange={(e) => updParticipant(i, 'include_evisa', e.target.checked)} className="w-3.5 h-3.5" />
+                            Include E-Visa
                           </label>
                         )}
                       </div>

@@ -182,6 +182,7 @@ export default async function PublicInvoicePage({ params }) {
   const cityTax = Number(breakdown.city_tax || breakdown.cityTax || 0);
   const visaPrice = Number(breakdown.visa || 0);
   const asuransiPrice = Number(breakdown.asuransi || 0);
+  const evisaPrice = Number(breakdown.visa_evisa || 0);
 
   const paidTypes = new Set(participantPayments.map((p) => p.type));
 
@@ -195,6 +196,7 @@ export default async function PublicInvoicePage({ params }) {
   let ppnReal = 0, ppnLabelReal = '';
   let famRoom = 0, famTips = 0, famCity = 0, famFlight = 0, famBaggage = 0, famBase = 0, famVisa = 0, famAsuransi = 0, famCount = 1, famResolved = false;
   let famVisaCount = 0, famAsuransiCount = 0, famPerlengkapan = 0;
+  let famEvisa = 0, famEvisaCount = 0;
   let famAsrTipsLocal = 0, famHandlingPerl = 0, famVisaAsr = 0;
   let famVisaPokok = 0, famAsuransiPokok = 0, famVisaPokokCount = 0, famAsuransiPokokCount = 0;
   let famAddonItems = [];
@@ -226,6 +228,8 @@ export default async function PublicInvoicePage({ params }) {
       famCount = bill.count || 1;
       famVisaCount = Number(bill.visaCount) || 0;
       famAsuransiCount = Number(bill.asuransiCount) || 0;
+      famEvisa = Number(bill.evisaExpected) || 0;
+      famEvisaCount = Number(bill.evisaCount) || 0;
       // Khasanah: visa & asuransi WAJIB, sudah termasuk pokok → tampil sbg rincian paket.
       famVisaPokok = Number(bill.visaPokok) || 0;
       famAsuransiPokok = Number(bill.asuransiPokok) || 0;
@@ -258,6 +262,11 @@ export default async function PublicInvoicePage({ params }) {
   const _asrPax = famResolved ? famAsuransiCount : 1;
   if (visaAmt > 0) optItems.push({ label: _visaPax > 1 ? `Visa (${_visaPax} peserta)` : 'Visa', amount: visaAmt });
   if (asuransiAmt > 0) optItems.push({ label: _asrPax > 1 ? `Asuransi (${_asrPax} peserta)` : 'Asuransi', amount: asuransiAmt });
+  // E-Visa = include TERPISAH (independen dari visa biasa). Canada: Visa biasa + E-Visa sekaligus.
+  const invHasEvisa = _invAllIn || _msLower.includes('e-visa') || _msLower.includes('evisa');
+  const evisaAmt = famResolved ? famEvisa : ((invHasEvisa || paidTypes.has('E-Visa')) ? evisaPrice : 0);
+  const _evisaPax = famResolved ? famEvisaCount : 1;
+  if (evisaAmt > 0) optItems.push({ label: _evisaPax > 1 ? `E-Visa (${_evisaPax} peserta)` : 'E-Visa', amount: evisaAmt });
 
   const isLunas = expectedTotalReal > 0 && sisaReal === 0;
 
@@ -360,7 +369,7 @@ export default async function PublicInvoicePage({ params }) {
   // R228: kalau peserta include visa/asuransi (visaAmt/asuransiAmt > 0), Total Tagihan = pokok+visa+asuransi
   //        dan Sisa = total − semua yg sudah dibayar (pokok + addon). Nominal per-invoice tetap.
   const _adaBiayaTambahan = famAddonItems.some((a) => Number(a.amount) > 0);
-  const _allInRingkas = _invAllIn || visaAmt > 0 || asuransiAmt > 0 || _adaBiayaTambahan || (_msLower.includes('pelunasan') && (_msLower.includes('visa') || _msLower.includes('asuransi')));
+  const _allInRingkas = _invAllIn || visaAmt > 0 || asuransiAmt > 0 || evisaAmt > 0 || _adaBiayaTambahan || (_msLower.includes('pelunasan') && (_msLower.includes('visa') || _msLower.includes('asuransi')));
   const ringkasTotal = _allInRingkas ? tourTotal : expectedTotalReal;
   const ringkasPaid = _allInRingkas ? ((Number(pokokPaidReal) || 0) + (Number(addonPaidReal) || 0)) : pokokPaidReal;
   const ringkasSisa = _allInRingkas ? Math.max(ringkasTotal - ringkasPaid, 0) : sisaReal;
