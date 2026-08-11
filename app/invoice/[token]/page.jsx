@@ -260,13 +260,18 @@ export default async function PublicInvoicePage({ params }) {
   // Mis. keluarga 6 org, 2 sudah 'ready visa' -> "Visa (4 peserta)".
   const _visaPax = famResolved ? famVisaCount : 1;
   const _asrPax = famResolved ? famAsuransiCount : 1;
-  if (visaAmt > 0) optItems.push({ label: _visaPax > 1 ? `Visa (${_visaPax} peserta)` : 'Visa', amount: visaAmt });
+  // Keterangan negara (opsional) dari master trip — mis. Visa USA, E-Visa Canada.
+  const _visaLbl = (breakdown.visa_label || '').toString().trim();
+  const _evisaLbl = (breakdown.visa_evisa_label || '').toString().trim();
+  const _visaName = _visaLbl ? `Visa ${_visaLbl}` : 'Visa';
+  const _evisaName = _evisaLbl ? `E-Visa ${_evisaLbl}` : 'E-Visa';
+  if (visaAmt > 0) optItems.push({ label: _visaPax > 1 ? `${_visaName} (${_visaPax} peserta)` : _visaName, amount: visaAmt });
   if (asuransiAmt > 0) optItems.push({ label: _asrPax > 1 ? `Asuransi (${_asrPax} peserta)` : 'Asuransi', amount: asuransiAmt });
   // E-Visa = include TERPISAH (independen dari visa biasa). Canada: Visa biasa + E-Visa sekaligus.
   const invHasEvisa = _invAllIn || _msLower.includes('e-visa') || _msLower.includes('evisa');
   const evisaAmt = famResolved ? famEvisa : ((invHasEvisa || paidTypes.has('E-Visa')) ? evisaPrice : 0);
   const _evisaPax = famResolved ? famEvisaCount : 1;
-  if (evisaAmt > 0) optItems.push({ label: _evisaPax > 1 ? `E-Visa (${_evisaPax} peserta)` : 'E-Visa', amount: evisaAmt });
+  if (evisaAmt > 0) optItems.push({ label: _evisaPax > 1 ? `${_evisaName} (${_evisaPax} peserta)` : _evisaName, amount: evisaAmt });
 
   const isLunas = expectedTotalReal > 0 && sisaReal === 0;
 

@@ -45,6 +45,9 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
     });
     init.visa_epassport = initialBreakdown.visa_epassport || 0;
     init.visa_evisa = initialBreakdown.visa_evisa || 0;
+    // Keterangan negara visa (opsional) — mis. "USA" utk visa biasa, "Canada" utk e-Visa.
+    init.visa_label = initialBreakdown.visa_label || '';
+    init.visa_evisa_label = initialBreakdown.visa_evisa_label || '';
     init._custom = Array.isArray(initialBreakdown._custom) ? initialBreakdown._custom : [];
     return init;
   });
@@ -53,6 +56,9 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
 
   function setBd(key, val) {
     setBreakdown((b) => ({ ...b, [key]: parseInt(val) || 0 }));
+  }
+  function setBdStr(key, val) {
+    setBreakdown((b) => ({ ...b, [key]: String(val || '') }));
   }
   function addCustom() {
     if (!newCustomName.trim()) return;
@@ -207,7 +213,18 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
               <PriceField icon="🛂" label="Visa E-Paspor" value={breakdown.visa_epassport} onChange={(v) => setBd('visa_epassport', v)} />
               <PriceField icon="💻" label="Visa E-Visa" value={breakdown.visa_evisa} onChange={(v) => setBd('visa_evisa', v)} />
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">Isi <b>Visa E-Paspor</b> hanya untuk trip yg punya 2 tipe visa (mis. Jepang). Isi <b>Visa E-Visa</b> untuk trip yg punya 2 pilihan visa: visa biasa & e-Visa (mis. Canada). Kalau salah satu diisi, peserta bisa memilih jenis visa di web & saat input. Kosongkan yg tidak dipakai.</p>
+            {/* Keterangan negara (opsional) — biar jelas "visa apa" di web & invoice, mis. USA / Canada */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+              <label className="block">
+                <span className="text-[11px] font-semibold text-slate-500 block mb-0.5">Keterangan Visa Biasa (opsional, mis. USA)</span>
+                <input type="text" value={breakdown.visa_label || ''} onChange={(e) => setBdStr('visa_label', e.target.value)} placeholder="mis. USA" className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-sm" />
+              </label>
+              <label className="block">
+                <span className="text-[11px] font-semibold text-slate-500 block mb-0.5">Keterangan E-Visa (opsional, mis. Canada)</span>
+                <input type="text" value={breakdown.visa_evisa_label || ''} onChange={(e) => setBdStr('visa_evisa_label', e.target.value)} placeholder="mis. Canada" className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-sm" />
+              </label>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Isi <b>Visa E-Paspor</b> hanya untuk trip yg punya 2 tipe visa (mis. Jepang). Isi <b>Visa E-Visa</b> untuk trip yg punya 2 pilihan visa: visa biasa & e-Visa (mis. Canada). <b>Keterangan</b> (USA/Canada) opsional — biar jelas visa negara apa di web & invoice. Kalau salah satu diisi, peserta bisa memilih jenis visa di web & saat input. Kosongkan yg tidak dipakai.</p>
           </div>
 
           {isKhasanah && (

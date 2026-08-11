@@ -25,6 +25,11 @@ export default function CheckoutForm({ trip }) {
   const showVisaQ = visaReq === 'individual' || visaReq === 'group' || (_hasVisaPrice && visaReq !== 'none');
   const visaLocked = visaReq === 'group';
   const visaEvisaPrice = Number(trip.visaEvisaPrice || 0);
+  // Keterangan negara (opsional) — mis. "USA" utk visa biasa, "Canada" utk e-Visa.
+  const visaLabel = (trip.visaLabel || '').toString().trim();
+  const visaEvisaLabel = (trip.visaEvisaLabel || '').toString().trim();
+  const _visaSuffix = visaLabel ? ` ${visaLabel}` : '';        // "Urus visa USA lewat kami"
+  const _evisaSuffix = visaEvisaLabel ? ` ${visaEvisaLabel}` : '';
   // Pilihan tipe visa BIASA yg harganya diisi di master trip (Jepang: biasa + e-paspor).
   const visaTypeOptions = [
     { value: 'biasa', label: 'Visa Biasa', price: visaPrice },
@@ -314,7 +319,7 @@ export default function CheckoutForm({ trip }) {
               <p className="text-sm font-semibold text-slate-700">Visa <span className="text-red-500">*</span></p>
               {visaLocked ? (
                 <>
-                  <p className="text-sm text-slate-700">🛂 Urus visa lewat kami{!hasMultiVisaTypes && soleVisaPrice > 0 ? ` (${fmtRp(soleVisaPrice)})` : ''} — <b>wajib (visa group)</b></p>
+                  <p className="text-sm text-slate-700">🛂 Urus visa{_visaSuffix} lewat kami{!hasMultiVisaTypes && soleVisaPrice > 0 ? ` (${fmtRp(soleVisaPrice)})` : ''} — <b>wajib (visa group)</b></p>
                   {hasMultiVisaTypes && (
                     <div className="ml-5 mt-1 space-y-1">
                       {visaTypeOptions.map((o) => (
@@ -325,7 +330,7 @@ export default function CheckoutForm({ trip }) {
                 </>
               ) : (
                 <>
-                  <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="visaChoice" checked={visaChoice === 'include'} onChange={() => setVisaChoice('include')} className="w-4 h-4" /><span className="text-sm text-slate-700">Urus visa lewat kami{!hasMultiVisaTypes && soleVisaPrice > 0 ? ` (${fmtRp(soleVisaPrice)})` : ''}</span></label>
+                  <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="visaChoice" checked={visaChoice === 'include'} onChange={() => setVisaChoice('include')} className="w-4 h-4" /><span className="text-sm text-slate-700">Include urus visa{_visaSuffix} lewat kami{!hasMultiVisaTypes && soleVisaPrice > 0 ? ` (${fmtRp(soleVisaPrice)})` : ''}</span></label>
                   {hasMultiVisaTypes && visaChoice === 'include' && (
                     <div className="ml-6 space-y-1">
                       {visaTypeOptions.map((o) => (
@@ -342,7 +347,7 @@ export default function CheckoutForm({ trip }) {
           {showEvisaQ && (
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={incEvisa} onChange={(e) => setIncEvisa(e.target.checked)} className="w-4 h-4" />
-              <span className="text-sm text-slate-700">Include E-Visa ({fmtRp(visaEvisaPrice)}) <span className="text-[11px] text-slate-400">— bisa bareng visa biasa (mis. visa USA + e-Visa Canada)</span></span>
+              <span className="text-sm text-slate-700">Include E-Visa{_evisaSuffix} ({fmtRp(visaEvisaPrice)}) <span className="text-[11px] text-slate-400">— bisa bareng visa biasa</span></span>
             </label>
           )}
           {showAsuransiQ && (
