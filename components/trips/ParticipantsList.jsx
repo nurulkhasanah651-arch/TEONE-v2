@@ -291,6 +291,7 @@ function ParticipantForm({ initial = {}, onSubmit, onCancel, pending, submitLabe
               <select name="visa_type" defaultValue={initial.visa_type || ''} className="px-2 py-1 border border-slate-300 rounded-lg text-xs">
                 <option value="">Visa Biasa</option>
                 <option value="epassport">Visa E-Paspor</option>
+                <option value="evisa">Visa E-Visa</option>
               </select>
             </div>
           </Field>

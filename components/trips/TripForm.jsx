@@ -44,6 +44,7 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
       init[it.key] = initialBreakdown[it.key] || 0;
     });
     init.visa_epassport = initialBreakdown.visa_epassport || 0;
+    init.visa_evisa = initialBreakdown.visa_evisa || 0;
     init._custom = Array.isArray(initialBreakdown._custom) ? initialBreakdown._custom : [];
     return init;
   });
@@ -204,8 +205,9 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
                 <PriceField key={a.key} icon={a.icon} label={a.key === 'visa' ? 'Visa (Biasa)' : a.label} value={breakdown[a.key]} onChange={(v) => setBd(a.key, v)} />
               ))}
               <PriceField icon="🛂" label="Visa E-Paspor" value={breakdown.visa_epassport} onChange={(v) => setBd('visa_epassport', v)} />
+              <PriceField icon="💻" label="Visa E-Visa" value={breakdown.visa_evisa} onChange={(v) => setBd('visa_evisa', v)} />
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">Isi <b>Visa E-Paspor</b> hanya untuk trip yg punya 2 tipe visa (mis. Jepang). Kalau diisi, peserta bisa pilih e-paspor / biasa di web & saat input. Kosongkan kalau cuma 1 jenis visa.</p>
+            <p className="text-[11px] text-slate-400 mt-1">Isi <b>Visa E-Paspor</b> hanya untuk trip yg punya 2 tipe visa (mis. Jepang). Isi <b>Visa E-Visa</b> untuk trip yg punya 2 pilihan visa: visa biasa & e-Visa (mis. Canada). Kalau salah satu diisi, peserta bisa memilih jenis visa di web & saat input. Kosongkan yg tidak dipakai.</p>
           </div>
 
           {isKhasanah && (
