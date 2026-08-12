@@ -6,6 +6,7 @@ import { storefrontConfig } from '@/lib/shop/storefront-config';
 import { getTCByToken } from '@/lib/actions/tour-confirmation';
 import { TC_GENERAL_INFO } from '@/lib/shop/tc-terms';
 import PrintButton from '@/components/shop/PrintButton';
+import TourConfirmationKhasanah from '@/components/shop/TourConfirmationKhasanah';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,26 @@ export default async function TourConfirmationPage({ params }) {
   const hotels = Array.isArray(tc.hotels) ? tc.hotels.filter((h) => h && (h.name || h.address)) : [];
   const flight = lines(tc.detail_flight);
   const generalInfo = (Array.isArray(tc.general_info) && tc.general_info.length) ? tc.general_info : TC_GENERAL_INFO;
+
+  // KHASANAH: render blanko resmi Khasanah Travel (letterhead/logo/alamat/tabel hitam/watermark).
+  // TEONE tetap layout lama di bawah.
+  if (brand === 'khasanah') {
+    const swapBrand = (s) => String(s || '').replace(/TRAVELING\s*EROPA/gi, 'KHASANAH TRAVEL').replace(/Traveling\s*Eropa/g, 'Khasanah Travel');
+    const giKh = generalInfo.map((sec) => ({
+      title: swapBrand(sec.title),
+      items: Array.isArray(sec.items) ? sec.items.map(swapBrand) : [],
+    }));
+    return (
+      <TourConfirmationKhasanah
+        tc={tc}
+        logo={logo}
+        itin={itin}
+        hotels={hotels}
+        flight={flight}
+        generalInfo={giKh}
+      />
+    );
+  }
 
   const C = { primary: '#1f3b8c', ink: '#111', head: '#22357a', line: '#1f3b8c' };
 
