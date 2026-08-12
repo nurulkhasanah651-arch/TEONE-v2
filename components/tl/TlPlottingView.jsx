@@ -1,6 +1,6 @@
 'use client';
 import { useState, useMemo, useTransition } from 'react';
-import { setTlPlan, finalPlotTl, resendTlAssignmentWA } from '@/lib/actions/tl-plotting';
+import { setTlPlan, finalPlotTl, resendTlAssignmentWA, setTlPayFlag } from '@/lib/actions/tl-plotting';
 
 const MON = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 const MONSHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
@@ -96,6 +96,7 @@ function CardsSection({ trips }) {
                     <th className="px-3 py-2 text-left">Tanggal</th>
                     <th className="px-3 py-2 text-center">Seat</th>
                     <th className="px-3 py-2 text-left">Rencana TL (draft)</th>
+                    <th className="px-3 py-2 text-center">Gaji TL</th>
                     <th className="px-3 py-2 text-center">Aksi</th>
                   </tr>
                 </thead>
@@ -118,6 +119,32 @@ function PlotRow({ t }) {
   const [connName, setConnName] = useState(t.tl || '');
   const [err, setErr] = useState('');
   const [pending, start] = useTransition();
+
+  // Penanda gaji TL
+  const [g70, setG70] = useState(!!t.gaji70);
+  const [g30, setG30] = useState(!!t.gaji30);
+  const [kOk, setKOk] = useState(!!t.konten_approved);
+  const [payErr, setPayErr] = useState('');
+  function togglePay(field, next) {
+    setPayErr('');
+    // Optimistic + aturan bisnis (30% butuh konten approve)
+    if (field === '70') setG70(next);
+    if (field === 'konten') { setKOk(next); if (!next) setG30(false); }
+    if (field === '30') {
+      if (next && !kOk) { setPayErr('Konten belum approve'); return; }
+      setG30(next);
+    }
+    start(async () => {
+      const r = await setTlPayFlag(t.brand, t.id, field, next);
+      if (r?.error) {
+        setPayErr(r.error);
+        // rollback
+        if (field === '70') setG70(!next);
+        if (field === 'konten') setKOk(!next);
+        if (field === '30') setG30(!next);
+      }
+    });
+  }
 
   function saveDraft() {
     if ((name || '').trim() === (t.tl_plan || '').trim()) return;
@@ -165,6 +192,23 @@ function PlotRow({ t }) {
           list="tl-plan-options" placeholder="pilih / ketik nama TL…" className="w-full max-w-[200px] px-2 py-1.5 border border-slate-300 rounded text-xs disabled:opacity-50" />
         {saved && <div className="text-[10px] text-emerald-600 mt-0.5">✓ {saved}</div>}
         {err && <div className="text-[10px] text-rose-600 mt-0.5">⚠ {err}</div>}
+      </td>
+      <td className="px-3 py-2 text-[11px] whitespace-nowrap align-middle">
+        <div className="flex flex-col gap-1">
+          <label className="flex items-center gap-1.5 cursor-pointer" title="Gaji 70% ditransfer H-1 keberangkatan">
+            <input type="checkbox" checked={g70} disabled={pending} onChange={(e) => togglePay('70', e.target.checked)} className="w-3.5 h-3.5" />
+            <span className={g70 ? 'text-emerald-700 font-semibold' : 'text-slate-600'}>Gaji 70% (H-1)</span>
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer" title="Konten sudah di-approve. Wajib approve dulu sebelum 30% ditransfer.">
+            <input type="checkbox" checked={kOk} disabled={pending} onChange={(e) => togglePay('konten', e.target.checked)} className="w-3.5 h-3.5" />
+            <span className={kOk ? 'text-sky-700 font-semibold' : 'text-slate-600'}>Konten approve</span>
+          </label>
+          <label className={`flex items-center gap-1.5 ${kOk ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`} title={kOk ? 'Gaji 30% ditransfer setelah konten approve' : 'Konten harus di-approve dulu'}>
+            <input type="checkbox" checked={g30} disabled={pending || !kOk} onChange={(e) => togglePay('30', e.target.checked)} className="w-3.5 h-3.5" />
+            <span className={g30 ? 'text-emerald-700 font-semibold' : 'text-slate-600'}>Gaji 30%</span>
+          </label>
+          {payErr && <span className="text-[10px] text-rose-600">⚠ {payErr}</span>}
+        </div>
       </td>
       <td className="px-3 py-2 text-center whitespace-nowrap">
         {connected ? (
