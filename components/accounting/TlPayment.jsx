@@ -21,8 +21,10 @@ function daysToDep(departure) {
 }
 
 // ============ REMINDER (dashboard) ============
-// items: trip yg berangkat ≤ H-3 dan 70% BELUM dibayar. Centang "Sudah dibayar" → hilang.
-export function TlPaymentReminder({ items = [] }) {
+// variant '70' (default): trip berangkat ≤ H-3 & gaji 70% BELUM dibayar → hilang saat dicentang.
+// variant '30': konten SUDAH approve tapi gaji 30% BELUM dibayar → hilang saat dicentang.
+export function TlPaymentReminder({ items = [], variant = '70' }) {
+  const is30 = variant === '30';
   const [list, setList] = useState(items);
   const [pending, start] = useTransition();
   const [busy, setBusy] = useState('');
@@ -33,29 +35,35 @@ export function TlPaymentReminder({ items = [] }) {
   function markPaid(it) {
     setErr(''); setBusy(it.brand + it.id);
     start(async () => {
-      const r = await setTlPayFlag(it.brand, it.id, '70', true);
+      const r = await setTlPayFlag(it.brand, it.id, is30 ? '30' : '70', true);
       setBusy('');
       if (r?.ok) setList((l) => l.filter((x) => !(x.brand === it.brand && x.id === it.id)));
       else setErr(r?.error || 'Gagal menandai');
     });
   }
 
+  const theme = is30
+    ? { border: 'border-violet-300', head: 'from-violet-50 to-fuchsia-50 border-violet-200', title: 'text-violet-700', badge: 'bg-violet-600', link: 'bg-violet-100 hover:bg-violet-200 text-violet-700',
+        heading: '📸 REMINDER PAYMENT TL — 30% (Konten Approved)', note: 'Konten sudah di-approve tapi gaji 30% belum ditransfer. Centang setelah ditransfer.' }
+    : { border: 'border-red-300', head: 'from-red-50 to-orange-50 border-red-200', title: 'text-red-700', badge: 'bg-red-600', link: 'bg-red-100 hover:bg-red-200 text-red-700',
+        heading: '⏰ REMINDER PAYMENT TL — 70% (H-3)', note: 'Trip berangkat ≤ 3 hari lagi (H-3) yang gaji 70%-nya belum dibayar. Centang setelah ditransfer.' };
+
   return (
-    <div className="bg-white rounded-xl border-2 border-red-300 shadow-card overflow-hidden">
-      <div className="px-5 py-3 bg-gradient-to-r from-red-50 to-orange-50 border-b border-red-200 flex items-center justify-between flex-wrap gap-2">
-        <h2 className="font-bold text-red-700 flex items-center gap-2">
-          ⏰ REMINDER PAYMENT TL
-          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-600 text-white">{list.length}</span>
+    <div className={`bg-white rounded-xl border-2 ${theme.border} shadow-card overflow-hidden`}>
+      <div className={`px-5 py-3 bg-gradient-to-r ${theme.head} border-b flex items-center justify-between flex-wrap gap-2`}>
+        <h2 className={`font-bold ${theme.title} flex items-center gap-2`}>
+          {theme.heading}
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${theme.badge} text-white`}>{list.length}</span>
         </h2>
-        <Link href="/accounting/tl-payment" className="text-[11px] font-semibold px-3 py-1 rounded bg-red-100 hover:bg-red-200 text-red-700">
+        <Link href="/accounting/tl-payment" className={`text-[11px] font-semibold px-3 py-1 rounded ${theme.link}`}>
           Buka Pencairan Gaji TL →
         </Link>
       </div>
-      <p className="px-5 pt-2 text-[11px] text-slate-500">Trip berangkat ≤ 3 hari lagi (H-3) yang gaji TL-nya belum dibayar. Centang setelah ditransfer.</p>
+      <p className="px-5 pt-2 text-[11px] text-slate-500">{theme.note}</p>
       <div className="divide-y divide-slate-100">
         {list.map((it) => {
           const sisa = daysToDep(it.departure);
-          const sisaLbl = sisa === 0 ? 'HARI INI' : sisa === 1 ? 'H-1 (besok)' : sisa < 0 ? 'LEWAT' : `H-${sisa}`;
+          const sisaLbl = sisa === 0 ? 'HARI INI' : sisa === 1 ? 'H-1 (besok)' : sisa < 0 ? `selesai ${Math.abs(sisa)}h lalu` : `H-${sisa}`;
           return (
             <div key={it.brand + it.id} className="px-5 py-2.5 flex items-center gap-3 flex-wrap hover:bg-slate-50">
               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${BR[it.brand]}`}>{it.brand}</span>
@@ -63,10 +71,10 @@ export function TlPaymentReminder({ items = [] }) {
               <span className="flex-1 min-w-[120px] text-sm text-slate-700 truncate">{it.name}</span>
               <span className="text-xs text-slate-500">👤 {it.tl || '—'}</span>
               <span className="text-[11px] text-slate-500 whitespace-nowrap">{fmt(it.departure)}</span>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${sisa <= 1 ? 'bg-red-600 text-white' : 'bg-amber-100 text-amber-700'}`}>{sisaLbl}</span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${is30 ? 'bg-violet-100 text-violet-700' : (sisa <= 1 ? 'bg-red-600 text-white' : 'bg-amber-100 text-amber-700')}`}>{is30 ? '✅ Konten OK' : sisaLbl}</span>
               <button onClick={() => markPaid(it)} disabled={pending}
                 className="text-[11px] font-bold px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50">
-                {busy === it.brand + it.id ? '…' : '✓ Sudah dibayar'}
+                {busy === it.brand + it.id ? '…' : (is30 ? '✓ 30% dibayar' : '✓ Sudah dibayar')}
               </button>
             </div>
           );

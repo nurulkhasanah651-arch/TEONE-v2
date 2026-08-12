@@ -159,12 +159,15 @@ export default async function AccountingDashboard({ searchParams }) {
 
   // REMINDER PAYMENT TL — trip (TE+KT) berangkat ≤ H-3 yg gaji TL (70%) belum dibayar.
   // Begitu di-centang "sudah dibayar" (tl_gaji70=true), otomatis hilang dari daftar.
+  // tlReminder = 70% (H-3, belum bayar). tlReminder30 = 30% (konten sudah approve, 30% belum bayar).
   let tlReminder = [];
+  let tlReminder30 = [];
   try {
     const rp = await getTlPlotting();
     if (rp?.ok && Array.isArray(rp.trips)) {
       const todayW = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
       const in3 = new Date(new Date(todayW + 'T00:00:00').getTime() + 3 * 86400000).toISOString().slice(0, 10);
+      const slim = (t) => ({ brand: t.brand, id: t.id, kode: t.kode, name: t.name, tl: (t.tl_plan || t.tl || '').trim(), departure: t.departure });
       tlReminder = rp.trips
         .filter((t) => {
           const who = (t.tl_plan || t.tl || '').trim();
@@ -174,7 +177,16 @@ export default async function AccountingDashboard({ searchParams }) {
           return dep && dep >= todayW && dep <= in3;   // berangkat 0..3 hari lagi
         })
         .sort((a, b) => String(a.departure).localeCompare(String(b.departure)))
-        .map((t) => ({ brand: t.brand, id: t.id, kode: t.kode, name: t.name, tl: (t.tl_plan || t.tl || '').trim(), departure: t.departure }));
+        .map(slim);
+      // 30%: begitu konten di-approve & 30% belum dibayar → muncul; hilang saat 30% dicentang.
+      tlReminder30 = rp.trips
+        .filter((t) => {
+          const who = (t.tl_plan || t.tl || '').trim();
+          if (!who) return false;
+          return t.konten_approved && !t.gaji30;
+        })
+        .sort((a, b) => String(a.departure).localeCompare(String(b.departure)))
+        .map(slim);
     }
   } catch {}
 
@@ -396,7 +408,8 @@ export default async function AccountingDashboard({ searchParams }) {
         <p className="mt-1 text-slate-600">Posisi keuangan real-time + laporan bisa di-download.</p>
       </div>
 
-      <TlPaymentReminder items={tlReminder} />
+      <TlPaymentReminder items={tlReminder} variant="70" />
+      <TlPaymentReminder items={tlReminder30} variant="30" />
 
       <PaymentRequests
         requests={pendingRequests}
