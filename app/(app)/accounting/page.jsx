@@ -13,6 +13,8 @@ import PaymentRequests from '@/components/accounting/PaymentRequests';
 import DownloadButtons from '@/components/common/DownloadButtons';
 import AccountingSheetPanel from '@/components/accounting/AccountingSheetPanel';
 import DeleteTxButton from '@/components/accounting/DeleteTxButton';
+import { TlPaymentReminder } from '@/components/accounting/TlPayment';
+import { getTlPlotting } from '@/lib/actions/tl-plotting';
 
 export const dynamic = 'force-dynamic';
 
@@ -154,6 +156,27 @@ export default async function AccountingDashboard({ searchParams }) {
   }
   const realCompanyMoney = totalBank - hutang;
   const netEquity = (totalBank + piutang) - hutang;
+
+  // REMINDER PAYMENT TL — trip (TE+KT) berangkat ≤ H-3 yg gaji TL (70%) belum dibayar.
+  // Begitu di-centang "sudah dibayar" (tl_gaji70=true), otomatis hilang dari daftar.
+  let tlReminder = [];
+  try {
+    const rp = await getTlPlotting();
+    if (rp?.ok && Array.isArray(rp.trips)) {
+      const todayW = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+      const in3 = new Date(new Date(todayW + 'T00:00:00').getTime() + 3 * 86400000).toISOString().slice(0, 10);
+      tlReminder = rp.trips
+        .filter((t) => {
+          const who = (t.tl_plan || t.tl || '').trim();
+          if (!who) return false;          // hanya trip yg sudah ada TL
+          if (t.gaji70) return false;       // sudah dibayar → hilang
+          const dep = String(t.departure || '').slice(0, 10);
+          return dep && dep >= todayW && dep <= in3;   // berangkat 0..3 hari lagi
+        })
+        .sort((a, b) => String(a.departure).localeCompare(String(b.departure)))
+        .map((t) => ({ brand: t.brand, id: t.id, kode: t.kode, name: t.name, tl: (t.tl_plan || t.tl || '').trim(), departure: t.departure }));
+    }
+  } catch {}
 
   // Resolve peserta/customer/trip yg dirujuk pembayaran — atasi cap 1000 baris (peserta sudah ribuan).
   // Tanpa ini, pembayaran peserta baru tampil "Peserta · -" (nama/trip hilang) → seolah tidak masuk.
@@ -373,6 +396,8 @@ export default async function AccountingDashboard({ searchParams }) {
         <p className="mt-1 text-slate-600">Posisi keuangan real-time + laporan bisa di-download.</p>
       </div>
 
+      <TlPaymentReminder items={tlReminder} />
+
       <PaymentRequests
         requests={pendingRequests}
         tlRequests={tlRequests}
@@ -457,6 +482,7 @@ export default async function AccountingDashboard({ searchParams }) {
         <SectionCard href="/accounting/ppn" icon="💠" title="PPN Paket Tour per Group" color="from-fuchsia-500 to-purple-700" />
         <SectionCard href="/accounting/pembukuan" icon="📚" title="Pembukuan Trip & PPh Badan" color="from-slate-600 to-slate-800" />
         <SectionCard href="/accounting/payment-visa" icon="🛂" title="Payment Visa" color="from-teal-500 to-cyan-700" />
+        <SectionCard href="/accounting/tl-payment" icon="💵" title="Pencairan Gaji TL" color="from-lime-500 to-green-700" />
         <SectionCard href="/accounting/new" icon="➕" title="Entry Manual" color="from-amber-500 to-orange-700" />
       </div>
 
