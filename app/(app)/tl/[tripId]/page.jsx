@@ -51,9 +51,9 @@ export default async function TLTripDetailPage({ params, searchParams }) {
 
   const { data: { user } } = await supabase.auth.getUser();
   const role = user?.app_metadata?.role || user?.user_metadata?.role || user?.app_metadata?.role || 'pending';
-  const isInternal = ['manager', 'owner', 'ops', 'cs', 'finance', 'admin'].includes(role);
-  // R177v2: Cuma Ops/Manager/Finance (+ Owner) yg boleh ajukan gaji TL. CS gak boleh.
-  const canRequestTLPayment = ['ops', 'manager', 'finance', 'owner'].includes(role);
+  const isInternal = ['manager', 'owner', 'ops', 'cs', 'finance', 'admin', 'accounting'].includes(role);
+  // R177v2: Cuma Ops/Manager/Finance/Accounting (+ Owner) yg boleh ajukan/isi gaji TL. CS gak boleh.
+  const canRequestTLPayment = ['ops', 'manager', 'finance', 'owner', 'accounting'].includes(role);
   const isTL = role === 'tour_leader';
   const userEmail = user?.email || '';
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
