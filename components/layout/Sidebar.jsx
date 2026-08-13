@@ -29,6 +29,7 @@ const GROUPS = [
       { href: '/trips',      label: 'Master Trip', icon: '✈', roles: ALL_ROLES },
       { href: '/cs',         label: 'CS Daily',    icon: '☎', roles: ALL_ROLES },
       { href: '/visa',       label: 'Visa',        icon: '🛂', roles: ALL_ROLES },
+      { href: '/visa/dashboard', label: 'Dashboard Tim Visa', icon: '📊', roles: ALL_ROLES },
     ],
   },
   {
