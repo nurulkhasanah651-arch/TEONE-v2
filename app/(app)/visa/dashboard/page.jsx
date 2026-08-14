@@ -8,6 +8,8 @@ import { brandSupabaseUrl, brandServiceRoleKey } from '@/lib/supabase/service-en
 import { fmtDate, daysUntil } from '@/lib/utils/format';
 import { deriveVisaStage } from '@/lib/utils/visa-constants';
 import { getPicScope, filterTripsForPic } from '@/lib/auth/pic-scope';
+import { buildMonitor } from '@/lib/monitor/build-monitor';
+import VisaMonitorCard from '@/components/visa/VisaMonitorCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +36,36 @@ export default async function VisaDashboardPage() {
   } catch { passengers = []; }
 
   let activeTrips = trips.filter((t) => t.status !== 'completed' && t.status !== 'cancelled');
-  { const { data: { user } } = await supabase.auth.getUser(); const scope = await getPicScope(supabase, user); activeTrips = filterTripsForPic(activeTrips, scope); }
+  const { data: { user } } = await supabase.auth.getUser();
+  const scope = await getPicScope(supabase, user);
+  activeTrips = filterTripsForPic(activeTrips, scope);
+
+  // ═══ MONITOR VISA (tampilan sama dgn Dashboard Manager) ═══
+  // Pakai buildMonitor yg sama dgn Dashboard Manager, discope ke trip milik PIC (kalau PIC),
+  // lalu terapkan follow-up harian (tabel manager_followups) supaya SINKRON dgn dashboard manager.
+  let visaMonitor = { groupH60: [], notProcessed: [], paidUnscheduled: [], fullH5: [] };
+  try {
+    const scopedIds = scope?.scoped ? new Set(activeTrips.map((t) => t.id)) : null;
+    const tripFilter = scopedIds ? (t) => scopedIds.has(t.id) : null;
+    const mon = await buildMonitor(db, { tripFilter });
+    const V = mon.visa || {};
+    // Follow-up harian: sembunyikan item yg sudah ditandai "✓ Follow up" HARI INI (WIB).
+    const fset = new Set();
+    try {
+      const todayWIB = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+      const startOfTodayWIB = new Date(`${todayWIB}T00:00:00+07:00`).toISOString();
+      const { data: fups } = await db.from('manager_followups').select('section, trip_id, created_at').gte('created_at', startOfTodayWIB);
+      for (const r of (fups || [])) fset.add(`${r.section}:${r.trip_id}`);
+    } catch {}
+    const keep = (section, arr) => (arr || []).filter((t) => !fset.has(`${section}:${t.id}`));
+    visaMonitor = {
+      groupH60: keep('visa.groupH60', V.groupH60),
+      notProcessed: keep('visa.notProcessed', V.notProcessed),
+      paidUnscheduled: keep('visa.paidUnscheduled', V.paidUnscheduled),
+      fullH5: keep('visa.fullH5', V.fullH5),
+    };
+  } catch {}
+  const monitorCount = visaMonitor.groupH60.length + visaMonitor.notProcessed.length + visaMonitor.paidUnscheduled.length + visaMonitor.fullH5.length;
 
   const paxByTrip = {};
   for (const p of passengers) { (paxByTrip[p.trip_id] = paxByTrip[p.trip_id] || []).push(p); }
@@ -118,6 +149,14 @@ export default async function VisaDashboardPage() {
           <p className="text-sm text-slate-500">Monitoring pengurusan visa lintas trip · Tim: Lukita &amp; Lukas</p>
         </div>
         <Link href="/visa" className="text-sm px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">📋 Buka List Visa per Trip →</Link>
+      </div>
+
+      {/* MONITOR VISA — sama persis dgn kartu di Dashboard Manager */}
+      <VisaMonitorCard visa={visaMonitor} />
+
+      {/* Rincian lengkap per trip (status tiap peserta) */}
+      <div className="pt-1">
+        <h2 className="text-sm font-bold text-slate-700 mb-2">📈 Rincian Status Visa per Trip <span className="text-xs font-normal text-slate-400">· ringkasan lengkap semua peserta</span></h2>
       </div>
 
       {/* KPI */}
