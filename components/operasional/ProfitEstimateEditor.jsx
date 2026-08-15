@@ -49,7 +49,15 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
   const setIncPax = (i, v) => setIncome((rows) => rows.map((r, idx) => (idx === i ? { ...r, pax: v, pax_override: true } : r)));
   const syncPax = () => setIncome((rows) => rows.map((r) => (r.standard ? { ...r, pax: r.pax_master || 0, pax_override: false } : r)));
   const addCustomIncome = () => setIncome((rows) => [...rows, { key: `custom_${Date.now()}`, label: '', standard: false, basic_fare: 0, pax: 0, pax_master: 0, pax_override: true, status_payment: false, noted: '' }]);
-  const delIncome = (i) => setIncome((rows) => rows.filter((_, idx) => idx !== i));
+  // Hapus baris income. Baris STANDARD (otomatis dari master trip) di-soft-delete (removed:true)
+  // supaya bisa dikembalikan & tidak muncul lagi setelah reload; baris custom dihapus permanen.
+  const delIncome = (i) => setIncome((rows) => {
+    const r = rows[i];
+    if (r && r.standard) return rows.map((x, idx) => (idx === i ? { ...x, removed: true } : x));
+    return rows.filter((_, idx) => idx !== i);
+  });
+  const restoreIncome = (key) => setIncome((rows) => rows.map((r) => (r.key === key ? { ...r, removed: false } : r)));
+  const removedIncome = income.filter((r) => r.removed);
 
   // ── Expense ──
   const addItem = (category = '', qty_source = null) => setExpense((rows) => [...rows, { type: 'item', category, component: '', unit_cost: 0, kurs: 0, currency: '', qty: 0, qty_source, qty_locked: false, noted: '' }]);
@@ -72,8 +80,8 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
   // QTY expense OTOMATIS dari income di atas (headcount/visa/asuransi/tipping/room type),
   // kecuali sudah di-override manual (qty_locked).
   const qtySources = useMemo(() => {
-    const paxOf = (k) => num(income.find((r) => r.key === k)?.pax);
-    const head = income.filter((r) => HEADCOUNT_KEYS.includes(r.key)).reduce((s, r) => s + num(r.pax), 0);
+    const paxOf = (k) => { const r = income.find((r) => r.key === k); return r && !r.removed ? num(r.pax) : 0; };
+    const head = income.filter((r) => HEADCOUNT_KEYS.includes(r.key) && !r.removed).reduce((s, r) => s + num(r.pax), 0);
     return {
       headcount: head, visa: paxOf('visa'), asuransi: paxOf('asuransi'), tipping: paxOf('tips'),
       quad: paxOf('quad'), triple: paxOf('triple'), double: paxOf('double'), single: paxOf('single'),
@@ -99,9 +107,9 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
   const autoExpenseTotal = AUTO_EXPENSE.reduce((s, r) => s + num(r.amount), 0);
 
   const totals = useMemo(() => {
-    const totalIncome = income.reduce((s, r) => s + num(r.basic_fare) * num(r.pax), 0) + autoIncomeTotal;
+    const totalIncome = income.reduce((s, r) => s + (r.removed ? 0 : num(r.basic_fare) * num(r.pax)), 0) + autoIncomeTotal;
     const totalExpense = expense.reduce((s, r) => s + (r.type === 'hotel' ? hotelTotal(r) : itemSubtotal(r)), 0) + autoExpenseTotal;
-    const headcount = income.filter((r) => HEADCOUNT_KEYS.includes(r.key)).reduce((s, r) => s + num(r.pax), 0);
+    const headcount = income.filter((r) => HEADCOUNT_KEYS.includes(r.key) && !r.removed).reduce((s, r) => s + num(r.pax), 0);
     const margin = totalIncome - totalExpense;
     const perPax = headcount > 0 ? margin / headcount : 0;
     return { totalIncome, totalExpense, headcount, margin, perPax };
@@ -162,7 +170,7 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
               <th className="border border-slate-300 px-1 py-1 w-8 no-print"></th>
             </tr></thead>
             <tbody>
-              {income.map((r, i) => (
+              {income.map((r, i) => r.removed ? null : (
                 <tr key={r.key} className="hover:bg-slate-50">
                   <td className="border border-slate-300 px-1 py-1 text-center text-slate-400">{i + 1}</td>
                   <td className="border border-slate-300 px-1 py-1">{r.standard ? <span className="font-medium">{r.label}</span> : <input className={inp} value={r.label} onChange={(e) => setIncCell(i, 'label', e.target.value)} placeholder="item" />}</td>
@@ -174,7 +182,7 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
                   <td className="border border-slate-300 px-1 py-1 text-right font-semibold whitespace-nowrap">{rupiah(num(r.basic_fare) * num(r.pax))}</td>
                   <td className="border border-slate-300 px-1 py-1 text-center"><input type="checkbox" checked={r.status_payment} onChange={(e) => setIncCell(i, 'status_payment', e.target.checked)} /></td>
                   <td className="border border-slate-300 px-1 py-1"><input className={inp} value={r.noted} onChange={(e) => setIncCell(i, 'noted', e.target.value)} /></td>
-                  <td className="border border-slate-300 px-1 py-1 text-center no-print">{!r.standard && <button onClick={() => delIncome(i)} className="text-red-500 text-xs">✕</button>}</td>
+                  <td className="border border-slate-300 px-1 py-1 text-center no-print"><button onClick={() => delIncome(i)} className="text-red-500 text-xs" title="Hapus baris income ini">✕</button></td>
                 </tr>
               ))}
               {AUTO_INCOME.map((r) => (
@@ -196,6 +204,17 @@ export default function ProfitEstimateEditor({ trip, meta: metaInit, income: inc
           </table>
         </div>
         <button onClick={addCustomIncome} className="mt-1 text-[11px] text-brand-600 font-semibold no-print">+ tambah item income</button>
+        {removedIncome.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 no-print">
+            <span className="text-[10px] text-slate-500 font-semibold">🗑 Income dihapus (tidak dihitung):</span>
+            {removedIncome.map((r) => (
+              <button key={r.key} onClick={() => restoreIncome(r.key)} title="Klik untuk kembalikan baris income ini"
+                className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-300 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 line-through">
+                {r.label || 'Item'} <span className="no-underline">↩</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* EXPENSE + VENDOR PERBANDINGAN */}
         <div className="flex items-center justify-between mt-4 mb-1">
