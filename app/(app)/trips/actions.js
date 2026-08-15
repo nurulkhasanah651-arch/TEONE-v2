@@ -12,6 +12,20 @@ import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
 import { resolveAuthoritativeRole } from '@/lib/auth/authoritative-role';
 import { generateTripId } from '@/lib/utils/id';
+import { getBrandCode } from '@/lib/brand';
+
+// KHASANAH: nama trip biasanya diketik "267. Nama" — sedangkan kode trip sudah "267",
+// jadi kalau ditampilkan bareng jadi dobel. Buang prefix kode di depan nama supaya
+// angka kode HANYA ada di kolom kode trip. Aman: hanya buang bila hasilnya tidak kosong.
+function stripKodePrefixFromName(name) {
+  const s = String(name || '').trim();
+  if (!s) return name;
+  let isKh = false;
+  try { isKh = String(getBrandCode() || '').toLowerCase() === 'khasanah'; } catch {}
+  if (!isKh) return s;
+  const stripped = s.replace(/^\s*[0-9]+[A-Za-z]?\s*[.\-)]\s*/, '').trim();
+  return stripped.length > 0 ? stripped : s;
+}
 
 function parseTripFields(formData) {
   const tlIdRaw = formData.get('tl_id');
@@ -40,7 +54,7 @@ function parseTripFields(formData) {
 
   return {
     kode_trip: formData.get('kode_trip') || null,
-    name: formData.get('name'),
+    name: stripKodePrefixFromName(formData.get('name')),
     destination: formData.get('destination') || null,
     fee_category: formData.get('fee_category') || null,
     pic: formData.get('pic') || null,
