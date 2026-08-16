@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { getPaymentDeadlineAlerts, sendPaymentReminder, updateInvoiceDueDate } from '@/lib/actions/payment-reminders';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 
+const DISMISS_KEY = 'financeReminderDismissedSig';
+
 export default function PaymentReminderPanel() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -12,6 +14,13 @@ export default function PaymentReminderPanel() {
   const [, start] = useTransition();
   const [msg, setMsg] = useState('');
   const [pic, setPic] = useState('');
+  const [dismissedSig, setDismissedSig] = useState(null);
+
+  // Baca status "sudah di-close" dari browser (per device). Reminder yang sudah di-close
+  // tetap tersembunyi sampai daftar tagihan berubah (mis. ada peserta telat baru).
+  useEffect(() => {
+    try { setDismissedSig(window.localStorage.getItem(DISMISS_KEY) || ''); } catch { setDismissedSig(''); }
+  }, []);
 
   async function load(picValue = pic) {
     setLoading(true);
@@ -57,6 +66,31 @@ export default function PaymentReminderPanel() {
   const kosong = overdue.length === 0 && soon.length === 0 && overduePax.length === 0;
   if (kosong && !pic && pics.length === 0) return null;
 
+  // Signature = daftar tagihan yang sedang aktif. Kalau berubah (ada tagihan baru),
+  // reminder yang sudah di-close otomatis muncul lagi.
+  const sig = [
+    ...overdue.map((x) => 'o' + x.id),
+    ...overduePax.map((x) => 'p' + x.key),
+    ...soon.map((s) => 's' + s.tripId + s.milestone),
+  ].sort().join('|');
+
+  // Kalau sudah di-close dan daftar tagihan belum berubah → sembunyikan (tapi jangan
+  // sembunyikan saat lagi filter PIC, biar user tetap bisa lihat hasil filter).
+  if (!pic && dismissedSig !== null && dismissedSig === sig && !kosong) {
+    return (
+      <div className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs text-slate-500">
+        <span>🔕 Reminder pembayaran disembunyikan.</span>
+        <button type="button" onClick={() => { setDismissedSig(''); try { window.localStorage.removeItem(DISMISS_KEY); } catch {} }}
+          className="font-semibold text-brand-600 hover:text-brand-700">Tampilkan lagi</button>
+      </div>
+    );
+  }
+
+  function closePanel() {
+    setDismissedSig(sig);
+    try { window.localStorage.setItem(DISMISS_KEY, sig); } catch {}
+  }
+
   const picChip = (nama) => nama
     ? <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-brand-50 text-brand-700 font-bold">PIC {nama}</span>
     : null;
@@ -76,6 +110,8 @@ export default function PaymentReminderPanel() {
             </select>
           )}
           <button onClick={() => load()} className="text-[11px] text-slate-400 hover:text-slate-600">↻ refresh</button>
+          <button type="button" onClick={closePanel} title="Tutup reminder (muncul lagi kalau ada tagihan baru)"
+            className="text-slate-400 hover:text-slate-700 text-lg leading-none px-1">✕</button>
         </div>
       </div>
       {msg && <div className="px-5 py-2 text-xs text-emerald-700 bg-emerald-50">{msg}</div>}
