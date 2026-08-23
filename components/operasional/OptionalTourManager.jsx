@@ -1,15 +1,14 @@
 'use client';
 
-// Optional Tour per Group — MODEL MATRIKS (mirip checklist Finance):
-// nama peserta 1x per baris, tiap optional tour jadi KOLOM (mis. Tilis, Balon, dll),
-// tiap sel = centang ikut + toggle Belum/Lunas. Ringkas walau 2-4 optional tour.
-// ADITIF: komponen ini saja yang berubah; server action & tabel tetap sama.
+// Optional Tour per Group — MATRIKS (mirip checklist Finance): nama peserta 1x per baris,
+// tiap optional tour jadi KOLOM. Centang = ikut (roster). Status BAYAR read-only, otomatis
+// dari Finance (Payment Checklist) — optional tour + harga jadi item tagihan di sana.
+// ADITIF: server action & UI Finance tidak diubah.
 // Path: components/operasional/OptionalTourManager.jsx
 
 import { useEffect, useState, useTransition } from 'react';
 import {
-  getTripOptionalTours, addOptionalTour, updateOptionalTour, deleteOptionalTour,
-  toggleParticipant, setParticipantPaid,
+  getTripOptionalTours, addOptionalTour, updateOptionalTour, deleteOptionalTour, toggleParticipant,
 } from '@/lib/actions/optional-tours';
 
 const CUR = ['IDR', 'USD'];
@@ -40,54 +39,41 @@ export default function OptionalTourManager({ tripId, embedded = false }) {
     start(async () => {
       const r = await addOptionalTour(tripId, form);
       if (r?.error) { setMsg('⚠ ' + r.error); return; }
-      setForm({ name: '', price: '', currency: 'IDR', kurs: '' }); setShowAdd(false); setMsg('✓ Optional tour ditambah'); load();
+      setForm({ name: '', price: '', currency: 'IDR', kurs: '' }); setShowAdd(false); setMsg('✓ Ditambah — kolom tagihan masuk Payment Checklist'); load();
     });
   }
   function doDelete(t) {
-    if (!confirm(`Hapus optional tour "${t.name}"? Semua data peserta ikutannya ikut terhapus.`)) return;
+    if (!confirm(`Hapus optional tour "${t.name}"? Data peserta ikutannya terhapus. (Riwayat bayar di Finance tetap tersimpan.)`)) return;
     start(async () => { const r = await deleteOptionalTour(t.id); if (r?.error) { setMsg('⚠ ' + r.error); return; } setMsg('✓ Dihapus'); load(); });
   }
   function saveTourField(t, field, value) {
     const cur = field === 'price' ? Number(t.price) || 0 : t[field];
     const nv = field === 'price' ? Number(value) || 0 : value;
-    if (String(cur) === String(nv)) return; // tak berubah
-    start(async () => { const r = await updateOptionalTour(t.id, { [field]: nv }); if (r?.error) { setMsg('⚠ ' + r.error); load(); return; } setMsg('✓ Tersimpan'); load(); });
+    if (String(cur) === String(nv)) return;
+    start(async () => { const r = await updateOptionalTour(t.id, { [field]: nv }); if (r?.error) { setMsg('⚠ ' + r.error); } else setMsg('✓ Tersimpan'); load(); });
   }
   function toggleJoin(tourId, passengerId, join) {
     setData((d) => {
       if (!d) return d;
-      const joins = { ...(d.joins || {}) };
-      const m = { ...(joins[tourId] || {}) };
-      if (join) m[passengerId] = { rowId: 'tmp', paid: false, note: '' }; else delete m[passengerId];
+      const joins = { ...(d.joins || {}) }; const m = { ...(joins[tourId] || {}) };
+      if (join) m[passengerId] = true; else delete m[passengerId];
       joins[tourId] = m; return { ...d, joins };
     });
     start(async () => { const r = await toggleParticipant(tripId, tourId, passengerId, join); if (r?.error) setMsg('⚠ ' + r.error); load(); });
-  }
-  function togglePaid(tourId, passengerId, rowId, paid) {
-    setData((d) => {
-      if (!d) return d;
-      const joins = { ...(d.joins || {}) };
-      const m = { ...(joins[tourId] || {}) };
-      if (m[passengerId]) m[passengerId] = { ...m[passengerId], paid };
-      joins[tourId] = m; return { ...d, joins };
-    });
-    start(async () => { const r = await setParticipantPaid(rowId, paid); if (r?.error) setMsg('⚠ ' + r.error); load(); });
   }
 
   const wrapCls = 'bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden';
   if (loading && !data) return <div className={wrapCls}><div className="px-5 py-4 text-sm text-slate-500">Memuat optional tour…</div></div>;
   if (!data) return <div className={wrapCls}><div className="px-5 py-4 text-sm text-rose-600">{msg || 'Gagal memuat.'}</div></div>;
 
-  const { tours, participants, joins } = data;
+  const { tours, participants, joins, paid } = data;
   const sticky = { position: 'sticky', left: 0, zIndex: 1 };
-
-  // Ringkasan per tour
+  const isJoined = (tid, pid) => !!(joins[tid] || {})[pid];
+  const isPaid = (tid, pid) => !!(paid[tid] || {})[pid];
   const summary = (t) => {
-    const jm = joins[t.id] || {};
-    const ids = Object.keys(jm);
-    const ikut = ids.length;
-    const paid = ids.filter((pid) => jm[pid]?.paid).length;
-    return { ikut, paid };
+    const jm = joins[t.id] || {}; const pm = paid[t.id] || {};
+    const ids = new Set([...Object.keys(jm), ...Object.keys(pm)]);
+    return { ikut: Object.keys(jm).length, paid: Object.keys(pm).length, total: ids.size };
   };
 
   return (
@@ -95,7 +81,7 @@ export default function OptionalTourManager({ tripId, embedded = false }) {
       <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-2 flex-wrap">
         <div>
           <h2 className="font-bold text-brand-700">🎈 Optional Tour</h2>
-          <p className="text-[11px] text-slate-500">Centang peserta yang ikut tiap optional tour, lalu tandai Lunas kalau sudah bayar.</p>
+          <p className="text-[11px] text-slate-500">Centang peserta yang ikut. Status <b>bayar otomatis dari Finance</b> — optional tour &amp; harganya jadi item tagihan di Payment Checklist.</p>
         </div>
         <div className="flex items-center gap-2">
           {msg && <span className="text-[11px] text-slate-500">{msg}</span>}
@@ -132,6 +118,7 @@ export default function OptionalTourManager({ tripId, embedded = false }) {
             </div>
           )}
           <button type="submit" className="text-xs font-bold px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white">Simpan</button>
+          {form.currency === 'USD' && <p className="w-full text-[10px] text-slate-400">Harga tagihan Finance = harga × kurs (Rupiah). Isi kurs supaya kolom tagihan muncul.</p>}
         </form>
       )}
 
@@ -162,6 +149,7 @@ export default function OptionalTourManager({ tripId, embedded = false }) {
                           onBlur={(e) => saveTourField(t, 'price', digits(e.target.value))}
                           className="w-full text-right text-[11px] text-slate-600 bg-transparent border-0 border-b border-dashed border-transparent hover:border-slate-300 focus:border-brand-400 focus:outline-none px-0" />
                       </div>
+                      {t.currency === 'USD' && <div className="text-[9px] text-slate-400 text-right">= {money(t.idrPrice, 'IDR')}</div>}
                       <div className="mt-1 text-[10px] font-semibold">
                         <span className="text-slate-500">{s.ikut} ikut</span> · <span className="text-emerald-600">{s.paid} lunas</span>
                       </div>
@@ -178,20 +166,17 @@ export default function OptionalTourManager({ tripId, embedded = false }) {
                     {p.room_type && <span className="block text-[10px] text-slate-400">{p.room_type}</span>}
                   </td>
                   {tours.map((t) => {
-                    const j = (joins[t.id] || {})[p.id];
-                    const joined = !!j;
+                    const joined = isJoined(t.id, p.id);
+                    const pd = isPaid(t.id, p.id);
                     return (
                       <td key={t.id} className="px-2 py-1.5 border-b border-slate-100 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <input type="checkbox" checked={joined} onChange={(e) => toggleJoin(t.id, p.id, e.target.checked)} title="Ikut optional tour ini" />
-                          {joined && (
-                            <button onClick={() => togglePaid(t.id, p.id, j.rowId, !j.paid)} disabled={j.rowId === 'tmp'}
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${j.paid
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                : 'bg-amber-50 text-amber-700 border-amber-200'} disabled:opacity-40`}>
-                              {j.paid ? '✓ Lunas' : 'Belum'}
-                            </button>
-                          )}
+                          {pd ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200" title="Sudah dibayar & di-paid di Finance">✓ Lunas</span>
+                          ) : joined ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200" title="Belum di-paid di Finance">Belum</span>
+                          ) : null}
                         </div>
                       </td>
                     );
@@ -205,9 +190,9 @@ export default function OptionalTourManager({ tripId, embedded = false }) {
 
       {tours.length > 0 && participants.length > 0 && (
         <div className="px-5 py-2 border-t border-slate-100 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500">
-          <span>☑ centang = peserta ikut</span>
-          <span><span className="font-bold text-amber-700">Belum</span> / <span className="font-bold text-emerald-700">✓ Lunas</span> = status bayar (klik untuk ubah)</span>
-          <span className="text-slate-400">Nama optional tour &amp; harga bisa diklik langsung untuk diedit.</span>
+          <span>☑ centang = peserta ikut (roster PIC/Ops)</span>
+          <span><span className="font-bold text-emerald-700">✓ Lunas</span> / <span className="font-bold text-amber-700">Belum</span> = status bayar <b>otomatis dari Finance</b> (Payment Checklist)</span>
+          <span className="text-slate-400">Nama &amp; harga optional tour bisa diklik langsung untuk diedit.</span>
         </div>
       )}
     </div>
