@@ -19,6 +19,7 @@ import FamilyGroupManager from '@/components/families/FamilyGroupManager';
 import ImportExcelPanel from '@/components/trips/ImportExcelPanel';
 import TripExcelDownloadButton from '@/components/trips/TripExcelDownloadButton';
 import CopyWaTemplateButton from '@/components/trips/CopyWaTemplateButton';
+import OptionalTourManager from '@/components/operasional/OptionalTourManager';
 
 export const dynamic = 'force-dynamic';
 
@@ -263,6 +264,8 @@ export default async function TripDetailPage({ params }) {
       />
 
       <TripCrewPanel tripId={trip.id} crew={crewList} tourLeaders={tourLeaders} />
+
+      <OptionalTourManager tripId={trip.id} embedded />
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">

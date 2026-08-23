@@ -60,6 +60,7 @@ const GROUPS = [
       { href: '/operasional',   label: 'Operasional',  icon: '🛠', roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
       { href: '/operasional/profit-estimate', label: 'Estimate Profit', icon: '📈', roles: ['owner', 'accounting', 'manager', 'ops'] },
       { href: '/operasional/tour-confirmation', label: 'Tour Confirmation', icon: '📄', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'] },
+      { href: '/operasional/optional-tour', label: 'Optional Tour', icon: '🎈', roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
       { href: '/operasional/itinerary', label: 'Itinerary Only', icon: '🧭', roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
       { href: '/operasional/roomlist', label: 'Final Roomlist', icon: '🛏', roles: ['pic', 'owner', 'accounting', 'manager', 'ops'] },
       { href: '/plan',          label: 'Plan Trip',    icon: '🗺', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'] },
