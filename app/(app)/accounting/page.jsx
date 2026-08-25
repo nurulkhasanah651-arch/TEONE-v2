@@ -107,8 +107,10 @@ export default async function AccountingDashboard({ searchParams }) {
 
   const [accounts, accEntries, payments, hppLunas, passengers, customers, allFinItems, pnrs, trips, pendingRequests, tlRequests] = await Promise.all([
     safeQuery(supabase.from('accounts').select('*').eq('active', true)),
-    fetchAll(() => supabase.from('accounting_entries').select('*').order('date', { ascending: false })),
-    fetchAll(() => supabase.from('participant_payments').select('*').order('paid_at', { ascending: false, nullsFirst: false })),
+    // Perf: ambil kolom yang dipakai saja (bukan '*') — payload jauh lebih kecil,
+    // tabel sudah ribuan baris. Hasil & tampilan identik.
+    fetchAll(() => supabase.from('accounting_entries').select('id, account_id, type, amount, date, created_at, category, description, trip_id, linked_finance_item_id, linked_payment_id, source').order('date', { ascending: false })),
+    fetchAll(() => supabase.from('participant_payments').select('id, passenger_id, type, amount, paid_at').order('paid_at', { ascending: false, nullsFirst: false })),
     safeQuery(supabase.from('trip_finance_items').select('*').eq('item_type', 'hpp').or('payment_status.eq.lunas,dp_paid.gt.0')),
     safeQuery(supabase.from('trip_passengers').select('id, trip_id, customer_id, price_paid')),
     safeQuery(supabase.from('customers').select('id, name')),
