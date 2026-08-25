@@ -8,8 +8,6 @@ import { generateRoomlist, normalizeGender } from '@/lib/utils/roomlist';
 import { calcAge } from '@/lib/utils/format';
 import RoomlistDownloadButton from '@/components/common/RoomlistDownloadButton';
 import RoomlistExcelButton from '@/components/common/RoomlistExcelButton';
-import ManifestDownloadButton from '@/components/common/ManifestDownloadButton';
-import { downloadManifestPDF } from '@/lib/utils/manifest-pdf';
 import PaxSearch, { matchesName } from '@/components/common/PaxSearch';
 
 function fmtDate(s) {
@@ -54,46 +52,15 @@ export default function TLManifestRoomlist({ trip, passengers = [], customerMap 
 
   const isSavedFinal = false;
 
-  async function downloadManifestPdf() {
-    try {
-      const rows = passengers.map((p, idx) => {
-        const c = customerMap[p.customer_id] || {};
-        const g = normalizeGender({ gender: p.gender || p.sex || c.gender || c.sex });
-        const first = c.first_name || (c.name ? c.name.split(' ')[0] : '');
-        const last = c.surname || c.last_name || (c.name ? c.name.split(' ').slice(1).join(' ') : '');
-        const birth = c.birthday || c.dob || c.date_of_birth;
-        return [
-          idx + 1, first, last,
-          g === 'M' ? 'L' : g === 'F' ? 'P' : '',
-          c.place_of_birth || c.city || '',
-          fmtDate(birth), calcAge(birth) ?? '',
-          c.passport_no || c.passport_number || '',
-          fmtDate(c.passport_issued_date || c.issue_date),
-          c.passport_issued_at || c.issuing_office || '',
-          fmtDate(c.passport_expiry || c.expiry_date),
-          c.phone || c.whatsapp || '',
-          (p.notes || '').trim(),
-        ];
-      });
-      await downloadManifestPDF({
-        trip: { name: trip?.name, kode_trip: trip?.kode_trip, departure: trip?.departure, return_date: trip?.return_date, arrival: trip?.arrival },
-        rows,
-      });
-    } catch (e) {
-      alert('Gagal download Manifest: ' + (e?.message || e));
-    }
-  }
-
-
   const shownPassengers = passengers.filter((p) => matchesName((customerMap[p.customer_id] || {}).name, q));
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
         <h2 className="font-bold text-brand-700 flex-1">📋 Manifest & Roomlist</h2>
-        <button onClick={downloadManifestPdf} className="px-3 py-1 rounded font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white">📋 Manifest PDF</button>
-        <ManifestDownloadButton tripId={trip?.id} label="📥 Manifest Excel"
-          className="px-3 py-1 rounded font-semibold text-xs bg-teal-600 hover:bg-teal-700 text-white disabled:opacity-50" />
+        {/* Download via ROUTE SERVER (header attachment) — aman di HP iOS (tidak jadi file .download) */}
+        <a href={`/tl/${trip?.id}/manifest.pdf`} download className="px-3 py-1 rounded font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white">📋 Manifest PDF</a>
+        <a href={`/tl/${trip?.id}/manifest.xlsx`} download className="px-3 py-1 rounded font-semibold text-xs bg-teal-600 hover:bg-teal-700 text-white">📥 Manifest Excel</a>
         <RoomlistDownloadButton tripId={trip?.id} label="🛏 Roomlist PDF"
           className="px-3 py-1 rounded font-semibold text-xs bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50" />
         <RoomlistExcelButton tripId={trip?.id} label="🛏 Roomlist Excel"
