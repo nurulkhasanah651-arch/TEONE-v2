@@ -10,6 +10,7 @@ import { getRoleFromUser, canAccessPath, defaultPathForRole } from '@/lib/utils/
 import { resolveAuthoritativeRole } from '@/lib/auth/authoritative-role';
 import WaManualProvider from '@/components/wa/WaManualProvider';
 import WaPendingBanner from '@/components/wa/WaPendingBanner';
+import BugReportLauncher from '@/components/it/BugReportLauncher';
 
 export default async function AppLayout({ children }) {
   const supabase = createClient();
@@ -56,6 +57,8 @@ export default async function AppLayout({ children }) {
           {children}
         </main>
       </div>
+      {/* Tombol Lapor (bug/error/request fitur) — semua user yang login, termasuk TL & mitra */}
+      <BugReportLauncher />
     </div>
     </WaManualProvider>
   );

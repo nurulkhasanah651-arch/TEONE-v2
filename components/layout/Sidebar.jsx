@@ -104,6 +104,13 @@ const GROUPS = [
       { href: '/passport-manage', label: 'Passport AI', icon: '🤖', roles: ALL_ROLES },
     ],
   },
+  {
+    key: 'it',
+    label: 'IT',
+    items: [
+      { href: '/it', label: 'Laporan & Request', icon: '🖥️', roles: ['owner', 'manager'] },
+    ],
+  },
 ];
 
 export default function Sidebar({ role: roleProp = null }) {
