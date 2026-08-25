@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { getTripWaTemplate } from '@/lib/actions/trip-wa';
 
-export default function CopyWaTemplateButton({ tripId, className = '' }) {
+export default function CopyWaTemplateButton({ tripId, brand = null, className = '' }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [text, setText] = useState('');
@@ -11,7 +11,7 @@ export default function CopyWaTemplateButton({ tripId, className = '' }) {
 
   async function load() {
     setOpen(true); setLoading(true); setErr(''); setCopied(false);
-    const r = await getTripWaTemplate(tripId);
+    const r = await getTripWaTemplate(tripId, brand);
     if (r?.ok) setText(r.text); else setErr(r?.error || 'Gagal membuat template');
     setLoading(false);
   }

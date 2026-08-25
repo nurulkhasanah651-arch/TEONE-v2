@@ -3,14 +3,14 @@
 
 import Link from 'next/link';
 import { brandServiceRoleKey, brandSupabaseUrl, serviceClientFor } from '@/lib/supabase/service-env';
-import { customerSiteUrlFor } from '@/lib/brand-shared';
+import { customerSiteUrlFor, BRAND_UI } from '@/lib/brand-shared';
 import { getBrandCode } from '@/lib/brand';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { fmtDate, daysUntil, fmtRupiah } from '@/lib/utils/format';
 import { statusCfg, tripChecklist } from '@/lib/utils/trip-status';
 import { getTlTripsAllBrands } from '@/lib/tl-cross-brand';
-import { getOpenSellingTrips } from '@/lib/actions/mitra';
+import { getOpenSellingTripsAllBrands } from '@/lib/actions/mitra';
 import CopyWaTemplateButton from '@/components/trips/CopyWaTemplateButton';
 
 export const dynamic = 'force-dynamic';
@@ -242,8 +242,10 @@ export default async function TLPortalPage() {
   }
 
   // ═══ TL VIEW (Tour Leader role) ═══
-  const availRes = await getOpenSellingTrips().catch(() => null);
+  const availRes = await getOpenSellingTripsAllBrands().catch(() => null);
   const availTrips = availRes?.trips || [];
+  const availBrandLabel = (code) => (BRAND_UI[code]?.label || code || '').toString();
+  const availBrandCls = (code) => code === 'khasanah' ? 'bg-emerald-100 text-emerald-700' : 'bg-sky-100 text-sky-700';
 
   // Seat terisi/sisa + link web utk trip yang di-assign ke TL (per brand).
   const currentBrand = getBrandCode();
@@ -301,7 +303,7 @@ export default async function TLPortalPage() {
                       : <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold">🔥 PERLU PUSH</span>)}
                     <div className="ml-auto flex items-center gap-2">
                       {si.webUrl && <a href={si.webUrl} target="_blank" rel="noreferrer" className="px-3 py-1 rounded bg-brand-500 hover:bg-brand-600 text-white font-semibold">🌐 Web Trip</a>}
-                      {sameBrand && <CopyWaTemplateButton tripId={t.id} className="px-3 py-1 rounded bg-green-600 hover:bg-green-700 text-white font-semibold" />}
+                      <CopyWaTemplateButton tripId={t.id} brand={t._brand || currentBrand} className="px-3 py-1 rounded bg-green-600 hover:bg-green-700 text-white font-semibold" />
                     </div>
                   </div>
                 </div>
@@ -320,11 +322,14 @@ export default async function TLPortalPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {availTrips.map((t) => (
-              <div key={t.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-card flex flex-col">
+              <div key={`${t.brand}-${t.id}`} className="bg-white border border-slate-200 rounded-xl p-5 shadow-card flex flex-col">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="text-xs font-mono text-brand-600">{t.kode_trip}</p>
-                    <h3 className="text-lg font-bold text-slate-800">{t.name}</h3>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${availBrandCls(t.brand)}`}>{availBrandLabel(t.brand)}</span>
+                      <p className="text-xs font-mono text-brand-600">{t.kode_trip}</p>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800 mt-0.5">{t.name}</h3>
                   </div>
                   <span className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-bold shrink-0">OPEN SELLING</span>
                 </div>
@@ -336,7 +341,7 @@ export default async function TLPortalPage() {
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <a href={t.webUrl} target="_blank" rel="noreferrer" className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg">🌐 Lihat Web Trip</a>
-                  <CopyWaTemplateButton tripId={t.id} />
+                  <CopyWaTemplateButton tripId={t.id} brand={t.brand} />
                   {t.pdf && <a href={t.pdf} target="_blank" rel="noreferrer" className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg">📄 Itinerary PDF</a>}
                 </div>
               </div>

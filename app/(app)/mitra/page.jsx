@@ -85,7 +85,7 @@ export default async function MitraPortalPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {openTrips.map((t) => (
-              <div key={t.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-card flex flex-col">
+              <div key={`${t.brand}-${t.id}`} className="bg-white border border-slate-200 rounded-xl p-5 shadow-card flex flex-col">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -104,8 +104,7 @@ export default async function MitraPortalPage() {
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <a href={t.webUrl} target="_blank" rel="noreferrer" className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg">🌐 Lihat Web Trip</a>
-                  {/* Template WA hanya untuk trip brand yang sedang dibuka (generator baca DB brand aktif) */}
-                  {(!currentBrand || t.brand === currentBrand) && <CopyWaTemplateButton tripId={t.id} />}
+                  <CopyWaTemplateButton tripId={t.id} brand={t.brand} />
                   {t.pdf && <a href={t.pdf} target="_blank" rel="noreferrer" className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg">📄 Itinerary PDF</a>}
                 </div>
               </div>
