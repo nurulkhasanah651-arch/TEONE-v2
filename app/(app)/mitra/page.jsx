@@ -1,6 +1,7 @@
 // Portal Mitra — Dashboard: closingan & fee, + trip open selling (sisa seat, link web, WA template)
 import { getMitraDashboard } from '@/lib/actions/mitra';
 import CopyWaTemplateButton from '@/components/trips/CopyWaTemplateButton';
+import { BRAND_UI } from '@/lib/brand-shared';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +17,11 @@ export default async function MitraPortalPage() {
       </div>
     );
   }
-  const { mitra, stats, openTrips, preview } = res;
+  const { mitra, stats, openTrips, preview, currentBrand } = res;
+  const brandLabel = (code) => (BRAND_UI[code]?.label || code || '').toString();
+  const brandBadgeCls = (code) => code === 'khasanah'
+    ? 'bg-emerald-100 text-emerald-700'
+    : 'bg-sky-100 text-sky-700';
 
   const cards = stats ? [
     { label: 'Closingan (pax)', value: stats.sold, sub: 'total peserta dari kamu', cls: 'bg-blue-50 border-blue-200 text-blue-800' },
@@ -83,8 +88,11 @@ export default async function MitraPortalPage() {
               <div key={t.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-card flex flex-col">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="text-xs font-mono text-brand-600">{t.kode_trip}</p>
-                    <h3 className="text-lg font-bold text-slate-800">{t.name}</h3>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${brandBadgeCls(t.brand)}`}>{brandLabel(t.brand)}</span>
+                      <p className="text-xs font-mono text-brand-600">{t.kode_trip}</p>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800 mt-0.5">{t.name}</h3>
                   </div>
                   <span className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-bold shrink-0">OPEN SELLING</span>
                 </div>
@@ -96,7 +104,8 @@ export default async function MitraPortalPage() {
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <a href={t.webUrl} target="_blank" rel="noreferrer" className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg">🌐 Lihat Web Trip</a>
-                  <CopyWaTemplateButton tripId={t.id} />
+                  {/* Template WA hanya untuk trip brand yang sedang dibuka (generator baca DB brand aktif) */}
+                  {(!currentBrand || t.brand === currentBrand) && <CopyWaTemplateButton tripId={t.id} />}
                   {t.pdf && <a href={t.pdf} target="_blank" rel="noreferrer" className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg">📄 Itinerary PDF</a>}
                 </div>
               </div>
