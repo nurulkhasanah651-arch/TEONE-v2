@@ -21,9 +21,9 @@ export default async function TlBlastPage() {
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-brand-700">📣 Blast TL</h1>
-        <p className="mt-1 text-slate-600">Kirim informasi ke semua Tour Leader sekaligus lewat WhatsApp, dari nomor PIC <b>Putri</b>.</p>
+        <p className="mt-1 text-slate-600">Kirim informasi ke semua Tour Leader (TEONE + Khasanah digabung) sekaligus lewat WhatsApp, dari nomor <b>CS TravelingEropa</b>.</p>
       </div>
-      <TlBlastClient tls={res.tls || []} brand={res.brand} />
+      <TlBlastClient tls={res.tls || []} sender={res.sender} />
     </div>
   );
 }
