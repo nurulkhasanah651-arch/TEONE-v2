@@ -92,6 +92,7 @@ const GROUPS = [
       { href: '/tl',           label: 'Portal TL',    icon: '👤', roles: [...ALL_ROLES, 'tour_leader'] },
       { href: '/tl-master',    label: 'Master TL',    icon: '👥', roles: ALL_ROLES },
       { href: '/tl-plotting',  label: 'Plotting TL',  icon: '🗺', roles: ['owner', 'manager', 'ops', 'accounting'] },
+      { href: '/tl-blast',     label: 'Blast TL',     icon: '📣', roles: ['owner', 'manager', 'ops', 'accounting'] },
       { href: '/mitra-master', label: 'Master Mitra', icon: '🤝', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'] },
       { href: '/mitra', label: 'Portal Mitra (Preview)', icon: '👀', roles: ['pic', 'owner', 'accounting', 'manager', 'ops', 'cs'] },
     ],
