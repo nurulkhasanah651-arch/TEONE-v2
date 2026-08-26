@@ -70,6 +70,13 @@ export default withSentryConfig(nextConfig, {
   // Upload source maps dari semua chunks
   widenClientFileUpload: true,
 
+  // Upload sourcemap ke Sentry MEMBUAT build lewat batas waktu Vercel
+  // (BUILD_EXCEEDED_MAXIMUM_TIME) karena ratusan file .map. Default: DIMATIKAN
+  // supaya deploy cepat & tidak gagal. Error tracking runtime TETAP jalan; hanya
+  // stack trace di Sentry jadi minified. Aktifkan lagi kapan pun via env di Vercel:
+  //   SENTRY_UPLOAD_SOURCEMAPS=1  (tanpa perlu ubah kode)
+  sourcemaps: { disable: process.env.SENTRY_UPLOAD_SOURCEMAPS !== '1' },
+
   // Hide source maps di public (cuma Sentry yg punya)
   hideSourceMaps: true,
 
