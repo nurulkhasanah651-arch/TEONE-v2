@@ -8,6 +8,16 @@ import PrintButton from '@/components/shop/PrintButton';
 
 export const dynamic = 'force-dynamic';
 
+// Halaman ini berupa dokumen A4 (lebar 210mm ≈ 794px). Di HP, viewport bawaan
+// (width=device-width) bikin dokumen kepotong & harus di-zoom manual. Override
+// viewport ke lebar dokumen supaya browser HP otomatis "fit to width" (muat penuh),
+// tetap bisa di-cubit/zoom untuk baca detail. Desktop mengabaikan viewport meta.
+export const viewport = {
+  width: 820,
+  maximumScale: 5,
+  userScalable: true,
+};
+
 function fmtRp(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
 function fmtDate(d) { if (!d) return ''; try { return new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }); } catch { return d; } }
 function lines(s) { return String(s || '').split('\n').map((l) => l.trim()).filter(Boolean); }
