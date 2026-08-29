@@ -87,6 +87,14 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan',
     waba_tpl_resi: employee?.waba_tpl_resi || '',
     waba_tpl_visa_nonbio: employee?.waba_tpl_visa_nonbio || '',
     waba_tpl_dokumen: employee?.waba_tpl_dokumen || '',
+    waba_tpl_visa_jadwalbio: employee?.waba_tpl_visa_jadwalbio || '',
+    waba_tpl_visa_diterima: employee?.waba_tpl_visa_diterima || '',
+    waba_tpl_visa_kurang: employee?.waba_tpl_visa_kurang || '',
+    waba_tpl_visa_reminderbio: employee?.waba_tpl_visa_reminderbio || '',
+    waba_tpl_visa_approved: employee?.waba_tpl_visa_approved || '',
+    waba_tpl_visa_rejected: employee?.waba_tpl_visa_rejected || '',
+    waba_tpl_visa_family: employee?.waba_tpl_visa_family || '',
+    waba_tpl_visa_form: employee?.waba_tpl_visa_form || '',
     notes: employee?.notes || '',
   });
 
@@ -390,6 +398,25 @@ export default function EmployeeForm({ action, employee, submitLabel = 'Simpan',
             <input autoComplete="off" type="text" name="waba_tpl_dokumen" value={form.waba_tpl_dokumen} onChange={(e) => upd('waba_tpl_dokumen', e.target.value)} placeholder={`mis. pengumpulan_dokumen_${isKhasanah ? 'khasanah' : 'teone'}_nama`} className={inputCls} />
             <p className="text-[11px] text-slate-500 mt-1">Template minta jamaah unggah dokumen sebelum keberangkatan. Kosong = teks/Fonnte spt biasa.</p>
           </Field>
+        )}
+        {wabaBrand && (
+          <div className="rounded-lg border border-slate-200 p-3 bg-slate-50/60 space-y-3">
+            <p className="text-xs font-bold text-slate-600">🛂 Template Visa (Api.co.id) — isi judul template yg sudah di-approve Meta utk nomor PIC ini. Kosong = teks/Fonnte spt biasa.</p>
+            {[
+              ['waba_tpl_visa_jadwalbio', 'Info Jadwal Biometrik', `visa_jadwalbio_${isKhasanah ? 'khasanah' : 'teone'}_nama`],
+              ['waba_tpl_visa_reminderbio', 'Reminder Biometrik', `visa_reminderbio_${isKhasanah ? 'khasanah' : 'teone'}_nama`],
+              ['waba_tpl_visa_diterima', 'Dokumen Diterima & Review', `visa_diterima_${isKhasanah ? 'khasanah' : 'teone'}_nama`],
+              ['waba_tpl_visa_kurang', 'Kekurangan Dokumen', `visa_kurang_${isKhasanah ? 'khasanah' : 'teone'}_nama`],
+              ['waba_tpl_visa_approved', 'Hasil Visa APPROVED', `visa_approved_${isKhasanah ? 'khasanah' : 'teone'}_nama`],
+              ['waba_tpl_visa_rejected', 'Penolakan Visa (REJECTED)', `visa_rejected_${isKhasanah ? 'khasanah' : 'teone'}_nama`],
+              ['waba_tpl_visa_family', 'Family Group', `visa_family_${isKhasanah ? 'khasanah' : 'teone'}_nama`],
+              ['waba_tpl_visa_form', 'Blast Formulir Aplikasi Visa', `visa_form_${isKhasanah ? 'khasanah' : 'teone'}_nama`],
+            ].map(([key, lbl, ph]) => (
+              <Field key={key} label={`Nama Template Visa — ${lbl}`}>
+                <input autoComplete="off" type="text" name={key} value={form[key]} onChange={(e) => upd(key, e.target.value)} placeholder={`mis. ${ph}`} className={inputCls} />
+              </Field>
+            ))}
+          </div>
         )}
         <Field label="Catatan">
           <textarea autoComplete="off" name="notes" rows="3" value={form.notes} onChange={(e) => upd('notes', e.target.value)} className={inputCls + ' resize-y'} />
