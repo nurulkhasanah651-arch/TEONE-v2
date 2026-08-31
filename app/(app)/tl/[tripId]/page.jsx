@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { brandServiceRoleKey, brandSupabaseUrl, currentBrandCode, serviceClientFor } from '@/lib/supabase/service-env';
-import { BRAND_CODES } from '@/lib/brand-shared';
+import { BRAND_CODES, customerSiteUrlFor } from '@/lib/brand-shared';
 import { resolveTlIdentity, tlOwnsTrip } from '@/lib/tl-cross-brand';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -20,6 +20,7 @@ import FinalReportForm from '@/components/tl/FinalReportForm';
 import VendorReviewSection from '@/components/tl/VendorReviewSection';
 import TLManifestRoomlist from '@/components/tl/TLManifestRoomlist';
 import TLPaxDocsSection from '@/components/tl/TLPaxDocsSection';
+import TripTicketsSection from '@/components/tl/TripTicketsSection';
 import { supabaseEnvFor } from '@/lib/brand-shared';
 // R177v2: TL payment request — OPS ONLY
 import RequestTLPaymentButtons from '@/components/tl/RequestTLPaymentButtons';
@@ -99,6 +100,17 @@ export default async function TLTripDetailPage({ params, searchParams }) {
   try { const r = await serviceClient.from('tl_checklist').select('*').eq('trip_id', tripId).maybeSingle(); checklist = r.data; } catch {}
   try { const r = await serviceClient.from('tl_final_report').select('*').eq('trip_id', tripId).maybeSingle(); finalReport = r.data; } catch {}
   try { const r = await serviceClient.from('tl_vendor_reviews').select('*').eq('trip_id', tripId).order('created_at', { ascending: false }); vendorReviews = r.data || []; } catch {}
+
+  // Tour Confirmation (per grup/trip) + E-Ticket dari PNR Inventory (untuk portal TL)
+  let tourConf = null; let etickets = [];
+  try { const r = await serviceClient.from('tour_confirmations').select('public_token, group_name').eq('trip_id', tripId).maybeSingle(); tourConf = r.data; } catch {}
+  try {
+    const r = await serviceClient.from('flight_inventory').select('id, pnr, airline, ticket_type, eticket_docs').eq('trip_id', tripId);
+    etickets = (r.data || []).filter((p) => Array.isArray(p.eticket_docs) && p.eticket_docs.length);
+  } catch {}
+  const tcUrl = tourConf?.public_token
+    ? `${String(customerSiteUrlFor(brandCode) || '').replace(/\/$/, '')}/tc/${tourConf.public_token}`
+    : null;
 
   // R177v2: Fetch TL payment requests cuma untuk yg boleh ajukan
   let tlPaymentRequests = [];
@@ -236,6 +248,15 @@ export default async function TLTripDetailPage({ params, searchParams }) {
         canUpload={isInternal}
         isTL={isTL}
         userEmail={userEmail}
+      />
+
+      {/* TOUR CONFIRMATION & E-TICKET (per grup) */}
+      <TripTicketsSection
+        tripId={tripId}
+        brandCode={brandCode}
+        tcUrl={tcUrl}
+        groupName={tourConf?.group_name || ''}
+        etickets={etickets}
       />
 
       {/* FINAL REPORT */}
