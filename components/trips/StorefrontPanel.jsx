@@ -112,7 +112,7 @@ export default function StorefrontPanel({ trip, isKh = false }) {
 
   async function applyTemplate(sourceId) {
     if (!sourceId) return;
-    if (!confirm('Terapkan template ini? SEMUA konten trip ini (foto, itinerary, deskripsi, highlight, termasuk/tidak, visa, S&K, HARGA per tipe + city tax/tips dll, DP, skema cicilan) akan DITIMPA dari trip sumber dan LANGSUNG TERSIMPAN. Slug, nama, tanggal trip ini tetap.')) return;
+    if (!confirm('Terapkan template ini? SEMUA konten trip ini (foto, itinerary, deskripsi, highlight, termasuk/tidak, visa, S&K, HARGA per tipe + city tax/tips dll, DP, skema cicilan, HOTEL foto+deskripsi) akan DITIMPA dari trip sumber dan LANGSUNG TERSIMPAN. Slug, nama, tanggal trip ini tetap.')) return;
     setApplying(true); setMsg(null);
     try {
       const r = await applyTemplateToTrip(trip.id, sourceId);
