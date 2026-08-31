@@ -17,6 +17,7 @@ import {
   generateUploadToken,
 } from '@/lib/actions/visa-workflow';
 import { uploadVisaResultFile, updateVisaReturnMethod, signedVisaResultUrl } from '@/lib/actions/visa-storage';
+import VisaExtraResults from '@/components/visa/VisaExtraResults';
 import { getTemplateOptions, renderTemplate, VISA_WA_TEMPLATES, autoDeadlineDoc } from '@/lib/utils/visa-templates';
 import { syaratLinksFor } from '@/lib/utils/visa-syarat-docs';
 
@@ -713,6 +714,8 @@ function PassengerWorkflowRow({ passenger, trip, isSelected, onToggleSelect, sho
                   </div>
                 )}
               </div>
+
+              <VisaExtraResults passenger={p} />
             </div>
           )}
         </div>

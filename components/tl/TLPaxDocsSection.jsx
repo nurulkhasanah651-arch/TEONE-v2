@@ -28,6 +28,8 @@ function visaResultPath(stored) {
 function DocChip({ u, label, tone = 'brand' }) {
   const cls = tone === 'green'
     ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+    : tone === 'red'
+    ? 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100'
     : 'bg-brand-50 border-brand-300 text-brand-700 hover:bg-brand-100';
   return (
     <SignedFileLink url={u} className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded border ${cls}`}>
@@ -55,12 +57,20 @@ export default function TLPaxDocsSection({ passengers = [], customerMap = {}, su
     const vrp = visaResultPath(p.visa_result_photo_url);
     const visaApproval = vrp ? { label: 'Visa Approval', u: buildU(supaUrl, 'visa-results', vrp) } : null;
     const visaStatus = String(p.visa_result || '').toLowerCase() === 'approved' && !visaApproval ? 'approved (file belum diupload)' : '';
+    // Visa tambahan (multi) - 1 peserta bisa >1 visa (mis. Schengen + UK) dari visa_result_docs
+    const extraVisas = (Array.isArray(p.visa_result_docs) ? p.visa_result_docs : [])
+      .map((d) => ({
+        label: `${d.label || 'Visa'}${String(d.result || '').toLowerCase() === 'rejected' ? ' (ditolak)' : ''}`,
+        u: buildU(supaUrl, 'visa-results', d.file_path),
+        tone: String(d.result || '').toLowerCase() === 'rejected' ? 'red' : 'green',
+      }))
+      .filter((x) => x.u);
 
-    const has = passportDocs.length || !!visaApproval;
+    const has = passportDocs.length || !!visaApproval || extraVisas.length;
     return {
       id: p.id, idx, name: c.name || `Peserta #${p.id}`,
       passportNo: c.passport_no || c.passport_number || p.passport_no || p.passport_number || '',
-      passportDocs, visaApproval, visaStatus, has,
+      passportDocs, visaApproval, visaStatus, extraVisas, has,
     };
   });
 
@@ -86,8 +96,9 @@ export default function TLPaxDocsSection({ passengers = [], customerMap = {}, su
               <div className="mt-2 flex flex-wrap gap-1.5 items-center">
                 {r.passportDocs.map((d, i) => <DocChip key={`p${i}`} u={d.u} label={d.label} tone="brand" />)}
                 {r.visaApproval && <DocChip u={r.visaApproval.u} label={r.visaApproval.label} tone="green" />}
+                {r.extraVisas.map((d, i) => <DocChip key={`v${i}`} u={d.u} label={d.label} tone={d.tone} />)}
                 {r.passportDocs.length === 0 && <span className="text-[11px] text-slate-400">paspor belum ada</span>}
-                {!r.visaApproval && <span className="text-[11px] text-slate-400">{r.visaStatus ? `visa ${r.visaStatus}` : 'visa approval belum ada'}</span>}
+                {!r.visaApproval && r.extraVisas.length === 0 && <span className="text-[11px] text-slate-400">{r.visaStatus ? `visa ${r.visaStatus}` : 'visa approval belum ada'}</span>}
               </div>
             </div>
           ))}
