@@ -39,6 +39,7 @@ export default async function StorefrontHome() {
     ramadhan2027,
     winterJan2027,
     wisataHalal,
+    lebaran2027,
     live,
   ] = await Promise.all([
     getStorefrontSettingsPublic(),
@@ -56,6 +57,7 @@ export default async function StorefrontHome() {
     code === 'khasanah' ? getCategoryTrips(['ramadhan','ramadan','ramadhan 2027','ramadan 2027'], 20) : Promise.resolve([]),
     code === 'khasanah' ? getCategoryTrips(['winter'], 20) : Promise.resolve([]),
     code === 'khasanah' ? getCategoryTrips(['turki','cappadocia','abu dhabi','abudhabi','dubai','aqsa','west europe','europe','jordania'], 20) : Promise.resolve([]),
+    code !== 'khasanah' ? getCategoryTrips(['lebaran','libur lebaran','idul fitri','idulfitri','lebaran 2027','mudik'], 30) : Promise.resolve([]),
     loadGoogleReviews({ placeId: cfg.googlePlaceId || null, query: cfg.googlePlaceQuery || null, bias: cfg.googlePlaceBias || null }),
   ]);
   const heroImages = (settings?.hero_images && settings.hero_images.length) ? settings.hero_images : (cfg.heroImages || (cfg.heroImage ? [cfg.heroImage] : []));
@@ -209,6 +211,22 @@ export default async function StorefrontHome() {
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
           {yearEnd.map((t) => <TripCard key={t.id} t={t} />)}
+        </div>
+      </section>
+      )}
+
+      {/* TEONE: TRIP SPESIAL LIBUR LEBARAN 2027 */}
+      {!_isKh && lebaran2027.length > 0 && (
+      <section className="max-w-6xl mx-auto px-4 py-14">
+        <div className="flex items-end justify-between mb-6">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-emerald-600">🌙 Trip Spesial Libur Lebaran 2027</h2>
+            <p className="text-slate-500 mt-1">Rencanain mudik &amp; liburan Lebaran 2027 dari sekarang — seat terbatas!</p>
+          </div>
+          <Link href="/trip" className="hidden sm:inline text-sm font-bold text-emerald-600 hover:text-emerald-700">Lihat semua →</Link>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+          {lebaran2027.map((t) => <TripCard key={t.id} t={t} />)}
         </div>
       </section>
       )}
