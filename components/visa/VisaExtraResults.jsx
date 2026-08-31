@@ -3,7 +3,7 @@
 // Additive: kelola trip_passengers.visa_result_docs. Tidak mengganggu hasil primary.
 import { useState } from 'react';
 import { uploadVisaResultFile, signedVisaResultUrl } from '@/lib/actions/visa-storage';
-import { addVisaResultDoc, deleteVisaResultDoc } from '@/lib/actions/visa-workflow';
+import { addVisaResultDoc, deleteVisaResultDoc, sendVisaWA } from '@/lib/actions/visa-workflow';
 
 export default function VisaExtraResults({ passenger }) {
   const [docs, setDocs] = useState(Array.isArray(passenger?.visa_result_docs) ? passenger.visa_result_docs : []);
@@ -56,6 +56,23 @@ export default function VisaExtraResults({ passenger }) {
     try { const u = await signedVisaResultUrl(d.file_path); if (u) window.open(u, '_blank', 'noopener'); } catch {}
   }
 
+  async function onSendWA(d) {
+    if (!confirm(`Kirim visa "${d.label}" ke WA peserta? (foto + detail visa ini)`)) return;
+    setBusy(true); setMsg(null);
+    try {
+      const r = await sendVisaWA({
+        tripId: passenger.trip_id,
+        passengerIds: [passenger.id],
+        templateKey: d.result === 'approved' ? 'visa_approved' : 'visa_rejected',
+        resultDocId: d.id,
+      });
+      if (r?.error) setMsg({ e: r.error });
+      else if (r?.sent > 0) setMsg({ ok: `Terkirim ke WA peserta (${d.label}).` });
+      else setMsg({ e: `Gagal kirim WA (${r?.failed || 0} gagal). Cek nomor/koneksi.` });
+    } catch (err) { setMsg({ e: err?.message || 'Gagal kirim WA' }); }
+    setBusy(false);
+  }
+
   async function onDelete(d) {
     if (!confirm(`Hapus visa "${d.label}"?`)) return;
     setBusy(true);
@@ -81,6 +98,7 @@ export default function VisaExtraResults({ passenger }) {
               </span>
               <div className="flex items-center gap-1">
                 <button type="button" onClick={() => onView(d)} className="px-2 py-0.5 rounded bg-indigo-100 border border-indigo-300 text-indigo-700 text-[11px] font-semibold">👁 Lihat</button>
+                <button type="button" onClick={() => onSendWA(d)} disabled={busy} className="px-2 py-0.5 rounded bg-emerald-100 border border-emerald-300 text-emerald-700 text-[11px] font-semibold disabled:opacity-50">📨 Kirim WA</button>
                 <button type="button" onClick={() => onDelete(d)} disabled={busy} className="px-2 py-0.5 rounded bg-red-100 border border-red-300 text-red-700 text-[11px] font-semibold disabled:opacity-50">🗑</button>
               </div>
             </div>
