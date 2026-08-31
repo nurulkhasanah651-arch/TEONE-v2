@@ -21,6 +21,7 @@ import VendorReviewSection from '@/components/tl/VendorReviewSection';
 import TLManifestRoomlist from '@/components/tl/TLManifestRoomlist';
 import TLPaxDocsSection from '@/components/tl/TLPaxDocsSection';
 import TripTicketsSection from '@/components/tl/TripTicketsSection';
+import TripOptionalToursSection from '@/components/tl/TripOptionalToursSection';
 import { supabaseEnvFor } from '@/lib/brand-shared';
 // R177v2: TL payment request — OPS ONLY
 import RequestTLPaymentButtons from '@/components/tl/RequestTLPaymentButtons';
@@ -111,6 +112,31 @@ export default async function TLTripDetailPage({ params, searchParams }) {
   const tcUrl = tourConf?.public_token
     ? `${String(customerSiteUrlFor(brandCode) || '').replace(/\/$/, '')}/tc/${tourConf.public_token}`
     : null;
+
+  // Optional Tour (read-only) — daftar tour + siapa yang ikut, untuk TL
+  let optionalTours = [];
+  try {
+    const { data: ots } = await serviceClient.from('optional_tours')
+      .select('id, name, price, currency, sort, created_at')
+      .eq('trip_id', tripId).order('sort', { ascending: true }).order('created_at', { ascending: true });
+    if (ots && ots.length) {
+      const { data: joins } = await serviceClient.from('optional_tour_participants')
+        .select('optional_tour_id, passenger_id').eq('trip_id', tripId);
+      const paxById = {}; for (const p of (tp || [])) paxById[p.id] = p;
+      const needIds = [...new Set((joins || []).map((j) => paxById[j.passenger_id]?.customer_id).filter((cid) => cid && !customerMap[cid]))];
+      const extraName = {};
+      if (needIds.length) {
+        try { const { data } = await serviceClient.from('customers').select('id, name').in('id', needIds); for (const c of (data || [])) extraName[c.id] = c.name; } catch {}
+      }
+      const nameOfPax = (pid) => { const p = paxById[pid]; if (!p) return `Peserta #${pid}`; return (customerMap[p.customer_id]?.name) || extraName[p.customer_id] || `Peserta #${pid}`; };
+      const rosterByTour = {};
+      for (const j of (joins || [])) (rosterByTour[j.optional_tour_id] = rosterByTour[j.optional_tour_id] || []).push(nameOfPax(j.passenger_id));
+      optionalTours = ots.map((o) => ({
+        id: o.id, name: o.name || 'Optional Tour', price: Number(o.price) || 0, currency: o.currency || 'IDR',
+        members: (rosterByTour[o.id] || []).sort((a, b) => String(a).localeCompare(String(b))),
+      }));
+    }
+  } catch {}
 
   // R177v2: Fetch TL payment requests cuma untuk yg boleh ajukan
   let tlPaymentRequests = [];
@@ -258,6 +284,9 @@ export default async function TLTripDetailPage({ params, searchParams }) {
         groupName={tourConf?.group_name || ''}
         etickets={etickets}
       />
+
+      {/* OPTIONAL TOUR (read-only) */}
+      <TripOptionalToursSection optionalTours={optionalTours} />
 
       {/* FINAL REPORT */}
       {(tripCompleted || finalReport || isTL || isInternal) && (
