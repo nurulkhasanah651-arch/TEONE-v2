@@ -10,6 +10,15 @@ import TourConfirmationKhasanah from '@/components/shop/TourConfirmationKhasanah
 
 export const dynamic = 'force-dynamic';
 
+// HP: dokumen A4 (210mm ~794px). Tanpa ini viewport HP ~980px -> media query
+// responsive (max-width:820px) tak nyala & dokumen kepotong. Set 820 supaya
+// browser HP "fit to width" (dokumen muat penuh, bisa digeser & di-zoom).
+export const viewport = {
+  width: 820,
+  maximumScale: 5,
+  userScalable: true,
+};
+
 function lines(s) { return String(s || '').split('\n').map((l) => l.replace(/\s+$/, '')).filter((l) => l.trim().length); }
 
 export default async function TourConfirmationPage({ params }) {
