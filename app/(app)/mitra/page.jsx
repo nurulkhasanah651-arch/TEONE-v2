@@ -1,6 +1,7 @@
 // Portal Mitra — Dashboard: closingan & fee, + trip open selling (sisa seat, link web, WA template)
 import { getMitraDashboard } from '@/lib/actions/mitra';
 import CopyWaTemplateButton from '@/components/trips/CopyWaTemplateButton';
+import OpenSellingBrowser from '@/components/portal/OpenSellingBrowser';
 import { BRAND_UI } from '@/lib/brand-shared';
 
 export const dynamic = 'force-dynamic';
@@ -79,37 +80,11 @@ export default async function MitraPortalPage() {
       {/* Trip open selling */}
       <div>
         <h2 className="text-xl font-bold text-slate-800 mb-1">🤝 Trip Sedang Dijual (Open Selling)</h2>
-        <p className="text-sm text-slate-500 mb-3">Cek sisa seat, buka halaman web trip, atau salin template WA untuk ditawarkan ke calon jamaah.</p>
+        <p className="text-sm text-slate-500 mb-3">Cek sisa seat, buka halaman web trip, atau salin template WA. Pakai search & filter bulan untuk lihat jadwal trip.</p>
         {openTrips.length === 0 ? (
           <div className="p-8 text-center bg-white border border-slate-200 rounded-xl text-slate-500">Belum ada trip open selling saat ini.</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {openTrips.map((t) => (
-              <div key={`${t.brand}-${t.id}`} className="bg-white border border-slate-200 rounded-xl p-5 shadow-card flex flex-col">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${brandBadgeCls(t.brand)}`}>{brandLabel(t.brand)}</span>
-                      <p className="text-xs font-mono text-brand-600">{t.kode_trip}</p>
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-800 mt-0.5">{t.name}</h3>
-                  </div>
-                  <span className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-bold shrink-0">OPEN SELLING</span>
-                </div>
-                <p className="text-sm text-slate-600 mt-2">📅 {fmtDate(t.departure)}</p>
-                <p className="text-lg font-bold text-brand-700 mt-1">{fmtRupiah(t.price)}<span className="text-xs font-normal text-slate-500">/pax</span></p>
-                <div className="mt-2 flex items-center gap-2">
-                  <span className={`text-sm font-bold ${t.seat_left <= 5 ? 'text-red-600' : 'text-green-700'}`}>Sisa {t.seat_left} seat</span>
-                  <span className="text-xs text-slate-400">dari {t.quota}</span>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <a href={t.webUrl} target="_blank" rel="noreferrer" className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg">🌐 Lihat Web Trip</a>
-                  <CopyWaTemplateButton tripId={t.id} brand={t.brand} />
-                  {t.pdf && <a href={t.pdf} target="_blank" rel="noreferrer" className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg">📄 Itinerary PDF</a>}
-                </div>
-              </div>
-            ))}
-          </div>
+          <OpenSellingBrowser trips={openTrips} />
         )}
       </div>
     </div>
