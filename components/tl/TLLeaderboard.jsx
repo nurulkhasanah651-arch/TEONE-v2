@@ -4,7 +4,7 @@
 // Data sementara di-hardcode; nanti bisa disambung ke query private-trips per TL.
 
 const LEADERBOARD_2026 = [
-  { name: 'Satria', groups: 3 },
+  { name: 'Lalu Satria', groups: 3 },
   { name: 'Wildan Rivky', groups: 1 },
   { name: 'Aji Wirasakti', groups: 1 },
 ];
