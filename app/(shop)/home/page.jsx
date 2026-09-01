@@ -226,7 +226,7 @@ export default async function StorefrontHome() {
           <Link href="/trip" className="hidden sm:inline text-sm font-bold text-emerald-600 hover:text-emerald-700">Lihat semua →</Link>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
-          {lebaran2027.map((t) => <TripCard key={t.id} t={t} />)}
+          {lebaran2027.map((t) => <TripCard key={t.id} t={{ ...t, promo_badge: t.promo_badge || 'Early Booking Promo Lebaran' }} />)}
         </div>
       </section>
       )}
