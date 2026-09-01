@@ -221,7 +221,7 @@ export default async function StorefrontHome() {
         <div className="flex items-end justify-between mb-6">
           <div>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-emerald-600">🌙 Trip Spesial Libur Lebaran 2027</h2>
-            <p className="text-slate-500 mt-1">Rencanain mudik &amp; liburan Lebaran 2027 dari sekarang — seat terbatas!</p>
+            <p className="text-slate-500 mt-1">Amankan seat libur Lebaranmu dari sekarang! Mumpung harga masih promo!</p>
           </div>
           <Link href="/trip" className="hidden sm:inline text-sm font-bold text-emerald-600 hover:text-emerald-700">Lihat semua →</Link>
         </div>
