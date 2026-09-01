@@ -1,13 +1,53 @@
 // Layout portal TL — menempelkan leaderboard "Best Performing TL for Private
-// Group Sales 2026" di paling atas SEMUA halaman /tl (dashboard + detail trip),
-// biar semua TL bisa lihat performa satu sama lain.
+// Group Sales 2026" di paling atas SEMUA halaman /tl (dashboard + detail trip).
+// Omzet Wildan (PR001) & Aji Wirasakti (PR003) dihitung LIVE dari total price_paid
+// peserta aktif; Lalu Satria di-set manual Rp 1,8 M (3 group).
 import TLLeaderboard from '@/components/tl/TLLeaderboard';
+import { serviceClientFor } from '@/lib/supabase/service-env';
 
-export default function TLLayout({ children }) {
+export const dynamic = 'force-dynamic';
+
+// Proyeksi uang masuk 1 trip = total price_paid peserta aktif (bukan transfer/refund).
+async function tripProjection(client, kode) {
+  try {
+    const { data: t } = await client.from('trips').select('id').eq('kode_trip', kode).maybeSingle();
+    if (!t?.id) return 0;
+    let sum = 0;
+    for (let from = 0; ; from += 1000) {
+      const { data: pax, error } = await client.from('trip_passengers')
+        .select('price_paid, transfer_status, refund_status').eq('trip_id', t.id).range(from, from + 999);
+      if (error) break;
+      for (const p of (pax || [])) {
+        if (p.transfer_status === 'transferred' || p.refund_status === 'refunded' || p.refund_status === 'partial_refund') continue;
+        sum += Number(p.price_paid) || 0;
+      }
+      if (!pax || pax.length < 1000) break;
+    }
+    return sum;
+  } catch { return 0; }
+}
+
+export default async function TLLayout({ children }) {
+  const rows = [
+    { name: 'Lalu Satria', groups: 3, omzet: 1800000000 },
+    { name: 'Wildan Rivky', groups: 1, omzet: 0 },
+    { name: 'Aji Wirasakti', groups: 1, omzet: 0 },
+  ];
+  try {
+    const c = serviceClientFor('teone');
+    if (c) {
+      const [pr001, pr003] = await Promise.all([
+        tripProjection(c, 'PR001'),
+        tripProjection(c, 'PR003'),
+      ]);
+      rows[1].omzet = pr001;
+      rows[2].omzet = pr003;
+    }
+  } catch {}
   return (
     <div className="space-y-6">
       <div className="max-w-6xl mx-auto">
-        <TLLeaderboard />
+        <TLLeaderboard rows={rows} />
       </div>
       {children}
     </div>
