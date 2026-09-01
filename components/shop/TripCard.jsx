@@ -8,6 +8,11 @@ export default function TripCard({ t }) {
   const seat = tripSeatLeft(t);
   const soldout = seat <= 0;
   const seatShown = seat > 10 ? 10 : seat; // tampilan: maks 10 (urgency); checkout tetap pakai sisa asli
+  // Badge promo: pakai promo_badge trip; kalau trip Lebaran (dari nama/destinasi) & belum ada badge,
+  // otomatis "Early Booking Promo Lebaran" - muncul di semua card (home, /trip, kategori).
+  const _hay = `${t.name || ''} ${t.destination || ''}`.toLowerCase();
+  const _isLebaran = /lebaran|idul ?fitri|mudik/.test(_hay);
+  const badge = t.promo_badge || (_isLebaran ? 'Early Booking Promo Lebaran' : '');
   return (
     <Link href={`/trip/${t.slug || t.id}`} prefetch={false} className={`group rounded-2xl border overflow-hidden transition-shadow bg-white ${soldout ? 'border-slate-300 opacity-95' : 'border-slate-200 hover:shadow-lg'}`}>
       <div className="aspect-[4/3] bg-gradient-to-br from-slate-700 to-slate-900 relative overflow-hidden">
@@ -20,10 +25,10 @@ export default function TripCard({ t }) {
             <span className="mt-1 text-[11px] font-semibold text-white/70 uppercase tracking-wide">Seat Habis</span>
           </div>
         ) : (
-          <span className={`absolute ${t.promo_badge ? 'top-9' : 'top-2'} left-2 text-[10px] sm:text-[11px] font-bold px-2 py-0.5 sm:py-1 rounded-full bg-emerald-500 text-white`}>Sisa {seatShown} seat</span>
+          <span className={`absolute ${badge ? 'top-9' : 'top-2'} left-2 text-[10px] sm:text-[11px] font-bold px-2 py-0.5 sm:py-1 rounded-full bg-emerald-500 text-white`}>Sisa {seatShown} seat</span>
         )}
-        {!soldout && t.promo_badge && (
-          <div className="absolute top-0 left-0 right-0 z-10 bg-red-600 text-white text-center font-extrabold text-xs sm:text-sm py-1 uppercase tracking-wide shadow-md">{t.promo_badge}</div>
+        {!soldout && badge && (
+          <div className="absolute top-0 left-0 right-0 z-10 bg-red-600 text-white text-center font-extrabold text-xs sm:text-sm py-1 uppercase tracking-wide shadow-md">{badge}</div>
         )}
       </div>
       <div className={`p-3 sm:p-4 ${soldout ? 'bg-slate-50' : ''}`}>
