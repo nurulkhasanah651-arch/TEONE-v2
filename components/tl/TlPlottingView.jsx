@@ -1,6 +1,7 @@
 'use client';
 import { useState, useMemo, useTransition } from 'react';
 import { setTlPlan, finalPlotTl, resendTlAssignmentWA, setTlPayFlag } from '@/lib/actions/tl-plotting';
+import WaSendModal from '@/components/tl/WaSendModal';
 
 const MON = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 const MONSHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
@@ -165,14 +166,13 @@ function PlotRow({ t }) {
     });
   }
   const [wa, setWa] = useState('');
+  const [waModal, setWaModal] = useState(null);
   function resendWA() {
-    const who = connName || t.tl || 'TL';
-    if (!confirm(`Kirim ulang WA konfirmasi ke ${who} untuk trip ${t.kode}?`)) return;
     setErr(''); setWa('…');
     start(async () => {
       const r = await resendTlAssignmentWA(t.brand, t.id);
-      if (r?.ok) { setWa('terkirim ✓'); setTimeout(()=>setWa(''), 3000); }
-      else { setWa(''); setErr(r?.error || 'gagal kirim WA'); }
+      if (r?.ok) { setWa(''); setWaModal({ phone: r.phone, template: r.template, waUrl: r.waUrl }); }
+      else { setWa(''); setErr(r?.error || 'gagal siapkan WA'); }
     });
   }
 
@@ -217,6 +217,7 @@ function PlotRow({ t }) {
             <div className="mt-1 flex items-center justify-center gap-2 flex-wrap">
               <button onClick={doFinal} disabled={pending} className="text-[10px] text-slate-400 hover:text-slate-600 underline">update lagi</button>
               <button onClick={resendWA} disabled={pending} className="text-[10px] px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold disabled:opacity-50">{wa || '📲 Kirim WA'}</button>
+              <WaSendModal open={!!waModal} phone={waModal?.phone} template={waModal?.template} waUrl={waModal?.waUrl} onClose={() => setWaModal(null)} />
               {t.assign_status === 'approved' && <span className="text-[10px] px-2 py-0.5 rounded bg-green-100 text-green-700 font-bold">✅ TL Approved</span>}
               {t.assign_status === 'rejected' && <span className="text-[10px] px-2 py-0.5 rounded bg-rose-100 text-rose-700 font-bold">❌ TL Reject</span>}
               {t.assign_status !== 'approved' && t.assign_status !== 'rejected' && <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-bold">⏳ Belum konfirmasi</span>}

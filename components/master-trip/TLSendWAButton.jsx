@@ -5,6 +5,7 @@
 
 import { useState, useTransition } from 'react';
 import { sendTLAssignmentWA, resetTLAssignment } from '@/lib/actions/tl-assignment';
+import WaSendModal from '@/components/tl/WaSendModal';
 
 /**
  * Props:
@@ -25,6 +26,7 @@ export default function TLSendWAButton({
 }) {
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState(null);
+  const [waModal, setWaModal] = useState(null);
   const [status, setStatus] = useState(initialStatus);
   const [sentAt, setSentAt] = useState(initialSentAt);
   const [respondedAt, setRespondedAt] = useState(initialRespondedAt);
@@ -61,11 +63,12 @@ export default function TLSendWAButton({
 
     startTransition(async () => {
       const res = await sendTLAssignmentWA(fd);
-      setResult(res);
+      setResult(res?.ok ? null : res);
       if (res?.ok) {
         setStatus('pending');
         setSentAt(new Date().toISOString());
         setRespondedAt(null);
+        setWaModal({ phone: res.phone, template: res.template, waUrl: res.waUrl });
       }
     });
   };
@@ -95,7 +98,7 @@ export default function TLSendWAButton({
           onClick={handleSend}
           disabled={isPending || !canSend}
           className="bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded text-sm font-medium inline-flex items-center gap-1.5"
-          title={!canSend ? 'Pilih TL dulu' : 'Kirim WA ke TL via Fonnte'}
+          title={!canSend ? 'Pilih TL dulu' : 'Tampilkan template WA + kirim dari WhatsApp kamu'}
         >
           {isPending
             ? '⏳ Mengirim...'
@@ -143,6 +146,8 @@ export default function TLSendWAButton({
           ❌ {result.error}
         </div>
       )}
+
+      <WaSendModal open={!!waModal} phone={waModal?.phone} template={waModal?.template} waUrl={waModal?.waUrl} onClose={() => setWaModal(null)} />
     </div>
   );
 }

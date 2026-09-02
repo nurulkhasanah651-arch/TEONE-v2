@@ -5,6 +5,7 @@
 
 import { useState, useTransition } from 'react';
 import { sendTLAssignmentWA, resetTLAssignment } from '@/lib/actions/tl-assignment';
+import WaSendModal from '@/components/tl/WaSendModal';
 
 export default function TLAssignmentPanel({ trip }) {
   const tripId = trip?.id;
@@ -12,6 +13,7 @@ export default function TLAssignmentPanel({ trip }) {
   const [tlPhone, setTlPhone] = useState(trip?.tl_phone || '');
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState(null);
+  const [waModal, setWaModal] = useState(null);
 
   const status = trip?.tl_assignment_status || 'pending';
   const sentAt = trip?.tl_assignment_sent_at;
@@ -38,7 +40,8 @@ export default function TLAssignmentPanel({ trip }) {
 
     startTransition(async () => {
       const res = await sendTLAssignmentWA(fd);
-      setResult(res);
+      setResult(res?.ok ? null : res);
+      if (res?.ok) setWaModal({ phone: res.phone, template: res.template, waUrl: res.waUrl });
     });
   };
 
@@ -133,6 +136,8 @@ export default function TLAssignmentPanel({ trip }) {
           ❌ {result.error}
         </div>
       )}
+
+      <WaSendModal open={!!waModal} phone={waModal?.phone} template={waModal?.template} waUrl={waModal?.waUrl} onClose={() => setWaModal(null)} />
     </div>
   );
 }
