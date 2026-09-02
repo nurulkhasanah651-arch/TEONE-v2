@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
+import TripSearchFilter from '@/components/passport/TripSearchFilter';
 
 function getServiceClient() {
   const url = brandSupabaseUrl();
@@ -123,7 +124,7 @@ export default async function PassportManageGlobalPage() {
             <p className="text-sm">Belum ada trip aktif.</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <TripSearchFilter>
             {activeTrips.map((trip) => {
               const stats = getTripStats(trip.id);
               const days = daysUntil(trip.departure);
@@ -131,7 +132,7 @@ export default async function PassportManageGlobalPage() {
               const isUrgent = days != null && days >= 0 && days <= 30 && stats.withoutPassport > 0;
 
               return (
-                <div key={trip.id} className="px-5 py-4 hover:bg-slate-50">
+                <div key={trip.id} data-search={`${trip.name || ''} ${trip.kode_trip || ''}`} className="px-5 py-4 hover:bg-slate-50">
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -192,7 +193,7 @@ export default async function PassportManageGlobalPage() {
                 </div>
               );
             })}
-          </div>
+          </TripSearchFilter>
         )}
       </div>
     </div>
