@@ -3,6 +3,7 @@
 // Omzet Wildan (PR001) & Aji Wirasakti (PR003) dihitung LIVE dari total price_paid
 // peserta aktif; Lalu Satria di-set manual Rp 1,8 M (3 group).
 import TLLeaderboard from '@/components/tl/TLLeaderboard';
+import AlumniReferralReward from '@/components/tl/AlumniReferralReward';
 import { serviceClientFor } from '@/lib/supabase/service-env';
 
 export const dynamic = 'force-dynamic';
@@ -44,10 +45,29 @@ export default async function TLLayout({ children }) {
       rows[2].omzet = pr003;
     }
   } catch {}
+
+  // Alumni Referral Reward: 3 besar TL by jumlah referral (self-report), realtime, gabung 2 brand.
+  let alumniRows = [];
+  try {
+    const byTl = {};
+    for (const bc of ['teone', 'khasanah']) {
+      const cc = serviceClientFor(bc);
+      if (!cc) continue;
+      const { data } = await cc.from('tl_referrals').select('tl_name, tl_email').limit(5000);
+      for (const r of (data || [])) {
+        const key = String(r.tl_email || r.tl_name || '-').toLowerCase();
+        if (!byTl[key]) byTl[key] = { name: r.tl_name || r.tl_email || '-', count: 0 };
+        byTl[key].count++;
+      }
+    }
+    alumniRows = Object.values(byTl).sort((a, b) => b.count - a.count).slice(0, 3);
+  } catch {}
+
   return (
     <div className="space-y-6">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto space-y-6">
         <TLLeaderboard rows={rows} />
+        <AlumniReferralReward rows={alumniRows} />
       </div>
       {children}
     </div>
