@@ -72,14 +72,18 @@ export async function GET(req, { params }) {
   if (ext && !base.toLowerCase().endsWith('.' + ext)) base += '.' + ext;
 
   const buf = Buffer.from(await blob.arrayBuffer());
-  // Paksa unduh (jangan preview inline di HP): selalu octet-stream
-  const contentType = 'application/octet-stream';
+  // Mode "view" (?view=1): tampilkan inline (preview di tab) pakai MIME asli.
+  // Default: paksa unduh (attachment octet-stream) supaya nama file benar di HP.
+  let _view = '';
+  try { _view = new URL(req.url).searchParams.get('view') || ''; } catch {}
+  const contentType = _view ? (MIME[ext] || 'application/octet-stream') : 'application/octet-stream';
+  const disposition = `${_view ? 'inline' : 'attachment'}; filename="${base}"; filename*=UTF-8''${encodeURIComponent(base)}`;
 
   return new Response(buf, {
     status: 200,
     headers: {
       'Content-Type': contentType,
-      'Content-Disposition': `attachment; filename="${base}"; filename*=UTF-8''${encodeURIComponent(base)}`,
+      'Content-Disposition': disposition,
       'Content-Length': String(buf.length),
       'Cache-Control': 'private, no-store',
     },

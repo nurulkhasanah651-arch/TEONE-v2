@@ -144,7 +144,7 @@ export default function TripDocsSection({
             )}
           </h2>
           {isTL && (
-            <p className="text-[10px] text-blue-700 mt-0.5">📥 TL: Klik nama dokumen untuk download langsung (tak perlu akun Supabase). Upload by Internal only.</p>
+            <p className="text-[10px] text-blue-700 mt-0.5">📥 TL: Klik 👁 Lihat untuk buka dokumen, atau ⬇ Download untuk simpan. Upload by Internal only.</p>
           )}
         </div>
         {canUpload && !showForm && (
@@ -267,13 +267,24 @@ export default function TripDocsSection({
                 {list.map((d) => (
                   <div key={d.id} className="flex items-center justify-between gap-3 p-2 rounded bg-slate-50 hover:bg-slate-100 group">
                     <div className="flex-1 min-w-0">
-                      <a
-                        href={`/api/trip-docs/${d.id}/download/${encodeURIComponent(docFileName(d))}`}
-                        download={docFileName(d)}
-                        className="text-sm font-semibold text-blue-700 hover:underline truncate block"
-                      >
-                        📄 {d.title} <span className="text-[10px] text-blue-500">⬇ Download</span>
-                      </a>
+                      <p className="text-sm font-semibold text-slate-800 truncate">📄 {d.title}</p>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <a
+                          href={`/api/trip-docs/${d.id}/download/${encodeURIComponent(docFileName(d))}?view=1`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11px] font-bold text-blue-700 hover:underline"
+                        >
+                          👁 Lihat
+                        </a>
+                        <a
+                          href={`/api/trip-docs/${d.id}/download/${encodeURIComponent(docFileName(d))}`}
+                          download={docFileName(d)}
+                          className="text-[11px] font-bold text-blue-700 hover:underline"
+                        >
+                          ⬇ Download
+                        </a>
+                      </div>
                       {d.notes && <p className="text-xs text-slate-500 mt-0.5">{d.notes}</p>}
                       <p className="text-[10px] text-slate-400 mt-0.5">
                         {d.uploaded_by && `Upload by ${d.uploaded_by}`}
