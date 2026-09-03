@@ -309,16 +309,16 @@ export default async function TLTripDetailPage({ params, searchParams }) {
         userEmail={userEmail}
       />
 
-      {/* Manifest, Roomlist & Daftar Peserta — TL hanya boleh akses mulai H-14 */}
+      {/* Manifest, Roomlist & Daftar Peserta — TL hanya boleh akses mulai H-21 */}
       {(() => {
-        const paxGateOpen = isInternal || (days != null && days <= 14);
+        const paxGateOpen = isInternal || (days != null && days <= 21);
         if (!paxGateOpen) {
           return (
             <div className="bg-white rounded-xl border border-amber-200 shadow-card p-8 text-center">
               <p className="text-3xl mb-2">🔒</p>
-              <p className="font-bold text-amber-800">Data peserta, manifest & roomlist tersedia mulai H-14</p>
+              <p className="font-bold text-amber-800">Data peserta, manifest, roomlist, paspor & visa tersedia mulai H-21</p>
               <p className="text-sm text-slate-600 mt-1">
-                Akan terbuka {days != null ? `dalam ${days - 14} hari lagi` : 'menjelang keberangkatan'} (14 hari sebelum berangkat).
+                Akan terbuka {days != null ? `dalam ${days - 21} hari lagi` : 'menjelang keberangkatan'} (21 hari sebelum berangkat).
                 {trip.departure ? ` Keberangkatan: ${fmtDate(trip.departure)}.` : ''}
               </p>
             </div>
