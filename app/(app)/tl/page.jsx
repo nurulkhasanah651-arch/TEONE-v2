@@ -278,7 +278,7 @@ export default async function TLPortalPage() {
       const _mStart = new Date(); _mStart.setDate(1); _mStart.setHours(0, 0, 0, 0);
       const { data: _refs } = await serviceClient
         .from('tl_referrals')
-        .select('id, participant_name, trip_label, created_at')
+        .select('id, participant_name, trip_label, proof_url, created_at')
         .ilike('tl_email', _email)
         .gte('created_at', _mStart.toISOString())
         .order('created_at', { ascending: false });

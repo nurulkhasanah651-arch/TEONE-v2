@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { brandServiceRoleKey, brandSupabaseUrl, serviceClientFor } from '@/lib/supabase/service-env';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
+import ReferralProofCell from '@/components/tl/ReferralProofCell';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,16 +78,17 @@ export default async function TLMasterPage(props) {
       if (!_c) continue;
       const { data: _refs } = await _c
         .from('tl_referrals')
-        .select('tl_name, tl_email, participant_name, created_at')
+        .select('tl_name, tl_email, participant_name, trip_label, proof_url, created_at')
         .order('created_at', { ascending: false })
         .limit(2000);
       for (const r of (_refs || [])) {
         const key = (r.tl_email || r.tl_name || '-').toLowerCase();
-        if (!referralByTl[key]) referralByTl[key] = { name: r.tl_name || r.tl_email || '-', email: r.tl_email || '', month: 0, total: 0, recent: [] };
+        if (!referralByTl[key]) referralByTl[key] = { name: r.tl_name || r.tl_email || '-', email: r.tl_email || '', month: 0, total: 0, recent: [], items: [] };
         const g = referralByTl[key];
         g.total++;
         if (r.created_at && new Date(r.created_at) >= _mStart) g.month++;
         if (g.recent.length < 8) g.recent.push(r.participant_name);
+        g.items.push({ participant_name: r.participant_name, trip_label: r.trip_label, created_at: r.created_at, proof_url: r.proof_url });
       }
     }
   } catch {}
@@ -226,15 +228,7 @@ export default async function TLMasterPage(props) {
                       <td className="px-3 py-2.5 text-center">
                         {(() => {
                           const rf = refFor(t);
-                          const tot = rf?.total || 0;
-                          const mo = rf?.month || 0;
-                          if (!tot) return <span className="text-slate-300 text-xs">—</span>;
-                          return (
-                            <>
-                              <p className="text-xs font-bold text-emerald-700">{tot}</p>
-                              {mo > 0 && <p className="text-[10px] text-emerald-600">{mo} bln ini</p>}
-                            </>
-                          );
+                          return <ReferralProofCell total={rf?.total || 0} month={rf?.month || 0} items={rf?.items || []} />;
                         })()}
                       </td>
                       <td className="px-3 py-2.5 text-center">
