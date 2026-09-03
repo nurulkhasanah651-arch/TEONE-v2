@@ -48,7 +48,10 @@ export default async function TLTripDetailPage({ params, searchParams }) {
   const supabase = createClient();
   // Lintas-brand: baca/tulis ke DB brand trip (service client), bukan sesi user (beda project).
   const svcCross = crossBrand ? serviceClientFor(brandParam) : null;
-  const db = svcCross || supabase;                       // trip/peserta/customer
+  // trip/peserta/customer: pakai service client (bypass RLS) - kepemilikan trip TL
+  // sudah diverifikasi di bawah (tlOwnsTrip). Tanpa ini, RLS bikin daftar peserta
+  // kebaca kosong di sesi TL walau sebenarnya penuh.
+  const db = svcCross || getServiceClient() || supabase; // trip/peserta/customer
   const serviceClient = svcCross || getServiceClient() || supabase;
 
   const { data: { user } } = await supabase.auth.getUser();
