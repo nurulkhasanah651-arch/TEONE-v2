@@ -66,6 +66,26 @@ export default async function TLMasterPage(props) {
     }
   }
 
+  // Rekap self-report peserta yang dibawa TL (bulan ini + total) - untuk penilaian TL.
+  let referralByTl = {};
+  try {
+    const _mStart = new Date(); _mStart.setDate(1); _mStart.setHours(0, 0, 0, 0);
+    const { data: _refs } = await supabase
+      .from('tl_referrals')
+      .select('tl_name, tl_email, participant_name, created_at')
+      .order('created_at', { ascending: false })
+      .limit(2000);
+    for (const r of (_refs || [])) {
+      const key = (r.tl_email || r.tl_name || '-').toLowerCase();
+      if (!referralByTl[key]) referralByTl[key] = { name: r.tl_name || r.tl_email || '-', email: r.tl_email || '', month: 0, total: 0, recent: [] };
+      const g = referralByTl[key];
+      g.total++;
+      if (r.created_at && new Date(r.created_at) >= _mStart) g.month++;
+      if (g.recent.length < 8) g.recent.push(r.participant_name);
+    }
+  } catch {}
+  const referralRows = Object.values(referralByTl).sort((a, b) => b.month - a.month || b.total - a.total);
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -105,6 +125,38 @@ export default async function TLMasterPage(props) {
         <FilterLink current={filterSubtype} value="inhouse" param="subtype" label="In-house" status={filterStatus} />
         <FilterLink current={filterSubtype} value="freelance" param="subtype" label="Freelance" status={filterStatus} />
       </div>
+
+      {/* Rekap self-report peserta dibawa TL (penilaian) */}
+      {referralRows.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-200 bg-emerald-50">
+            <h2 className="font-bold text-emerald-800">Peserta Dibawa TL (Self-Report) - Penilaian</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Diinput sendiri oleh TL di portalnya. Hanya untuk menilai keaktifan TL, bukan data pendaftaran resmi (peserta diinput CS).</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-[11px] uppercase text-slate-500">
+                <tr>
+                  <th className="text-left px-4 py-2">Tour Leader</th>
+                  <th className="text-center px-3 py-2">Bulan Ini</th>
+                  <th className="text-center px-3 py-2">Total</th>
+                  <th className="text-left px-4 py-2">Peserta (terbaru)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {referralRows.map((r) => (
+                  <tr key={r.email || r.name}>
+                    <td className="px-4 py-2 font-semibold text-slate-800">{r.name}</td>
+                    <td className="px-3 py-2 text-center"><span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold">{r.month}</span></td>
+                    <td className="px-3 py-2 text-center text-slate-600">{r.total}</td>
+                    <td className="px-4 py-2 text-xs text-slate-500">{r.recent.join(', ')}{r.total > r.recent.length ? ', ...' : ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Stats summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

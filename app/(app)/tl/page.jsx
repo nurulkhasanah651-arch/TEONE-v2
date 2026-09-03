@@ -13,6 +13,7 @@ import { getTlTripsAllBrands } from '@/lib/tl-cross-brand';
 import { getOpenSellingTripsAllBrands } from '@/lib/actions/mitra';
 import CopyWaTemplateButton from '@/components/trips/CopyWaTemplateButton';
 import OpenSellingBrowser from '@/components/portal/OpenSellingBrowser';
+import TlReferralPanel from '@/components/tl/TlReferralPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -269,12 +270,35 @@ export default async function TLPortalPage() {
     }
   } catch {}
 
+  // Self-report peserta yang dibawa TL (bulan ini) + opsi trip untuk dropdown.
+  let myReferrals = [];
+  try {
+    const _email = (user?.email || '').toLowerCase();
+    if (_email) {
+      const _mStart = new Date(); _mStart.setDate(1); _mStart.setHours(0, 0, 0, 0);
+      const { data: _refs } = await serviceClient
+        .from('tl_referrals')
+        .select('id, participant_name, trip_label, created_at')
+        .ilike('tl_email', _email)
+        .gte('created_at', _mStart.toISOString())
+        .order('created_at', { ascending: false });
+      myReferrals = _refs || [];
+    }
+  } catch {}
+  const referralTripOptions = [...new Set(
+    [...tlTrips, ...availTrips]
+      .map((t) => `${t.kode_trip ? t.kode_trip + ' - ' : ''}${t.name || ''}`.trim())
+      .filter(Boolean),
+  )];
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-brand-700">Portal Tour Leader</h1>
         <p className="mt-1 text-slate-600">Trip yang ditugaskan ke kamu — info trip, checklist, peserta.</p>
       </div>
+
+      <TlReferralPanel tripOptions={referralTripOptions} initialReferrals={myReferrals} />
 
       <section className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 bg-brand-50">
