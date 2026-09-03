@@ -2,7 +2,7 @@
 // Path: app/(app)/tl-master/page.jsx
 
 import Link from 'next/link';
-import { brandServiceRoleKey, brandSupabaseUrl } from '@/lib/supabase/service-env';
+import { brandServiceRoleKey, brandSupabaseUrl, serviceClientFor } from '@/lib/supabase/service-env';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 
@@ -70,18 +70,24 @@ export default async function TLMasterPage(props) {
   let referralByTl = {};
   try {
     const _mStart = new Date(); _mStart.setDate(1); _mStart.setHours(0, 0, 0, 0);
-    const { data: _refs } = await supabase
-      .from('tl_referrals')
-      .select('tl_name, tl_email, participant_name, created_at')
-      .order('created_at', { ascending: false })
-      .limit(2000);
-    for (const r of (_refs || [])) {
-      const key = (r.tl_email || r.tl_name || '-').toLowerCase();
-      if (!referralByTl[key]) referralByTl[key] = { name: r.tl_name || r.tl_email || '-', email: r.tl_email || '', month: 0, total: 0, recent: [] };
-      const g = referralByTl[key];
-      g.total++;
-      if (r.created_at && new Date(r.created_at) >= _mStart) g.month++;
-      if (g.recent.length < 8) g.recent.push(r.participant_name);
+    // Baca dari KEDUA brand (TEONE + Khasanah) supaya penilaian TL tergabung,
+    // apa pun domain tempat TL input & tempat tim buka Master TL.
+    for (const _bc of ['teone', 'khasanah']) {
+      const _c = serviceClientFor(_bc);
+      if (!_c) continue;
+      const { data: _refs } = await _c
+        .from('tl_referrals')
+        .select('tl_name, tl_email, participant_name, created_at')
+        .order('created_at', { ascending: false })
+        .limit(2000);
+      for (const r of (_refs || [])) {
+        const key = (r.tl_email || r.tl_name || '-').toLowerCase();
+        if (!referralByTl[key]) referralByTl[key] = { name: r.tl_name || r.tl_email || '-', email: r.tl_email || '', month: 0, total: 0, recent: [] };
+        const g = referralByTl[key];
+        g.total++;
+        if (r.created_at && new Date(r.created_at) >= _mStart) g.month++;
+        if (g.recent.length < 8) g.recent.push(r.participant_name);
+      }
     }
   } catch {}
   const referralRows = Object.values(referralByTl).sort((a, b) => b.month - a.month || b.total - a.total);
