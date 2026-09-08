@@ -3,8 +3,27 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createSvc } from '@supabase/supabase-js';
+import { brandServiceRoleKey, brandSupabaseUrl, currentBrandCode } from '@/lib/supabase/service-env';
+import { resolveTlIdentity, tlOwnsTrip } from '@/lib/tl-cross-brand';
 
 export const dynamic = 'force-dynamic';
+
+// Service client (bypass RLS) supaya peserta selalu kebaca; TL sesi kena RLS -> file kosong.
+function _svcDb() {
+  const url = brandSupabaseUrl(); const key = brandServiceRoleKey();
+  return (url && key) ? createSvc(url, key, { auth: { persistSession: false, autoRefreshToken: false } }) : createClient();
+}
+async function _tlAllowed(trip) {
+  try {
+    const auth = createClient();
+    const { data: { user } } = await auth.auth.getUser();
+    const role = user?.app_metadata?.role || user?.user_metadata?.role || 'pending';
+    if (role !== 'tour_leader') return true;
+    const identity = await resolveTlIdentity(user).catch(() => null);
+    return !!identity && tlOwnsTrip(identity, trip, currentBrandCode());
+  } catch { return false; }
+}
 
 function escapeCsv(value) {
   if (value == null) return '';
@@ -28,15 +47,13 @@ function calcAge(birthday) {
 
 export async function GET(_request, { params }) {
   const { tripId } = await params;
-  const supabase = createClient();
+  const supabase = _svcDb();
 
-  const [tripRes, paxRes] = await Promise.all([
-    supabase.from('trips').select('id, kode_trip, name, departure').eq('id', tripId).maybeSingle(),
-    supabase.from('trip_passengers').select('*').eq('trip_id', tripId).order('joined_at', { ascending: true }),
-  ]);
-
+  const tripRes = await supabase.from('trips').select('id, kode_trip, name, departure, tl_id, tl_email, tl_phone').eq('id', tripId).maybeSingle();
   if (!tripRes.data) return new NextResponse('Trip not found', { status: 404 });
   const trip = tripRes.data;
+  if (!(await _tlAllowed(trip))) return new NextResponse('Forbidden', { status: 403 });
+  const paxRes = await supabase.from('trip_passengers').select('*').eq('trip_id', tripId).order('joined_at', { ascending: true });
   const passengers = (paxRes.data || []).filter((p) =>
     p.status !== 'cancelled' && p.transfer_status !== 'transferred' &&
     p.refund_status !== 'refunded' && p.refund_status !== 'partial_refund');
