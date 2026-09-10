@@ -10,6 +10,7 @@ import CsRecapPanel from '@/components/cs/CsRecapPanel';
 import { getCsRecapGroup, buildCsRecap } from '@/lib/actions/cs-recap';
 import ClosingRangePanel from '@/components/cs/ClosingRangePanel';
 import ClosingDraftsPanel from '@/components/cs/ClosingDraftsPanel';
+import OfficeVisitForm from '@/components/cs/OfficeVisitForm';
 import { getClosingDrafts } from '@/lib/actions/cs.js';
 
 export const dynamic = 'force-dynamic';
@@ -40,6 +41,14 @@ export default async function CSPage() {
 
   const recapGroup = await getCsRecapGroup().catch(() => ({ group: '' }));
   const closingDrafts = await getClosingDrafts().catch(() => ({ drafts: [], avgByTrip: {} }));
+
+  // Kunjungan kantor harian (Serpong/Bandung/Jogja) — 14 hari terakhir.
+  let officeVisits = [];
+  try {
+    const r = await supabase.from('cs_office_visits').select('*').order('tanggal', { ascending: false }).limit(14);
+    officeVisits = r.data || [];
+  } catch { officeVisits = []; }
+  const todayOffice = officeVisits.find((o) => o.tanggal === today) || null;
 
   const allUpdates = updatesRes.data || [];
   const allLeads = leadsRes.data || [];
@@ -121,6 +130,17 @@ export default async function CSPage() {
         <div className="p-5 space-y-4">
           <LeadsQuickForm initial={todayLeads ? { ...todayLeads } : { tanggal: today }} />
           <LeadsHistoryTable allLeads={allLeads} />
+        </div>
+      </section>
+
+      {/* === KUNJUNGAN KANTOR HARIAN === */}
+      <section className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-200">
+          <h2 className="font-bold text-brand-700">🏢 Kunjungan Kantor Harian</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Jumlah orang yang datang ke kantor per hari — Serpong, Bandung, Jogja. Biar kelihatan daily walk-in tiap kantor.</p>
+        </div>
+        <div className="p-5">
+          <OfficeVisitForm today={today} todayRow={todayOffice} history={officeVisits} />
         </div>
       </section>
 
