@@ -7,7 +7,8 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toggleMilestone, updatePaymentAmount, updatePaymentNotes, settlePelunasanAll } from '@/lib/actions/payments';
 import { fmtRupiah } from '@/lib/utils/format';
-import { deriveMilestones, expectedPerPassenger, mainExpectedPerPassenger } from '@/lib/utils/price-breakdown';
+import { deriveMilestones, expectedPerPassenger, mainExpectedPerPassenger, paxRoomKey } from '@/lib/utils/price-breakdown';
+import { tourPpnReg } from '@/lib/utils/umroh-plus';
 import InvoicePanelForPassenger from '@/components/invoice/InvoicePanelForPassenger';
 import DiscountPanel from '@/components/finance/DiscountPanel';
 import { useWaManual } from '@/components/wa/WaManualProvider';
@@ -159,11 +160,22 @@ export default function PaymentMatrix({
     template_custom: 'text-purple-700 border-b-purple-300 bg-purple-50/40',
   };
 
+  // PPN 1,1% x harga kamar (TEONE, pendaftar baru >= 2 Agu 2026). Ditambahkan ke total
+  // expected/sisa spy KONSISTEN dgn invoice peserta (yg sudah incl PPN). Trip incl-PPN
+  // dulu tampil exclude PPN di kolom Total. tourPpnReg() balik 0 kalau tidak kena PPN.
+  const ppnFor = (p) => {
+    try {
+      const rk = paxRoomKey(p);
+      const roomPrice = rk ? (Number(breakdown?.[rk]) || 0) : 0;
+      return roomPrice > 0 ? (Number(tourPpnReg(roomPrice, brand, p?.joined_at)) || 0) : 0;
+    } catch { return 0; }
+  };
+
   const paxExpectedMap = {};
   for (const p of passengers) {
     const pays = paymentsByPassenger[p.id] || [];
     const totalPaid = pays.reduce((s, x) => s + (x.amount || 0), 0);
-    const expectedTotal = expectedPerPassenger(p, breakdown, pays, brand);
+    const expectedTotal = expectedPerPassenger(p, breakdown, pays, brand) + ppnFor(p);
     paxExpectedMap[p.id] = {
       expectedTotal,
       totalPaid,
@@ -217,8 +229,10 @@ export default function PaymentMatrix({
               const isExpanded = expandedRow === p.id;
 
               const mainExpected = mainExpectedPerPassenger(p, breakdown, brand);
-              const expectedTotal = expectedPerPassenger(p, breakdown, pays, brand);
-              const optionalPaid = expectedTotal - mainExpected;
+              const baseExpected = expectedPerPassenger(p, breakdown, pays, brand);
+              const ppn = ppnFor(p);
+              const expectedTotal = baseExpected + ppn; // incl PPN, konsisten dgn invoice
+              const optionalPaid = baseExpected - mainExpected; // optional TANPA PPN
               const remaining = expectedTotal - totalPaid;
               const discount = Number(p.discount_amount) || 0;
 
