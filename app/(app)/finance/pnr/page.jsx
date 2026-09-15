@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
-import PnrRow from '@/components/finance/PnrRow';
+import PnrSearchFilter from '@/components/finance/PnrSearchFilter';
 import DownloadButtons from '@/components/common/DownloadButtons';
 
 export const dynamic = 'force-dynamic';
@@ -135,53 +135,12 @@ export default async function PnrListPage() {
           </div>
         </div>
       ) : (
-        <>
-          <PnrSection
-            title="✈ PNR Group"
-            subtitle="Tiket rombongan / blok kursi"
-            accent="text-sky-700"
-            list={groupPnrs}
-            tripMap={tripMap}
-            emptyText="Belum ada PNR group."
-          />
-          <PnrSection
-            title="🎫 FIT"
-            subtitle="Tiket individu (Free Individual Traveller)"
-            accent="text-purple-700"
-            list={fitPnrs}
-            tripMap={tripMap}
-            emptyText="Belum ada tiket FIT."
-          />
-          <PnrSection
-            title="🛫 Tiket Domestik"
-            subtitle="Penerbangan domestik penjemputan / lanjutan — bisa disambungkan ke trip"
-            accent="text-teal-700"
-            list={domesticPnrs}
-            tripMap={tripMap}
-            emptyText="Belum ada tiket domestik."
-          />
-        </>
-      )}
-    </div>
-  );
-}
-
-function PnrSection({ title, subtitle, accent, list, emptyText, tripMap = {} }) {
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-      <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h2 className={`font-bold ${accent}`}>{title}</h2>
-          <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>
-        </div>
-        <span className="text-sm font-bold text-slate-500">{list.length} PNR</span>
-      </div>
-      {list.length === 0 ? (
-        <div className="p-8 text-center text-sm text-slate-400">{emptyText}</div>
-      ) : (
-        <div className="divide-y divide-slate-100">
-          {list.map((p) => <PnrRow key={p.id} pnr={p} trip={tripMap[p.trip_id] || null} />)}
-        </div>
+        <PnrSearchFilter
+          groupPnrs={groupPnrs}
+          fitPnrs={fitPnrs}
+          domesticPnrs={domesticPnrs}
+          tripMap={tripMap}
+        />
       )}
     </div>
   );
