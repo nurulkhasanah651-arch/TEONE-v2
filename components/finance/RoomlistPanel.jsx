@@ -21,6 +21,14 @@ function genderOf(p, custMap) {
 }
 
 // Konversi hasil auto-generate → bentuk editable
+// Peserta AKTIF: tidak cancelled / transfer / refund (samakan dgn Master Trip).
+// Peserta yang sudah refused/dikeluarkan (refund/partial_refund) TIDAK ikut roomlist.
+function isActivePax(p) {
+  return p && p.status !== 'cancelled'
+    && p.transfer_status !== 'transferred'
+    && p.refund_status !== 'refunded' && p.refund_status !== 'partial_refund';
+}
+
 function autoToEditable(passengers, customers, custMap) {
   const rooms = generateRoomlist(passengers, customers);
   return rooms.map((r, i) => ({
@@ -64,15 +72,19 @@ function roomWarning(room) {
   return null;
 }
 
-// Merge: roomlist FINAL tersimpan + peserta aktif yang BELUM ada di roomlist (peserta baru)
+// Merge: roomlist FINAL tersimpan + peserta aktif yang BELUM ada di roomlist (peserta baru).
+// Sekaligus BUANG member yang sudah tidak aktif (refused/refund/transfer) dari kamar tersimpan.
 function mergeSavedWithNew(saved, passengers, custMap) {
   const base = savedToEditable(saved);
+  const active = (passengers || []).filter(isActivePax);
+  const activeIds = new Set(active.map((p) => String(p.id)));
+  // Buang peserta non-aktif dari kamar tersimpan (member ber-passenger_id yg tak lagi aktif).
+  // Member tanpa passenger_id (crew/manual) tetap dipertahankan.
+  for (const r of base) {
+    r.members = (r.members || []).filter((m) => m.passenger_id == null || activeIds.has(String(m.passenger_id)));
+  }
   const inList = new Set();
   for (const r of base) for (const m of (r.members || [])) if (m.passenger_id != null) inList.add(String(m.passenger_id));
-  const active = (passengers || []).filter((p) =>
-    p.transfer_status !== 'transferred' &&
-    p.refund_status !== 'refunded' && p.refund_status !== 'partial_refund'
-  );
   const missing = active.filter((p) => !inList.has(String(p.id)));
   if (missing.length > 0) {
     base.push({
@@ -100,12 +112,15 @@ export default function RoomlistPanel({ trip, passengers = [], customers = [], c
     [customers]
   );
 
+  // Hanya peserta AKTIF yang masuk roomlist (peserta refused/refund/transfer dibuang).
+  const activePassengers = useMemo(() => (passengers || []).filter(isActivePax), [passengers]);
+
   const hasSaved = !!trip?.final_roomlist?.rooms;
   const initial = useMemo(
     () => {
       const base = hasSaved
-        ? mergeSavedWithNew(trip.final_roomlist, passengers, custMap)
-        : { rooms: autoToEditable(passengers, customers, custMap), hasMissing: false };
+        ? mergeSavedWithNew(trip.final_roomlist, activePassengers, custMap)
+        : { rooms: autoToEditable(activePassengers, customers, custMap), hasMissing: false };
       // Suntik TL/Tim (crew) yg BELUM ada di kamar mana pun -> section "TL & Tim" yg bisa dipindah.
       const present = new Set();
       for (const r of base.rooms) for (const m of (r.members || [])) present.add(String(m.name || '').toLowerCase());
@@ -189,7 +204,7 @@ export default function RoomlistPanel({ trip, passengers = [], customers = [], c
   }
 
   function regenerate() {
-    setRooms(autoToEditable(passengers, customers, custMap));
+    setRooms(autoToEditable(activePassengers, customers, custMap));
     setIsFinal(false);
     showMsg('Disusun ulang otomatis dari master trip');
   }
