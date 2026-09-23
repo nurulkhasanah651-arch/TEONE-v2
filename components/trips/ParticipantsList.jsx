@@ -11,6 +11,7 @@ import { addParticipant, updateParticipant, removeParticipant } from '@/lib/acti
 import { fmtRupiah, fmtDate, calcAge, passportStatus } from '@/lib/utils/format';
 import TransferPassengerButton from './TransferPassengerButton';
 import RefundPassengerButton from './RefundPassengerButton';
+import PesertaAccessButton from './PesertaAccessButton';
 
 const ROOM_TYPES = ['Single', 'Twin', 'Double', 'Triple', 'Quad', 'Family', 'Child No Bed', 'Infant', 'Land Tour Quad', 'Land Tour Triple', 'Land Tour Double', 'Land Tour Single', 'Land Tour Only'];
 
@@ -215,6 +216,13 @@ export default function ParticipantsList(props) {
                       🛂 Passport
                     </Link>
                     <button onClick={() => setEditingId(p.id)} disabled={pending} className="text-xs px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold disabled:opacity-50">✎ Edit</button>
+                    <PesertaAccessButton
+                      customerId={p.customer_id}
+                      name={fullName}
+                      phone={c.phone || c.whatsapp || ''}
+                      email={c.email || ''}
+                      hasAccount={!!c.user_id}
+                    />
                     {/* R192d: pass FULL passenger object (bukan separate props) — fix crash */}
                     <TransferPassengerButton passenger={p} allTrips={allTrips} />
                     <RefundPassengerButton passenger={p} />
