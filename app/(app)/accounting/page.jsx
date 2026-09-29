@@ -89,6 +89,21 @@ function isCicilanKeyword(cat) {
   return /cicil/.test(c) || /\bp[1-9]\b/.test(c) || /pelunasan/.test(c) || /milestone/.test(c);
 }
 
+// R233: Rekonsiliasi bank (e-statement / Excel). Untuk bulan yang Cash In-nya sudah
+// disamakan PERSIS dengan mutasi bank (Excel jadi sumber kebenaran), auto cash-in dari
+// participant_payments pada bulan itu DISEMBUNYIKAN di tab Accounting supaya tidak
+// dobel dengan entry bank import. CATATAN: hanya memengaruhi tampilan Cash In & saldo
+// bank di tab Accounting. Tab Finance/checklist TIDAK terpengaruh (baca participant_payments
+// langsung), dan Piutang Peserta tetap dihitung dari SEMUA pembayaran.
+const BANK_RECON_WINDOWS = [
+  { from: '2026-07-01', to: '2026-08-31' }, // Jul-Agu 2026 TE (e-statement BCA)
+];
+function inBankReconWindow(dateStr) {
+  const d = String(dateStr || '').slice(0, 10);
+  if (!d) return false;
+  return BANK_RECON_WINDOWS.some((w) => d >= w.from && d <= w.to);
+}
+
 export default async function AccountingDashboard({ searchParams }) {
   const sp = await searchParams;
   const period = sp?.period || 'month';
@@ -131,7 +146,12 @@ export default async function AccountingDashboard({ searchParams }) {
   const manualBankSum = Object.values(accountBalances).reduce((s, b) => s + b, 0);
 
   let autoCashInAll = 0;
-  for (const p of payments) autoCashInAll += Number(p.amount || 0);
+  // R233: bulan yg sudah direkonsiliasi ke mutasi bank -> cash-in-nya diwakili entry
+  // bank import (jangan tambah auto payment peserta lagi supaya saldo tidak dobel).
+  for (const p of payments) {
+    if (inBankReconWindow(p.paid_at)) continue;
+    autoCashInAll += Number(p.amount || 0);
+  }
   let autoCashOutAll = 0;
   for (const it of hppLunas) {
     // Deposit/HPP yang berasal dari PNR inventory sudah diinput manual sebagai
@@ -224,6 +244,7 @@ export default async function AccountingDashboard({ searchParams }) {
   const allEntries = [];
   for (const p of payments) {
     if (!p.amount || p.amount <= 0) continue;
+    if (inBankReconWindow(p.paid_at)) continue; // R233: Cash In bulan ini diwakili entry bank import (Excel)
     const passenger = paxMap[p.passenger_id];
     const customer = passenger ? custMap[passenger.customer_id] : null;
     const trip = passenger ? tripMap[passenger.trip_id] : null;
@@ -283,6 +304,10 @@ export default async function AccountingDashboard({ searchParams }) {
     if (m.linked_finance_item_id && hppItemIdsInLunas.has(m.linked_finance_item_id)) continue;
     if (m.linked_payment_id && paymentIdsCovered.has(m.linked_payment_id)) continue;
     if (m.source === 'tl_payment') continue;
+    // R233: di dalam window rekonsiliasi bank, CASH IN hanya dari entry bank import (Excel).
+    // Entry 'in' lain di bulan itu (mis. "Biaya Admin Web" dari webhook) disembunyikan
+    // supaya total Cash In tab Accounting = persis mutasi bank Excel. Cash OUT tidak terpengaruh.
+    if (m.type === 'in' && m.source !== 'xls_import_jul_agu_2026' && inBankReconWindow(m.date || m.created_at)) continue;
 
     const dateRaw = m.date || m.created_at || todayStr;
     const date = String(dateRaw).slice(0, 10);
