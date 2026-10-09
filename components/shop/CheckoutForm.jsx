@@ -282,7 +282,7 @@ export default function CheckoutForm({ trip }) {
                   placeholder="Nama lengkap" className="w-full mt-0.5 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
                 {needsDob(s.key) && (
                   <div className="mt-1.5">
-                    <span className="text-[11px] font-semibold text-slate-600">📅 Tanggal lahir anak {s.key === 'infant' ? '(infant — maks 24 bulan saat pulang)' : '(child no bed — maks 12 tahun saat pulang)'}</span>
+                    <span className="text-[11px] font-semibold text-slate-600">📅 Tanggal lahir anak {s.key === 'infant' ? '(infant — maks 24 bulan saat pulang)' : '(child no bed)'}</span>
                     <input type="date" value={dobs[i] || ''} max={new Date().toISOString().slice(0, 10)}
                       onChange={(e) => setDobs((p) => p.map((v, j) => j === i ? e.target.value : v))}
                       className={`w-full mt-0.5 px-3 py-2.5 border rounded-lg text-sm ${de ? 'border-red-400 bg-red-50' : 'border-slate-300'}`} />

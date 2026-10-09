@@ -144,7 +144,7 @@ export default async function TripDetailPage({ params }) {
 
             {landTourMin > 0 && (
               <div className="mt-3 border-t border-slate-100 pt-3 flex items-center justify-between text-sm">
-                <span className="text-slate-600">🚐 Land Tour (per kamar) mulai</span>
+                <span className="text-slate-600">🚐 Land Tour (per orang) mulai</span>
                 <span className="font-bold text-slate-800">{fmtRp(landTourMin)}</span>
               </div>
             )}
