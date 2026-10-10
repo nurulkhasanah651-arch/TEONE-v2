@@ -165,7 +165,7 @@ export default async function PublicInvoicePage({ params }) {
   if (inv.passenger_id) {
     try {
       const { data } = await supabase.from('trip_passengers')
-        .select('id, room_type, age_type, price_paid, transferred_from_trip_id').eq('id', inv.passenger_id).maybeSingle();
+        .select('id, room_type, age_type, price_paid').eq('id', inv.passenger_id).maybeSingle();
       passenger = data;
     } catch (e) { errors.push(`passenger: ${e.message}`); }
     try {
@@ -183,21 +183,6 @@ export default async function PublicInvoicePage({ params }) {
   const visaPrice = Number(breakdown.visa || 0);
   const asuransiPrice = Number(breakdown.asuransi || 0);
   const evisaPrice = Number(breakdown.visa_evisa || 0);
-
-  // Tampilan: gabungkan pembayaran pindahan + baris "Potongan Hangus" jadi 1 baris
-  // "Dana pindahan" (net). DISPLAY only -- total/dibayar/sisa tetap dari participantPayments asli.
-  const _isXferPay = (p) => (p && ((p.notes && String(p.notes).includes('[Transferred from pax')) || p.type === 'Potongan Hangus'));
-  let displayPayments = participantPayments;
-  const _xferPays = participantPayments.filter(_isXferPay);
-  if (_xferPays.length > 0) {
-    const _netXfer = _xferPays.reduce((s, p) => s + Number(p.amount || 0), 0);
-    const _latestXfer = _xferPays.map((p) => p.paid_at).filter(Boolean).sort().slice(-1)[0] || null;
-    const _oldTrip = passenger?.transferred_from_trip_id;
-    displayPayments = [
-      ...participantPayments.filter((p) => !_isXferPay(p)),
-      { type: _oldTrip ? `Dana pindahan dari trip ${_oldTrip}` : 'Dana pindahan', paid_at: _latestXfer, amount: _netXfer },
-    ];
-  }
 
   const paidTypes = new Set(participantPayments.map((p) => p.type));
 
@@ -564,9 +549,9 @@ export default async function PublicInvoicePage({ params }) {
                 <span className="font-bold text-sky-700">{fmtRupiah(addonPaidReal)}</span>
               </div>
             )}
-            {displayPayments.length > 0 && (
+            {participantPayments.length > 0 && (
               <div className="ml-3 text-xs text-slate-600 space-y-0.5 bg-white/50 rounded p-2">
-                {displayPayments.map((p, i) => (
+                {participantPayments.map((p, i) => (
                   <div key={i} className="flex justify-between">
                     <span>✓ {p.type}{p.paid_at ? ` · ${fmtDate(p.paid_at)}` : ''}</span>
                     <span className="font-semibold">{fmtRupiah(p.amount)}</span>
@@ -574,7 +559,7 @@ export default async function PublicInvoicePage({ params }) {
                 ))}
               </div>
             )}
-            {displayPayments.length === 0 && (
+            {participantPayments.length === 0 && (
               <p className="ml-3 text-xs italic text-slate-500">Belum ada pembayaran tercatat</p>
             )}
             <div className={`flex justify-between pt-3 mt-2 border-t-2 ${ringkasLunas ? 'border-green-400' : 'border-amber-400'}`}>
