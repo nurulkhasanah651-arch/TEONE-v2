@@ -226,6 +226,18 @@ export default function PaymentMatrix({
               const c = p.customers || {};
               const pays = paymentsByPassenger[p.id] || [];
               const totalPaid = pays.reduce((s, x) => s + (x.amount || 0), 0);
+              // Tampilan: gabungkan pembayaran pindahan + "Potongan Hangus" jadi 1 baris "Dana Pindahan" (net).
+              // DISPLAY only -- totalPaid/expected/sisa tetap pakai `pays` asli.
+              const _isXfer = (x) => (x && ((x.notes && String(x.notes).includes('[Transferred from pax')) || x.type === 'Potongan Hangus'));
+              let displayPays = pays;
+              const _xf = pays.filter(_isXfer);
+              if (_xf.length > 0) {
+                const _net = _xf.reduce((s, x) => s + Number(x.amount || 0), 0);
+                const _lt = _xf.map((x) => x.paid_at).filter(Boolean).sort().slice(-1)[0] || null;
+                let _old = p.transferred_from_trip_id;
+                if (!_old) { const _m = _xf.map((x) => String(x.notes || '')).join(' ').match(/pindah dari trip\s+(\S+)/i); if (_m) _old = _m[1]; }
+                displayPays = [...pays.filter((x) => !_isXfer(x)), { id: 'xfer-summary', type: 'Dana Pindahan', amount: _net, paid_at: _lt, notes: _old ? `Gabungan dana pindahan dari trip ${_old} (rincian di trip asal)` : 'Gabungan dana pindahan dari trip sebelumnya (rincian di trip asal)' }];
+              }
               const isExpanded = expandedRow === p.id;
 
               const mainExpected = mainExpectedPerPassenger(p, breakdown, brand);
@@ -373,12 +385,21 @@ export default function PaymentMatrix({
                         {/* R211: Diskon panel */}
                         <DiscountPanel passenger={p} customerName={c.name} />
 
-                        {pays.length === 0 ? (
+                        {displayPays.length === 0 ? (
                           <p className="text-xs text-slate-500 italic mt-3">Belum ada pembayaran. Klik milestone di atas untuk tandai lunas.</p>
                         ) : (
                           <div className="space-y-1.5 mt-3">
-                            {pays.map((py) => {
+                            {displayPays.map((py) => {
                               const isEditingThisNote = editingNotes?.paymentId === py.id;
+                              if (py.id === 'xfer-summary') {
+                                return (
+                                  <div key={py.id} className="flex items-start gap-2 p-2 bg-indigo-50 rounded border border-indigo-200">
+                                    <span className="text-xs font-bold text-indigo-700 min-w-16">Dana Pindahan</span>
+                                    <span className="text-xs font-semibold text-green-700 min-w-24">{fmtRupiah(py.amount)}</span>
+                                    <p className="flex-1 text-xs text-slate-500 italic">{py.notes}</p>
+                                  </div>
+                                );
+                              }
                               return (
                                 <div key={py.id} className="flex items-start gap-2 p-2 bg-white rounded border border-slate-200">
                                   <span className="text-xs font-bold text-brand-700 min-w-16">{py.type}</span>
