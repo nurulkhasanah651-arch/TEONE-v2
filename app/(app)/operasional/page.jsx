@@ -62,6 +62,14 @@ export default async function OperasionalPage() {
           badge="Roomlist per trip"
           color="from-teal-500 to-cyan-700"
         />
+        <SectionCard
+          href="/operasional/checklist"
+          icon="✅"
+          title="Checklist Trip per Group"
+          desc="Centang progres operasional per trip: quotation, estimate income, approval owner, pre-book, roomlist, pelunasan vendor & tiket, issued, itinerary, voucher hotel, optional tour, cek visa/paspor, briefing & serah terima dokumen TL."
+          badge="16 langkah per trip"
+          color="from-fuchsia-500 to-purple-700"
+        />
       </div>
     </div>
   );
