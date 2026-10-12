@@ -14,6 +14,7 @@ import { getOpenSellingTripsAllBrands } from '@/lib/actions/mitra';
 import CopyWaTemplateButton from '@/components/trips/CopyWaTemplateButton';
 import OpenSellingBrowser from '@/components/portal/OpenSellingBrowser';
 import TlReferralPanel from '@/components/tl/TlReferralPanel';
+import InternalTripSearch from '@/components/tl/InternalTripSearch';
 
 export const dynamic = 'force-dynamic';
 
@@ -120,6 +121,28 @@ export default async function TLPortalPage() {
 
   // ═══ INTERNAL MANAGEMENT VIEW (Manager / Ops / Owner / CS) ═══
   if (isInternal) {
+    const internalRows = activeTrips.map((t) => {
+      const s = statusCfg(t.status);
+      const days = daysUntil(t.departure);
+      const petty = pettyCashByTrip[t.id];
+      const reimb = reimbursementsByTrip[t.id] || { pending: 0, approved: 0, paid: 0 };
+      return {
+        id: t.id,
+        kode: t.kode_trip || `#${t.id}`,
+        name: t.name || '',
+        destination: t.destination || '',
+        tlName: t.tl_name || '',
+        statusBg: s.bg,
+        statusText: s.text,
+        depText: fmtDate(t.departure),
+        daysText: (days != null && days >= 0) ? `${days}h lagi` : '',
+        daysCls: days != null && days <= 14 ? 'text-red-700' : 'text-amber-700',
+        pettyText: petty ? fmtRupiah(petty.allocated_amount) : '',
+        pettySpent: petty ? fmtRupiah(petty.spent_amount) : '',
+        reimb: { pending: reimb.pending || 0, approved: reimb.approved || 0, paid: reimb.paid || 0 },
+        href: `/tl/${t.id}`,
+      };
+    });
     return (
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-start justify-between flex-wrap gap-3">
@@ -147,98 +170,8 @@ export default async function TLPortalPage() {
           <StatCard label="Total Petty Cash Allocated" value={fmtRupiah(Object.values(pettyCashByTrip).reduce((s, p) => s + Number(p.allocated_amount || 0), 0))} color="text-green-700" bg="bg-green-50" small />
         </div>
 
-        {/* Trips List */}
-        <section className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-200">
-            <h2 className="font-bold text-brand-700">List Trip Aktif ({activeTrips.length})</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Klik trip untuk manage petty cash, upload dokumen, approve reimbursement.</p>
-          </div>
-          {activeTrips.length === 0 ? (
-            <div className="p-8 text-center text-slate-500 text-sm">Belum ada trip aktif.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr className="text-left text-xs font-bold text-slate-600 uppercase tracking-wider">
-                    <th className="px-4 py-2.5">Trip</th>
-                    <th className="px-3 py-2.5">TL</th>
-                    <th className="px-3 py-2.5">Berangkat</th>
-                    <th className="px-3 py-2.5 text-right">Petty Cash</th>
-                    <th className="px-3 py-2.5 text-center">Reimburs</th>
-                    <th className="px-3 py-2.5"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {activeTrips.map((t) => {
-                    const s = statusCfg(t.status);
-                    const days = daysUntil(t.departure);
-                    const petty = pettyCashByTrip[t.id];
-                    const reimb = reimbursementsByTrip[t.id] || { pending: 0, approved: 0, paid: 0 };
-                    return (
-                      <tr key={t.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded ${s.bg} ${s.text}`}>
-                              {t.kode_trip || `#${t.id}`}
-                            </span>
-                            <p className="font-bold text-slate-800 text-sm">{t.name}</p>
-                          </div>
-                          <p className="text-xs text-slate-500 mt-0.5">{t.destination || '—'}</p>
-                        </td>
-                        <td className="px-3 py-3">
-                          <p className="text-sm font-semibold text-slate-700">{t.tl_name || <span className="text-amber-600">— belum assign</span>}</p>
-                        </td>
-                        <td className="px-3 py-3">
-                          <p className="text-xs">{fmtDate(t.departure)}</p>
-                          {days != null && days >= 0 && (
-                            <p className={`text-[10px] font-bold ${days <= 14 ? 'text-red-700' : 'text-amber-700'}`}>
-                              {days}h lagi
-                            </p>
-                          )}
-                        </td>
-                        <td className="px-3 py-3 text-right">
-                          {petty ? (
-                            <>
-                              <p className="text-xs font-bold text-green-700">{fmtRupiah(petty.allocated_amount)}</p>
-                              <p className="text-[10px] text-slate-500">spent {fmtRupiah(petty.spent_amount)}</p>
-                            </>
-                          ) : (
-                            <span className="text-xs text-slate-400 italic">belum set</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-3 text-center">
-                          {reimb.pending > 0 && (
-                            <span className="inline-block px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold mr-1 animate-pulse">
-                              {reimb.pending} pending
-                            </span>
-                          )}
-                          {reimb.approved > 0 && (
-                            <span className="inline-block px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold mr-1">
-                              {reimb.approved} approved
-                            </span>
-                          )}
-                          {reimb.paid > 0 && (
-                            <span className="inline-block px-2 py-0.5 rounded bg-green-100 text-green-800 text-[10px] font-bold">
-                              {reimb.paid} paid
-                            </span>
-                          )}
-                          {!reimb.pending && !reimb.approved && !reimb.paid && (
-                            <span className="text-xs text-slate-400 italic">—</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-3 text-right">
-                          <Link href={`/tl/${t.id}`} className="text-xs font-bold text-brand-600 hover:underline">
-                            Kelola →
-                          </Link>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+        {/* Trips List + search */}
+        <InternalTripSearch rows={internalRows} />
       </div>
     );
   }

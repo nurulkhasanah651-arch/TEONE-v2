@@ -4,6 +4,7 @@
 // Plus format Rupiah dengan titik ribuan saat ngetik
 
 import { useState, useEffect } from 'react';
+import TripSelect from '@/components/common/TripSelect';
 
 function fmtRupiah(v) {
   if (v === '' || v == null) return '';
@@ -103,12 +104,7 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
         <Section title="Tiket FIT — Sambung ke Trip">
           <Field label="Sambungkan ke Trip" required className="md:col-span-2"
             hint="Tiket FIT dibeli setelah trip dibuat — pilih trip tujuannya.">
-            <select value={fitTripId} onChange={(e) => setFitTripId(e.target.value)} className={inputCls}>
-              <option value="">— Pilih trip —</option>
-              {trips.map((t) => (
-                <option key={t.id} value={t.id}>{t.kode_trip || t.id} — {t.name}</option>
-              ))}
-            </select>
+            <TripSelect value={fitTripId} onChange={setFitTripId} trips={trips} noneLabel="— Pilih trip —" />
           </Field>
           <Field label="Harga Total Tiket (Rp)" required className="md:col-span-2"
             hint="Total yang sudah dibayar. Masuk ke HPP cashflow trip, TIDAK masuk lagi ke cash out accounting (dianggap sudah diinput manual).">
@@ -222,12 +218,7 @@ export default function PnrForm({ initial = {}, onSubmit, submitLabel = 'Simpan 
             hint={ticketType === 'domestic'
               ? 'Pilih trip supaya biaya tiket domestik ikut masuk HPP & cashflow trip tersebut.'
               : "Kosongkan kalau mau jadikan trip baru lewat 'Convert'. Pilih trip kalau PNR ini nempel ke trip yang sudah ada (satu trip bisa beberapa PNR + FIT)."}>
-            <select value={groupTripId} onChange={(e) => setGroupTripId(e.target.value)} className={inputCls}>
-              <option value="">— Tidak disambung —</option>
-              {trips.map((t) => (
-                <option key={t.id} value={t.id}>{t.kode_trip || t.id} — {t.name}</option>
-              ))}
-            </select>
+            <TripSelect value={groupTripId} onChange={setGroupTripId} trips={trips} noneLabel="— Tidak disambung —" />
           </Field>
         </div>
       </Section>}
