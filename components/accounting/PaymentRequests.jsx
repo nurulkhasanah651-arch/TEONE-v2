@@ -5,10 +5,20 @@
 
 import { useState, useTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { compressImage } from '@/lib/utils/compress-image';
 import { approvePaymentRequest, rejectPaymentRequest } from '@/lib/actions/accounting';
 import { accountingApproveTLPayment, rejectTLPayment } from '@/lib/actions/tl-payments';
-import { getInvoiceSignedUrl, uploadTransferProof } from '@/lib/actions/hpp-documents';
+import { getInvoiceSignedUrl, saveTransferProofUrl } from '@/lib/actions/hpp-documents';
 import { fmtRupiah, fmtDate } from '@/lib/utils/format';
+
+// Bukti transfer: DIRECT UPLOAD dari browser ke Supabase Storage (bypass limit server
+// 4.5MB), lalu simpan path via saveTransferProofUrl. Pattern sama dgn HPPDocumentBar.
+const PROOF_BUCKET = 'hpp-documents';
+const PROOF_MAX_MB = 20;
+function sanitizeProofName(name) {
+  return String(name || 'file').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
+}
 
 // Helper untuk dapat nominal yg di-request (DP atau Pelunasan)
 function getRequestAmount(item) {
@@ -47,19 +57,38 @@ export default function PaymentRequests({ requests = [], tlRequests = [], accoun
 
   async function handleApprove(formData) {
     if (!approving) return;
+    const itemId = approving.id;
     startTransition(async () => {
-      // R184: approve dulu
-      const result = await approvePaymentRequest(approving.id, formData);
+      // approve dulu
+      const result = await approvePaymentRequest(itemId, formData);
       if (result?.error) { alert(result.error); return; }
 
-      // R184: upload bukti transfer kalau ada file
-      const file = proofFileRef.current?.files?.[0];
+      // upload bukti transfer kalau ada file — DIRECT UPLOAD dari browser
+      let file = proofFileRef.current?.files?.[0];
       if (file) {
-        const fd = new FormData();
-        fd.append('proof_file', file);
-        const upRes = await uploadTransferProof(approving.id, fd);
-        if (upRes?.error) {
-          alert('Approve sukses, tapi upload bukti transfer gagal: ' + upRes.error);
+        try {
+          file = await compressImage(file);
+          const sizeMB = file.size / 1048576;
+          if (sizeMB > PROOF_MAX_MB) {
+            alert(`Approve sukses, tapi bukti transfer tidak terupload: file terlalu besar (${sizeMB.toFixed(1)} MB). Max ${PROOF_MAX_MB} MB.`);
+          } else {
+            const supabase = createClient();
+            const key = `transfer-proofs/item-${itemId}-${Date.now()}-${sanitizeProofName(file.name)}`;
+            const { data: up, error: upErr } = await supabase.storage
+              .from(PROOF_BUCKET)
+              .upload(key, file, { cacheControl: '3600', upsert: false, contentType: file.type || 'application/octet-stream' });
+            if (upErr) {
+              alert('Approve sukses, tapi upload bukti transfer gagal: ' + upErr.message);
+            } else {
+              const saveRes = await saveTransferProofUrl(itemId, up.path);
+              if (saveRes?.error) {
+                alert('Approve sukses, tapi simpan bukti transfer gagal: ' + saveRes.error);
+                try { await supabase.storage.from(PROOF_BUCKET).remove([up.path]); } catch {}
+              }
+            }
+          }
+        } catch (e) {
+          alert('Approve sukses, tapi upload bukti transfer error: ' + (e?.message || 'unknown'));
         }
         if (proofFileRef.current) proofFileRef.current.value = '';
       }
