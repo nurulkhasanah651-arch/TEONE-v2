@@ -86,10 +86,25 @@ function nowMonthKey() {
 
 export default function ProfitGroupPicker({ groups = [], canReview = false }) {
   const [q, setQ] = useState('');
+  const [monthFilter, setMonthFilter] = useState(''); // '' = semua bulan
   const [off, setOff] = useState({});        // override status offering per trip id (optimistic)
   const [, start] = useTransition();
   const s = q.trim().toLowerCase();
-  const list = s ? groups.filter((g) => `${g.kode} ${g.name}`.toLowerCase().includes(s)) : groups;
+  let list = s ? groups.filter((g) => `${g.kode} ${g.name}`.toLowerCase().includes(s)) : groups;
+  if (monthFilter) list = list.filter((g) => g.monthKey === monthFilter);
+
+  // Opsi bulan untuk dropdown (dari semua group) — bulan mendatang dulu, lalu lampau.
+  const monthOptions = useMemo(() => {
+    const seen = {};
+    for (const g of groups) { if (g.monthKey && !seen[g.monthKey]) seen[g.monthKey] = g.monthLabel || g.monthKey; }
+    const nowKey = nowMonthKey();
+    return Object.keys(seen).sort((a, b) => {
+      const af = a >= nowKey, bf = b >= nowKey;
+      if (af && bf) return a.localeCompare(b);
+      if (!af && !bf) return b.localeCompare(a);
+      return af ? -1 : 1;
+    }).map((k) => ({ key: k, label: seen[k] }));
+  }, [groups]);
 
   const isRequested = (g) => (off[g.id] !== undefined ? off[g.id] : !!g.offeringRequested);
   function toggleOffering(g) {
@@ -126,11 +141,30 @@ export default function ProfitGroupPicker({ groups = [], canReview = false }) {
 
   return (
     <div className="space-y-4">
-      <input
-        value={q} onChange={(e) => setQ(e.target.value)}
-        placeholder="Cari group (kode / nama trip)…"
-        className="w-full max-w-md px-3 py-2 border border-slate-300 rounded-lg text-sm"
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={q} onChange={(e) => setQ(e.target.value)}
+          placeholder="Cari group (kode / nama trip)…"
+          className="flex-1 min-w-[200px] max-w-md px-3 py-2 border border-slate-300 rounded-lg text-sm"
+        />
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-slate-600">Bulan:</span>
+          <select
+            value={monthFilter}
+            onChange={(e) => setMonthFilter(e.target.value)}
+            className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+          >
+            <option value="">— Semua bulan —</option>
+            {monthOptions.map((m) => (
+              <option key={m.key} value={m.key}>{m.label}</option>
+            ))}
+          </select>
+          {monthFilter && (
+            <button type="button" onClick={() => setMonthFilter('')}
+              className="text-xs text-slate-500 hover:text-brand-600 hover:underline">reset</button>
+          )}
+        </div>
+      </div>
 
       {months.map((m) => (
         <div key={m.key} className="border border-slate-200 rounded-xl overflow-hidden">
