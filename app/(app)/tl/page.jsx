@@ -121,28 +121,37 @@ export default async function TLPortalPage() {
 
   // ═══ INTERNAL MANAGEMENT VIEW (Manager / Ops / Owner / CS) ═══
   if (isInternal) {
-    const internalRows = activeTrips.map((t) => {
-      const s = statusCfg(t.status);
-      const days = daysUntil(t.departure);
-      const petty = pettyCashByTrip[t.id];
-      const reimb = reimbursementsByTrip[t.id] || { pending: 0, approved: 0, paid: 0 };
-      return {
-        id: t.id,
-        kode: t.kode_trip || `#${t.id}`,
-        name: t.name || '',
-        destination: t.destination || '',
-        tlName: t.tl_name || '',
-        statusBg: s.bg,
-        statusText: s.text,
-        depText: fmtDate(t.departure),
-        daysText: (days != null && days >= 0) ? `${days}h lagi` : '',
-        daysCls: days != null && days <= 14 ? 'text-red-700' : 'text-amber-700',
-        pettyText: petty ? fmtRupiah(petty.allocated_amount) : '',
-        pettySpent: petty ? fmtRupiah(petty.spent_amount) : '',
-        reimb: { pending: reimb.pending || 0, approved: reimb.approved || 0, paid: reimb.paid || 0 },
-        href: `/tl/${t.id}`,
-      };
-    });
+    const _MONTHS_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    const _todayStr = new Date().toISOString().slice(0, 10);
+    // Trip yang SUDAH BERANGKAT (departure < hari ini) disembunyikan — ada di History Master Trip.
+    const internalRows = activeTrips
+      .filter((t) => !(t.departure && String(t.departure).slice(0, 10) < _todayStr))
+      .map((t) => {
+        const s = statusCfg(t.status);
+        const days = daysUntil(t.departure);
+        const petty = pettyCashByTrip[t.id];
+        const reimb = reimbursementsByTrip[t.id] || { pending: 0, approved: 0, paid: 0 };
+        let monthKey = '', monthLabel = '';
+        if (t.departure) { const d = new Date(t.departure); monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; monthLabel = `${_MONTHS_ID[d.getMonth()]} ${d.getFullYear()}`; }
+        return {
+          id: t.id,
+          kode: t.kode_trip || `#${t.id}`,
+          name: t.name || '',
+          destination: t.destination || '',
+          tlName: t.tl_name || '',
+          monthKey,
+          monthLabel,
+          statusBg: s.bg,
+          statusText: s.text,
+          depText: fmtDate(t.departure),
+          daysText: (days != null && days >= 0) ? `${days}h lagi` : '',
+          daysCls: days != null && days <= 14 ? 'text-red-700' : 'text-amber-700',
+          pettyText: petty ? fmtRupiah(petty.allocated_amount) : '',
+          pettySpent: petty ? fmtRupiah(petty.spent_amount) : '',
+          reimb: { pending: reimb.pending || 0, approved: reimb.approved || 0, paid: reimb.paid || 0 },
+          href: `/tl/${t.id}`,
+        };
+      });
     return (
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-start justify-between flex-wrap gap-3">

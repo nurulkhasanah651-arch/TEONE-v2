@@ -8,22 +8,45 @@ import Link from 'next/link';
 
 export default function InternalTripSearch({ rows = [] }) {
   const [q, setQ] = useState('');
+  const [month, setMonth] = useState('');
   const kw = q.trim().toLowerCase();
+
+  const monthOptions = useMemo(() => {
+    const seen = {};
+    for (const r of rows) { if (r.monthKey && !seen[r.monthKey]) seen[r.monthKey] = r.monthLabel || r.monthKey; }
+    return Object.keys(seen).sort().map((k) => ({ key: k, label: seen[k] }));
+  }, [rows]);
+
   const list = useMemo(
-    () => (kw ? rows.filter((r) => `${r.kode} ${r.name} ${r.destination} ${r.tlName}`.toLowerCase().includes(kw)) : rows),
-    [kw, rows],
+    () => rows.filter((r) => {
+      if (month && r.monthKey !== month) return false;
+      if (kw && !`${r.kode} ${r.name} ${r.destination} ${r.tlName}`.toLowerCase().includes(kw)) return false;
+      return true;
+    }),
+    [kw, month, rows],
   );
 
   return (
     <section className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="font-bold text-brand-700">List Trip Aktif ({list.length}{kw ? ` / ${rows.length}` : ''})</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Klik trip untuk manage petty cash, upload dokumen, approve reimbursement.</p>
+          <h2 className="font-bold text-brand-700">List Trip Aktif ({list.length}{list.length !== rows.length ? ` / ${rows.length}` : ''})</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Klik trip untuk manage petty cash, upload dokumen, approve reimbursement. Trip yang sudah berangkat ada di History Master Trip.</p>
         </div>
-        <input value={q} onChange={(e) => setQ(e.target.value)}
-          placeholder="🔍 Cari trip (kode / nama / destinasi / TL)…"
-          className="w-full sm:w-80 px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500" />
+        <div className="flex flex-wrap items-center gap-2">
+          <input value={q} onChange={(e) => setQ(e.target.value)}
+            placeholder="🔍 Cari trip (kode / nama / destinasi / TL)…"
+            className="w-full sm:w-72 px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500" />
+          <select value={month} onChange={(e) => setMonth(e.target.value)}
+            className="px-2 py-2 border border-slate-300 rounded-lg text-sm bg-white">
+            <option value="">Semua bulan</option>
+            {monthOptions.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+          </select>
+          {(q || month) && (
+            <button type="button" onClick={() => { setQ(''); setMonth(''); }}
+              className="text-xs px-2 py-2 rounded bg-slate-100 hover:bg-slate-200 text-slate-600">Reset</button>
+          )}
+        </div>
       </div>
 
       {rows.length === 0 ? (

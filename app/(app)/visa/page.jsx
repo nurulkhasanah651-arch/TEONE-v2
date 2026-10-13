@@ -52,7 +52,12 @@ export default async function VisaListPage() {
     }
   } catch { passengers = []; }
 
-  let activeTrips = trips.filter((t) => t.status !== 'completed' && t.status !== 'cancelled');
+  // Trip yang SUDAH BERANGKAT (departure < hari ini) disembunyikan dari tab Visa —
+  // adanya di History Master Trip saja. Trip tanpa tanggal tetap tampil.
+  const _todayStr = new Date().toISOString().slice(0, 10);
+  let activeTrips = trips.filter((t) =>
+    t.status !== 'completed' && t.status !== 'cancelled'
+    && !(t.departure && String(t.departure).slice(0, 10) < _todayStr));
   // KHASANAH: PIC hanya lihat trip visanya sendiri (teone tak terpengaruh)
   { const { data: { user } } = await supabase.auth.getUser(); const scope = await getPicScope(supabase, user); activeTrips = filterTripsForPic(activeTrips, scope); }
 
