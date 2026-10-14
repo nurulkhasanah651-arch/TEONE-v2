@@ -58,8 +58,12 @@ export default async function VisaListPage() {
   let activeTrips = trips.filter((t) =>
     t.status !== 'completed' && t.status !== 'cancelled'
     && !(t.departure && String(t.departure).slice(0, 10) < _todayStr));
+  // Trip SUDAH BERANGKAT → masuk History (tetap bisa dilihat di tab History).
+  let pastTrips = trips.filter((t) =>
+    t.status !== 'cancelled'
+    && t.departure && String(t.departure).slice(0, 10) < _todayStr);
   // KHASANAH: PIC hanya lihat trip visanya sendiri (teone tak terpengaruh)
-  { const { data: { user } } = await supabase.auth.getUser(); const scope = await getPicScope(supabase, user); activeTrips = filterTripsForPic(activeTrips, scope); }
+  { const { data: { user } } = await supabase.auth.getUser(); const scope = await getPicScope(supabase, user); activeTrips = filterTripsForPic(activeTrips, scope); pastTrips = filterTripsForPic(pastTrips, scope); }
 
   const paxByTrip = {};
   for (const p of passengers) {
@@ -130,20 +134,23 @@ export default async function VisaListPage() {
 
   const tripStats = {};
   let globalNewUploads = 0;
-  for (const t of activeTrips) {
+  for (const t of [...activeTrips, ...pastTrips]) {
     const pax = paxByTrip[t.id] || [];
     const stats = getUploadStats(pax);
     tripStats[t.id] = stats;
-    globalNewUploads += stats.newUploadsCount;
+    if (!(t.departure && String(t.departure).slice(0, 10) < _todayStr)) globalNewUploads += stats.newUploadsCount;
   }
 
-  // R215s — Sort: trips with new uploads first
-  const sortedTrips = [...activeTrips].sort((a, b) => {
+  // R215s — Sort trip AKTIF: yang ada upload baru di atas.
+  const sortedActive = [...activeTrips].sort((a, b) => {
     const aNew = tripStats[a.id]?.newUploadsCount || 0;
     const bNew = tripStats[b.id]?.newUploadsCount || 0;
     if (aNew !== bNew) return bNew - aNew;
     return 0;
   });
+  // Trip HISTORY: terbaru (baru berangkat) di atas.
+  const sortedPast = [...pastTrips].sort((a, b) => String(b.departure || '').localeCompare(String(a.departure || '')));
+  const sortedTrips = [...sortedActive, ...sortedPast];
 
   // ═══ RINGKASAN STATUS VISA OTOMATIS (per peserta, seluruh trip aktif) ═══
   // Pakai deriveVisaStage (sama dgn badge per peserta) supaya angka ringkasan & detail konsisten.
@@ -190,8 +197,9 @@ export default async function VisaListPage() {
     let monthKey = '', monthLabel = '';
     if (t.departure) { const d = new Date(t.departure); monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; monthLabel = `${MONTHS_ID[d.getMonth()]} ${d.getFullYear()}`; }
     const days = daysUntil(t.departure);
+    const isPast = !!(t.departure && String(t.departure).slice(0, 10) < _todayStr);
     return {
-      id: t.id, kode: t.kode_trip || `#${t.id}`, name: t.name || '',
+      id: t.id, kode: t.kode_trip || `#${t.id}`, name: t.name || '', isPast,
       departureFmt: t.departure ? fmtDate(t.departure) : '—', monthKey, monthLabel,
       paxCount: pax.length, progress, docsComplete, docsNeeded,
       visaCountry: t.visa_country || null,

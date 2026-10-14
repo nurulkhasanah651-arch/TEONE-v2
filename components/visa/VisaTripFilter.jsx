@@ -10,28 +10,48 @@ import Link from 'next/link';
 export default function VisaTripFilter({ trips = [] }) {
   const [q, setQ] = useState('');
   const [month, setMonth] = useState('');
+  const [tab, setTab] = useState('active'); // 'active' | 'history'
+
+  const activeCount = useMemo(() => trips.filter((t) => !t.isPast).length, [trips]);
+  const historyCount = useMemo(() => trips.filter((t) => t.isPast).length, [trips]);
+
+  // Trip sesuai tab (Aktif = belum berangkat, History = sudah berangkat)
+  const base = useMemo(() => trips.filter((t) => (tab === 'history' ? t.isPast : !t.isPast)), [trips, tab]);
 
   const months = useMemo(() => {
     const map = new Map();
-    for (const t of trips) if (t.monthKey) map.set(t.monthKey, t.monthLabel);
+    for (const t of base) if (t.monthKey) map.set(t.monthKey, t.monthLabel);
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([key, label]) => ({ key, label }));
-  }, [trips]);
+  }, [base]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
-    return trips.filter((t) => {
+    return base.filter((t) => {
       if (month && t.monthKey !== month) return false;
       if (term && !t.searchText.includes(term)) return false;
       return true;
     });
-  }, [trips, q, month]);
+  }, [base, q, month]);
+
+  function switchTab(next) { setTab(next); setMonth(''); setQ(''); }
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+      {/* Tab Aktif / History */}
+      <div className="px-5 pt-3 flex items-center gap-2 border-b border-slate-100">
+        <button type="button" onClick={() => switchTab('active')}
+          className={`px-4 py-2 text-sm font-bold rounded-t-lg border-b-2 -mb-px ${tab === 'active' ? 'border-brand-600 text-brand-700' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
+          Trip Aktif ({activeCount})
+        </button>
+        <button type="button" onClick={() => switchTab('history')}
+          className={`px-4 py-2 text-sm font-bold rounded-t-lg border-b-2 -mb-px ${tab === 'history' ? 'border-brand-600 text-brand-700' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
+          📁 History ({historyCount})
+        </button>
+      </div>
       <div className="px-5 py-3 border-b border-slate-200 flex flex-wrap items-center gap-2 justify-between">
         <div>
-          <h2 className="font-bold text-brand-700">Trip Aktif ({filtered.length}{filtered.length !== trips.length ? ` dari ${trips.length}` : ''})</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Pilih trip untuk masuk checklist dokumen. Trip dgn upload baru di atas.</p>
+          <h2 className="font-bold text-brand-700">{tab === 'history' ? 'Trip Sudah Berangkat' : 'Trip Aktif'} ({filtered.length}{filtered.length !== base.length ? ` dari ${base.length}` : ''})</h2>
+          <p className="text-xs text-slate-500 mt-0.5">{tab === 'history' ? 'Arsip trip yang sudah jalan — data visa tetap bisa dilihat.' : 'Pilih trip untuk masuk checklist dokumen. Trip dgn upload baru di atas.'}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -53,7 +73,7 @@ export default function VisaTripFilter({ trips = [] }) {
       {filtered.length === 0 ? (
         <div className="p-12 text-center">
           <p className="text-4xl mb-3">🛂</p>
-          <p className="text-lg font-bold text-slate-700">{trips.length === 0 ? 'Belum ada trip aktif' : 'Tidak ada trip cocok filter'}</p>
+          <p className="text-lg font-bold text-slate-700">{base.length === 0 ? (tab === 'history' ? 'Belum ada trip di history' : 'Belum ada trip aktif') : 'Tidak ada trip cocok filter'}</p>
         </div>
       ) : (
         <div className="divide-y divide-slate-100">

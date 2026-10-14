@@ -9,29 +9,46 @@ import Link from 'next/link';
 export default function InternalTripSearch({ rows = [] }) {
   const [q, setQ] = useState('');
   const [month, setMonth] = useState('');
+  const [tab, setTab] = useState('active'); // 'active' | 'history'
   const kw = q.trim().toLowerCase();
+
+  const activeCount = useMemo(() => rows.filter((r) => !r.isPast).length, [rows]);
+  const historyCount = useMemo(() => rows.filter((r) => r.isPast).length, [rows]);
+  const base = useMemo(() => rows.filter((r) => (tab === 'history' ? r.isPast : !r.isPast)), [rows, tab]);
 
   const monthOptions = useMemo(() => {
     const seen = {};
-    for (const r of rows) { if (r.monthKey && !seen[r.monthKey]) seen[r.monthKey] = r.monthLabel || r.monthKey; }
+    for (const r of base) { if (r.monthKey && !seen[r.monthKey]) seen[r.monthKey] = r.monthLabel || r.monthKey; }
     return Object.keys(seen).sort().map((k) => ({ key: k, label: seen[k] }));
-  }, [rows]);
+  }, [base]);
 
   const list = useMemo(
-    () => rows.filter((r) => {
+    () => base.filter((r) => {
       if (month && r.monthKey !== month) return false;
       if (kw && !`${r.kode} ${r.name} ${r.destination} ${r.tlName}`.toLowerCase().includes(kw)) return false;
       return true;
     }),
-    [kw, month, rows],
+    [kw, month, base],
   );
+
+  function switchTab(next) { setTab(next); setMonth(''); setQ(''); }
 
   return (
     <section className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+      <div className="px-5 pt-3 flex items-center gap-2 border-b border-slate-100">
+        <button type="button" onClick={() => switchTab('active')}
+          className={`px-4 py-2 text-sm font-bold rounded-t-lg border-b-2 -mb-px ${tab === 'active' ? 'border-brand-600 text-brand-700' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
+          Trip Aktif ({activeCount})
+        </button>
+        <button type="button" onClick={() => switchTab('history')}
+          className={`px-4 py-2 text-sm font-bold rounded-t-lg border-b-2 -mb-px ${tab === 'history' ? 'border-brand-600 text-brand-700' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
+          📁 History ({historyCount})
+        </button>
+      </div>
       <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="font-bold text-brand-700">List Trip Aktif ({list.length}{list.length !== rows.length ? ` / ${rows.length}` : ''})</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Klik trip untuk manage petty cash, upload dokumen, approve reimbursement. Trip yang sudah berangkat ada di History Master Trip.</p>
+          <h2 className="font-bold text-brand-700">{tab === 'history' ? 'History Trip (Sudah Berangkat)' : 'List Trip Aktif'} ({list.length}{list.length !== base.length ? ` / ${base.length}` : ''})</h2>
+          <p className="text-xs text-slate-500 mt-0.5">{tab === 'history' ? 'Arsip trip yang sudah jalan — petty cash, dokumen & reimbursement tetap bisa dibuka.' : 'Klik trip untuk manage petty cash, upload dokumen, approve reimbursement.'}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input value={q} onChange={(e) => setQ(e.target.value)}
@@ -49,8 +66,8 @@ export default function InternalTripSearch({ rows = [] }) {
         </div>
       </div>
 
-      {rows.length === 0 ? (
-        <div className="p-8 text-center text-slate-500 text-sm">Belum ada trip aktif.</div>
+      {base.length === 0 ? (
+        <div className="p-8 text-center text-slate-500 text-sm">{tab === 'history' ? 'Belum ada trip di history.' : 'Belum ada trip aktif.'}</div>
       ) : list.length === 0 ? (
         <div className="p-8 text-center text-slate-400 text-sm">Tidak ada trip cocok dengan pencarian.</div>
       ) : (
