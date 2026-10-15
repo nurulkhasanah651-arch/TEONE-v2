@@ -21,7 +21,7 @@ export default async function OpsChecklistPage({ searchParams }) {
     const [{ data: trips }, { data: pax }] = await Promise.all([
       supabase
         .from('trips')
-        .select('id, kode_trip, name, public_title, departure, status, pic, ops_checklist')
+        .select('id, kode_trip, name, public_title, departure, status, pic, ops_pic, ops_checklist')
         .neq('status', 'cancelled')
         .order('departure', { ascending: false, nullsFirst: false }),
       supabase.from('trip_passengers').select('trip_id, status, transfer_status, refund_status'),
@@ -35,6 +35,7 @@ export default async function OpsChecklistPage({ searchParams }) {
       departure: t.departure,
       status: t.status,
       pic: t.pic || '',
+      opsPic: t.ops_pic || '',
       pax: cnt[t.id] || 0,
       done: countDone(t.ops_checklist),
     }));
@@ -51,7 +52,7 @@ export default async function OpsChecklistPage({ searchParams }) {
 
   const { data: trip } = await supabase
     .from('trips')
-    .select('id, kode_trip, name, public_title, departure, pic, ops_checklist')
+    .select('id, kode_trip, name, public_title, departure, pic, ops_pic, ops_checklist')
     .eq('id', tripId)
     .maybeSingle();
 
@@ -74,7 +75,15 @@ export default async function OpsChecklistPage({ searchParams }) {
         <Link href="/operasional/checklist" className="text-sm text-brand-600 font-medium hover:underline">← Pilih trip lain</Link>
         <h1 className="mt-2 text-2xl font-bold text-brand-700">✅ {trip.kode_trip || `#${trip.id}`}</h1>
         <p className="mt-0.5 text-slate-600">{title}</p>
-        <p className="text-xs text-slate-400 mt-0.5">{dep}{trip.pic ? ` · PIC ${trip.pic}` : ''}</p>
+        <p className="text-xs text-slate-400 mt-0.5">{dep}</p>
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+            PIC Trip: {trip.pic || '—'}
+          </span>
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
+            PIC Ops: {trip.ops_pic || '—'}
+          </span>
+        </div>
       </div>
       <OpsChecklist tripId={trip.id} initial={trip.ops_checklist || {}} />
     </div>
