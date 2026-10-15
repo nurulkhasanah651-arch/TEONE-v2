@@ -59,6 +59,7 @@ function parseTripFields(formData) {
     fee_category: formData.get('fee_category') || null,
     pic: formData.get('pic') || null,
     pic_email: formData.get('pic_email') || null,
+    ops_pic: (formData.get('ops_pic') || '').trim() || null,
     tl_id,
     tl_name: formData.get('tl_name') || null,
     ticket: formData.get('ticket') || 'FIT',

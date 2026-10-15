@@ -302,6 +302,22 @@ export default function TripForm({ initial = {}, onSubmit, submitLabel = 'Simpan
             )}
             <input autoComplete="off" type="hidden" id="pic_email_hidden" name="pic_email" defaultValue={initial.pic_email || ''} />
           </Field>
+          <Field label="PIC Operations" hint="Ops yang handle trip — nyambung ke Checklist Trip per Group">
+            <input
+              autoComplete="off"
+              name="ops_pic"
+              defaultValue={initial.ops_pic || ''}
+              list="ops_pic_options"
+              className={inputCls}
+              placeholder="mis. Yuni / Savira"
+            />
+            <datalist id="ops_pic_options">
+              {Array.from(new Set([
+                ...(Array.isArray(employees) ? employees.map((e) => e.full_name).filter(Boolean) : []),
+                'Yuni', 'Savira',
+              ])).map((n) => <option key={n} value={n} />)}
+            </datalist>
+          </Field>
           <div className="md:col-span-2">
             <Field label="Tour Leader" hint="Pilih dari master TL atau input manual">
               {TLPicker ? (
