@@ -168,37 +168,24 @@ export default function OpsChecklist({ tripId, initial = {} }) {
                         )}
 
                         {it.vendorFlow ? (
-                          <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <ChecklistTextField
-                              key={`${it.key}.offering`}
-                              initialValue={state.offering} stored={state.offering}
-                              label="Offering ke vendor" placeholder="mis. hiseas, odil, holiday world"
-                              saving={savingField === `${it.key}.offering`}
-                              onCommit={(v) => onCommitField(it.key, 'offering', v)}
-                            />
-                            <ChecklistTextField
-                              key={`${it.key}.goahead`}
-                              initialValue={state.goahead} stored={state.goahead}
-                              label="Go-ahead ke" placeholder="mis. hiseas"
-                              saving={savingField === `${it.key}.goahead`}
-                              onCommit={(v) => onCommitField(it.key, 'goahead', v)}
-                            />
-                            <ChecklistTextField
-                              key={`${it.key}.prebook`}
-                              initialValue={state.prebook} stored={state.prebook}
-                              label="Prebook ke" placeholder="mis. hiseas — done"
-                              saving={savingField === `${it.key}.prebook`}
-                              onCommit={(v) => onCommitField(it.key, 'prebook', v)}
-                            />
-                            <div className="sm:col-span-3">
-                              <ChecklistTextField
-                                key={`${it.key}.note`}
-                                initialValue={state.note} stored={state.note}
-                                label="Keterangan" placeholder="catatan tambahan…"
-                                saving={savingField === `${it.key}.note`}
-                                onCommit={(v) => onCommitField(it.key, 'note', v)}
-                              />
+                          <div className="mt-2 space-y-2">
+                            <div>
+                              <p className="text-[11px] font-bold text-slate-500 mb-1">Offering ke vendor</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <ChecklistTextField key={`${it.key}.offer_transport`} initialValue={state.offer_transport} stored={state.offer_transport} label="Transport" placeholder="vendor di-offering" saving={savingField === `${it.key}.offer_transport`} onCommit={(v) => onCommitField(it.key, 'offer_transport', v)} />
+                                <ChecklistTextField key={`${it.key}.offer_hotel`} initialValue={state.offer_hotel} stored={state.offer_hotel} label="Hotel" placeholder="vendor di-offering" saving={savingField === `${it.key}.offer_hotel`} onCommit={(v) => onCommitField(it.key, 'offer_hotel', v)} />
+                                <ChecklistTextField key={`${it.key}.offer_land`} initialValue={state.offer_land} stored={state.offer_land} label="Land Arrangement" placeholder="mis. hiseas, odil" saving={savingField === `${it.key}.offer_land`} onCommit={(v) => onCommitField(it.key, 'offer_land', v)} />
+                              </div>
                             </div>
+                            <div>
+                              <p className="text-[11px] font-bold text-slate-500 mb-1">Prebook ke vendor</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <ChecklistTextField key={`${it.key}.prebook_transport`} initialValue={state.prebook_transport} stored={state.prebook_transport} label="Transport" placeholder="vendor — done" saving={savingField === `${it.key}.prebook_transport`} onCommit={(v) => onCommitField(it.key, 'prebook_transport', v)} />
+                                <ChecklistTextField key={`${it.key}.prebook_hotel`} initialValue={state.prebook_hotel} stored={state.prebook_hotel} label="Hotel" placeholder="vendor — done" saving={savingField === `${it.key}.prebook_hotel`} onCommit={(v) => onCommitField(it.key, 'prebook_hotel', v)} />
+                                <ChecklistTextField key={`${it.key}.prebook_land`} initialValue={state.prebook_land} stored={state.prebook_land} label="Land Arrangement" placeholder="mis. hiseas — done" saving={savingField === `${it.key}.prebook_land`} onCommit={(v) => onCommitField(it.key, 'prebook_land', v)} />
+                              </div>
+                            </div>
+                            <ChecklistTextField key={`${it.key}.note`} initialValue={state.note} stored={state.note} label="Keterangan" placeholder="catatan tambahan…" saving={savingField === `${it.key}.note`} onCommit={(v) => onCommitField(it.key, 'note', v)} />
                           </div>
                         ) : (
                           <div className="mt-2">
