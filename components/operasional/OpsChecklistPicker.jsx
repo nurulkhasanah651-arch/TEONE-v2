@@ -117,6 +117,13 @@ export default function OpsChecklistPicker({ trips = [] }) {
                 <div className={`h-full rounded-full ${full ? 'bg-emerald-500' : 'bg-brand-500'}`} style={{ width: `${pct}%` }} />
               </div>
               <p className="text-[10px] text-slate-400 mt-1">{fmt(t.departure)}{t.pax ? ` · ${t.pax} pax` : ''}{t.pic ? ` · PIC ${t.pic}` : ''}</p>
+              {Array.isArray(t.visaChips) && t.visaChips.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {t.visaChips.map((c, i) => (
+                    <span key={i} className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${c.c}`}>{c.t}</span>
+                  ))}
+                </div>
+              )}
             </Link>
           );
         })}

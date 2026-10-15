@@ -2,9 +2,12 @@
 // State disimpan di trips.ops_checklist (jsonb). Path: app/(app)/operasional/checklist/page.jsx
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { brandSupabaseUrl, brandServiceRoleKey } from '@/lib/supabase/service-env';
 import OpsChecklistPicker from '@/components/operasional/OpsChecklistPicker';
 import OpsChecklist from '@/components/operasional/OpsChecklist';
 import { countDone } from '@/lib/utils/ops-checklist-items';
+import { deriveVisaStage } from '@/lib/utils/visa-constants';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,27 +21,74 @@ export default async function OpsChecklistPage({ searchParams }) {
   const supabase = createClient();
 
   if (!tripId) {
-    const [{ data: trips }, { data: pax }] = await Promise.all([
-      supabase
-        .from('trips')
-        .select('id, kode_trip, name, public_title, departure, status, pic, ops_pic, ops_checklist')
-        .neq('status', 'cancelled')
-        .order('departure', { ascending: false, nullsFirst: false }),
-      supabase.from('trip_passengers').select('trip_id, status, transfer_status, refund_status'),
-    ]);
-    const cnt = {};
-    for (const p of (pax || [])) { if (isActive(p)) cnt[p.trip_id] = (cnt[p.trip_id] || 0) + 1; }
-    const list = (trips || []).map((t) => ({
-      id: t.id,
-      kode: t.kode_trip || '',
-      name: t.public_title || t.name || '',
-      departure: t.departure,
-      status: t.status,
-      pic: t.pic || '',
-      opsPic: t.ops_pic || '',
-      pax: cnt[t.id] || 0,
-      done: countDone(t.ops_checklist),
-    }));
+    // Service client (bypass RLS) biar jumlah peserta & status visa sama kaya tab Visa.
+    const svcUrl = brandSupabaseUrl(); const svcKey = brandServiceRoleKey();
+    const db = (svcUrl && svcKey) ? createServiceClient(svcUrl, svcKey, { auth: { persistSession: false, autoRefreshToken: false } }) : supabase;
+
+    const { data: trips } = await supabase
+      .from('trips')
+      .select('id, kode_trip, name, public_title, departure, status, pic, ops_pic, ops_checklist, visa_doc_template')
+      .neq('status', 'cancelled')
+      .order('departure', { ascending: false, nullsFirst: false });
+
+    // Peserta: paginate (trip_passengers bisa > 1000 → hindari cap PostgREST). Plus field status visa.
+    let passengers = [];
+    try {
+      for (let from = 0; ; from += 1000) {
+        const { data } = await db.from('trip_passengers')
+          .select('id, trip_id, status, transfer_status, refund_status, visa_docs, visa_status, visa_biometric_date, include_visa, visa_ready, visa_result')
+          .order('id', { ascending: true })
+          .range(from, from + 999);
+        if (!data || data.length === 0) break;
+        passengers = passengers.concat(data);
+        if (data.length < 1000) break;
+      }
+    } catch { passengers = []; }
+
+    // visaPaid dari pembayaran Visa (utk status "siap biometrik / perlu dijadwalkan").
+    try {
+      const ids = passengers.map((p) => p.id);
+      const paid = {};
+      for (let i = 0; i < ids.length; i += 1000) {
+        const { data: pays } = await db.from('participant_payments')
+          .select('passenger_id, amount, is_transferred').eq('type', 'Visa').in('passenger_id', ids.slice(i, i + 1000));
+        for (const r of (pays || [])) { if (r.is_transferred !== true && Number(r.amount) > 0) paid[r.passenger_id] = true; }
+      }
+      for (const p of passengers) p.visaPaid = paid[p.id] === true;
+    } catch {}
+
+    const activeByTrip = {};
+    for (const p of passengers) { if (isActive(p)) { (activeByTrip[p.trip_id] = activeByTrip[p.trip_id] || []).push(p); } }
+
+    const list = (trips || []).map((t) => {
+      const pax = activeByTrip[t.id] || [];
+      const tmpl = t.visa_doc_template || [];
+      const sc = { belum_mulai: 0, lengkapi_dokumen: 0, siap_biometrik: 0, biometrik_terjadwal: 0, proses: 0, approved: 0, rejected: 0, punya_visa: 0, tidak_perlu: 0 };
+      for (const p of pax) { const s = deriveVisaStage(p, tmpl); sc[s.key] = (sc[s.key] || 0) + 1; }
+      // Chip status visa — sinkron dgn tab Visa (deriveVisaStage yg sama).
+      const visaChips = [
+        sc.approved > 0 && { t: `✅ ${sc.approved} approve`, c: 'bg-green-50 text-green-700 border-green-200' },
+        sc.proses > 0 && { t: `⏳ ${sc.proses} proses`, c: 'bg-purple-50 text-purple-700 border-purple-200' },
+        sc.biometrik_terjadwal > 0 && { t: `📅 ${sc.biometrik_terjadwal} terjadwal`, c: 'bg-blue-50 text-blue-700 border-blue-200' },
+        sc.siap_biometrik > 0 && { t: `🧬 ${sc.siap_biometrik} blm dijadwalkan`, c: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+        sc.lengkapi_dokumen > 0 && { t: `📄 ${sc.lengkapi_dokumen} lengkapi dok`, c: 'bg-amber-50 text-amber-700 border-amber-200' },
+        sc.belum_mulai > 0 && { t: `🔴 ${sc.belum_mulai} belum diurus`, c: 'bg-rose-50 text-rose-700 border-rose-200' },
+        sc.rejected > 0 && { t: `✗ ${sc.rejected} ditolak`, c: 'bg-red-50 text-red-700 border-red-200' },
+        sc.punya_visa > 0 && { t: `🛂 ${sc.punya_visa} punya visa`, c: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+      ].filter(Boolean);
+      return {
+        id: t.id,
+        kode: t.kode_trip || '',
+        name: t.public_title || t.name || '',
+        departure: t.departure,
+        status: t.status,
+        pic: t.pic || '',
+        opsPic: t.ops_pic || '',
+        pax: pax.length,
+        done: countDone(t.ops_checklist),
+        visaChips,
+      };
+    });
     return (
       <div className="max-w-6xl mx-auto space-y-4">
         <div>
