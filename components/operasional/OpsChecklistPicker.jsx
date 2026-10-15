@@ -1,25 +1,57 @@
 'use client';
 
 // Pemilih trip untuk Checklist Operasional per Group. Path: components/operasional/OpsChecklistPicker.jsx
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { OPS_CHECKLIST_TOTAL } from '@/lib/utils/ops-checklist-items';
+
+const BULAN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
 function fmt(d) {
   if (!d) return '—';
   try { return new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return d; }
 }
+function monthKeyOf(d) { return d ? String(d).slice(0, 7) : ''; } // YYYY-MM
+function monthLabelOf(key) {
+  if (!key) return '';
+  const [y, m] = key.split('-');
+  return `${BULAN[(parseInt(m, 10) || 1) - 1]} ${y}`;
+}
 
 export default function OpsChecklistPicker({ trips = [] }) {
   const [q, setQ] = useState('');
   const [ops, setOps] = useState('all');
+  const [month, setMonth] = useState('all');
   const s = q.trim().toLowerCase();
-  const opsOptions = Array.from(new Set(trips.map((t) => t.opsPic).filter(Boolean))).sort();
-  const list = trips.filter((t) => {
-    if (s && !`${t.kode} ${t.name}`.toLowerCase().includes(s)) return false;
-    if (ops !== 'all' && (t.opsPic || '') !== ops) return false;
-    return true;
-  });
+  const today = new Date().toISOString().slice(0, 10);
+
+  const opsOptions = useMemo(() => Array.from(new Set(trips.map((t) => t.opsPic).filter(Boolean))).sort(), [trips]);
+  const monthOptions = useMemo(() => {
+    const keys = Array.from(new Set(trips.map((t) => monthKeyOf(t.departure)).filter(Boolean)));
+    keys.sort();
+    return keys;
+  }, [trips]);
+
+  const list = useMemo(() => {
+    const filtered = trips.filter((t) => {
+      if (s && !`${t.kode} ${t.name}`.toLowerCase().includes(s)) return false;
+      if (ops !== 'all' && (t.opsPic || '') !== ops) return false;
+      if (month !== 'all' && monthKeyOf(t.departure) !== month) return false;
+      return true;
+    });
+    // Urut: keberangkatan terdekat dulu (upcoming asc), lalu yg sudah lewat (terbaru dulu), tanpa tgl paling bawah.
+    return filtered.slice().sort((a, b) => {
+      const da = a.departure || '', db = b.departure || '';
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+      const aUp = da >= today, bUp = db >= today;
+      if (aUp && bUp) return da < db ? -1 : da > db ? 1 : 0;
+      if (aUp) return -1;
+      if (bUp) return 1;
+      return da > db ? -1 : da < db ? 1 : 0;
+    });
+  }, [trips, s, ops, month, today]);
 
   return (
     <div className="space-y-3">
@@ -28,8 +60,18 @@ export default function OpsChecklistPicker({ trips = [] }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Cari trip (kode / nama)…"
-          className="flex-1 min-w-[12rem] max-w-md px-3 py-2 border border-slate-300 rounded-lg text-sm"
+          className="flex-1 min-w-[12rem] max-w-xs px-3 py-2 border border-slate-300 rounded-lg text-sm"
         />
+        <select
+          value={month}
+          onChange={(e) => setMonth(e.target.value)}
+          className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+        >
+          <option value="all">Semua bulan</option>
+          {monthOptions.map((k) => (
+            <option key={k} value={k}>{monthLabelOf(k)}</option>
+          ))}
+        </select>
         <div className="flex items-center gap-1">
           <button
             type="button"
