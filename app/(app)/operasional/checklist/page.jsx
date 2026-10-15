@@ -56,6 +56,17 @@ export default async function OpsChecklistPage({ searchParams }) {
     .eq('id', tripId)
     .maybeSingle();
 
+  // Status tiket langsung dari PNR Inventory (flight_inventory) — group / fit / domestic.
+  const { data: tix } = await supabase
+    .from('flight_inventory')
+    .select('pnr, ticket_type, ticket_issued, status')
+    .eq('trip_id', tripId);
+  const tickets = Array.isArray(tix) ? tix : [];
+  const hasTicket = tickets.length > 0;
+  const pnrList = tickets.map((t) => t.pnr).filter(Boolean);
+  const tixTypes = Array.from(new Set(tickets.map((t) => t.ticket_type).filter(Boolean)));
+  const allIssued = hasTicket && tickets.every((t) => t.ticket_issued);
+
   if (!trip) {
     return (
       <div className="max-w-3xl mx-auto space-y-3">
@@ -83,6 +94,15 @@ export default async function OpsChecklistPage({ searchParams }) {
           <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
             PIC Ops: {trip.ops_pic || '—'}
           </span>
+          {hasTicket ? (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              🎫 Tiket ada{tixTypes.length ? ` (${tixTypes.join(', ')})` : ''}{allIssued ? ' · issued' : ''}{pnrList.length ? ` · ${pnrList.join(', ')}` : ''}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+              🎫 Belum ada tiket
+            </span>
+          )}
         </div>
 
         {/* Shortcut ke modul lain utk trip yg sama (biar gak nyari satu-satu) */}
@@ -92,6 +112,8 @@ export default async function OpsChecklistPage({ searchParams }) {
             { href: `/operasional/profit-estimate?trip=${encodeURIComponent(trip.id)}`, label: '💰 Estimate Profit' },
             { href: `/operasional/roomlist?trip=${encodeURIComponent(trip.id)}`, label: '🛏 Final Roomlist' },
             { href: `/operasional/itinerary?trip=${encodeURIComponent(trip.id)}`, label: '🗺 Itinerary' },
+            { href: `/operasional/optional-tour/${encodeURIComponent(trip.id)}`, label: '🎈 Optional Tour' },
+            { href: `/finance/pnr`, label: '🎫 PNR Inventory' },
           ].map((l) => (
             <Link
               key={l.href}
