@@ -84,6 +84,25 @@ export default async function OpsChecklistPage({ searchParams }) {
             PIC Ops: {trip.ops_pic || '—'}
           </span>
         </div>
+
+        {/* Shortcut ke modul lain utk trip yg sama (biar gak nyari satu-satu) */}
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {[
+            { href: `/trips/${trip.id}`, label: '🧭 Master Trip' },
+            { href: `/operasional/profit-estimate?trip=${encodeURIComponent(trip.id)}`, label: '💰 Estimate Profit' },
+            { href: `/operasional/roomlist?trip=${encodeURIComponent(trip.id)}`, label: '🛏 Final Roomlist' },
+            { href: `/operasional/itinerary?trip=${encodeURIComponent(trip.id)}`, label: '🗺 Itinerary' },
+          ].map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              target="_blank"
+              className="inline-flex items-center text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-white text-slate-600 border border-slate-300 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 transition"
+            >
+              {l.label} ↗
+            </Link>
+          ))}
+        </div>
       </div>
       <OpsChecklist tripId={trip.id} initial={trip.ops_checklist || {}} />
     </div>

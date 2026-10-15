@@ -15,6 +15,13 @@ function fmtWhen(iso) {
   } catch { return ''; }
 }
 
+function fmtWhenFull(iso) {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  } catch { return ''; }
+}
+
 function shortBy(by) {
   if (!by) return '';
   const s = String(by);
@@ -63,6 +70,16 @@ export default function OpsChecklist({ tripId, initial = {} }) {
   );
   const pct = Math.round((doneCount / OPS_CHECKLIST_TOTAL) * 100);
 
+  // Terakhir update = timestamp paling baru dari semua item (centang / isi keterangan).
+  const lastUpdate = useMemo(() => {
+    let best = null;
+    for (const v of Object.values(checklist || {})) {
+      const t = v?.at ? new Date(v.at).getTime() : 0;
+      if (t && (!best || t > best.t)) best = { t, at: v.at, by: v.by };
+    }
+    return best;
+  }, [checklist]);
+
   function onToggle(itemKey, nextDone) {
     setErr('');
     setPendingKey(itemKey);
@@ -104,6 +121,11 @@ export default function OpsChecklist({ tripId, initial = {} }) {
             style={{ width: `${pct}%` }}
           />
         </div>
+        <p className="mt-2 text-[11px] text-slate-400">
+          {lastUpdate
+            ? <>Terakhir update: <span className="font-semibold text-slate-500">{fmtWhenFull(lastUpdate.at)}</span>{lastUpdate.by ? ` · ${shortBy(lastUpdate.by)}` : ''}</>
+            : 'Belum ada update'}
+        </p>
       </div>
 
       {err && (
