@@ -69,7 +69,8 @@ export default async function GroupCashflowDetailPage({ params }) {
   const accEntries = accEntriesRaw.filter((e) =>
     !e.linked_finance_item_id &&
     !e.linked_payment_id &&
-    e.source !== 'tl_payment'
+    e.source !== 'tl_payment' &&
+    e.source !== 'xls_import_jul_agu_2026'  // bank import BCA Jul-Agu TIDAK dihitung sbg Cash In (dobel dgn participant_payments). Cash In = uang masuk dari sistem finance (peserta).
   );
   const linkedAccEntries = accEntriesRaw.filter((e) =>
     e.linked_finance_item_id || e.linked_payment_id || e.source === 'tl_payment'
