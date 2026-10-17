@@ -234,7 +234,6 @@ export default async function AccountingDashboard({ searchParams }) {
   const allEntries = [];
   for (const p of paymentsForDisplay) {
     if (!p.amount || p.amount <= 0) continue;
-    if (inBankReconWindow(p.paid_at)) continue; // R233: Cash In bulan ini diwakili entry bank import (Excel)
     const passenger = paxMap[p.passenger_id];
     const customer = passenger ? custMap[passenger.customer_id] : null;
     const trip = passenger ? tripMap[passenger.trip_id] : null;
@@ -297,7 +296,7 @@ export default async function AccountingDashboard({ searchParams }) {
     // R233: di dalam window rekonsiliasi bank, CASH IN hanya dari entry bank import (Excel).
     // Entry 'in' lain di bulan itu (mis. "Biaya Admin Web" dari webhook) disembunyikan
     // supaya total Cash In tab Accounting = persis mutasi bank Excel. Cash OUT tidak terpengaruh.
-    if (m.type === 'in' && m.source !== 'xls_import_jul_agu_2026' && inBankReconWindow(m.date || m.created_at)) continue;
+    if (m.type === 'in' && m.source === 'xls_import_jul_agu_2026') continue; // bank import Excel TIDAK dihitung sbg Cash In — pakai participant_payments (rumus sama spt September)
 
     const dateRaw = m.date || m.created_at || todayStr;
     const date = String(dateRaw).slice(0, 10);
