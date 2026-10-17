@@ -214,7 +214,10 @@ export default async function AccountingDashboard({ searchParams }) {
 
   // Resolve peserta/customer/trip yg dirujuk pembayaran — atasi cap 1000 baris (peserta sudah ribuan).
   // Tanpa ini, pembayaran peserta baru tampil "Peserta · -" (nama/trip hilang) → seolah tidak masuk.
-  const payPaxIds = [...new Set(payments.map((p) => p.passenger_id).filter(Boolean))];
+  // PERF: resolve nama & bangun baris transaksi HANYA utk pembayaran dalam rentang periode
+  // (bukan semua ~10rb pembayaran). Ringkasan all-time (totalBank, piutang, dll) tetap pakai `payments` penuh.
+  const paymentsForDisplay = (from || to) ? payments.filter((p) => isInRange((p.paid_at || '').slice(0, 10), from, to)) : payments;
+  const payPaxIds = [...new Set(paymentsForDisplay.map((p) => p.passenger_id).filter(Boolean))];
   let paxExtra = [];
   for (let i = 0; i < payPaxIds.length; i += 500) {
     const chunk = payPaxIds.slice(i, i + 500);
@@ -242,7 +245,7 @@ export default async function AccountingDashboard({ searchParams }) {
   const tripMap = Object.fromEntries([...trips, ...tripExtra].map((t) => [t.id, t]));
 
   const allEntries = [];
-  for (const p of payments) {
+  for (const p of paymentsForDisplay) {
     if (!p.amount || p.amount <= 0) continue;
     if (inBankReconWindow(p.paid_at)) continue; // R233: Cash In bulan ini diwakili entry bank import (Excel)
     const passenger = paxMap[p.passenger_id];
