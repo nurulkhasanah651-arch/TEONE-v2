@@ -120,15 +120,21 @@ export default async function AccountingDashboard({ searchParams }) {
 
   const supabase = createClient();
 
-  const [accounts, accEntries, payments, hppLunas, passengers, customers, allFinItems, pnrs, trips, pendingRequests, tlRequests] = await Promise.all([
+  // Rentang SQL utk data yg DITAMPILKAN (transaksi periode). Ringkasan all-time via RPC (1 query, hitung di DB).
+  const scopedFetch = (table, cols, dateCol, orderCol) => fetchAll(() => {
+    let q = supabase.from(table).select(cols).order(orderCol, { ascending: false, nullsFirst: false });
+    if (from) q = q.gte(dateCol, from);
+    if (to) q = q.lte(dateCol, to);
+    return q;
+  });
+
+  const [summaryRows, accounts, accEntries, payments, hppLunas, allFinItems, pnrs, trips, pendingRequests, tlRequests] = await Promise.all([
+    safeQuery(supabase.rpc('accounting_summary')),
     safeQuery(supabase.from('accounts').select('*').eq('active', true)),
-    // Perf: ambil kolom yang dipakai saja (bukan '*') — payload jauh lebih kecil,
-    // tabel sudah ribuan baris. Hasil & tampilan identik.
-    fetchAll(() => supabase.from('accounting_entries').select('id, account_id, type, amount, date, created_at, category, description, trip_id, linked_finance_item_id, linked_payment_id, source').order('date', { ascending: false })),
-    fetchAll(() => supabase.from('participant_payments').select('id, passenger_id, type, amount, paid_at').order('paid_at', { ascending: false, nullsFirst: false })),
+    // Hanya entry dalam periode (default: bulan ini) — tampilan transaksi. Saldo all-time via RPC.
+    scopedFetch('accounting_entries', 'id, account_id, type, amount, date, created_at, category, description, trip_id, linked_finance_item_id, linked_payment_id, source', 'date', 'date'),
+    scopedFetch('participant_payments', 'id, passenger_id, type, amount, paid_at', 'paid_at', 'paid_at'),
     safeQuery(supabase.from('trip_finance_items').select('*').eq('item_type', 'hpp').or('payment_status.eq.lunas,dp_paid.gt.0')),
-    safeQuery(supabase.from('trip_passengers').select('id, trip_id, customer_id, price_paid')),
-    safeQuery(supabase.from('customers').select('id, name')),
     safeQuery(supabase.from('trip_finance_items').select('item_type, total_amount, payment_status')),
     safeQuery(supabase.from('flight_inventory').select('deposit_total, payoff_amount')),
     safeQuery(supabase.from('trips').select('id, kode_trip, name')),
@@ -136,40 +142,21 @@ export default async function AccountingDashboard({ searchParams }) {
     safeQuery(supabase.from('tl_payments').select('*').eq('status', 'requested').order('requested_at', { ascending: true })),
   ]);
 
-  const accountBalances = {};
-  for (const a of accounts) accountBalances[a.id] = (a.starting_balance || 0);
-  for (const e of accEntries) {
-    if (!e.account_id || accountBalances[e.account_id] == null) continue;
-    if (e.type === 'in') accountBalances[e.account_id] += e.amount || 0;
-    else if (e.type === 'out') accountBalances[e.account_id] -= e.amount || 0;
-  }
-  const manualBankSum = Object.values(accountBalances).reduce((s, b) => s + b, 0);
+  // Ringkasan all-time (akurat, dihitung di DB via fungsi accounting_summary — tahan skala, hasil sama persis).
+  const summary = (Array.isArray(summaryRows) && summaryRows[0]) ? summaryRows[0] : {};
+  const manualBankSum = Number(summary.manual_bank_sum) || 0;
+  const autoCashInAll = Number(summary.auto_cash_in_all) || 0;
+  const piutang = Number(summary.piutang) || 0;
 
-  let autoCashInAll = 0;
-  // R233: bulan yg sudah direkonsiliasi ke mutasi bank -> cash-in-nya diwakili entry
-  // bank import (jangan tambah auto payment peserta lagi supaya saldo tidak dobel).
-  for (const p of payments) {
-    if (inBankReconWindow(p.paid_at)) continue;
-    autoCashInAll += Number(p.amount || 0);
-  }
   let autoCashOutAll = 0;
   for (const it of hppLunas) {
-    // Deposit/HPP yang berasal dari PNR inventory sudah diinput manual sebagai
-    // cash out → jangan dihitung lagi di sini biar tidak dobel (tetap tampil di HPP cashflow).
+    // Deposit/HPP dari PNR inventory sudah diinput manual sebagai cash out -> jangan dobel.
     if (it.pnr_id) continue;
     const paid = Number(it.dp_paid) || 0;
     autoCashOutAll += paid > 0 ? paid : Number(it.total_amount || 0);
   }
   const totalBank = manualBankSum + (autoCashInAll - autoCashOutAll);
 
-  const paidByPassenger = {};
-  for (const p of payments) paidByPassenger[p.passenger_id] = (paidByPassenger[p.passenger_id] || 0) + (p.amount || 0);
-  let piutang = 0;
-  for (const pax of passengers) {
-    const expected = pax.price_paid || 0;
-    const paid = paidByPassenger[pax.id] || 0;
-    if (expected > paid) piutang += (expected - paid);
-  }
   let hutang = 0;
   for (const it of allFinItems) {
     if (it.item_type !== 'hpp') continue;
@@ -224,17 +211,17 @@ export default async function AccountingDashboard({ searchParams }) {
     const r = await safeQuery(supabase.from('trip_passengers').select('id, trip_id, customer_id, price_paid').in('id', chunk));
     if (Array.isArray(r)) paxExtra = paxExtra.concat(r);
   }
-  const allPax = [...passengers, ...paxExtra];
+  const allPax = [...paxExtra];
   const paxMap = Object.fromEntries(allPax.map((p) => [p.id, p]));
 
-  const needCustIds = [...new Set(paxExtra.map((p) => p.customer_id).filter((id) => id && !customers.find((c) => c.id === id)))];
+  const needCustIds = [...new Set(paxExtra.map((p) => p.customer_id).filter(Boolean))];
   let custExtra = [];
   for (let i = 0; i < needCustIds.length; i += 500) {
     const chunk = needCustIds.slice(i, i + 500);
     const r = await safeQuery(supabase.from('customers').select('id, name').in('id', chunk));
     if (Array.isArray(r)) custExtra = custExtra.concat(r);
   }
-  const custMap = Object.fromEntries([...customers, ...custExtra].map((c) => [c.id, c]));
+  const custMap = Object.fromEntries(custExtra.map((c) => [c.id, c]));
 
   const needTripIds = [...new Set(paxExtra.map((p) => p.trip_id).filter((id) => id && !trips.find((t) => t.id === id)))];
   let tripExtra = [];
