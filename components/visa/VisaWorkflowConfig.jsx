@@ -217,7 +217,7 @@ export default function VisaWorkflowConfig({ trip }) {
               onChange={(e) => setForm((f) => ({ ...f, visa_pickup_address: e.target.value }))}
               rows="4"
               className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm"
-              placeholder="PT KHASANAH GLOBAL INTERNATIONAL&#10;Traveling Eropa Headquarter&#10;..."
+              placeholder="PT KHASANAH GLOBAL TRAVELINDO&#10;Traveling Eropa Headquarter&#10;..."
             />
           </div>
 

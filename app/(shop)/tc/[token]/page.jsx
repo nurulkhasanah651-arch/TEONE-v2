@@ -34,7 +34,7 @@ export default async function TourConfirmationPage({ params }) {
   const settings = await getStorefrontSettingsPublic();
   const logo = (settings?.logo_url || '').trim();
 
-  const companyName = 'PT. KHASANAH GLOBAL INTERNASIONAL';
+  const companyName = 'PT. KHASANAH GLOBAL TRAVELINDO';
   const hqLine = c.address || 'Traveling Eropa HQ — Ruko Graha Boulevard, Jl. Gading Serpong Boulevard, Curug Sangereng, Kelapa Dua, Tangerang, Banten 15810';
   const phoneDisp = c.phone ? ('+' + String(c.phone).replace(/[^0-9]/g, '')) : '';
   const web = (c.email && c.email.split('@')[1]) || 'travelingeropa.com';

@@ -93,7 +93,7 @@ export default async function ShopLayout({ children }) {
               </ul>
             </div>
           </div>
-          <p className="mt-8 text-center text-xs text-slate-400">© {new Date().getFullYear()} · PT Khasanah Global Internasional</p>
+          <p className="mt-8 text-center text-xs text-slate-400">© {new Date().getFullYear()} · PT Khasanah Global Travelindo</p>
         </div>
       </footer>
     </div>

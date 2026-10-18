@@ -73,7 +73,7 @@ export default function QuotationForm({ quotation }) {
     agency_logo_url: quotation.agency_logo_url || '',
     description: quotation.description || '',
     notes: quotation.notes || '',
-    bank_info: quotation.bank_info || 'Bank BCA 2063535001 a.n. PT. Khasanah Global Internasional',
+    bank_info: quotation.bank_info || 'Bank BCA 2063535001 a.n. PT. Khasanah Global Travelindo',
     contact_name: quotation.contact_name || '',
     contact_wa: quotation.contact_wa || '0822-1099-1200',
     contact_email: quotation.contact_email || '',

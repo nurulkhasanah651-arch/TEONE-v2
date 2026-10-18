@@ -19,7 +19,7 @@ const STANDARD_TERMS = [
   {
     title: 'PEMESANAN & PELUNASAN BIAYA',
     items: [
-      'Pemesanan program perjalanan dilakukan melalui Customer Service resmi PT. Khasanah Global Internasional ("Penyelenggara") dengan melampirkan data paspor dan pembayaran uang muka (deposit) sesuai nominal yang ditetapkan.',
+      'Pemesanan program perjalanan dilakukan melalui Customer Service resmi PT. Khasanah Global Travelindo ("Penyelenggara") dengan melampirkan data paspor dan pembayaran uang muka (deposit) sesuai nominal yang ditetapkan.',
       'Peserta yang belum memiliki paspor wajib menyerahkan salinan KTP dan menyatakan kesediaan untuk membuat paspor dalam jangka waktu paling lambat 7 (tujuh) hari kalender sejak tanggal pendaftaran.',
       'Apabila peserta telah memiliki paspor, maka data paspor wajib segera dikirimkan kepada Customer Service setelah pendaftaran.',
       'Kegagalan peserta dalam melunasi biaya perjalanan sesuai tenggat waktu yang ditentukan akan dianggap sebagai pembatalan sepihak.',
@@ -58,7 +58,7 @@ const STANDARD_TERMS = [
   {
     title: 'TANGGUNG JAWAB',
     items: [
-      'PT. Khasanah Global Internasional bertindak semata-mata sebagai perantara atau agen perjalanan yang menghubungkan Peserta dengan pihak ketiga penyedia jasa.',
+      'PT. Khasanah Global Travelindo bertindak semata-mata sebagai perantara atau agen perjalanan yang menghubungkan Peserta dengan pihak ketiga penyedia jasa.',
       'Penyelenggara tidak bertanggung jawab atas kejadian di luar kendali, termasuk: kecelakaan, kehilangan/kerusakan barang, keterlambatan/kehilangan bagasi, penahanan oleh otoritas, penolakan masuk negara, gangguan jadwal akibat force majeure, biaya tambahan dari perubahan jadwal maskapai.',
       'Seluruh biaya tambahan akibat karantina, perubahan jadwal, atau kebutuhan medis darurat menjadi tanggung jawab pribadi Peserta.',
       'Apabila jumlah peserta yang mendaftar kurang dari 25 orang, Penyelenggara berhak membatalkan atau menjadwalkan ulang keberangkatan, dengan pemberitahuan paling lambat 14 hari kalender sebelum tanggal keberangkatan.',
@@ -90,7 +90,7 @@ const STANDARD_TERMS = [
       'Peserta dilarang melakukan pemesanan optional tour (Hot Air Balloon, Jeep Safari, dll) melalui internet/agen pihak ketiga yang tidak ditunjuk Penyelenggara. Pelanggaran dikenakan penalti USD 300 per orang.',
       'Peserta wajib mengikuti kunjungan ke toko resmi (shopping tour) yang merupakan bagian dari itinerary. Kehadiran wajib, namun tidak berkewajiban melakukan pembelian.',
       'Peserta yang telah membayar uang muka dianggap telah membaca, memahami, dan menyetujui seluruh syarat dan ketentuan.',
-      'PT. Khasanah Global Internasional berhak melakukan perubahan jadwal penerbangan/susunan acara/itinerary apabila dibutuhkan demi efisiensi perjalanan atau alasan operasional.',
+      'PT. Khasanah Global Travelindo berhak melakukan perubahan jadwal penerbangan/susunan acara/itinerary apabila dibutuhkan demi efisiensi perjalanan atau alasan operasional.',
       'Apabila peserta menyalahgunakan tujuan wisata untuk bekerja atau melarikan diri dari rombongan, peserta dan pihak keluarga (penjamin) bersedia bertanggung jawab penuh membayar denda penalty sebesar IDR 30.000.000/orang secara tunai kepada Travelingeropa.',
     ],
   },
@@ -104,7 +104,7 @@ const CATEGORY_BADGE = {
   international: { label: 'INTERNATIONAL', emoji: '✈' },
 };
 
-const DEFAULT_BANK_INFO = 'Bank BCA 2063535001 a.n. PT. Khasanah Global Internasional';
+const DEFAULT_BANK_INFO = 'Bank BCA 2063535001 a.n. PT. Khasanah Global Travelindo';
 
 export default function QuotationPreview({ quotation, isPublic = false }) {
   const q = quotation;
@@ -138,7 +138,7 @@ export default function QuotationPreview({ quotation, isPublic = false }) {
             <div className="flex items-center gap-3">
               {q.agency_logo_url && <img src={q.agency_logo_url} alt="Logo" className="h-8 w-auto" />}
               <div>
-                <p className="font-bold text-brand-700">PT. Khasanah Global Internasional</p>
+                <p className="font-bold text-brand-700">PT. Khasanah Global Travelindo</p>
                 <p className="text-[9px] md:text-[11px] text-slate-500">Ruko Golden 8 Blok B.9, Jl. Ki Hajar Dewantara, Tangerang, Banten 15810</p>
               </div>
             </div>
