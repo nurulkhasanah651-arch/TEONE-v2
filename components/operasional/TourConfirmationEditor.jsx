@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect } from 'react';
 import Link from 'next/link';
-import { saveTourConfirmation, sendTourConfirmation, getTCRecipients } from '@/lib/actions/tour-confirmation';
+import { saveTourConfirmation, sendTourConfirmation, getTCRecipients, resetItineraryFromDoc } from '@/lib/actions/tour-confirmation';
 
 const inputCls = 'w-full px-3 py-2 border border-slate-300 rounded-lg text-sm';
 const labelCls = 'block text-[11px] font-bold text-slate-500 uppercase mb-1';
@@ -85,6 +85,17 @@ export default function TourConfirmationEditor({ tripId, trip = {}, initialTc = 
   function delGi(i) { setGenInfo((arr) => arr.filter((_, idx) => idx !== i)); }
   function moveGi(i, dir) { setGenInfo((arr) => { const a = [...arr]; const j = i + dir; if (j < 0 || j >= a.length) return a; [a[i], a[j]] = [a[j], a[i]]; return a; }); }
 
+  function handleResetItin() {
+    if (itin.length && !confirm('Ganti itinerary dengan versi terbaru dari "Itinerary Only"? Perubahan manual pada itinerary (termasuk hotel per hari) akan tertimpa.')) return;
+    startTransition(async () => {
+      const r = await resetItineraryFromDoc(tripId);
+      if (r?.error) { setMsgType('err'); setMsg(r.error); return; }
+      setItin(Array.isArray(r.itinerary) ? r.itinerary : []);
+      setMsgType('ok');
+      setMsg(r.fromDoc ? 'Itinerary diambil ulang dari Itinerary Only ✅' : 'Itinerary Only masih kosong — diisi dari itinerary web.');
+    });
+  }
+
   function payload() { return { ...f, itinerary: itin, hotels, general_info: genInfo }; }
 
   function handleSave(then) {
@@ -144,7 +155,10 @@ export default function TourConfirmationEditor({ tripId, trip = {}, initialTc = 
             <h2 className="font-bold text-brand-700">🗺 Itinerary</h2>
             <p className="text-[11px] text-slate-500">Diambil dari Itinerary Only (revisi terbaru) — boleh diubah manual. Isi juga hotel per hari.</p>
           </div>
-          <button type="button" onClick={addItin} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-lg">+ Tambah Hari</button>
+          <div className="flex gap-2">
+            <button type="button" onClick={handleResetItin} disabled={pending} className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-bold rounded-lg" title="Ganti itinerary dengan versi terbaru dari Itinerary Only">↻ Ambil ulang dari Itinerary Only</button>
+            <button type="button" onClick={addItin} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-lg">+ Tambah Hari</button>
+          </div>
         </div>
         {itin.length === 0 ? (
           <p className="text-sm text-slate-400 py-4 text-center">Belum ada itinerary. Klik "+ Tambah Hari".</p>
