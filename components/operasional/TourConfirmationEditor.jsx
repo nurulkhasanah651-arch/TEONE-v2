@@ -142,7 +142,7 @@ export default function TourConfirmationEditor({ tripId, trip = {}, initialTc = 
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <h2 className="font-bold text-brand-700">🗺 Itinerary</h2>
-            <p className="text-[11px] text-slate-500">Diambil dari itinerary web — boleh diubah manual. Isi juga hotel per hari.</p>
+            <p className="text-[11px] text-slate-500">Diambil dari Itinerary Only (revisi terbaru) — boleh diubah manual. Isi juga hotel per hari.</p>
           </div>
           <button type="button" onClick={addItin} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-lg">+ Tambah Hari</button>
         </div>
