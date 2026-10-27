@@ -194,7 +194,7 @@ export default function ProfitGroupPicker({ groups = [], canReview = false }) {
                 <div key={g.id} className="flex flex-col bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-sm transition">
                   <Link href={`/operasional/profit-estimate?trip=${encodeURIComponent(g.id)}`} className="flex flex-col p-3 hover:bg-slate-50">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-brand-700 text-sm">{g.kode}</span>
+                      <span className="font-bold text-brand-700 text-sm">{g.kode}{g.cancelled ? <span className="ml-1.5 align-middle text-[9px] font-bold uppercase bg-red-100 text-red-700 border border-red-300 rounded px-1 py-0.5">Batal · hangus tiket</span> : null}</span>
                       <span className="text-[11px] text-slate-400">{g.departureFmt}</span>
                     </div>
                     <p className="text-xs text-slate-700 mt-1 line-clamp-2 min-h-[2rem]">{g.name}</p>

@@ -11,6 +11,7 @@ import { fmtRupiah, fmtDate } from '@/lib/utils/format';
 import { statusCfg } from '@/lib/utils/trip-status';
 import DownloadButtons from '@/components/common/DownloadButtons';
 import { computeIncomeProjection } from '@/lib/utils/price-breakdown';
+import { airlineHangusFromEstimate } from '@/lib/utils/cancelled-hangus';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,7 +42,7 @@ export default async function CashflowListPage({ searchParams }) {
 
   const brand = (() => { try { return currentBrandCode() || ''; } catch { return ''; } })();
 
-  const [tripsRes, itemsRes, passengersRes, landtourRes, accRes] = await Promise.all([
+  const [tripsRes, itemsRes, passengersRes, landtourRes, accRes, estRes] = await Promise.all([
     supabase.from('trips').select('id, kode_trip, name, status, departure, quota, sold, price_breakdown, visa_requirement').order('departure', { ascending: true }),
     supabase.from('trip_finance_items').select('trip_id, item_type, total_amount'),
     fetchAll(() => supabase.from('trip_passengers').select('id, trip_id, transfer_status, refund_status, room_type, age_type, price_paid, discount_amount, include_visa, include_asuransi, visa_ready, visa_type')),
@@ -51,6 +52,8 @@ export default async function CashflowListPage({ searchParams }) {
       .eq('item_type', 'hpp'),
     // Cash in/out manual dari Accounting yang dipilih ke trip → ikut proyeksi
     supabase.from('accounting_entries').select('trip_id, type, amount'),
+    // Estimate profit (buat ambil deposit maskapai hangus di trip cancelled)
+    supabase.from('profit_estimates').select('trip_id, expense_rows'),
   ]);
 
   const trips = tripsRes.data || [];
@@ -153,6 +156,19 @@ export default async function CashflowListPage({ searchParams }) {
     if (!a.trip_id || !byTrip[a.trip_id]) continue;
     if (a.type === 'in') byTrip[a.trip_id].manualIncome += a.amount || 0;
     if (a.type === 'out') byTrip[a.trip_id].hpp += a.amount || 0;
+  }
+  // Trip CANCELLED: income peserta = 0 (semua refund), tapi deposit maskapai hangus TETAP
+  // jadi cash-out. Ambil dari estimate (expense tiket/maskapai) supaya trip batal tidak
+  // "hilang" dari cashflow group — tetap tampil sebagai kerugian sebesar deposit maskapai.
+  const estByTrip = {};
+  for (const e of (estRes?.data || [])) estByTrip[e.trip_id] = e;
+  for (const t of trips) {
+    if (t.status !== 'cancelled' || !byTrip[t.id]) continue;
+    const air = airlineHangusFromEstimate(estByTrip[t.id] || null);
+    if (air > 0) {
+      byTrip[t.id].hpp += air;
+      byTrip[t.id].hangusAirline = air;
+    }
   }
   for (const id in byTrip) {
     byTrip[id].income = byTrip[id].manualIncome + byTrip[id].autoIncome;
