@@ -30,6 +30,7 @@ const GROUPS = [
       { href: '/cs',         label: 'CS Daily',    icon: '☎', roles: ALL_ROLES },
       { href: '/visa',       label: 'Visa',        icon: '🛂', roles: ALL_ROLES },
       { href: '/visa/dashboard', label: 'Dashboard Tim Visa', icon: '📊', roles: ALL_ROLES },
+      { href: '/visa/kalender', label: 'Kalender Biometrik', icon: '📅', roles: ALL_ROLES },
     ],
   },
   {

@@ -148,7 +148,10 @@ export default async function VisaDashboardPage() {
           <h1 className="text-2xl font-bold text-brand-700">🛂 Dashboard Tim Visa</h1>
           <p className="text-sm text-slate-500">Monitoring pengurusan visa lintas trip · Tim: Lukita &amp; Lukas</p>
         </div>
-        <Link href="/visa" className="text-sm px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">📋 Buka List Visa per Trip →</Link>
+        <div className="flex gap-2">
+          <Link href="/visa/kalender" className="text-sm px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold">📅 Kalender Biometrik</Link>
+          <Link href="/visa" className="text-sm px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">📋 Buka List Visa per Trip →</Link>
+        </div>
       </div>
 
       {/* MONITOR VISA — sama persis dgn kartu di Dashboard Manager */}
