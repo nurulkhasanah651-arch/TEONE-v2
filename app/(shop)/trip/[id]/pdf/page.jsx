@@ -142,17 +142,17 @@ export default async function TripPdfPage({ params }) {
           <div className="page">
             <TopBar />
             <div className="pad">
-              <SectionHead>Fasilitas</SectionHead>
+              <SectionHead>Harga Tour</SectionHead>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
                 {incl.length > 0 && (
                   <div style={{ border: '2px solid #cfe6d4', borderRadius: 16, padding: 18 }}>
-                    <p style={{ fontWeight: 800, color: '#1a8c4a', marginBottom: 10, fontSize: 16 }}>✓ Include</p>
+                    <p style={{ fontWeight: 800, color: '#1a8c4a', marginBottom: 10, fontSize: 16 }}>✓ Harga Tour Sudah Termasuk</p>
                     <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.9, fontSize: 13 }}>{incl.map((l, i) => <li key={i}>{l}</li>)}</ul>
                   </div>
                 )}
                 {excl.length > 0 && (
                   <div style={{ border: '2px solid #f3d2d2', borderRadius: 16, padding: 18 }}>
-                    <p style={{ fontWeight: 800, color: '#c0392b', marginBottom: 10, fontSize: 16 }}>✕ Exclude</p>
+                    <p style={{ fontWeight: 800, color: '#c0392b', marginBottom: 10, fontSize: 16 }}>✕ Harga Tour Belum Termasuk</p>
                     <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.9, fontSize: 13 }}>{excl.map((l, i) => <li key={i}>{l}</li>)}</ul>
                   </div>
                 )}

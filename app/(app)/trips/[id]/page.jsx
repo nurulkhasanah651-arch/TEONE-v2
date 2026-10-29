@@ -166,6 +166,15 @@ export default async function TripDetailPage({ params }) {
                 🛒 Konten Jualan (belum publish)
               </Link>
             )}
+            <a
+              href={`/trip/${trip.slug || trip.id}/pdf`}
+              target="_blank"
+              rel="noreferrer"
+              className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white text-sm font-semibold rounded-lg shadow-card transition-colors"
+              title="Brosur paket jual (A4 PDF): harga, itinerary, skema bayar, syarat visa & ketentuan"
+            >
+              📄 Download Paket (PDF)
+            </a>
             <Link
               href={`/trips/${trip.id}/edit`}
               className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-card transition-colors"
